@@ -1,0 +1,10 @@
+{
+  "slug": "multivariate-normal",
+  "title": "Seeing the Multivariate Normal",
+  "tagline": "From a 1D bell curve to marginals and conditionals",
+  "summary": "An intuition-first interactive article that starts with the ordinary normal distribution, then builds a 2D Gaussian with live marginals, conditionals, and geometric explanations.",
+  "readingTime": "12 min",
+  "order": 1,
+  "status": "published",
+  "tags": ["Probability", "Statistics", "Gaussian", "Interactive"]
+}

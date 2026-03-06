@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Seeing the Multivariate Normal</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="progress-bar" aria-hidden="true">
+      <div class="progress-bar__fill" id="progressFill"></div>
+    </div>
+
+    <div class="page-shell">
+      <aside class="sidebar">
+        <div class="sidebar__inner">
+          <p class="sidebar__eyebrow">Interactive article</p>
+          <h1 class="sidebar__title">Seeing the multivariate normal</h1>
+          <p class="sidebar__copy">
+            Start with one bell curve. Stretch it into a cloud. Then slice that cloud to see where marginals and conditionals come from.
+          </p>
+
+          <nav class="toc" aria-label="Section navigation">
+            <a class="toc__link" href="#intro">Intro</a>
+            <a class="toc__link" href="#one-d">1D normal</a>
+            <a class="toc__link" href="#two-d">2D Gaussian</a>
+            <a class="toc__link" href="#examples">Examples</a>
+            <a class="toc__link" href="#slices">Marginals and conditionals</a>
+            <a class="toc__link" href="#playground">Try these patterns</a>
+          </nav>
+
+          <div class="sidebar__legend">
+            <div class="legend-chip legend-chip--teal">Marginal</div>
+            <div class="legend-chip legend-chip--gold">X | Y</div>
+            <div class="legend-chip legend-chip--coral">Y | X</div>
+          </div>
+        </div>
+      </aside>
+
+      <main class="content">
+        <section class="hero reveal is-visible" id="intro" data-nav="Intro">
+          <p class="hero__eyebrow">From a line to an ellipse</p>
+          <h2 class="hero__title">A multivariate normal is just a familiar bell curve seen from more than one direction.</h2>
+          <p class="hero__lede">
+            In one dimension, a normal distribution tells you where points tend to land on a line. In two dimensions, it tells you where points tend to land on a plane. The shape becomes a cloud, but the intuition stays the same: a center, a spread, and a preference for some directions over others.
+          </p>
+          <p class="hero__lede">
+            The reason people keep coming back to this family is not just that it is mathematically neat. It is that Gaussian structure makes uncertainty feel geometric. You can see the mean. You can see the spread. You can see what happens when one variable starts whispering information about another.
+          </p>
+          <div class="hero__cards">
+            <article class="mini-card">
+              <p class="mini-card__label">1D</p>
+              <p class="mini-card__value">bell curve</p>
+              <p class="mini-card__copy">Mean moves it. Standard deviation widens it.</p>
+            </article>
+            <article class="mini-card">
+              <p class="mini-card__label">2D</p>
+              <p class="mini-card__value">elliptical cloud</p>
+              <p class="mini-card__copy">Covariance tilts and stretches the mass.</p>
+            </article>
+            <article class="mini-card">
+              <p class="mini-card__label">Conditionals</p>
+              <p class="mini-card__value">slices stay normal</p>
+              <p class="mini-card__copy">Fix one coordinate and the other is still Gaussian.</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="section reveal" id="one-d" data-nav="1D normal">
+          <div class="section__header">
+            <p class="section__eyebrow">Section 1</p>
+            <h2 class="section__title">One bell, three knobs</h2>
+            <p class="section__subtitle">
+              The one-dimensional normal is the base case. The center is <code>&mu;</code>, the width is <code>&sigma;</code>, and the shaded interval shows how much probability mass sits between two points.
+            </p>
+          </div>
+
+          <div class="story-grid">
+            <div class="prose-panel">
+              <p>
+                Pull <code>&mu;</code> left or right and the whole curve slides with it. Increase <code>&sigma;</code> and the curve spreads out: the peak drops because the same total probability must be spread across a wider range.
+              </p>
+              <p>
+                The yellow region is not “height”; it is <em>area under the curve</em>. That area is the probability that a draw lands inside the chosen interval.
+              </p>
+              <div class="equation-stack">
+                <p class="equation-line">f(x) = 1 / (&sigma;&radic;(2&pi;)) exp(-(x - &mu;)² / (2&sigma;²))</p>
+                <p class="equation-line">P(a &le; X &le; b) = &Phi;((b - &mu;) / &sigma;) - &Phi;((a - &mu;) / &sigma;)</p>
+              </div>
+              <p>
+                A good real-world picture is exam scores around a class average, or measurement error around the true value of a sensor. The mean tells you the center of the story; the standard deviation tells you how noisy that story is.
+              </p>
+              <div class="preset-row">
+                <button class="preset-button" data-one-d-preset="standard">Standard normal</button>
+                <button class="preset-button" data-one-d-preset="wide">Wide and uncertain</button>
+                <button class="preset-button" data-one-d-preset="shifted">Shifted right</button>
+              </div>
+            </div>
+
+            <div class="viz-panel viz-panel--stacked">
+              <div class="controls-card">
+                <div class="control-group">
+                  <label for="mu1">Mean <span id="mu1Value">0.0</span></label>
+                  <input id="mu1" type="range" min="-3" max="3" step="0.1" value="0" />
+                </div>
+                <div class="control-group">
+                  <label for="sigma1">Standard deviation <span id="sigma1Value">1.0</span></label>
+                  <input id="sigma1" type="range" min="0.4" max="2.6" step="0.05" value="1" />
+                </div>
+                <div class="control-group control-group--split">
+                  <div>
+                    <label for="intervalA">Left edge <span id="intervalAValue">-1.0</span></label>
+                    <input id="intervalA" type="range" min="-4" max="4" step="0.1" value="-1" />
+                  </div>
+                  <div>
+                    <label for="intervalB">Right edge <span id="intervalBValue">1.0</span></label>
+                    <input id="intervalB" type="range" min="-4" max="4" step="0.1" value="1" />
+                  </div>
+                </div>
+              </div>
+
+              <div class="canvas-card canvas-card--warm">
+                <canvas id="oneDCanvas" width="900" height="420" aria-label="1D normal distribution plot"></canvas>
+              </div>
+
+              <div class="stats-grid">
+                <article class="stat-card">
+                  <p class="stat-card__label">Interval probability</p>
+                  <p class="stat-card__value" id="oneDProbability">68.27%</p>
+                  <p class="stat-card__copy" id="oneDProbabilityCopy">Probability that X lands inside the shaded region.</p>
+                </article>
+                <article class="stat-card">
+                  <p class="stat-card__label">Standardized edges</p>
+                  <p class="stat-card__value" id="oneDZRange">z = [-1.00, 1.00]</p>
+                  <p class="stat-card__copy">How far the interval edges sit from the mean in units of <code>&sigma;</code>.</p>
+                </article>
+                <article class="stat-card">
+                  <p class="stat-card__label">Peak density</p>
+                  <p class="stat-card__value" id="oneDPeak">0.399</p>
+                  <p class="stat-card__copy">Higher when the distribution is concentrated, lower when it is diffuse.</p>
+                </article>
+              </div>
+
+              <div class="challenge-grid">
+                <article class="challenge-card">
+                  <h3>Exam scores</h3>
+                  <p>If <code>&mu;</code> is the class average, then <code>&sigma;</code> is how spread out the class is. A small <code>&sigma;</code> means most students cluster near the same score.</p>
+                </article>
+                <article class="challenge-card">
+                  <h3>Sensor noise</h3>
+                  <p>If a sensor measures the same temperature repeatedly, the bell curve describes the measurement error around the true reading.</p>
+                </article>
+                <article class="challenge-card">
+                  <h3>The 68-95-99 rule</h3>
+                  <p>When you center the interval around the mean, one, two, and three standard deviations collect about 68%, 95%, and 99.7% of the mass.</p>
+                </article>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section reveal" id="two-d" data-nav="2D Gaussian">
+          <div class="section__header">
+            <p class="section__eyebrow">Section 2</p>
+            <h2 class="section__title">From a curve to a cloud</h2>
+            <p class="section__subtitle">
+              In two dimensions, the normal distribution becomes a hill over the plane. Seen from above, equal-density contours look like ellipses. Their tilt and stretch come from the covariance matrix.
+            </p>
+          </div>
+
+          <div class="story-grid story-grid--wide">
+            <div class="prose-panel">
+              <p>
+                If <code>&rho; = 0</code>, the cloud is axis-aligned: knowing <code>x</code> tells you nothing about <code>y</code>. As <code>|&rho;|</code> grows, the cloud leans. Positive correlation tilts upward. Negative correlation tilts downward.
+              </p>
+              <p>
+                The sample dots are draws from the current Gaussian. The nested ellipses are contour lines: each one collects points with the same Mahalanobis distance from the mean.
+              </p>
+              <div class="equation-stack">
+                <p class="equation-line">&Sigma; = [[&sigma;<sub>x</sub>², &rho;&sigma;<sub>x</sub>&sigma;<sub>y</sub>], [&rho;&sigma;<sub>x</sub>&sigma;<sub>y</sub>, &sigma;<sub>y</sub>²]]</p>
+                <p class="equation-line">(z - &mu;)<sup>T</sup>&Sigma;<sup>-1</sup>(z - &mu;) = c</p>
+              </div>
+              <p>
+                The first line tells you how the cloud is built. The second tells you why contours become ellipses: points with equal quadratic distance from the center share the same density.
+              </p>
+              <div class="preset-row">
+                <button class="preset-button" data-two-d-preset="independent">Independent axes</button>
+                <button class="preset-button" data-two-d-preset="positive">Positive correlation</button>
+                <button class="preset-button" data-two-d-preset="negative">Negative correlation</button>
+                <button class="preset-button" data-two-d-preset="needle">Thin tilted ridge</button>
+              </div>
+            </div>
+
+            <div class="viz-panel viz-panel--spacious">
+              <div class="controls-card controls-card--two-column">
+                <div class="control-group">
+                  <label for="muX">Mean x <span id="muXValue">0.0</span></label>
+                  <input id="muX" type="range" min="-2.5" max="2.5" step="0.1" value="0" />
+                </div>
+                <div class="control-group">
+                  <label for="muY">Mean y <span id="muYValue">0.0</span></label>
+                  <input id="muY" type="range" min="-2.5" max="2.5" step="0.1" value="0" />
+                </div>
+                <div class="control-group">
+                  <label for="sigmaX">Spread x <span id="sigmaXValue">1.2</span></label>
+                  <input id="sigmaX" type="range" min="0.45" max="2.4" step="0.05" value="1.2" />
+                </div>
+                <div class="control-group">
+                  <label for="sigmaY">Spread y <span id="sigmaYValue">0.9</span></label>
+                  <input id="sigmaY" type="range" min="0.45" max="2.4" step="0.05" value="0.9" />
+                </div>
+                <div class="control-group control-group--full">
+                  <label for="rho">Correlation <span id="rhoValue">0.55</span></label>
+                  <input id="rho" type="range" min="-0.95" max="0.95" step="0.01" value="0.55" />
+                </div>
+              </div>
+
+              <div class="canvas-card canvas-card--cool">
+                <canvas id="twoDCanvas" width="860" height="520" aria-label="2D Gaussian contour and samples"></canvas>
+              </div>
+
+              <div class="stats-grid stats-grid--matrix">
+                <article class="stat-card stat-card--matrix">
+                  <p class="stat-card__label">Covariance matrix</p>
+                  <pre class="matrix-display" id="covarianceMatrix">[[1.44, 0.59],
+ [0.59, 0.81]]</pre>
+                </article>
+                <article class="stat-card">
+                  <p class="stat-card__label">Ellipse angle</p>
+                  <p class="stat-card__value" id="ellipseAngle">31.0&deg;</p>
+                  <p class="stat-card__copy">The dominant direction of the cloud, measured from the x-axis.</p>
+                </article>
+                <article class="stat-card">
+                  <p class="stat-card__label">Strong direction</p>
+                  <p class="stat-card__value" id="majorSpread">1.41</p>
+                  <p class="stat-card__copy">The larger principal standard deviation, after rotating into the cloud's natural axes.</p>
+                </article>
+              </div>
+
+              <div class="challenge-grid">
+                <article class="challenge-card">
+                  <h3>Height and weight</h3>
+                  <p>Positive correlation means taller people tend to weigh more. The cloud leans upward because the two variables tend to move together.</p>
+                </article>
+                <article class="challenge-card">
+                  <h3>Speed and travel time</h3>
+                  <p>For a fixed trip length, higher speed means lower time. That creates a downward tilt: one variable rises as the other falls.</p>
+                </article>
+                <article class="challenge-card">
+                  <h3>Tracking uncertainty</h3>
+                  <p>When a robot is unsure about where an object lies along a corridor, the Gaussian becomes a long thin ellipse instead of a round blob.</p>
+                </article>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section reveal" id="examples" data-nav="Examples">
+          <div class="section__header">
+            <p class="section__eyebrow">Section 3</p>
+            <h2 class="section__title">A few concrete pictures to carry around</h2>
+            <p class="section__subtitle">
+              Abstract parameters stick better when they point to something concrete. These presets package the same Gaussian ideas into recognizable situations.
+            </p>
+          </div>
+
+          <div class="challenge-grid">
+            <article class="challenge-card">
+              <h3>Student performance</h3>
+              <p>Imagine <code>x</code> as hours of sleep and <code>y</code> as quiz score. More sleep tends to help, but not perfectly, so you get a positively tilted cloud rather than a line.</p>
+              <button class="preset-button" data-two-d-preset="study-habits">Load study-habits example</button>
+            </article>
+            <article class="challenge-card">
+              <h3>Budget and surprise costs</h3>
+              <p>Let <code>x</code> be planned spending and <code>y</code> be leftover cash. Bigger plans often leave less cash, so the cloud tilts downward.</p>
+              <button class="preset-button" data-two-d-preset="budget">Load budget example</button>
+            </article>
+            <article class="challenge-card">
+              <h3>GPS uncertainty on a road</h3>
+              <p>The location is much more uncertain along the road than across it. That creates a thin ridge: one very uncertain direction, one very certain direction.</p>
+              <button class="preset-button" data-two-d-preset="road-gps">Load road-GPS example</button>
+            </article>
+          </div>
+        </section>
+
+        <section class="section reveal" id="slices" data-nav="Marginals and conditionals">
+          <div class="section__header">
+            <p class="section__eyebrow">Section 4</p>
+            <h2 class="section__title">Marginals forget. Conditionals slice.</h2>
+            <p class="section__subtitle">
+              A marginal ignores one axis entirely. A conditional fixes one axis and asks what remains on the other. For a Gaussian, both operations stay Gaussian, which is why this family is so useful.
+            </p>
+          </div>
+
+          <div class="joint-explorer">
+            <article class="math-banner">
+              <p class="stat-card__label">Joint Model</p>
+              <p class="equation-block" id="jointDistributionMath">[X, Y]<sup>T</sup> ~ N([0.00, 0.00]<sup>T</sup>, [[1.44, 0.59], [0.59, 0.81]])</p>
+              <p class="math-banner__copy">Everything below comes from this one Gaussian. Marginals integrate out an axis. Conditionals pin one axis to a value and read off the remaining uncertainty.</p>
+            </article>
+
+            <section class="joint-stage">
+              <div class="joint-stage__header">
+                <p class="section__eyebrow">Step 1</p>
+                <h3 class="joint-stage__title">See the marginals first</h3>
+                <p class="joint-stage__copy">The top curve is what remains if you forget <code>y</code>. The right curve is what remains if you forget <code>x</code>. Nothing is sliced yet.</p>
+              </div>
+
+              <div class="joint-matrix">
+                <article class="axis-strip-card axis-strip-card--top">
+                  <div class="axis-strip-card__head">
+                    <h3>X marginal</h3>
+                    <p id="marginalTopSummary">X ~ N(0.00, 1.20²)</p>
+                  </div>
+                  <canvas id="marginalTopCanvas" width="920" height="220" aria-label="Top axis showing X marginal"></canvas>
+                </article>
+
+                <article class="matrix-note-card">
+                  <p class="stat-card__label">Marginal Math</p>
+                  <div class="equation-stack">
+                    <p class="equation-line">f<sub>X</sub>(x) = &int; f<sub>X,Y</sub>(x, y) dy</p>
+                    <p class="equation-line">f<sub>Y</sub>(y) = &int; f<sub>X,Y</sub>(x, y) dx</p>
+                  </div>
+                  <p class="matrix-note-card__copy">A marginal keeps the axis you care about and blends over the other one. For a Gaussian, the result is still Gaussian.</p>
+                </article>
+
+                <article class="main-joint-card canvas-card canvas-card--paper">
+                  <canvas id="marginalMainCanvas" width="920" height="540" aria-label="2D Gaussian with synced marginal axes"></canvas>
+                </article>
+
+                <article class="axis-strip-card axis-strip-card--right axis-strip-card--canvas-only">
+                  <canvas id="marginalRightCanvas" width="260" height="540" aria-label="Right axis showing Y marginal"></canvas>
+                </article>
+              </div>
+
+              <div class="insight-grid insight-grid--marginals">
+                <article class="insight-card">
+                  <p class="stat-card__label">X Axis</p>
+                  <p class="insight-card__value" id="marginalXMath">X ~ N(0.00, 1.20²)</p>
+                  <p class="insight-card__copy">Only <code>&mu;<sub>x</sub></code> and <code>&sigma;<sub>x</sub>²</code> matter here. Correlation does not change the marginal width of x.</p>
+                </article>
+                <article class="insight-card">
+                  <p class="stat-card__label">Y Axis</p>
+                  <p class="insight-card__value" id="marginalYMath">Y ~ N(0.00, 0.90²)</p>
+                  <p class="insight-card__copy">The y marginal depends on <code>&mu;<sub>y</sub></code> and <code>&sigma;<sub>y</sub>²</code>, not on the tilt of the cloud.</p>
+                </article>
+                <article class="insight-card insight-card--highlight">
+                  <p class="stat-card__label">What a Marginal Ignores</p>
+                  <p class="insight-card__value" id="marginalCorrelationNote">Changing &rho; rotates the joint cloud, but the teal curves stay anchored to the diagonal of &Sigma;.</p>
+                  <p class="insight-card__copy">That is why the marginal plots are the cleanest place to see what the variances alone are doing.</p>
+                </article>
+              </div>
+            </section>
+
+            <section class="joint-stage">
+              <div class="joint-stage__header">
+                <p class="section__eyebrow">Step 2</p>
+                <h3 class="joint-stage__title">Now drag a slice line and watch the conditional appear</h3>
+                <p class="joint-stage__copy">Move the vertical line left or right to control <code>Y | X = x<sub>0</sub></code>. Move the horizontal line up or down to control <code>X | Y = y<sub>0</sub></code>. Drag the white intersection point to move both together.</p>
+              </div>
+
+              <div class="controls-card controls-card--joint">
+                <div class="control-group">
+                  <label for="xSliceOffset">Vertical slice: x<sub>0</sub> in standard deviations <span id="xSliceOffsetValue">+0.00</span></label>
+                  <input id="xSliceOffset" type="range" min="-3" max="3" step="0.05" value="0" />
+                </div>
+                <div class="control-group">
+                  <label for="ySliceOffset">Horizontal slice: y<sub>0</sub> in standard deviations <span id="ySliceOffsetValue">+0.00</span></label>
+                  <input id="ySliceOffset" type="range" min="-3" max="3" step="0.05" value="0" />
+                </div>
+                <p class="lab-note" id="jointNarrative">
+                  The teal curves are the marginals. Gold shows <code>X | Y = y<sub>0</sub></code>. Coral shows <code>Y | X = x<sub>0</sub></code>.
+                </p>
+              </div>
+
+              <div class="joint-matrix">
+                <article class="axis-strip-card axis-strip-card--top">
+                  <div class="axis-strip-card__head">
+                    <h3>Along the x-axis</h3>
+                    <p id="conditionalTopSummary">Teal: X marginal. Gold: X | Y = 0.00.</p>
+                  </div>
+                  <canvas id="conditionalTopCanvas" width="920" height="220" aria-label="Top axis showing X marginal and X conditional given Y"></canvas>
+                </article>
+
+                <article class="matrix-note-card matrix-note-card--accent">
+                  <p class="stat-card__label">Conditional Math</p>
+                  <div class="equation-stack">
+                    <p class="equation-line">X | Y = y<sub>0</sub> ~ N(&mu;<sub>x</sub> + &rho;(&sigma;<sub>x</sub>/&sigma;<sub>y</sub>)(y<sub>0</sub> - &mu;<sub>y</sub>), (1 - &rho;²)&sigma;<sub>x</sub>²)</p>
+                    <p class="equation-line">Y | X = x<sub>0</sub> ~ N(&mu;<sub>y</sub> + &rho;(&sigma;<sub>y</sub>/&sigma;<sub>x</sub>)(x<sub>0</sub> - &mu;<sub>x</sub>), (1 - &rho;²)&sigma;<sub>y</sub>²)</p>
+                  </div>
+                  <p class="matrix-note-card__copy">Conditionals keep the Gaussian form. The center slides linearly; the variance shrinks by the factor <code>1 - &rho;²</code>.</p>
+                </article>
+
+                <article class="main-joint-card canvas-card canvas-card--paper">
+                  <canvas id="conditionalMainCanvas" width="920" height="540" aria-label="2D Gaussian with draggable x and y conditional slices"></canvas>
+                </article>
+
+                <article class="axis-strip-card axis-strip-card--right axis-strip-card--canvas-only">
+                  <canvas id="conditionalRightCanvas" width="260" height="540" aria-label="Right axis showing Y marginal and Y conditional given X"></canvas>
+                </article>
+              </div>
+
+              <div class="insight-grid">
+                <article class="insight-card">
+                  <p class="stat-card__label">Observed slices</p>
+                  <p class="insight-card__value" id="sliceReadout">x<sub>0</sub> = 0.00, y<sub>0</sub> = 0.00</p>
+                  <p class="insight-card__copy">These are the highlighted vertical and horizontal cuts through the joint density.</p>
+                </article>
+                <article class="insight-card">
+                  <p class="stat-card__label">Top Axis: X and X | Y</p>
+                  <p class="insight-card__value" id="xConditionalFormula">X ~ N(0.00, 1.20²)<br />X | Y = 0.00 ~ N(0.00, 1.00²)</p>
+                  <p class="insight-card__copy">The gold curve lives on the same x-axis as the teal marginal, so the shrinkage is visually honest.</p>
+                </article>
+                <article class="insight-card">
+                  <p class="stat-card__label">Right Axis: Y and Y | X</p>
+                  <p class="insight-card__value" id="yConditionalFormula">Y ~ N(0.00, 0.90²)<br />Y | X = 0.00 ~ N(0.00, 0.75²)</p>
+                  <p class="insight-card__copy">The coral curve uses the same y coordinates as the main plot, so the conditional mean lands exactly where the slice predicts.</p>
+                </article>
+                <article class="insight-card insight-card--highlight">
+                  <p class="stat-card__label">What Changes, What Doesn't</p>
+                  <p class="insight-card__value" id="shrinkageFormula">Std shrink factor = 0.84</p>
+                  <p class="insight-card__copy" id="jointSummary">Marginals keep their original widths. Conditionals get narrower as correlation gets stronger.</p>
+                </article>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section class="section reveal" id="playground" data-nav="Try these patterns">
+          <div class="section__header">
+            <p class="section__eyebrow">Section 5</p>
+            <h2 class="section__title">A few good things to notice</h2>
+            <p class="section__subtitle">
+              These quick patterns are where the intuition tends to click. Tap one, then adjust the sliders yourself.
+            </p>
+          </div>
+
+          <div class="challenge-grid">
+            <article class="challenge-card">
+              <h3>Correlation rotates, not just squeezes</h3>
+              <p>Keep both spreads fixed and slide <code>&rho;</code>. Watch the same cloud pivot from downward to upward tilt.</p>
+              <button class="preset-button" data-two-d-preset="symmetric">Use symmetric spreads</button>
+            </article>
+            <article class="challenge-card">
+              <h3>Marginals ignore tilt</h3>
+              <p>Change <code>&rho;</code> while looking at the x and y marginals. Their widths do not change, because marginals only care about the diagonal of the covariance matrix.</p>
+              <button class="preset-button" data-two-d-preset="marginal-demo">Show this</button>
+            </article>
+            <article class="challenge-card">
+              <h3>Conditionals get tighter with stronger correlation</h3>
+              <p>Push <code>|&rho;|</code> toward 1 and the conditional distribution becomes sharply concentrated around a line.</p>
+              <button class="preset-button" data-two-d-preset="conditional-demo">Tighten the slice</button>
+            </article>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
