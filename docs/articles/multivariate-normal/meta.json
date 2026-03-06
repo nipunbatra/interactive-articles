@@ -1,0 +1,20 @@
+{
+  "slug": "multivariate-normal",
+  "title": "Seeing the Multivariate Normal",
+  "tagline": "From one bell curve to clouds, marginals, and slices",
+  "summary": "A narrative explainer that starts with the ordinary bell curve, then builds a 2D Gaussian through examples, sampling, parameter learning, marginals, and conditional slices.",
+  "readingTime": "24 min",
+  "difficulty": "Intermediate",
+  "collection": "Probability and statistics",
+  "order": 1,
+  "status": "published",
+  "tags": ["Probability", "Statistics", "Gaussian", "Interactive"],
+  "highlights": [
+    "Start with a live 1D bell curve before moving into the 2D cloud.",
+    "See how covariance turns a round blob into a tilted ellipse and how eigenvectors reveal its natural axes.",
+    "Sample actual points from a multivariate normal and watch the estimates wobble from draw to draw.",
+    "Fit a Gaussian back to toy datasets by estimating the mean vector and covariance matrix directly from points.",
+    "Use synced marginal and conditional views to see what gets forgotten and what becomes sharper after observing one coordinate.",
+    "Finish with a compact set of takeaways that tie together geometry, probability, and conditioning."
+  ]
+}
