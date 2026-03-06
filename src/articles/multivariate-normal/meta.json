@@ -2,19 +2,19 @@
   "slug": "multivariate-normal",
   "title": "Seeing the Multivariate Normal",
   "tagline": "From one bell curve to clouds, marginals, and slices",
-  "summary": "A longer, example-driven explainer that starts with the ordinary bell curve, then builds a 2D Gaussian with sampling, parameter learning, live marginals, conditional slices, and concrete stories.",
-  "readingTime": "20 min",
+  "summary": "A narrative explainer that starts with the ordinary bell curve, then builds a 2D Gaussian through examples, sampling, parameter learning, marginals, and conditional slices.",
+  "readingTime": "24 min",
   "difficulty": "Intermediate",
   "collection": "Probability and statistics",
   "order": 1,
   "status": "published",
   "tags": ["Probability", "Statistics", "Gaussian", "Interactive"],
   "highlights": [
-    "Start with a live 1D bell curve before moving into two dimensions.",
-    "See how actual samples are drawn from a multivariate normal and why bigger samples look calmer.",
-    "Rotate and stretch a Gaussian cloud with direct control of covariance.",
-    "Fit a Gaussian back to small toy datasets by estimating the mean vector and covariance matrix.",
-    "Load concrete examples and drag slice lines to see marginals and conditionals update in sync.",
-    "Finish with short takeaways that tie geometry, probability, and conditioning together."
+    "Start with a live 1D bell curve before moving into the 2D cloud.",
+    "See how covariance turns a round blob into a tilted ellipse and how eigenvectors reveal its natural axes.",
+    "Sample actual points from a multivariate normal and watch the estimates wobble from draw to draw.",
+    "Fit a Gaussian back to toy datasets by estimating the mean vector and covariance matrix directly from points.",
+    "Use synced marginal and conditional views to see what gets forgotten and what becomes sharper after observing one coordinate.",
+    "Finish with a compact set of takeaways that tie together geometry, probability, and conditioning."
   ]
 }

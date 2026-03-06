@@ -3,24 +3,24 @@
   --font-sans: "Avenir Next", "Segoe UI", "Helvetica Neue", sans-serif;
   --font-mono: "JetBrains Mono", "SFMono-Regular", "Menlo", monospace;
 
-  --bg: #f8f6f1;
-  --bg-soft: #fcfbf8;
+  --bg: #fbfaf7;
+  --bg-soft: #fdfcf9;
   --panel: #ffffff;
   --panel-strong: #ffffff;
   --ink: #1e2430;
   --muted: #5e6676;
-  --border: rgba(30, 36, 48, 0.1);
-  --line: rgba(30, 36, 48, 0.14);
+  --border: rgba(30, 36, 48, 0.08);
+  --line: rgba(30, 36, 48, 0.11);
   --accent: #b65a3b;
   --accent-soft: rgba(182, 90, 59, 0.1);
   --accent-2: #2b7d7a;
   --accent-2-soft: rgba(43, 125, 122, 0.1);
   --accent-3: #a08229;
   --accent-3-soft: rgba(160, 130, 41, 0.12);
-  --shadow: 0 8px 24px rgba(30, 36, 48, 0.03);
-  --radius-lg: 18px;
-  --radius-md: 14px;
-  --radius-sm: 10px;
+  --shadow: none;
+  --radius-lg: 16px;
+  --radius-md: 12px;
+  --radius-sm: 9px;
   --space-2: 0.5rem;
   --space-3: 0.75rem;
   --space-4: 1rem;
@@ -93,7 +93,7 @@ p {
   inset: 0 0 auto 0;
   height: 3px;
   z-index: 40;
-  background: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.52);
 }
 
 .progress-bar__fill {
@@ -299,6 +299,7 @@ p {
   display: grid;
   gap: calc(var(--space-12) + 0.5rem);
   padding-top: var(--space-10);
+  max-width: 78rem;
 }
 
 .hero,
@@ -331,6 +332,10 @@ p {
   max-width: 42rem;
   padding: var(--space-4) 0 0;
   border-top: 1px solid var(--border);
+}
+
+.section--narrative {
+  max-width: 64rem;
 }
 
 .hero-note__label {
@@ -389,6 +394,40 @@ p {
 .arc-band__steps {
   display: grid;
   gap: var(--space-4);
+}
+
+.narrative-stack {
+  display: grid;
+  gap: var(--space-4);
+  max-width: 62rem;
+}
+
+.example-stream {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+  margin: var(--space-4) 0;
+}
+
+.example-stream--compact {
+  margin-top: 0;
+}
+
+.example-stream__item {
+  padding-left: var(--space-4);
+  border-left: 2px solid rgba(30, 36, 48, 0.08);
+}
+
+.example-stream__item h3 {
+  margin: 0 0 0.35rem;
+  font-family: var(--font-serif);
+  font-size: 1.12rem;
+  line-height: 1.15;
+}
+
+.example-stream__item p {
+  margin: 0;
+  color: var(--muted);
 }
 
 .formula-card,
@@ -545,6 +584,10 @@ p {
   margin-top: var(--space-6);
 }
 
+.preset-row--dense {
+  margin-top: var(--space-4);
+}
+
 .preset-button,
 .toggle-button {
   border-color: rgba(30, 36, 48, 0.08);
@@ -556,9 +599,9 @@ p {
 .preset-button:focus-visible,
 .toggle-button:focus-visible {
   outline: none;
-  transform: translateY(-1px);
+  transform: none;
   border-color: rgba(30, 36, 48, 0.2);
-  box-shadow: 0 10px 24px rgba(30, 36, 48, 0.08);
+  box-shadow: none;
 }
 
 .toggle-row {
@@ -573,6 +616,12 @@ p {
   border-color: transparent;
 }
 
+.preset-button.is-active {
+  color: white;
+  background: var(--ink);
+  border-color: var(--ink);
+}
+
 .viz-panel {
   display: grid;
   gap: var(--space-4);
@@ -581,7 +630,7 @@ p {
 .controls-card {
   display: grid;
   gap: var(--space-4);
-  background: var(--panel-strong);
+  background: var(--bg-soft);
 }
 
 .controls-card--two-column {
@@ -626,6 +675,10 @@ input[type="range"] {
   font-size: 0.95rem;
 }
 
+.figure-note + .figure-note {
+  margin-top: 0.45rem;
+}
+
 .canvas-card--warm {
   background: #fffdf8;
 }
@@ -655,6 +708,45 @@ input[type="range"] {
   min-height: 3rem;
   overflow-x: auto;
   overflow-y: hidden;
+}
+
+.data-table-wrap {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: #fff;
+  overflow: auto;
+  max-height: 20rem;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+
+.data-table th,
+.data-table td {
+  padding: 0.7rem 0.85rem;
+  border-bottom: 1px solid rgba(30, 36, 48, 0.08);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.data-table th:first-child,
+.data-table td:first-child {
+  text-align: left;
+}
+
+.data-table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--bg-soft);
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.data-table tbody tr:last-child td {
+  border-bottom: 0;
 }
 
 .joint-explorer {
@@ -863,6 +955,10 @@ input[type="range"] {
   touch-action: none;
 }
 
+#learningCanvas {
+  cursor: crosshair;
+}
+
 .challenge-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
@@ -893,6 +989,30 @@ input[type="range"] {
 .section-note--closing {
   max-width: 48rem;
   padding-top: var(--space-6);
+}
+
+.takeaway-list {
+  display: grid;
+  gap: 0;
+  border-top: 1px solid var(--border);
+  max-width: 56rem;
+}
+
+.takeaway-item {
+  padding: var(--space-5) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.takeaway-item h3 {
+  margin: 0 0 0.3rem;
+  font-family: var(--font-serif);
+  font-size: 1.22rem;
+  line-height: 1.15;
+}
+
+.takeaway-item p {
+  margin: 0;
+  color: var(--muted);
 }
 
 .reveal {
@@ -930,6 +1050,7 @@ input[type="range"] {
   .joint-matrix,
   .insight-grid,
   .challenge-grid,
+  .example-stream,
   .hero__cards,
   .stats-grid,
   .stats-grid--matrix {
@@ -1002,7 +1123,8 @@ input[type="range"] {
   margin: 0;
   overflow-x: auto;
   overflow-y: hidden;
-  padding: 0.15rem 0;
+  padding: 0.15rem 0 0.3rem;
+  scrollbar-width: thin;
 }
 
 .formula-card__math .katex-display,

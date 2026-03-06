@@ -81,10 +81,10 @@ function renderFeaturedArticle(article) {
   return `
     <aside class="spotlight-card">
       <div class="spotlight-card__body">
-        <p class="card__meta">Featured explainer</p>
+        <p class="card__meta">Start here</p>
         <h2 class="spotlight-card__title">${escapeHtml(article.title)}</h2>
         <p class="card__copy">${escapeHtml(article.summary)}</p>
-        <p class="spotlight-card__facts">${escapeHtml(article.collection || 'Explainer')} · ${escapeHtml(article.difficulty || 'Open level')} · ${escapeHtml(article.readingTime || '')}</p>
+        <p class="spotlight-card__facts">${escapeHtml(article.collection || 'Explainer')} · ${escapeHtml(article.readingTime || '')}</p>
         ${renderHighlights(article.highlights)}
         <div class="spotlight-card__footer">
           <a class="article-link" href="${escapeHtml(article.url)}">Read the explainer</a>
@@ -101,7 +101,6 @@ function renderArticleCards(articles) {
           <p class="card__meta">${escapeHtml(article.collection || 'Explainer')} · ${escapeHtml(article.readingTime || '')}</p>
           <h2 class="card__title">${escapeHtml(article.title)}</h2>
           <p class="card__copy">${escapeHtml(article.summary || '')}</p>
-          ${renderHighlights(article.highlights, true)}
           <div class="article-card__footer">
             <a class="article-link" href="${escapeHtml(article.url)}">Open article</a>
           </div>
@@ -128,23 +127,15 @@ function renderHomePage(siteConfig, articles) {
         <p class="eyebrow">Explainer library</p>
         <a class="brand-mark" href="./">${escapeHtml(siteConfig.title)}</a>
       </div>
-      <div class="site-header__meta">
-        <span class="tiny-pill">${articles.length} explainer</span>
-      </div>
     </header>
 
     <main class="site-shell">
       <section class="hero">
         <div class="hero__copy">
           <p class="eyebrow">Interactive explainers</p>
-          <h1 class="hero__title">Short visual essays where the picture moves and the idea gets simpler.</h1>
+          <h1 class="hero__title">Ideas first. Interaction second. Math when it helps.</h1>
           <p class="hero__copy">${escapeHtml(siteConfig.description)}</p>
-          <p class="hero__copy">The aim is not to impress with widgets. It is to pace the idea well: first the picture, then the motion, then the formulas, then a few durable takeaways.</p>
-          <ul class="hero-list">
-            <li>Start with intuition.</li>
-            <li>Touch the figure.</li>
-            <li>Finish with the math once the shape already makes sense.</li>
-          </ul>
+          <p class="hero__copy">Each page is meant to read like a short visual essay: an example, a picture, a live figure, and only then the formal statement.</p>
           <div class="hero__actions">
             <a class="article-link" href="${escapeHtml(featuredArticle.url)}">Start with the featured explainer</a>
             <a class="ghost-link" href="#library">Browse the library</a>
@@ -167,7 +158,7 @@ function renderHomePage(siteConfig, articles) {
       </section>
 
       <footer class="site-footer">
-        <p>${escapeHtml(siteConfig.title)}. Quiet, static, and organized for adding more explainers without rebuilding the whole site each time.</p>
+        <p>${escapeHtml(siteConfig.title)}. Quiet pages, simple builds, and room to add more explainers over time.</p>
       </footer>
     </main>
   </body>

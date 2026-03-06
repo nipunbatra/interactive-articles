@@ -24,6 +24,7 @@
 
           <nav class="toc" aria-label="Section navigation">
             <a class="toc__link" href="#intro">Intro</a>
+            <a class="toc__link" href="#why">Why Gaussian?</a>
             <a class="toc__link" href="#one-d">1D normal</a>
             <a class="toc__link" href="#two-d">2D Gaussian</a>
             <a class="toc__link" href="#sampling">Sampling</a>
@@ -40,10 +41,10 @@
           <p class="hero__eyebrow">From a line to an ellipse</p>
           <h2 class="hero__title">A multivariate normal is just a familiar bell curve seen from more than one direction.</h2>
           <p class="hero__lede">
-            In one dimension, a normal distribution tells you where points tend to land on a line. In two dimensions, it tells you where points tend to land on a plane. The shape becomes a cloud, but the intuition stays the same: a center, a spread, and a preference for some directions over others.
+            Think of exam scores clustering around a class average, GPS estimates clustering around a true location, or day-to-day measurement error clustering around the truth. In one dimension, a normal distribution tells you where points tend to land on a line. In two dimensions, it tells you where points tend to land on a plane. The shape becomes a cloud, but the intuition stays the same: a center, a spread, and a preference for some directions over others.
           </p>
           <p class="hero__lede">
-            The reason people keep coming back to this family is not just that it is mathematically neat. It is that Gaussian structure makes uncertainty feel geometric. You can see the mean. You can see the spread. You can see what happens when one variable starts whispering information about another.
+            The reason people keep coming back to this family is not just that it is mathematically neat. It is that Gaussian structure makes uncertainty feel geometric. You can see the mean. You can see the spread. You can see what happens when one variable starts whispering information about another. That makes the Gaussian a useful language for data, noise, prediction, and estimation.
           </p>
           <div class="hero-note">
             <p class="hero-note__label">Keep these three questions in view</p>
@@ -53,9 +54,73 @@
               <li>If one coordinate moves, what does the other one tend to do?</li>
             </ul>
           </div>
+          <div class="section-note">
+            <p>
+              The article follows one path all the way through. First: what does a bell curve mean in one variable? Next: how does that become a tilted cloud in two variables? Then: how do you draw real samples from that cloud, and how do you fit the cloud back from observed points? Only after that do marginals and conditionals start to feel natural.
+            </p>
+          </div>
           <div class="hero__actions">
             <a class="hero-link" href="#one-d">Start with the bell curve</a>
             <a class="hero-link hero-link--ghost" href="#slices">Jump to marginals and conditionals</a>
+          </div>
+        </section>
+
+        <section class="section reveal section--narrative" id="why" data-nav="Why Gaussian">
+          <div class="section__header">
+            <p class="section__eyebrow">Before the formulas</p>
+            <h2 class="section__title">Why this family keeps showing up</h2>
+            <p class="section__subtitle">
+              The Gaussian is not important because reality is perfectly bell-shaped. It is important because many ordinary uncertainty stories collapse into the same geometry: a center, a spread, and sometimes a shared direction.
+            </p>
+          </div>
+
+          <div class="narrative-stack">
+            <p>
+              Start with the simplest measurement story. There is a true quantity you care about, and then there is noise: little nudges from imperfect sensors, timing jitter, rounding, motion, or human variation. If those nudges come from many small effects rather than one giant shock, the final error often looks close to Gaussian.
+            </p>
+            <p>
+              The same pattern survives in higher dimensions. A location estimate is really an uncertainty cloud around a true position. A pair of related measurements is really a cloud around a typical pair of values. If both coordinates are being pushed around by the same hidden causes, the cloud tilts.
+            </p>
+            <div class="equation-stack">
+              <div class="equation-line" data-katex-display>
+                \[
+                  \text{measurement} = \text{truth} + \text{noise}
+                \]
+              </div>
+              <div class="equation-line" data-katex-display>
+                \[
+                  Z = \mu + \varepsilon,
+                  \qquad
+                  \varepsilon \sim \mathcal{N}(0, \Sigma)
+                \]
+              </div>
+            </div>
+            <p>
+              Those two lines are the whole article in compressed form. The mean <code>&mu;</code> is the typical location. The covariance <code>&Sigma;</code> says how uncertainty stretches, tilts, and couples coordinates together.
+            </p>
+
+            <div class="example-stream">
+              <article class="example-stream__item">
+                <h3>Repeated measurements</h3>
+                <p>Measure the same temperature again and again. The readings bounce around the true value. In one dimension, that bounce is a bell curve.</p>
+              </article>
+              <article class="example-stream__item">
+                <h3>Location estimates</h3>
+                <p>A phone GPS does not output the exact location. It outputs a cloud of likely positions around the truth. In two dimensions, that cloud is the natural object.</p>
+              </article>
+              <article class="example-stream__item">
+                <h3>Related quantities</h3>
+                <p>Hours of sleep and quiz score, speed and travel time, or two drifting machine measurements all produce clouds with a preferred tilt. That tilt is covariance made visible.</p>
+              </article>
+              <article class="example-stream__item">
+                <h3>Prediction from partial information</h3>
+                <p>Once you observe one coordinate, the other is less mysterious. That is why conditional Gaussians feel like the visual ancestor of regression.</p>
+              </article>
+            </div>
+
+            <p>
+              The plan from here is simple. First get comfortable with a bell curve on a line. Then upgrade the line to a plane. Then watch three operations that practitioners use constantly: sampling, fitting, and slicing.
+            </p>
           </div>
         </section>
 
@@ -112,6 +177,9 @@
               <p>
                 The yellow region is not “height”; it is <em>area under the curve</em>. That area is the probability that a draw lands inside the chosen interval.
               </p>
+              <p>
+                This is the first place where people often get tripped up. The curve is not a histogram of observed counts. It is an idealized density. The only thing with probabilistic meaning is area, not the height at one exact point.
+              </p>
               <div class="equation-stack">
                 <div class="equation-line" data-katex-display>
                   \[
@@ -132,6 +200,12 @@
               </div>
               <p>
                 A good real-world picture is exam scores around a class average, or measurement error around the true value of a sensor. The mean tells you the center of the story; the standard deviation tells you how noisy that story is.
+              </p>
+              <p>
+                If you keep this interpretation straight, the jump to higher dimensions becomes much easier. You are not learning a new species of object in 2D. You are still describing where observations tend to gather, only now there are multiple directions in which they can spread.
+              </p>
+              <p>
+                The standardized coordinate <code>z = (x-&mu;)/&sigma;</code> is worth keeping in mind because it removes the units and tells you how surprising a point is relative to the bell. Most of the later formulas in the article are just higher-dimensional versions of the same “recenter, then rescale” idea.
               </p>
               <div class="preset-row">
                 <button class="preset-button" data-one-d-preset="standard">Standard normal</button>
@@ -254,6 +328,21 @@
               </div>
               <p class="formula-card__copy">The determinant <code>|&Sigma;|</code> controls how spread out the mass is, while <code>&Sigma;<sup>-1</sup></code> defines the ellipse geometry.</p>
             </article>
+            <article class="formula-card">
+              <p class="stat-card__label">Ellipse view</p>
+              <div class="formula-card__math" data-katex-display>
+                \[
+                  \Sigma = Q \Lambda Q^\top,
+                  \qquad
+                  \Lambda =
+                  \begin{bmatrix}
+                    \lambda_1 & 0 \\
+                    0 & \lambda_2
+                  \end{bmatrix}
+                \]
+              </div>
+              <p class="formula-card__copy">Rotate into the eigenvector basis and the cloud becomes axis-aligned. The eigenvalues are the squared spreads along the cloud's natural directions.</p>
+            </article>
           </div>
 
           <div class="story-grid story-grid--wide">
@@ -266,6 +355,12 @@
               </p>
               <p>
                 A practical way to read the covariance matrix is this: the diagonal terms <code>&sigma;<sub>x</sub>²</code> and <code>&sigma;<sub>y</sub>²</code> tell you how wide the cloud wants to be along each axis, while the shared term <code>Cov(X, Y) = &rho;&sigma;<sub>x</sub>&sigma;<sub>y</sub></code> tells you whether large values of one variable tend to arrive with large values of the other.
+              </p>
+              <p>
+                Another way to say the same thing is geometric: the covariance matrix chooses the shape of the ellipse that best summarizes uncertainty. Round means all directions are equally uncertain. Long and thin means one direction is much less certain than another. Tilt means the variables do not vary independently.
+              </p>
+              <p>
+                That is the practical reading rule for covariance matrices: they do not just summarize pairwise dependence. They define a coordinate system in which the Gaussian becomes easy to reason about. Rotate to the right basis and the cloud stops looking mysterious.
               </p>
               <div class="equation-stack">
                 <div class="equation-line" data-katex-display>
@@ -285,6 +380,9 @@
               </div>
               <p>
                 The first line tells you how the cloud is built. The second tells you why contours become ellipses: points with equal quadratic distance from the center share the same density.
+              </p>
+              <p>
+                If you are coming from linear algebra, this is the moment to notice that covariance is not just a table of numbers. It defines a quadratic form. The ellipse is the visual trace of that quadratic form in the plane.
               </p>
               <div class="preset-row">
                 <button class="preset-button" data-two-d-preset="independent">Independent axes</button>
@@ -339,19 +437,18 @@
                   <p class="stat-card__copy">The larger principal standard deviation, after rotating into the cloud's natural axes.</p>
                 </article>
               </div>
-
-              <div class="challenge-grid">
-                <article class="challenge-card">
+              <div class="example-stream example-stream--compact">
+                <article class="example-stream__item">
                   <h3>Height and weight</h3>
-                  <p>Positive correlation means taller people tend to weigh more. The cloud leans upward because the two variables tend to move together.</p>
+                  <p>An upward tilt means larger values tend to arrive together.</p>
                 </article>
-                <article class="challenge-card">
+                <article class="example-stream__item">
                   <h3>Speed and travel time</h3>
-                  <p>For a fixed trip length, higher speed means lower time. That creates a downward tilt: one variable rises as the other falls.</p>
+                  <p>A downward tilt means one variable usually rises while the other falls.</p>
                 </article>
-                <article class="challenge-card">
+                <article class="example-stream__item">
                   <h3>Tracking uncertainty</h3>
-                  <p>When a robot is unsure about where an object lies along a corridor, the Gaussian becomes a long thin ellipse instead of a round blob.</p>
+                  <p>A long thin ellipse means one direction is much more uncertain than another.</p>
                 </article>
               </div>
             </div>
@@ -372,6 +469,9 @@
               <p>
                 In practice, sampling from a multivariate normal means drawing a simple isotropic vector first, then transforming it so it picks up the mean and covariance you want.
               </p>
+              <p>
+                This matters because it turns a fancy-looking model into a very concrete procedure. Start with circular uncertainty. Then stretch it, rotate it, and shift it. The multivariate normal is not mysterious once you see it as a transformed standard normal.
+              </p>
               <div class="equation-stack">
                 <div class="equation-line" data-katex-display>
                   \[
@@ -389,6 +489,12 @@
               <p>
                 The outline below is the current Gaussian from the 2D controls above. The points are actual draws from that model. Increase the sample size and the cloud starts to look more like the target ellipse.
               </p>
+              <p>
+                Small samples wobble. They can look lopsided, off-center, or more correlated than the true model. That is not a bug. It is what sampling noise looks like. The whole reason we estimate parameters from data is that finite samples never match the ideal cloud exactly.
+              </p>
+              <p>
+                Treat the sample mean and sample covariance as random objects too. If you redraw the sample, those estimates move. With enough data they calm down, but at small <code>n</code> they wander in exactly the way the figure shows.
+              </p>
             </div>
 
             <div class="viz-panel">
@@ -398,11 +504,13 @@
                   <input id="samplingCount" type="range" min="20" max="320" step="10" value="120" />
                 </div>
                 <button class="preset-button preset-button--action" id="resampleSamples" type="button">Resample points</button>
+                <p class="lab-note" id="samplingDrawStatus">Draw #1 from the current Gaussian</p>
               </div>
 
               <div class="canvas-card canvas-card--cool">
                 <canvas id="samplingCanvas" width="920" height="540" aria-label="Samples drawn from the current multivariate normal"></canvas>
                 <p class="figure-note">The teal ellipses show the target Gaussian. The coral dots are an actual sample from that model.</p>
+                <p class="figure-note" id="samplingPreview">First sampled points: (0.00, 0.00)</p>
               </div>
 
               <div class="stats-grid stats-grid--matrix">
@@ -417,7 +525,7 @@
                 <article class="stat-card">
                   <p class="stat-card__label">What to notice</p>
                   <p class="stat-card__value" id="samplingNarrative">Sample estimates wobble less as n grows.</p>
-                  <p class="stat-card__copy">Finite samples are noisy. Larger samples settle down around the true mean and covariance.</p>
+                  <p class="stat-card__copy" id="samplingDetail">Finite samples are noisy. Larger samples settle down around the true mean and covariance.</p>
                 </article>
               </div>
             </div>
@@ -438,6 +546,9 @@
               <p>
                 For a Gaussian, the core estimates are simple. The mean is the average of the points. The covariance is the average outer product of the centered points. These are the maximum-likelihood estimates for the model.
               </p>
+              <p>
+                Intuitively, the mean asks: where is the center of the cloud? The covariance asks: once I recenter the cloud, how does it spread out, and in which directions does it spread together? Those two summaries are enough to reconstruct the full multivariate normal.
+              </p>
               <div class="equation-stack">
                 <div class="equation-line" data-katex-display>
                   \[
@@ -456,20 +567,45 @@
               <p>
                 Pick a small toy dataset. The plot shows the observed points, a fitted ellipse from the estimated parameters, and a faint dashed ellipse for the hidden Gaussian that generated the data.
               </p>
+              <p>
+                This is the simplest form of statistical learning in the article. We do not know the true parameters, so we infer them from points. If the fit looks wrong, it is because the data are small, noisy, or both.
+              </p>
+              <p>
+                The table next to the figure is the actual dataset being fit. Nothing is hidden behind a magical optimizer here. The estimate is just “average the points, then average the centered outer products.” That simplicity is one reason Gaussians are such durable teaching examples.
+              </p>
               <div class="preset-row">
                 <button class="preset-button" data-learning-dataset="sleep-class">Sleep and quiz score</button>
                 <button class="preset-button" data-learning-dataset="budget-class">Budget and leftover cash</button>
                 <button class="preset-button" data-learning-dataset="road-class">Road position uncertainty</button>
               </div>
+              <div class="preset-row preset-row--dense">
+                <button class="preset-button" id="undoLearningPoint" type="button">Undo last added point</button>
+                <button class="preset-button" id="resetLearningDataset" type="button">Reset to toy dataset</button>
+              </div>
+              <p class="lab-note">Click anywhere inside the plot to add a new observation and refit the Gaussian instantly.</p>
               <div class="section-note">
+                <p class="hero-note__label" id="datasetTitle">Current toy dataset: sleep and quiz score</p>
                 <p id="datasetDescription">A small classroom-style dataset where more sleep tends to come with better quiz scores.</p>
               </div>
             </div>
 
             <div class="viz-panel">
               <div class="canvas-card canvas-card--paper">
-                <canvas id="learningCanvas" width="920" height="540" aria-label="Toy dataset with fitted Gaussian ellipse"></canvas>
+                <canvas id="learningCanvas" width="920" height="540" aria-label="Toy dataset with fitted Gaussian ellipse; click inside the plot to add data points"></canvas>
                 <p class="figure-note" id="datasetPreview">First points: (0.00, 0.00), (0.00, 0.00), (0.00, 0.00)</p>
+              </div>
+
+              <div class="data-table-wrap">
+                <table class="data-table" id="datasetTable" aria-label="Toy dataset sample rows">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>x</th>
+                      <th>y</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
               </div>
 
               <div class="stats-grid stats-grid--matrix">
@@ -501,9 +637,15 @@
           </div>
 
           <div class="section-note">
-            <p>
-              Load any of these into the 2D plot above. The point of the examples is not that the world is exactly Gaussian. The point is that the Gaussian is a compact language for center, spread, and co-movement.
-            </p>
+              <p>
+                Load any of these into the 2D plot above. The point of the examples is not that the world is exactly Gaussian. The point is that the Gaussian is a compact language for center, spread, and co-movement.
+              </p>
+              <p>
+                This is why the same math reappears in so many places. Once you know how to read one Gaussian cloud, you can mentally translate between very different application stories.
+              </p>
+              <p>
+                In practice, the Gaussian is often a first approximation rather than a final truth. But it is a very useful first approximation because it gives you something geometric to inspect and something algebraic to compute with.
+              </p>
           </div>
 
           <div class="challenge-grid challenge-grid--two">
@@ -578,6 +720,15 @@
             <h2 class="section__title">Marginals forget. Conditionals slice.</h2>
             <p class="section__subtitle">
               A marginal ignores one axis entirely. A conditional fixes one axis and asks what remains on the other. For a Gaussian, both operations stay Gaussian, which is why this family is so useful.
+            </p>
+          </div>
+
+          <div class="section-note">
+            <p>
+              This is the payoff section. Up to now, the Gaussian has been a static object: a curve, then a cloud, then a sampling recipe, then a fitted model. Marginals and conditionals are where that object starts answering questions. What remains if I ignore one coordinate? What changes if I observe one coordinate?
+            </p>
+            <p>
+              The main reason Gaussians dominate so many workflows is closure: you start Gaussian, you marginalize, you condition, and you are still Gaussian. The algebra stays manageable and the picture stays readable.
             </p>
           </div>
 
@@ -752,41 +903,39 @@
             </p>
           </div>
 
-          <div class="challenge-grid challenge-grid--two">
-            <article class="challenge-card">
-              <p class="card-kicker">Core picture</p>
-              <h3>In 1D, the mean is a location and the variance is a width.</h3>
-              <p>The bell curve slides when the mean changes and spreads when the variance grows. Everything in higher dimensions is this same story with more directions available.</p>
+          <div class="takeaway-list">
+            <article class="takeaway-item">
+              <h3>1D first</h3>
+              <p>In one dimension, the Gaussian is just a center and a width. Probability lives in area, not in the height at a single point.</p>
             </article>
-            <article class="challenge-card">
-              <p class="card-kicker">Core picture</p>
-              <h3>In 2D, the mean is a point and the covariance matrix makes the ellipse.</h3>
-              <p>The diagonal terms decide how wide the cloud wants to be along each axis. The off-diagonal terms decide whether the cloud leans.</p>
-              <button class="preset-button" data-two-d-preset="symmetric">Show a rotating cloud</button>
+            <article class="takeaway-item">
+              <h3>Then geometry</h3>
+              <p>In two dimensions, the mean becomes a point and the covariance matrix becomes an ellipse. Diagonal entries set axis spread; off-diagonal entries create tilt.</p>
             </article>
-            <article class="challenge-card">
-              <p class="card-kicker">Marginals</p>
-              <h3>A marginal forgets one axis.</h3>
-              <p>That is why changing <code>&rho;</code> rotates the joint cloud while the marginal widths stay fixed. A marginal only reads the diagonal entries of <code>&Sigma;</code>.</p>
-              <button class="preset-button" data-two-d-preset="marginal-demo">Show this</button>
+            <article class="takeaway-item">
+              <h3>Sampling is concrete</h3>
+              <p>To draw from a multivariate normal, start with a simple standard normal vector and transform it. The cloud is a recipe, not just a picture.</p>
             </article>
-            <article class="challenge-card">
-              <p class="card-kicker">Conditionals</p>
-              <h3>A conditional keeps the Gaussian shape but becomes narrower.</h3>
-              <p>Once one coordinate is observed, the other one has less room to wander. The shrink factor is <code>&radic;(1 - &rho;²)</code>, so stronger correlation means tighter slices.</p>
-              <button class="preset-button" data-two-d-preset="conditional-demo">Tighten the slice</button>
+            <article class="takeaway-item">
+              <h3>Learning is simple</h3>
+              <p>Fit the Gaussian by averaging the points and then averaging centered outer products. The difficulty is usually small data, not complicated formulas.</p>
             </article>
-            <article class="challenge-card">
-              <p class="card-kicker">Prediction</p>
-              <h3>Slices are a first visual model of regression.</h3>
-              <p>When you drag the slice line, you are watching the conditional mean move along the best linear trend through the cloud.</p>
-              <button class="preset-button" data-two-d-preset="positive">Show an upward trend</button>
+            <article class="takeaway-item">
+              <h3>Marginals forget</h3>
+              <p>When you integrate out one axis, you keep only the mean and variance of the axis you care about. Correlation changes the joint cloud, not the marginal widths.</p>
+            </article>
+            <article class="takeaway-item">
+              <h3>Conditionals focus</h3>
+              <p>When you observe one coordinate, the other coordinate stays Gaussian but becomes narrower. Stronger correlation means sharper conditional uncertainty.</p>
             </article>
           </div>
 
           <div class="section-note section-note--closing">
             <p>
               If you remember one picture, remember this: a multivariate normal is a smooth cloud with a center, a preferred spread, and a tilt. Marginals look at the cloud from the side. Conditionals cut through it and become narrower when the variables agree.
+            </p>
+            <p>
+              If you remember one workflow, remember this: write down a mean and covariance, sample points, estimate the mean and covariance back from those points, then ask marginal and conditional questions. That loop is the full story in miniature.
             </p>
           </div>
         </section>
