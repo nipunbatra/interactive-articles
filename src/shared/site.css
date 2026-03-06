@@ -1,16 +1,16 @@
 :root {
-  --bg: #f6f0e8;
-  --panel: rgba(255, 255, 255, 0.88);
-  --panel-strong: rgba(255, 255, 255, 0.96);
+  --bg: #f8f6f1;
+  --panel: #ffffff;
+  --panel-strong: #ffffff;
   --ink: #1e2430;
   --muted: #5e6676;
   --border: rgba(30, 36, 48, 0.11);
-  --accent: #d8704f;
+  --accent: #b65a3b;
   --accent-2: #2d8b88;
   --accent-3: #c5a43a;
-  --shadow: 0 24px 60px rgba(41, 31, 22, 0.08);
-  --radius-lg: 28px;
-  --radius-md: 18px;
+  --shadow: 0 10px 30px rgba(30, 36, 48, 0.04);
+  --radius-lg: 20px;
+  --radius-md: 14px;
   --space-3: 0.75rem;
   --space-4: 1rem;
   --space-5: 1.25rem;
@@ -37,10 +37,7 @@ body {
   font-family: var(--font-sans);
   color: var(--ink);
   line-height: 1.68;
-  background:
-    radial-gradient(circle at 0% 0%, rgba(197, 164, 58, 0.18), transparent 24%),
-    radial-gradient(circle at 100% 8%, rgba(45, 139, 136, 0.14), transparent 24%),
-    linear-gradient(180deg, #faf6ef 0%, #f2eadf 46%, #f8f4ed 100%);
+  background: var(--bg);
 }
 
 a {
@@ -157,7 +154,6 @@ code {
   border-radius: var(--radius-lg);
   background: var(--panel);
   box-shadow: var(--shadow);
-  backdrop-filter: blur(16px);
 }
 
 .stat-card,
@@ -215,7 +211,7 @@ code {
 
 .spotlight-card {
   overflow: hidden;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(252, 246, 238, 0.9));
+  background: #fff;
 }
 
 .spotlight-card__preview {
@@ -223,10 +219,7 @@ code {
   flex-wrap: wrap;
   gap: 0.75rem;
   padding: var(--space-6);
-  background:
-    radial-gradient(circle at 20% 20%, rgba(45, 139, 136, 0.18), transparent 34%),
-    radial-gradient(circle at 88% 15%, rgba(216, 112, 79, 0.18), transparent 28%),
-    linear-gradient(140deg, rgba(245, 252, 251, 0.9), rgba(255, 248, 240, 0.88));
+  background: #fbfaf7;
   border-bottom: 1px solid var(--border);
 }
 
@@ -291,7 +284,7 @@ code {
 
 .article-card {
   overflow: hidden;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(249, 244, 236, 0.9));
+  background: #fff;
 }
 
 .article-card__preview {
@@ -301,7 +294,7 @@ code {
   align-items: center;
   padding: 1rem 1.2rem;
   border-bottom: 1px solid var(--border);
-  background: rgba(246, 241, 233, 0.9);
+  background: #fbfaf7;
   color: var(--muted);
 }
 
@@ -341,12 +334,12 @@ code {
 
 .article-link {
   color: white;
-  background: linear-gradient(120deg, var(--accent), #e28f72);
+  background: var(--ink);
 }
 
 .ghost-link {
   border: 1px solid rgba(30, 36, 48, 0.12);
-  background: rgba(255, 255, 255, 0.7);
+  background: #fff;
 }
 
 .article-link:hover,
@@ -364,7 +357,7 @@ code {
 .guide-card {
   display: grid;
   gap: var(--space-3);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(250, 246, 238, 0.88));
+  background: #fff;
 }
 
 .site-footer {

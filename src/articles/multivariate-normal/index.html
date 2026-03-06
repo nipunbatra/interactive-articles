@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Seeing the Multivariate Normal</title>
+    <link rel="stylesheet" href="../../vendor/katex/katex.min.css" />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
@@ -20,20 +21,6 @@
           <p class="sidebar__copy">
             Start with one bell curve. Stretch it into a cloud. Then slice that cloud to see where marginals and conditionals come from.
           </p>
-          <div class="sidebar__meta">
-            <span class="sidebar-pill">12 min</span>
-            <span class="sidebar-pill">Probability</span>
-            <span class="sidebar-pill">Interactive</span>
-          </div>
-
-          <div class="sidebar__guide">
-            <p class="sidebar__guide-label">Read this like a lab</p>
-            <ul class="sidebar__guide-list">
-              <li>Touch the controls before you read the formulas.</li>
-              <li>Use the 1D section to anchor the meaning of mean and spread.</li>
-              <li>In the slices section, drag the lines and watch the conditionals move.</li>
-            </ul>
-          </div>
 
           <nav class="toc" aria-label="Section navigation">
             <a class="toc__link" href="#intro">Intro</a>
@@ -43,32 +30,11 @@
             <a class="toc__link" href="#slices">Marginals and conditionals</a>
             <a class="toc__link" href="#playground">Try these patterns</a>
           </nav>
-
-          <div class="sidebar__legend">
-            <div class="legend-chip legend-chip--teal">Marginal</div>
-            <div class="legend-chip legend-chip--gold">X | Y</div>
-            <div class="legend-chip legend-chip--coral">Y | X</div>
-          </div>
-
-          <div class="sidebar__track">
-            <p class="sidebar__guide-label">Learning arc</p>
-            <div class="sidebar__track-steps">
-              <span>Bell</span>
-              <span>Cloud</span>
-              <span>Marginal</span>
-              <span>Conditional</span>
-            </div>
-          </div>
         </div>
       </aside>
 
       <main class="content">
         <section class="hero reveal is-visible" id="intro" data-nav="Intro">
-          <div class="hero__meta-row">
-            <span class="hero-pill">Probability geometry</span>
-            <span class="hero-pill">Live controls</span>
-            <span class="hero-pill">1D to 2D</span>
-          </div>
           <p class="hero__eyebrow">From a line to an ellipse</p>
           <h2 class="hero__title">A multivariate normal is just a familiar bell curve seen from more than one direction.</h2>
           <p class="hero__lede">
@@ -80,65 +46,6 @@
           <div class="hero__actions">
             <a class="hero-link" href="#one-d">Start with the bell curve</a>
             <a class="hero-link hero-link--ghost" href="#slices">Jump to marginals and conditionals</a>
-          </div>
-          <div class="hero__guideband">
-            <article class="hero-step">
-              <p class="mini-card__label">Step 1</p>
-              <h3>Move a bell curve</h3>
-              <p>Use the 1D controls until <code>&mu;</code> and <code>&sigma;</code> feel like position and width, not symbols.</p>
-            </article>
-            <article class="hero-step">
-              <p class="mini-card__label">Step 2</p>
-              <h3>Watch covariance tilt</h3>
-              <p>In 2D, keep the same idea of center and spread, but add a preferred direction through covariance.</p>
-            </article>
-            <article class="hero-step">
-              <p class="mini-card__label">Step 3</p>
-              <h3>Slice the cloud</h3>
-              <p>The big payoff is that marginals and conditionals stay Gaussian and become easy to read visually.</p>
-            </article>
-          </div>
-          <div class="hero__cards">
-            <article class="mini-card">
-              <p class="mini-card__label">1D</p>
-              <p class="mini-card__value">bell curve</p>
-              <p class="mini-card__copy">Mean moves it. Standard deviation widens it.</p>
-            </article>
-            <article class="mini-card">
-              <p class="mini-card__label">2D</p>
-              <p class="mini-card__value">elliptical cloud</p>
-              <p class="mini-card__copy">Covariance tilts and stretches the mass.</p>
-            </article>
-            <article class="mini-card">
-              <p class="mini-card__label">Conditionals</p>
-              <p class="mini-card__value">slices stay normal</p>
-              <p class="mini-card__copy">Fix one coordinate and the other is still Gaussian.</p>
-            </article>
-          </div>
-        </section>
-
-        <section class="arc-band reveal" aria-label="Learning arc">
-          <div class="arc-band__card">
-            <p class="section__eyebrow">Learning arc</p>
-            <h2 class="arc-band__title">This explainer has a strict shape: first recognize the bell, then lift it into a cloud, then ask what survives when you forget or fix one axis.</h2>
-            <div class="arc-band__steps">
-              <div class="arc-step">
-                <span>01</span>
-                <p>1D normal</p>
-              </div>
-              <div class="arc-step">
-                <span>02</span>
-                <p>2D Gaussian</p>
-              </div>
-              <div class="arc-step">
-                <span>03</span>
-                <p>Marginals</p>
-              </div>
-              <div class="arc-step">
-                <span>04</span>
-                <p>Conditionals</p>
-              </div>
-            </div>
           </div>
         </section>
 
@@ -154,17 +61,35 @@
           <div class="formula-grid">
             <article class="formula-card">
               <p class="stat-card__label">Distribution</p>
-              <p class="formula-card__math">X ~ N(&mu;, &sigma;²)</p>
+              <div class="formula-card__math" data-katex-display>
+                \[
+                  X \sim \mathcal{N}(\mu, \sigma^2)
+                \]
+              </div>
               <p class="formula-card__copy">Read this as: the random variable <code>X</code> is Gaussian with mean <code>&mu;</code> and variance <code>&sigma;²</code>.</p>
             </article>
             <article class="formula-card">
               <p class="stat-card__label">Moments</p>
-              <p class="formula-card__math">E[X] = &mu;<br />Var(X) = &sigma;²</p>
+              <div class="formula-card__math" data-katex-display>
+                \[
+                  \mathbb{E}[X] = \mu,
+                  \qquad
+                  \operatorname{Var}(X) = \sigma^2
+                \]
+              </div>
               <p class="formula-card__copy">The mean sets the center of mass. The variance sets the squared width of the uncertainty.</p>
             </article>
             <article class="formula-card">
               <p class="stat-card__label">Density</p>
-              <p class="formula-card__math">f(x) = 1 / (&sigma;&radic;(2&pi;)) exp(-(x - &mu;)² / (2&sigma;²))</p>
+              <div class="formula-card__math" data-katex-display>
+                \[
+                  f_X(x) =
+                  \frac{1}{\sigma \sqrt{2\pi}}
+                  \exp\!\left(
+                    -\frac{(x-\mu)^2}{2\sigma^2}
+                  \right)
+                \]
+              </div>
               <p class="formula-card__copy">The formula matters less than the pattern: farther from <code>&mu;</code> means exponentially less density.</p>
             </article>
           </div>
@@ -178,8 +103,22 @@
                 The yellow region is not “height”; it is <em>area under the curve</em>. That area is the probability that a draw lands inside the chosen interval.
               </p>
               <div class="equation-stack">
-                <p class="equation-line">f(x) = 1 / (&sigma;&radic;(2&pi;)) exp(-(x - &mu;)² / (2&sigma;²))</p>
-                <p class="equation-line">P(a &le; X &le; b) = &Phi;((b - &mu;) / &sigma;) - &Phi;((a - &mu;) / &sigma;)</p>
+                <div class="equation-line" data-katex-display>
+                  \[
+                    f_X(x) =
+                    \frac{1}{\sigma \sqrt{2\pi}}
+                    \exp\!\left(-\frac{(x-\mu)^2}{2\sigma^2}\right)
+                  \]
+                </div>
+                <div class="equation-line" data-katex-display>
+                  \[
+                    \mathbb{P}(a \le X \le b)
+                    =
+                    \Phi\!\left(\frac{b-\mu}{\sigma}\right)
+                    -
+                    \Phi\!\left(\frac{a-\mu}{\sigma}\right)
+                  \]
+                </div>
               </div>
               <p>
                 A good real-world picture is exam scores around a class average, or measurement error around the true value of a sensor. The mean tells you the center of the story; the standard deviation tells you how noisy that story is.
@@ -265,17 +204,43 @@
           <div class="formula-grid formula-grid--wide">
             <article class="formula-card">
               <p class="stat-card__label">Vector form</p>
-              <p class="formula-card__math">[X, Y]<sup>T</sup> ~ N(&mu;, &Sigma;)</p>
+              <div class="formula-card__math" data-katex-display>
+                \[
+                  \begin{bmatrix} X \\ Y \end{bmatrix}
+                  \sim
+                  \mathcal{N}\!\left(
+                    \begin{bmatrix} \mu_x \\ \mu_y \end{bmatrix},
+                    \Sigma
+                  \right)
+                \]
+              </div>
               <p class="formula-card__copy">The mean becomes a vector and the spread becomes a matrix. That is the whole conceptual jump from 1D to 2D.</p>
             </article>
             <article class="formula-card">
               <p class="stat-card__label">Covariance matrix</p>
-              <p class="formula-card__math">&Sigma; = [[&sigma;<sub>x</sub>², &rho;&sigma;<sub>x</sub>&sigma;<sub>y</sub>], [&rho;&sigma;<sub>x</sub>&sigma;<sub>y</sub>, &sigma;<sub>y</sub>²]]</p>
+              <div class="formula-card__math" data-katex-display>
+                \[
+                  \Sigma =
+                  \begin{bmatrix}
+                    \sigma_x^2 & \rho \sigma_x \sigma_y \\
+                    \rho \sigma_x \sigma_y & \sigma_y^2
+                  \end{bmatrix}
+                \]
+              </div>
               <p class="formula-card__copy">The diagonal entries are the axis variances. The off-diagonal entry is the covariance <code>Cov(X, Y) = &rho;&sigma;<sub>x</sub>&sigma;<sub>y</sub></code>.</p>
             </article>
             <article class="formula-card">
               <p class="stat-card__label">2D density</p>
-              <p class="formula-card__math">f(z) = 1 / (2&pi;|&Sigma;|<sup>1/2</sup>) exp(-&frac12;(z - &mu;)<sup>T</sup>&Sigma;<sup>-1</sup>(z - &mu;))</p>
+              <div class="formula-card__math" data-katex-display>
+                \[
+                  f_Z(z)
+                  =
+                  \frac{1}{2\pi |\Sigma|^{1/2}}
+                  \exp\!\left(
+                    -\frac{1}{2}(z-\mu)^\top \Sigma^{-1}(z-\mu)
+                  \right)
+                \]
+              </div>
               <p class="formula-card__copy">The determinant <code>|&Sigma;|</code> controls how spread out the mass is, while <code>&Sigma;<sup>-1</sup></code> defines the ellipse geometry.</p>
             </article>
           </div>
@@ -292,8 +257,20 @@
                 A practical way to read the covariance matrix is this: the diagonal terms <code>&sigma;<sub>x</sub>²</code> and <code>&sigma;<sub>y</sub>²</code> tell you how wide the cloud wants to be along each axis, while the shared term <code>Cov(X, Y) = &rho;&sigma;<sub>x</sub>&sigma;<sub>y</sub></code> tells you whether large values of one variable tend to arrive with large values of the other.
               </p>
               <div class="equation-stack">
-                <p class="equation-line">&Sigma; = [[&sigma;<sub>x</sub>², &rho;&sigma;<sub>x</sub>&sigma;<sub>y</sub>], [&rho;&sigma;<sub>x</sub>&sigma;<sub>y</sub>, &sigma;<sub>y</sub>²]]</p>
-                <p class="equation-line">(z - &mu;)<sup>T</sup>&Sigma;<sup>-1</sup>(z - &mu;) = c</p>
+                <div class="equation-line" data-katex-display>
+                  \[
+                    \Sigma =
+                    \begin{bmatrix}
+                      \sigma_x^2 & \rho \sigma_x \sigma_y \\
+                      \rho \sigma_x \sigma_y & \sigma_y^2
+                    \end{bmatrix}
+                  \]
+                </div>
+                <div class="equation-line" data-katex-display>
+                  \[
+                    (z-\mu)^\top \Sigma^{-1}(z-\mu) = c
+                  \]
+                </div>
               </div>
               <p>
                 The first line tells you how the cloud is built. The second tells you why contours become ellipses: points with equal quadratic distance from the center share the same density.
@@ -337,8 +314,7 @@
               <div class="stats-grid stats-grid--matrix">
                 <article class="stat-card stat-card--matrix">
                   <p class="stat-card__label">Covariance matrix</p>
-                  <pre class="matrix-display" id="covarianceMatrix">[[1.44, 0.59],
- [0.59, 0.81]]</pre>
+                  <div class="matrix-display" id="covarianceMatrix"></div>
                 </article>
                 <article class="stat-card">
                   <p class="stat-card__label">Ellipse angle</p>
@@ -402,10 +378,19 @@
           <p class="section__eyebrow">The hinge</p>
           <h2 class="transition-card__title">Once the cloud feels concrete, two questions matter more than the raw density.</h2>
           <p class="transition-card__copy">If you ignore one axis, what uncertainty remains? If you pin one axis to a value, how does the other one respond? For Gaussians, both answers stay inside the same family, which is why these distributions show up everywhere from Kalman filters to regression.</p>
-          <div class="transition-card__chips">
-            <span class="hero-pill">Marginal = forget one axis</span>
-            <span class="hero-pill">Conditional = fix one axis</span>
-            <span class="hero-pill">Both stay Gaussian</span>
+          <div class="equation-stack equation-stack--transition">
+            <div class="equation-line" data-katex-display>
+              \[
+                f_X(x) = \int f_{X,Y}(x,y)\,dy
+              \]
+            </div>
+            <div class="equation-line" data-katex-display>
+              \[
+                f_{X \mid Y=y_0}(x)
+                \propto
+                f_{X,Y}(x,y_0)
+              \]
+            </div>
           </div>
         </section>
 
@@ -421,7 +406,7 @@
           <div class="joint-explorer">
             <article class="math-banner">
               <p class="stat-card__label">Joint Model</p>
-              <p class="equation-block" id="jointDistributionMath">[X, Y]<sup>T</sup> ~ N([0.00, 0.00]<sup>T</sup>, [[1.44, 0.59], [0.59, 0.81]])</p>
+              <div class="equation-block" id="jointDistributionMath"></div>
               <p class="math-banner__copy">Everything below comes from this one Gaussian. Marginals integrate out an axis. Conditionals pin one axis to a value and read off the remaining uncertainty.</p>
             </article>
 
@@ -444,8 +429,16 @@
                 <article class="matrix-note-card">
                   <p class="stat-card__label">Marginal Math</p>
                   <div class="equation-stack">
-                    <p class="equation-line">f<sub>X</sub>(x) = &int; f<sub>X,Y</sub>(x, y) dy</p>
-                    <p class="equation-line">f<sub>Y</sub>(y) = &int; f<sub>X,Y</sub>(x, y) dx</p>
+                    <div class="equation-line" data-katex-display>
+                      \[
+                        f_X(x) = \int_{-\infty}^{\infty} f_{X,Y}(x,y)\,dy
+                      \]
+                    </div>
+                    <div class="equation-line" data-katex-display>
+                      \[
+                        f_Y(y) = \int_{-\infty}^{\infty} f_{X,Y}(x,y)\,dx
+                      \]
+                    </div>
                   </div>
                   <p class="matrix-note-card__copy">A marginal keeps the axis you care about and blends over the other one. For a Gaussian, the result is still Gaussian.</p>
                 </article>
@@ -462,12 +455,12 @@
               <div class="insight-grid insight-grid--marginals">
                 <article class="insight-card">
                   <p class="stat-card__label">X Axis</p>
-                  <p class="insight-card__value" id="marginalXMath">X ~ N(0.00, 1.20²)</p>
+                  <div class="insight-card__value" id="marginalXMath"></div>
                   <p class="insight-card__copy">Only <code>&mu;<sub>x</sub></code> and <code>&sigma;<sub>x</sub>²</code> matter here. Correlation does not change the marginal width of x.</p>
                 </article>
                 <article class="insight-card">
                   <p class="stat-card__label">Y Axis</p>
-                  <p class="insight-card__value" id="marginalYMath">Y ~ N(0.00, 0.90²)</p>
+                  <div class="insight-card__value" id="marginalYMath"></div>
                   <p class="insight-card__copy">The y marginal depends on <code>&mu;<sub>y</sub></code> and <code>&sigma;<sub>y</sub>²</code>, not on the tilt of the cloud.</p>
                 </article>
                 <article class="insight-card insight-card--highlight">
@@ -511,8 +504,26 @@
                 <article class="matrix-note-card matrix-note-card--accent">
                   <p class="stat-card__label">Conditional Math</p>
                   <div class="equation-stack">
-                    <p class="equation-line">X | Y = y<sub>0</sub> ~ N(&mu;<sub>x</sub> + &rho;(&sigma;<sub>x</sub>/&sigma;<sub>y</sub>)(y<sub>0</sub> - &mu;<sub>y</sub>), (1 - &rho;²)&sigma;<sub>x</sub>²)</p>
-                    <p class="equation-line">Y | X = x<sub>0</sub> ~ N(&mu;<sub>y</sub> + &rho;(&sigma;<sub>y</sub>/&sigma;<sub>x</sub>)(x<sub>0</sub> - &mu;<sub>x</sub>), (1 - &rho;²)&sigma;<sub>y</sub>²)</p>
+                    <div class="equation-line" data-katex-display>
+                      \[
+                        X \mid Y=y_0
+                        \sim
+                        \mathcal{N}\!\left(
+                          \mu_x + \rho\frac{\sigma_x}{\sigma_y}(y_0-\mu_y),
+                          (1-\rho^2)\sigma_x^2
+                        \right)
+                      \]
+                    </div>
+                    <div class="equation-line" data-katex-display>
+                      \[
+                        Y \mid X=x_0
+                        \sim
+                        \mathcal{N}\!\left(
+                          \mu_y + \rho\frac{\sigma_y}{\sigma_x}(x_0-\mu_x),
+                          (1-\rho^2)\sigma_y^2
+                        \right)
+                      \]
+                    </div>
                   </div>
                   <p class="matrix-note-card__copy">Conditionals keep the Gaussian form. The center slides linearly; the variance shrinks by the factor <code>1 - &rho;²</code>.</p>
                 </article>
@@ -534,17 +545,17 @@
                 </article>
                 <article class="insight-card">
                   <p class="stat-card__label">Top Axis: X and X | Y</p>
-                  <p class="insight-card__value" id="xConditionalFormula">X ~ N(0.00, 1.20²)<br />X | Y = 0.00 ~ N(0.00, 1.00²)</p>
+                  <div class="insight-card__value" id="xConditionalFormula"></div>
                   <p class="insight-card__copy">The gold curve lives on the same x-axis as the teal marginal, so the shrinkage is visually honest.</p>
                 </article>
                 <article class="insight-card">
                   <p class="stat-card__label">Right Axis: Y and Y | X</p>
-                  <p class="insight-card__value" id="yConditionalFormula">Y ~ N(0.00, 0.90²)<br />Y | X = 0.00 ~ N(0.00, 0.75²)</p>
+                  <div class="insight-card__value" id="yConditionalFormula"></div>
                   <p class="insight-card__copy">The coral curve uses the same y coordinates as the main plot, so the conditional mean lands exactly where the slice predicts.</p>
                 </article>
                 <article class="insight-card insight-card--highlight">
                   <p class="stat-card__label">What Changes, What Doesn't</p>
-                  <p class="insight-card__value" id="shrinkageFormula">Std shrink factor = 0.84</p>
+                  <div class="insight-card__value" id="shrinkageFormula"></div>
                   <p class="insight-card__copy" id="jointSummary">Marginals keep their original widths. Conditionals get narrower as correlation gets stronger.</p>
                 </article>
               </div>
@@ -581,7 +592,7 @@
         </section>
       </main>
     </div>
-
-    <script src="app.js"></script>
+    <script defer src="../../vendor/katex/katex.min.js"></script>
+    <script defer src="app.js"></script>
   </body>
 </html>

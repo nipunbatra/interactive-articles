@@ -1,0 +1,23 @@
+{
+  "name": "interactive",
+  "version": "1.0.0",
+  "description": "A small static site for intuition-first interactive articles.",
+  "scripts": {
+    "build": "node scripts/build.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nipunbatra/interactive-articles.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/nipunbatra/interactive-articles/issues"
+  },
+  "homepage": "https://github.com/nipunbatra/interactive-articles#readme",
+  "dependencies": {
+    "katex": "^0.16.28"
+  }
+}

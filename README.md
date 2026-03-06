@@ -25,10 +25,11 @@ site.config.json
 
 ## Build
 
-Generate the site into `docs/`:
+Install dependencies and generate the site into `docs/`:
 
 ```bash
-node scripts/build.js
+npm ci
+npm run build
 ```
 
 ## Preview locally
@@ -45,7 +46,7 @@ Then open `http://localhost:4173`.
 
 1. Create `src/articles/<slug>/`
 2. Add `index.html`, article JS/CSS files, and `meta.json`
-3. Run `node scripts/build.js`
+3. Run `npm run build`
 
 The homepage in `docs/index.html` is generated automatically from the article metadata.
 

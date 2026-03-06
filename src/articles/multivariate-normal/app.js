@@ -127,6 +127,39 @@ function formatSigned(value, digits = 2) {
   return value > 0 ? `+${rounded}` : rounded;
 }
 
+function formatFixed(value, digits = 2) {
+  const rounded = round(value, digits);
+  const normalized = Object.is(rounded, -0) ? 0 : rounded;
+  return normalized.toFixed(digits);
+}
+
+function stripDisplayDelimiters(text) {
+  return text
+    .replace(/^\s*\\\[/, '')
+    .replace(/\\\]\s*$/, '')
+    .trim();
+}
+
+function renderTex(element, tex, displayMode = true) {
+  if (!element) return;
+  if (window.katex && typeof window.katex.render === 'function') {
+    window.katex.render(tex.trim(), element, {
+      displayMode,
+      throwOnError: false,
+      strict: 'ignore',
+      trust: false,
+    });
+    return;
+  }
+  element.textContent = tex;
+}
+
+function renderStaticMath() {
+  document.querySelectorAll('[data-katex-display]').forEach((element) => {
+    renderTex(element, stripDisplayDelimiters(element.textContent), true);
+  });
+}
+
 function resizeCanvas(canvas) {
   const ratio = Math.max(1, window.devicePixelRatio || 1);
   const cssWidth = canvas.clientWidth || canvas.width;
@@ -315,9 +348,16 @@ function drawTwoDOverview() {
 
   const covXY = twoDState.rho * twoDState.sigmaX * twoDState.sigmaY;
   const { lambda1, angle } = eigenDecomposition(twoDState.sigmaX, twoDState.sigmaY, twoDState.rho);
-  elements.covarianceMatrix.textContent = `[[${(twoDState.sigmaX ** 2).toFixed(2)}, ${covXY.toFixed(2)}],\n [${covXY.toFixed(2)}, ${(twoDState.sigmaY ** 2).toFixed(2)}]]`;
-  elements.ellipseAngle.innerHTML = `${(angle * 180 / Math.PI).toFixed(1)}&deg;`;
-  elements.majorSpread.textContent = Math.sqrt(lambda1).toFixed(2);
+  renderTex(
+    elements.covarianceMatrix,
+    String.raw`\Sigma =
+      \begin{bmatrix}
+        ${formatFixed(twoDState.sigmaX ** 2)} & ${formatFixed(covXY)} \\
+        ${formatFixed(covXY)} & ${formatFixed(twoDState.sigmaY ** 2)}
+      \end{bmatrix}`
+  );
+  elements.ellipseAngle.textContent = `${formatFixed(angle * 180 / Math.PI, 1)}°`;
+  elements.majorSpread.textContent = formatFixed(Math.sqrt(lambda1));
 }
 
 function drawPlane(ctx, width, height, bounds, options = {}) {
@@ -534,7 +574,18 @@ function getJointLayout() {
 
 function drawJointMath() {
   const covXY = twoDState.rho * twoDState.sigmaX * twoDState.sigmaY;
-  elements.jointDistributionMath.innerHTML = `[X, Y]<sup>T</sup> ~ N([${twoDState.muX.toFixed(2)}, ${twoDState.muY.toFixed(2)}]<sup>T</sup>, [[${(twoDState.sigmaX ** 2).toFixed(2)}, ${covXY.toFixed(2)}], [${covXY.toFixed(2)}, ${(twoDState.sigmaY ** 2).toFixed(2)}]])`;
+  renderTex(
+    elements.jointDistributionMath,
+    String.raw`\begin{bmatrix} X \\ Y \end{bmatrix}
+      \sim
+      \mathcal{N}\!\left(
+        \begin{bmatrix} ${formatFixed(twoDState.muX)} \\ ${formatFixed(twoDState.muY)} \end{bmatrix},
+        \begin{bmatrix}
+          ${formatFixed(twoDState.sigmaX ** 2)} & ${formatFixed(covXY)} \\
+          ${formatFixed(covXY)} & ${formatFixed(twoDState.sigmaY ** 2)}
+        \end{bmatrix}
+      \right)`
+  );
 }
 
 function drawMarginalGuides(ctx, plane, state) {
@@ -610,12 +661,18 @@ function drawMarginalStage() {
     showTickLabels: true,
   });
 
-  elements.marginalTopSummary.textContent = `X ~ N(${twoDState.muX.toFixed(2)}, ${twoDState.sigmaX.toFixed(2)}²)`;
-  elements.marginalXMath.innerHTML = `X ~ N(${twoDState.muX.toFixed(2)}, ${twoDState.sigmaX.toFixed(2)}²)`;
-  elements.marginalYMath.innerHTML = `Y ~ N(${twoDState.muY.toFixed(2)}, ${twoDState.sigmaY.toFixed(2)}²)`;
+  elements.marginalTopSummary.textContent = `X ~ N(${formatFixed(twoDState.muX)}, ${formatFixed(twoDState.sigmaX ** 2)})`;
+  renderTex(
+    elements.marginalXMath,
+    String.raw`X \sim \mathcal{N}\!\left(${formatFixed(twoDState.muX)}, ${formatFixed(twoDState.sigmaX ** 2)}\right)`
+  );
+  renderTex(
+    elements.marginalYMath,
+    String.raw`Y \sim \mathcal{N}\!\left(${formatFixed(twoDState.muY)}, ${formatFixed(twoDState.sigmaY ** 2)}\right)`
+  );
   elements.marginalCorrelationNote.textContent = Math.abs(twoDState.rho) < 0.05
     ? 'With rho near zero, the joint cloud is axis-aligned, so the marginals feel almost obvious.'
-    : `Even with rho = ${twoDState.rho.toFixed(2)}, the teal marginals ignore the tilt and only read the diagonal entries of the covariance matrix.`;
+    : `Even with rho = ${formatFixed(twoDState.rho)}, the teal marginals ignore the tilt and only read the diagonal entries of the covariance matrix.`;
 }
 
 function drawConditionalStage() {
@@ -668,15 +725,37 @@ function drawConditionalStage() {
     showTickLabels: true,
   });
 
-  elements.conditionalTopSummary.textContent = `Teal: X ~ N(${twoDState.muX.toFixed(2)}, ${twoDState.sigmaX.toFixed(2)}²). Gold: X | Y = ${info.observedY.toFixed(2)} ~ N(${info.xConditionalMu.toFixed(2)}, ${info.xConditionalSigma.toFixed(2)}²).`;
+  elements.conditionalTopSummary.textContent = `Teal: X ~ N(${formatFixed(twoDState.muX)}, ${formatFixed(twoDState.sigmaX ** 2)}). Gold: X | Y = ${formatFixed(info.observedY)} ~ N(${formatFixed(info.xConditionalMu)}, ${formatFixed(info.xConditionalSigma ** 2)}).`;
   elements.sliceReadout.innerHTML = `x<sub>0</sub> = ${info.observedX.toFixed(2)}, y<sub>0</sub> = ${info.observedY.toFixed(2)}`;
-  elements.xConditionalFormula.innerHTML = `X ~ N(${twoDState.muX.toFixed(2)}, ${twoDState.sigmaX.toFixed(2)}²)<br />X | Y = ${info.observedY.toFixed(2)} ~ N(${info.xConditionalMu.toFixed(2)}, ${info.xConditionalSigma.toFixed(2)}²)`;
-  elements.yConditionalFormula.innerHTML = `Y ~ N(${twoDState.muY.toFixed(2)}, ${twoDState.sigmaY.toFixed(2)}²)<br />Y | X = ${info.observedX.toFixed(2)} ~ N(${info.yConditionalMu.toFixed(2)}, ${info.yConditionalSigma.toFixed(2)}²)`;
-  elements.shrinkageFormula.textContent = `Std shrink factor = ${info.shrinkFactor.toFixed(2)}`;
+  renderTex(
+    elements.xConditionalFormula,
+    String.raw`\begin{aligned}
+      X &\sim \mathcal{N}\!\left(${formatFixed(twoDState.muX)}, ${formatFixed(twoDState.sigmaX ** 2)}\right) \\
+      X \mid Y=${formatFixed(info.observedY)} &\sim \mathcal{N}\!\left(${formatFixed(info.xConditionalMu)}, ${formatFixed(info.xConditionalSigma ** 2)}\right)
+    \end{aligned}`
+  );
+  renderTex(
+    elements.yConditionalFormula,
+    String.raw`\begin{aligned}
+      Y &\sim \mathcal{N}\!\left(${formatFixed(twoDState.muY)}, ${formatFixed(twoDState.sigmaY ** 2)}\right) \\
+      Y \mid X=${formatFixed(info.observedX)} &\sim \mathcal{N}\!\left(${formatFixed(info.yConditionalMu)}, ${formatFixed(info.yConditionalSigma ** 2)}\right)
+    \end{aligned}`
+  );
+  renderTex(
+    elements.shrinkageFormula,
+    String.raw`\frac{\sigma_{X \mid Y}}{\sigma_X}
+      =
+      \frac{\sigma_{Y \mid X}}{\sigma_Y}
+      =
+      \sqrt{1-\rho^2}
+      =
+      ${formatFixed(info.shrinkFactor)}`,
+    false
+  );
   elements.jointSummary.textContent = Math.abs(twoDState.rho) < 0.05
     ? 'With almost zero correlation, the conditionals nearly sit on top of the marginals.'
-    : `At rho = ${twoDState.rho.toFixed(2)}, both conditionals are narrower than their marginals by the same factor, and their means slide linearly with the slice lines.`;
-  elements.jointNarrative.innerHTML = `Drag the coral vertical line to set <code>x<sub>0</sub> = ${info.observedX.toFixed(2)}</code> and watch the coral conditional on the right shift to <code>${info.yConditionalMu.toFixed(2)}</code>. Drag the gold horizontal line to set <code>y<sub>0</sub> = ${info.observedY.toFixed(2)}</code> and watch the gold conditional on the top shift to <code>${info.xConditionalMu.toFixed(2)}</code>.`;
+    : `At rho = ${formatFixed(twoDState.rho)}, both conditionals are narrower than their marginals by the same factor, and their means slide linearly with the slice lines.`;
+  elements.jointNarrative.innerHTML = `Drag the coral vertical line to set <code>x<sub>0</sub> = ${formatFixed(info.observedX)}</code> and watch the coral conditional on the right shift to <code>${formatFixed(info.yConditionalMu)}</code>. Drag the gold horizontal line to set <code>y<sub>0</sub> = ${formatFixed(info.observedY)}</code> and watch the gold conditional on the top shift to <code>${formatFixed(info.xConditionalMu)}</code>.`;
 }
 
 function drawHorizontalDensityOverlay(canvas, options) {
@@ -1013,6 +1092,7 @@ function wireScrolling() {
   onScroll();
 }
 
+renderStaticMath();
 wireInputs();
 wireConditionalDrag();
 wireScrolling();

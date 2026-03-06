@@ -7,6 +7,7 @@ const articlesDir = path.join(srcDir, 'articles');
 const sharedDir = path.join(srcDir, 'shared');
 const docsDir = path.join(rootDir, 'docs');
 const siteConfigPath = path.join(rootDir, 'site.config.json');
+const katexDistDir = path.join(rootDir, 'node_modules', 'katex', 'dist');
 
 function ensureDir(dirPath) {
   fs.mkdirSync(dirPath, { recursive: true });
@@ -246,11 +247,17 @@ function build() {
   const siteConfig = readJson(siteConfigPath);
   const articles = loadArticles();
 
+  if (!fs.existsSync(katexDistDir)) {
+    throw new Error('KaTeX assets not found. Run "npm install" before building the site.');
+  }
+
   cleanDir(docsDir);
   ensureDir(path.join(docsDir, 'articles'));
   ensureDir(path.join(docsDir, 'assets'));
+  ensureDir(path.join(docsDir, 'vendor'));
 
   copyDir(sharedDir, path.join(docsDir, 'assets'));
+  copyDir(katexDistDir, path.join(docsDir, 'vendor', 'katex'));
 
   for (const article of articles) {
     copyDir(
