@@ -68,35 +68,81 @@ function loadArticles() {
   return articles.sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
 }
 
-function renderArticleCards(articles) {
-  return articles.map((article) => {
-    const tags = (article.tags || [])
-      .map((tag) => `<span class="pill">${escapeHtml(tag)}</span>`)
-      .join('');
+function uniqueTags(articles) {
+  return [...new Set(articles.flatMap((article) => article.tags || []))];
+}
 
-    return `
+function renderTagPills(tags, extraClass = '') {
+  return tags
+    .map((tag) => `<span class="pill ${extraClass}">${escapeHtml(tag)}</span>`)
+    .join('');
+}
+
+function renderHighlights(highlights, compact = false) {
+  return `
+    <ul class="feature-list${compact ? ' feature-list--compact' : ''}">
+      ${(highlights || []).map((item) => `<li>${escapeHtml(item)}</li>`).join('')}
+    </ul>
+  `;
+}
+
+function renderFeaturedArticle(article) {
+  return `
+    <aside class="spotlight-card">
+      <div class="spotlight-card__preview" aria-hidden="true">
+        <span class="preview-pill preview-pill--coral">1D bell</span>
+        <span class="preview-pill preview-pill--teal">2D cloud</span>
+        <span class="preview-pill preview-pill--gold">Slices</span>
+      </div>
+      <div class="spotlight-card__body">
+        <p class="card__meta">Featured explainer</p>
+        <h2 class="spotlight-card__title">${escapeHtml(article.title)}</h2>
+        <p class="card__copy">${escapeHtml(article.summary)}</p>
+        <div class="pill-row pill-row--soft">
+          <span class="pill">${escapeHtml(article.collection || 'Explainer')}</span>
+          <span class="pill">${escapeHtml(article.difficulty || 'Open level')}</span>
+          <span class="pill">${escapeHtml(article.readingTime || '')}</span>
+        </div>
+        ${renderHighlights(article.highlights)}
+        <div class="spotlight-card__footer">
+          <a class="article-link" href="${escapeHtml(article.url)}">Read the explainer</a>
+        </div>
+      </div>
+    </aside>
+  `;
+}
+
+function renderArticleCards(articles) {
+  return articles.map((article, index) => `
       <article class="article-card">
+        <div class="article-card__preview" aria-hidden="true">
+          <span>${String(index + 1).padStart(2, '0')}</span>
+          <p>${escapeHtml(article.tagline || article.collection || '')}</p>
+        </div>
         <div class="article-card__body">
           <div class="article-card__header">
             <div>
-              <p class="card__meta">${escapeHtml(article.tagline || '')}</p>
+              <p class="card__meta">${escapeHtml(article.collection || 'Explainer')}</p>
               <h2 class="card__title">${escapeHtml(article.title)}</h2>
             </div>
             <span class="pill">${escapeHtml(article.readingTime || '')}</span>
           </div>
           <p class="card__copy">${escapeHtml(article.summary || '')}</p>
-          <div class="pill-row">${tags}</div>
+          ${renderHighlights(article.highlights, true)}
+          <div class="pill-row">${renderTagPills(article.tags || [])}</div>
           <div class="article-card__footer">
             <span class="pill">${escapeHtml(article.status || 'published')}</span>
             <a class="article-link" href="${escapeHtml(article.url)}">Open article</a>
           </div>
         </div>
       </article>
-    `;
-  }).join('\n');
+    `).join('\n');
 }
 
 function renderHomePage(siteConfig, articles) {
+  const featuredArticle = articles[0];
+  const tags = uniqueTags(articles);
+
   return `<!DOCTYPE html>
 <html lang="en">
   <head>
@@ -107,35 +153,56 @@ function renderHomePage(siteConfig, articles) {
     <link rel="stylesheet" href="assets/site.css" />
   </head>
   <body>
+    <header class="site-header">
+      <div class="site-header__brand">
+        <p class="eyebrow">Explainer library</p>
+        <a class="brand-mark" href="./">${escapeHtml(siteConfig.title)}</a>
+      </div>
+      <div class="site-header__meta">
+        <span class="tiny-pill">${articles.length} published</span>
+        <span class="tiny-pill">Narrative + math + interaction</span>
+      </div>
+    </header>
+
     <main class="site-shell">
       <section class="hero">
-        <p class="eyebrow">Interactive library</p>
-        <h1 class="hero__title">${escapeHtml(siteConfig.title)}</h1>
-        <p class="hero__copy">${escapeHtml(siteConfig.description)}</p>
-
-        <div class="hero__stats">
-          <article class="stat-card">
-            <p class="eyebrow">Articles</p>
-            <p class="stat-card__value">${articles.length}</p>
-            <p class="hero__copy">Small, self-contained explainers with live controls.</p>
-          </article>
-          <article class="stat-card">
-            <p class="eyebrow">Style</p>
-            <p class="stat-card__value">Hands-on</p>
-            <p class="hero__copy">Every article should let the reader drag, tweak, and see the math react.</p>
-          </article>
-          <article class="stat-card">
-            <p class="eyebrow">Deploy</p>
-            <p class="stat-card__value">GitHub Pages</p>
-            <p class="hero__copy">The built site lives in <code>docs/</code> so Pages can serve it directly.</p>
-          </article>
+        <div class="hero__copy">
+          <p class="eyebrow">Interactive explainers</p>
+          <h1 class="hero__title">Articles that let you drag the idea until it clicks.</h1>
+          <p class="hero__copy">${escapeHtml(siteConfig.description)}</p>
+          <p class="hero__copy">Each piece is designed as a guided experience: start with intuition, adjust live controls, then land on the math once the shape already makes sense.</p>
+          <div class="hero__actions">
+            <a class="article-link" href="${escapeHtml(featuredArticle.url)}">Start with the featured explainer</a>
+            <a class="ghost-link" href="#library">Browse the library</a>
+          </div>
+          <div class="pill-row pill-row--hero">${renderTagPills(tags)}</div>
+          <div class="hero__stats">
+            <article class="stat-card">
+              <p class="eyebrow">Format</p>
+              <p class="stat-card__value">Hands-on</p>
+              <p class="hero__copy">Readers should move sliders, drag points, and watch the story change.</p>
+            </article>
+            <article class="stat-card">
+              <p class="eyebrow">Arc</p>
+              <p class="stat-card__value">Feel then formalize</p>
+              <p class="hero__copy">The goal is not a glossary. It is a sequence that makes the math feel inevitable.</p>
+            </article>
+            <article class="stat-card">
+              <p class="eyebrow">Deploy</p>
+              <p class="stat-card__value">Static + fast</p>
+              <p class="hero__copy">Everything ships as a lightweight static site and deploys cleanly with GitHub Pages.</p>
+            </article>
+          </div>
         </div>
+        ${renderFeaturedArticle(featuredArticle)}
       </section>
 
-      <section class="section">
-        <div>
-          <p class="eyebrow">Published</p>
-          <h2 class="section__title">Current articles</h2>
+      <section class="section" id="library">
+        <div class="section__head">
+          <div>
+            <p class="eyebrow">Published</p>
+            <h2 class="section__title">The library</h2>
+          </div>
           <p class="section__copy">${escapeHtml(siteConfig.tagline)}</p>
         </div>
         <div class="card-grid">
@@ -143,29 +210,32 @@ function renderHomePage(siteConfig, articles) {
         </div>
       </section>
 
-      <section class="section">
-        <div>
-          <p class="eyebrow">Workflow</p>
-          <h2 class="section__title">How this project is organized</h2>
+      <section class="section section--tracks">
+        <div class="section__head">
+          <div>
+            <p class="eyebrow">What makes these different</p>
+            <h2 class="section__title">Built like explainers, not notes</h2>
+          </div>
+          <p class="section__copy">The reference bar is an explainer that has a point of view, a rhythm, and a reason to exist interactively.</p>
         </div>
         <div class="guide-grid">
           <article class="guide-card">
-            <p class="guide__label">Source</p>
-            <p class="guide__copy">Put each article in <code>src/articles/&lt;slug&gt;/</code> with its own <code>index.html</code>, JS, CSS, and <code>meta.json</code>.</p>
+            <p class="guide__label">Narrative spine</p>
+            <p class="guide__copy">Every explainer should have a visible path: what you know at the start, what changes in the middle, and what you can now answer at the end.</p>
           </article>
           <article class="guide-card">
-            <p class="guide__label">Build</p>
-            <p class="guide__copy">Run <code>node scripts/build.js</code>. It copies articles into <code>docs/articles/</code> and regenerates the site homepage.</p>
+            <p class="guide__label">Visual payoffs</p>
+            <p class="guide__copy">Interactions are not decoration. They should expose the one thing that is hard to understand from static text alone.</p>
           </article>
           <article class="guide-card">
-            <p class="guide__label">Deploy</p>
-            <p class="guide__copy">Push the repo to GitHub and point Pages at the <code>docs/</code> folder on your main branch.</p>
+            <p class="guide__label">Library quality</p>
+            <p class="guide__copy">The landing page should feel curated: clear spotlight, clear catalog, and a strong sense of what kind of learning experience lives here.</p>
           </article>
         </div>
       </section>
 
       <footer class="site-footer">
-        <p>${escapeHtml(siteConfig.title)}. Built as a static site for easy hosting and low maintenance.</p>
+        <p>${escapeHtml(siteConfig.title)}. Static, fast, and organized for adding more interactive explainers without reworking the whole site.</p>
       </footer>
     </main>
   </body>

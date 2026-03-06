@@ -14,11 +14,26 @@
     <div class="page-shell">
       <aside class="sidebar">
         <div class="sidebar__inner">
+          <a class="sidebar__backlink" href="../../index.html">← Back to library</a>
           <p class="sidebar__eyebrow">Interactive article</p>
           <h1 class="sidebar__title">Seeing the multivariate normal</h1>
           <p class="sidebar__copy">
             Start with one bell curve. Stretch it into a cloud. Then slice that cloud to see where marginals and conditionals come from.
           </p>
+          <div class="sidebar__meta">
+            <span class="sidebar-pill">12 min</span>
+            <span class="sidebar-pill">Probability</span>
+            <span class="sidebar-pill">Interactive</span>
+          </div>
+
+          <div class="sidebar__guide">
+            <p class="sidebar__guide-label">Read this like a lab</p>
+            <ul class="sidebar__guide-list">
+              <li>Touch the controls before you read the formulas.</li>
+              <li>Use the 1D section to anchor the meaning of mean and spread.</li>
+              <li>In the slices section, drag the lines and watch the conditionals move.</li>
+            </ul>
+          </div>
 
           <nav class="toc" aria-label="Section navigation">
             <a class="toc__link" href="#intro">Intro</a>
@@ -34,11 +49,26 @@
             <div class="legend-chip legend-chip--gold">X | Y</div>
             <div class="legend-chip legend-chip--coral">Y | X</div>
           </div>
+
+          <div class="sidebar__track">
+            <p class="sidebar__guide-label">Learning arc</p>
+            <div class="sidebar__track-steps">
+              <span>Bell</span>
+              <span>Cloud</span>
+              <span>Marginal</span>
+              <span>Conditional</span>
+            </div>
+          </div>
         </div>
       </aside>
 
       <main class="content">
         <section class="hero reveal is-visible" id="intro" data-nav="Intro">
+          <div class="hero__meta-row">
+            <span class="hero-pill">Probability geometry</span>
+            <span class="hero-pill">Live controls</span>
+            <span class="hero-pill">1D to 2D</span>
+          </div>
           <p class="hero__eyebrow">From a line to an ellipse</p>
           <h2 class="hero__title">A multivariate normal is just a familiar bell curve seen from more than one direction.</h2>
           <p class="hero__lede">
@@ -47,6 +77,27 @@
           <p class="hero__lede">
             The reason people keep coming back to this family is not just that it is mathematically neat. It is that Gaussian structure makes uncertainty feel geometric. You can see the mean. You can see the spread. You can see what happens when one variable starts whispering information about another.
           </p>
+          <div class="hero__actions">
+            <a class="hero-link" href="#one-d">Start with the bell curve</a>
+            <a class="hero-link hero-link--ghost" href="#slices">Jump to marginals and conditionals</a>
+          </div>
+          <div class="hero__guideband">
+            <article class="hero-step">
+              <p class="mini-card__label">Step 1</p>
+              <h3>Move a bell curve</h3>
+              <p>Use the 1D controls until <code>&mu;</code> and <code>&sigma;</code> feel like position and width, not symbols.</p>
+            </article>
+            <article class="hero-step">
+              <p class="mini-card__label">Step 2</p>
+              <h3>Watch covariance tilt</h3>
+              <p>In 2D, keep the same idea of center and spread, but add a preferred direction through covariance.</p>
+            </article>
+            <article class="hero-step">
+              <p class="mini-card__label">Step 3</p>
+              <h3>Slice the cloud</h3>
+              <p>The big payoff is that marginals and conditionals stay Gaussian and become easy to read visually.</p>
+            </article>
+          </div>
           <div class="hero__cards">
             <article class="mini-card">
               <p class="mini-card__label">1D</p>
@@ -66,6 +117,31 @@
           </div>
         </section>
 
+        <section class="arc-band reveal" aria-label="Learning arc">
+          <div class="arc-band__card">
+            <p class="section__eyebrow">Learning arc</p>
+            <h2 class="arc-band__title">This explainer has a strict shape: first recognize the bell, then lift it into a cloud, then ask what survives when you forget or fix one axis.</h2>
+            <div class="arc-band__steps">
+              <div class="arc-step">
+                <span>01</span>
+                <p>1D normal</p>
+              </div>
+              <div class="arc-step">
+                <span>02</span>
+                <p>2D Gaussian</p>
+              </div>
+              <div class="arc-step">
+                <span>03</span>
+                <p>Marginals</p>
+              </div>
+              <div class="arc-step">
+                <span>04</span>
+                <p>Conditionals</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
         <section class="section reveal" id="one-d" data-nav="1D normal">
           <div class="section__header">
             <p class="section__eyebrow">Section 1</p>
@@ -73,6 +149,24 @@
             <p class="section__subtitle">
               The one-dimensional normal is the base case. The center is <code>&mu;</code>, the width is <code>&sigma;</code>, and the shaded interval shows how much probability mass sits between two points.
             </p>
+          </div>
+
+          <div class="formula-grid">
+            <article class="formula-card">
+              <p class="stat-card__label">Distribution</p>
+              <p class="formula-card__math">X ~ N(&mu;, &sigma;²)</p>
+              <p class="formula-card__copy">Read this as: the random variable <code>X</code> is Gaussian with mean <code>&mu;</code> and variance <code>&sigma;²</code>.</p>
+            </article>
+            <article class="formula-card">
+              <p class="stat-card__label">Moments</p>
+              <p class="formula-card__math">E[X] = &mu;<br />Var(X) = &sigma;²</p>
+              <p class="formula-card__copy">The mean sets the center of mass. The variance sets the squared width of the uncertainty.</p>
+            </article>
+            <article class="formula-card">
+              <p class="stat-card__label">Density</p>
+              <p class="formula-card__math">f(x) = 1 / (&sigma;&radic;(2&pi;)) exp(-(x - &mu;)² / (2&sigma;²))</p>
+              <p class="formula-card__copy">The formula matters less than the pattern: farther from <code>&mu;</code> means exponentially less density.</p>
+            </article>
           </div>
 
           <div class="story-grid">
@@ -168,6 +262,24 @@
             </p>
           </div>
 
+          <div class="formula-grid formula-grid--wide">
+            <article class="formula-card">
+              <p class="stat-card__label">Vector form</p>
+              <p class="formula-card__math">[X, Y]<sup>T</sup> ~ N(&mu;, &Sigma;)</p>
+              <p class="formula-card__copy">The mean becomes a vector and the spread becomes a matrix. That is the whole conceptual jump from 1D to 2D.</p>
+            </article>
+            <article class="formula-card">
+              <p class="stat-card__label">Covariance matrix</p>
+              <p class="formula-card__math">&Sigma; = [[&sigma;<sub>x</sub>², &rho;&sigma;<sub>x</sub>&sigma;<sub>y</sub>], [&rho;&sigma;<sub>x</sub>&sigma;<sub>y</sub>, &sigma;<sub>y</sub>²]]</p>
+              <p class="formula-card__copy">The diagonal entries are the axis variances. The off-diagonal entry is the covariance <code>Cov(X, Y) = &rho;&sigma;<sub>x</sub>&sigma;<sub>y</sub></code>.</p>
+            </article>
+            <article class="formula-card">
+              <p class="stat-card__label">2D density</p>
+              <p class="formula-card__math">f(z) = 1 / (2&pi;|&Sigma;|<sup>1/2</sup>) exp(-&frac12;(z - &mu;)<sup>T</sup>&Sigma;<sup>-1</sup>(z - &mu;))</p>
+              <p class="formula-card__copy">The determinant <code>|&Sigma;|</code> controls how spread out the mass is, while <code>&Sigma;<sup>-1</sup></code> defines the ellipse geometry.</p>
+            </article>
+          </div>
+
           <div class="story-grid story-grid--wide">
             <div class="prose-panel">
               <p>
@@ -175,6 +287,9 @@
               </p>
               <p>
                 The sample dots are draws from the current Gaussian. The nested ellipses are contour lines: each one collects points with the same Mahalanobis distance from the mean.
+              </p>
+              <p>
+                A practical way to read the covariance matrix is this: the diagonal terms <code>&sigma;<sub>x</sub>²</code> and <code>&sigma;<sub>y</sub>²</code> tell you how wide the cloud wants to be along each axis, while the shared term <code>Cov(X, Y) = &rho;&sigma;<sub>x</sub>&sigma;<sub>y</sub></code> tells you whether large values of one variable tend to arrive with large values of the other.
               </p>
               <div class="equation-stack">
                 <p class="equation-line">&Sigma; = [[&sigma;<sub>x</sub>², &rho;&sigma;<sub>x</sub>&sigma;<sub>y</sub>], [&rho;&sigma;<sub>x</sub>&sigma;<sub>y</sub>, &sigma;<sub>y</sub>²]]</p>
@@ -280,6 +395,17 @@
               <p>The location is much more uncertain along the road than across it. That creates a thin ridge: one very uncertain direction, one very certain direction.</p>
               <button class="preset-button" data-two-d-preset="road-gps">Load road-GPS example</button>
             </article>
+          </div>
+        </section>
+
+        <section class="transition-card reveal" aria-label="Transition to marginals and conditionals">
+          <p class="section__eyebrow">The hinge</p>
+          <h2 class="transition-card__title">Once the cloud feels concrete, two questions matter more than the raw density.</h2>
+          <p class="transition-card__copy">If you ignore one axis, what uncertainty remains? If you pin one axis to a value, how does the other one respond? For Gaussians, both answers stay inside the same family, which is why these distributions show up everywhere from Kalman filters to regression.</p>
+          <div class="transition-card__chips">
+            <span class="hero-pill">Marginal = forget one axis</span>
+            <span class="hero-pill">Conditional = fix one axis</span>
+            <span class="hero-pill">Both stay Gaussian</span>
           </div>
         </section>
 

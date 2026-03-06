@@ -57,6 +57,10 @@ body {
     linear-gradient(180deg, #f9f6f0 0%, #f4ede3 42%, #f7f4ee 100%);
 }
 
+a {
+  color: inherit;
+}
+
 img,
 canvas {
   display: block;
@@ -167,6 +171,83 @@ p {
   margin: 0;
 }
 
+.sidebar__backlink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 0.92rem;
+}
+
+.sidebar__backlink:hover,
+.sidebar__backlink:focus-visible {
+  color: var(--ink);
+  outline: none;
+}
+
+.sidebar__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.sidebar-pill,
+.hero-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.45rem 0.75rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.8);
+  color: var(--muted);
+  font-size: 0.88rem;
+  border: 1px solid rgba(30, 36, 48, 0.07);
+}
+
+.sidebar__guide,
+.sidebar__track {
+  display: grid;
+  gap: 0.75rem;
+  padding: var(--space-4);
+  border: 1px solid rgba(30, 36, 48, 0.08);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.62);
+}
+
+.sidebar__guide-label {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.72rem;
+  color: var(--muted);
+  margin: 0;
+}
+
+.sidebar__guide-list {
+  margin: 0;
+  padding-left: 1rem;
+  color: var(--muted);
+}
+
+.sidebar__guide-list li + li {
+  margin-top: 0.55rem;
+}
+
+.sidebar__track-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.sidebar__track-steps span {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.42rem 0.68rem;
+  border-radius: 999px;
+  background: rgba(45, 139, 136, 0.08);
+  color: #1f6c69;
+  font-size: 0.84rem;
+}
+
 .toc {
   display: grid;
   gap: 0.35rem;
@@ -252,6 +333,80 @@ p {
   color: var(--muted);
 }
 
+.hero__meta-row,
+.hero__actions,
+.transition-card__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.hero__actions {
+  margin: 0.35rem 0 0.25rem;
+}
+
+.hero-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.9rem 1.05rem;
+  border-radius: 999px;
+  background: linear-gradient(120deg, var(--accent), #e28f72);
+  color: white;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.hero-link--ghost {
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--ink);
+  border: 1px solid rgba(30, 36, 48, 0.1);
+}
+
+.hero-link:hover,
+.hero-link:focus-visible {
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.hero__guideband,
+.formula-grid,
+.arc-band__steps {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.hero__guideband {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.hero-step,
+.formula-card,
+.arc-band__card,
+.transition-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow: var(--shadow);
+}
+
+.hero-step {
+  padding: var(--space-5);
+}
+
+.hero-step h3,
+.transition-card__title,
+.arc-band__title {
+  margin: 0 0 0.45rem;
+  font-family: var(--font-serif);
+  letter-spacing: -0.03em;
+  line-height: 1.08;
+}
+
+.hero-step p:last-child {
+  margin-bottom: 0;
+}
+
 .hero__cards,
 .stats-grid,
 .challenge-grid {
@@ -311,6 +466,85 @@ p {
 .section__title {
   font-size: var(--h2);
   margin-bottom: 0.65rem;
+}
+
+.formula-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: var(--space-6);
+}
+
+.formula-grid--wide {
+  margin-top: 0.35rem;
+}
+
+.formula-card {
+  padding: var(--space-5);
+}
+
+.formula-card__math {
+  margin: 0.35rem 0 0.7rem;
+  font-family: var(--font-serif);
+  font-size: clamp(1.05rem, 1.7vw, 1.35rem);
+  line-height: 1.35;
+}
+
+.formula-card__copy {
+  color: var(--muted);
+  margin: 0;
+}
+
+.arc-band {
+  margin-top: calc(var(--space-8) * -0.25);
+}
+
+.arc-band__card {
+  padding: var(--space-6);
+  background: linear-gradient(140deg, rgba(255, 252, 246, 0.95), rgba(245, 250, 249, 0.92));
+}
+
+.arc-band__title {
+  font-size: clamp(1.55rem, 2.4vw, 2.2rem);
+  max-width: 30ch;
+}
+
+.arc-band__steps {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: var(--space-5);
+}
+
+.arc-step {
+  display: grid;
+  gap: 0.3rem;
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(30, 36, 48, 0.07);
+}
+
+.arc-step span {
+  font-family: var(--font-serif);
+  font-size: 1.25rem;
+}
+
+.arc-step p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.transition-card {
+  padding: var(--space-6);
+  background: linear-gradient(145deg, rgba(255, 247, 241, 0.96), rgba(255, 252, 246, 0.94));
+}
+
+.transition-card__title {
+  font-size: clamp(1.65rem, 2.6vw, 2.35rem);
+  max-width: 26ch;
+}
+
+.transition-card__copy {
+  color: var(--muted);
+  margin-bottom: var(--space-5);
+  max-width: 52rem;
 }
 
 .story-grid {
@@ -702,6 +936,9 @@ input[type="range"] {
 
   .story-grid,
   .story-grid--wide,
+  .formula-grid,
+  .hero__guideband,
+  .arc-band__steps,
   .joint-matrix,
   .insight-grid,
   .challenge-grid,
@@ -742,6 +979,13 @@ input[type="range"] {
   .controls-card--joint,
   .joint-matrix {
     grid-template-columns: 1fr;
+  }
+
+  .hero__meta-row,
+  .hero__actions,
+  .transition-card__chips {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
   .toc {
