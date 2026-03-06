@@ -134,16 +134,20 @@ code {
   margin: var(--space-6) 0 var(--space-5);
 }
 
+.hero-list {
+  margin: 0;
+  padding-left: 1.2rem;
+  color: var(--muted);
+  display: grid;
+  gap: 0.45rem;
+  max-width: 34rem;
+}
+
 .hero__stats,
 .card-grid,
 .guide-grid {
   display: grid;
   gap: var(--space-4);
-}
-
-.hero__stats {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  margin-top: var(--space-6);
 }
 
 .stat-card,
@@ -184,43 +188,8 @@ code {
   color: var(--muted);
 }
 
-.preview-pill {
-  color: var(--ink);
-  background: rgba(255, 255, 255, 0.9);
-}
-
-.preview-pill--coral {
-  border: 1px solid rgba(216, 112, 79, 0.18);
-}
-
-.preview-pill--teal {
-  border: 1px solid rgba(45, 139, 136, 0.2);
-}
-
-.preview-pill--gold {
-  border: 1px solid rgba(197, 164, 58, 0.24);
-}
-
-.pill-row--hero {
-  margin-top: var(--space-4);
-}
-
-.pill-row--soft .pill {
-  background: rgba(255, 255, 255, 0.75);
-}
-
 .spotlight-card {
-  overflow: hidden;
   background: #fff;
-}
-
-.spotlight-card__preview {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  padding: var(--space-6);
-  background: #fbfaf7;
-  border-bottom: 1px solid var(--border);
 }
 
 .spotlight-card__body,
@@ -234,9 +203,13 @@ code {
   font-size: clamp(2rem, 3vw, 3rem);
 }
 
+.spotlight-card__facts {
+  margin: -0.25rem 0 0;
+  color: var(--muted);
+}
+
 .spotlight-card__footer {
   display: flex;
-  justify-content: space-between;
   gap: var(--space-4);
   align-items: center;
 }
@@ -283,30 +256,7 @@ code {
 }
 
 .article-card {
-  overflow: hidden;
   background: #fff;
-}
-
-.article-card__preview {
-  display: flex;
-  justify-content: space-between;
-  gap: var(--space-4);
-  align-items: center;
-  padding: 1rem 1.2rem;
-  border-bottom: 1px solid var(--border);
-  background: #fbfaf7;
-  color: var(--muted);
-}
-
-.article-card__preview span {
-  font-family: var(--font-serif);
-  font-size: 1.35rem;
-  color: var(--ink);
-}
-
-.article-card__preview p {
-  margin: 0;
-  font-size: 0.95rem;
 }
 
 .article-card__header,
@@ -350,16 +300,6 @@ code {
   outline: none;
 }
 
-.guide-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.guide-card {
-  display: grid;
-  gap: var(--space-3);
-  background: #fff;
-}
-
 .site-footer {
   margin-top: var(--space-12);
   padding-top: var(--space-6);
@@ -370,11 +310,6 @@ code {
 @media (max-width: 1040px) {
   .hero,
   .section__head {
-    grid-template-columns: 1fr;
-  }
-
-  .hero__stats,
-  .guide-grid {
     grid-template-columns: 1fr;
   }
 
@@ -399,7 +334,6 @@ code {
     grid-template-columns: 1fr;
   }
 
-  .article-card__header,
   .article-card__footer,
   .spotlight-card__footer,
   .hero__actions {

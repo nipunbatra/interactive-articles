@@ -354,7 +354,8 @@ function drawTwoDOverview() {
       \begin{bmatrix}
         ${formatFixed(twoDState.sigmaX ** 2)} & ${formatFixed(covXY)} \\
         ${formatFixed(covXY)} & ${formatFixed(twoDState.sigmaY ** 2)}
-      \end{bmatrix}`
+      \end{bmatrix}`,
+    false
   );
   elements.ellipseAngle.textContent = `${formatFixed(angle * 180 / Math.PI, 1)}°`;
   elements.majorSpread.textContent = formatFixed(Math.sqrt(lambda1));
@@ -576,15 +577,20 @@ function drawJointMath() {
   const covXY = twoDState.rho * twoDState.sigmaX * twoDState.sigmaY;
   renderTex(
     elements.jointDistributionMath,
-    String.raw`\begin{bmatrix} X \\ Y \end{bmatrix}
-      \sim
-      \mathcal{N}\!\left(
-        \begin{bmatrix} ${formatFixed(twoDState.muX)} \\ ${formatFixed(twoDState.muY)} \end{bmatrix},
-        \begin{bmatrix}
-          ${formatFixed(twoDState.sigmaX ** 2)} & ${formatFixed(covXY)} \\
-          ${formatFixed(covXY)} & ${formatFixed(twoDState.sigmaY ** 2)}
-        \end{bmatrix}
-      \right)`
+    String.raw`\begin{aligned}
+      Z &= \begin{bmatrix} X \\ Y \end{bmatrix},
+      \qquad
+      Z \sim \mathcal{N}(\mu, \Sigma) \\
+      \mu &= \begin{bmatrix}
+        ${formatFixed(twoDState.muX)} \\
+        ${formatFixed(twoDState.muY)}
+      \end{bmatrix} \\
+      \Sigma &=
+      \begin{bmatrix}
+        ${formatFixed(twoDState.sigmaX ** 2)} & ${formatFixed(covXY)} \\
+        ${formatFixed(covXY)} & ${formatFixed(twoDState.sigmaY ** 2)}
+      \end{bmatrix}
+    \end{aligned}`
   );
 }
 

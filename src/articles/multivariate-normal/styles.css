@@ -326,6 +326,29 @@ p {
   color: #556071;
 }
 
+.hero-note,
+.section-note {
+  max-width: 42rem;
+  padding: var(--space-4) 0 0;
+  border-top: 1px solid var(--border);
+}
+
+.hero-note__label {
+  margin: 0 0 var(--space-3);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.74rem;
+  color: var(--muted);
+}
+
+.quiet-list {
+  margin: 0;
+  padding-left: 1.2rem;
+  color: var(--muted);
+  display: grid;
+  gap: 0.4rem;
+}
+
 .hero__meta-row,
 .hero__actions,
 .transition-card__chips {
@@ -380,6 +403,10 @@ p {
 .challenge-grid {
   display: grid;
   gap: var(--space-4);
+}
+
+.challenge-grid.challenge-grid--two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .mini-card,
@@ -590,6 +617,13 @@ input[type="range"] {
 .canvas-card {
   padding: var(--space-4);
   overflow: hidden;
+}
+
+.figure-note {
+  margin: var(--space-3) 0 0;
+  max-width: none;
+  color: var(--muted);
+  font-size: 0.95rem;
 }
 
 .canvas-card--warm {
@@ -843,6 +877,24 @@ input[type="range"] {
   font-size: var(--h3);
 }
 
+.card-kicker {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.callout-line {
+  margin: 0;
+  color: var(--muted);
+}
+
+.section-note--closing {
+  max-width: 48rem;
+  padding-top: var(--space-6);
+}
+
 .reveal {
   opacity: 1;
   transform: none;
@@ -899,6 +951,11 @@ input[type="range"] {
     padding: var(--space-8) var(--space-4) var(--space-12);
   }
 
+  .sidebar__title,
+  .sidebar__copy {
+    display: none;
+  }
+
   .sidebar__inner,
   .mini-card,
   .stat-card,
@@ -912,7 +969,8 @@ input[type="range"] {
   .controls-card--two-column,
   .control-group--split,
   .controls-card--joint,
-  .joint-matrix {
+  .joint-matrix,
+  .challenge-grid.challenge-grid--two {
     grid-template-columns: 1fr;
   }
 
@@ -957,6 +1015,12 @@ input[type="range"] {
 
 .katex {
   font-size: 1.06em;
+}
+
+.equation-block .katex,
+.equation-line .katex,
+.matrix-display .katex {
+  font-size: 0.98em;
 }
 
 .equation-stack--transition {

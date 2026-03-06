@@ -1,9 +1,9 @@
 {
   "slug": "multivariate-normal",
   "title": "Seeing the Multivariate Normal",
-  "tagline": "From a 1D bell curve to marginals and conditionals",
-  "summary": "An intuition-first interactive article that starts with the ordinary normal distribution, then builds a 2D Gaussian with live marginals, conditionals, and geometric explanations.",
-  "readingTime": "12 min",
+  "tagline": "From one bell curve to clouds, marginals, and slices",
+  "summary": "A longer, example-driven explainer that starts with the ordinary bell curve, then builds a 2D Gaussian with live marginals, conditional slices, and concrete stories.",
+  "readingTime": "16 min",
   "difficulty": "Intermediate",
   "collection": "Probability and statistics",
   "order": 1,
@@ -12,6 +12,7 @@
   "highlights": [
     "Start with a live 1D bell curve before moving into two dimensions.",
     "Rotate and stretch a Gaussian cloud with direct control of covariance.",
-    "Drag slice lines to see marginals and conditionals update in sync."
+    "Load concrete examples and drag slice lines to see marginals and conditionals update in sync.",
+    "Finish with short takeaways that tie geometry, probability, and conditioning together."
   ]
 }

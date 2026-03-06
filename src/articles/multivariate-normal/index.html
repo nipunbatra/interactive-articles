@@ -19,7 +19,7 @@
           <p class="sidebar__eyebrow">Interactive article</p>
           <h1 class="sidebar__title">Seeing the multivariate normal</h1>
           <p class="sidebar__copy">
-            Start with one bell curve. Stretch it into a cloud. Then slice that cloud to see where marginals and conditionals come from.
+            Start with a bell curve. Turn it into a cloud. Then slice that cloud until marginals and conditionals feel inevitable.
           </p>
 
           <nav class="toc" aria-label="Section navigation">
@@ -28,7 +28,7 @@
             <a class="toc__link" href="#two-d">2D Gaussian</a>
             <a class="toc__link" href="#examples">Examples</a>
             <a class="toc__link" href="#slices">Marginals and conditionals</a>
-            <a class="toc__link" href="#playground">Try these patterns</a>
+            <a class="toc__link" href="#takeaways">Takeaways</a>
           </nav>
         </div>
       </aside>
@@ -43,6 +43,14 @@
           <p class="hero__lede">
             The reason people keep coming back to this family is not just that it is mathematically neat. It is that Gaussian structure makes uncertainty feel geometric. You can see the mean. You can see the spread. You can see what happens when one variable starts whispering information about another.
           </p>
+          <div class="hero-note">
+            <p class="hero-note__label">Keep these three questions in view</p>
+            <ul class="quiet-list">
+              <li>Where is the center?</li>
+              <li>How wide is the uncertainty?</li>
+              <li>If one coordinate moves, what does the other one tend to do?</li>
+            </ul>
+          </div>
           <div class="hero__actions">
             <a class="hero-link" href="#one-d">Start with the bell curve</a>
             <a class="hero-link hero-link--ghost" href="#slices">Jump to marginals and conditionals</a>
@@ -154,6 +162,7 @@
 
               <div class="canvas-card canvas-card--warm">
                 <canvas id="oneDCanvas" width="900" height="420" aria-label="1D normal distribution plot"></canvas>
+                <p class="figure-note">The bell gets wider as <code>&sigma;</code> grows, and the peak drops because total probability must still add up to 1.</p>
               </div>
 
               <div class="stats-grid">
@@ -233,12 +242,12 @@
               <p class="stat-card__label">2D density</p>
               <div class="formula-card__math" data-katex-display>
                 \[
-                  f_Z(z)
-                  =
-                  \frac{1}{2\pi |\Sigma|^{1/2}}
-                  \exp\!\left(
-                    -\frac{1}{2}(z-\mu)^\top \Sigma^{-1}(z-\mu)
-                  \right)
+                  \begin{aligned}
+                    f_Z(z) &= \frac{1}{2\pi |\Sigma|^{1/2}} \\
+                    &\quad \times \exp\!\left(
+                      -\frac{1}{2}(z-\mu)^\top \Sigma^{-1}(z-\mu)
+                    \right)
+                  \end{aligned}
                 \]
               </div>
               <p class="formula-card__copy">The determinant <code>|&Sigma;|</code> controls how spread out the mass is, while <code>&Sigma;<sup>-1</sup></code> defines the ellipse geometry.</p>
@@ -309,6 +318,7 @@
 
               <div class="canvas-card canvas-card--cool">
                 <canvas id="twoDCanvas" width="860" height="520" aria-label="2D Gaussian contour and samples"></canvas>
+                <p class="figure-note">The dots are random draws. The ellipses are equal-density contours. Correlation changes their tilt; variances change their width.</p>
               </div>
 
               <div class="stats-grid stats-grid--matrix">
@@ -349,27 +359,60 @@
         <section class="section reveal" id="examples" data-nav="Examples">
           <div class="section__header">
             <p class="section__eyebrow">Section 3</p>
-            <h2 class="section__title">A few concrete pictures to carry around</h2>
+            <h2 class="section__title">Six stories told with the same Gaussian language</h2>
             <p class="section__subtitle">
-              Abstract parameters stick better when they point to something concrete. These presets package the same Gaussian ideas into recognizable situations.
+              The distribution does not care whether the axes mean sleep, money, location, or measurement drift. What changes is the story you map onto the same geometry.
             </p>
           </div>
 
-          <div class="challenge-grid">
+          <div class="section-note">
+            <p>
+              Load any of these into the 2D plot above. The point of the examples is not that the world is exactly Gaussian. The point is that the Gaussian is a compact language for center, spread, and co-movement.
+            </p>
+          </div>
+
+          <div class="challenge-grid challenge-grid--two">
             <article class="challenge-card">
-              <h3>Student performance</h3>
-              <p>Imagine <code>x</code> as hours of sleep and <code>y</code> as quiz score. More sleep tends to help, but not perfectly, so you get a positively tilted cloud rather than a line.</p>
+              <p class="card-kicker">Positive tilt</p>
+              <h3>Sleep and quiz score</h3>
+              <p><code>x</code> is hours of sleep. <code>y</code> is quiz score. More sleep usually helps, but not perfectly, so the cloud leans upward instead of collapsing to a line.</p>
+              <p class="callout-line"><strong>Takeaway:</strong> correlation is a tendency, not a rigid law.</p>
               <button class="preset-button" data-two-d-preset="study-habits">Load study-habits example</button>
             </article>
             <article class="challenge-card">
-              <h3>Budget and surprise costs</h3>
-              <p>Let <code>x</code> be planned spending and <code>y</code> be leftover cash. Bigger plans often leave less cash, so the cloud tilts downward.</p>
+              <p class="card-kicker">Negative tilt</p>
+              <h3>Budget and leftover cash</h3>
+              <p><code>x</code> is planned spending. <code>y</code> is cash left over at the end of the month. Larger plans usually leave less cash, so the cloud tilts downward.</p>
+              <p class="callout-line"><strong>Takeaway:</strong> a negative covariance means one variable tends to rise while the other falls.</p>
               <button class="preset-button" data-two-d-preset="budget">Load budget example</button>
             </article>
             <article class="challenge-card">
+              <p class="card-kicker">Long thin ridge</p>
               <h3>GPS uncertainty on a road</h3>
-              <p>The location is much more uncertain along the road than across it. That creates a thin ridge: one very uncertain direction, one very certain direction.</p>
+              <p>The position is much more uncertain along the road than across it. That produces a thin ridge: one direction is loose, the other direction is tight.</p>
+              <p class="callout-line"><strong>Takeaway:</strong> the ellipse shows uncertainty in the coordinates the system actually cares about, not just in the raw x and y axes.</p>
               <button class="preset-button" data-two-d-preset="road-gps">Load road-GPS example</button>
+            </article>
+            <article class="challenge-card">
+              <p class="card-kicker">Shared trend</p>
+              <h3>Height and weight</h3>
+              <p><code>x</code> is height. <code>y</code> is weight. Taller people tend to weigh more, so the cloud leans upward and the best slice-based prediction also moves upward.</p>
+              <p class="callout-line"><strong>Takeaway:</strong> conditioning is the move from “people in general” to “people near this x-value.”</p>
+              <button class="preset-button" data-two-d-preset="positive">Load height-weight style</button>
+            </article>
+            <article class="challenge-card">
+              <p class="card-kicker">Tradeoff</p>
+              <h3>Speed and travel time</h3>
+              <p><code>x</code> is average speed. <code>y</code> is travel time for a fixed route. Faster trips tend to take less time, so the cloud leans downward.</p>
+              <p class="callout-line"><strong>Takeaway:</strong> negative correlation is easiest to feel when the story naturally contains a tradeoff.</p>
+              <button class="preset-button" data-two-d-preset="negative">Load speed-time style</button>
+            </article>
+            <article class="challenge-card">
+              <p class="card-kicker">Common drift</p>
+              <h3>Two measurements from one drifting machine</h3>
+              <p>Imagine width and thickness from the same production line. If the machine drifts, both measurements drift together and the cloud becomes narrow along one preferred direction.</p>
+              <p class="callout-line"><strong>Takeaway:</strong> covariance often encodes a hidden shared cause.</p>
+              <button class="preset-button" data-two-d-preset="needle">Load machine-drift style</button>
             </article>
           </div>
         </section>
@@ -507,21 +550,23 @@
                     <div class="equation-line" data-katex-display>
                       \[
                         X \mid Y=y_0
-                        \sim
-                        \mathcal{N}\!\left(
-                          \mu_x + \rho\frac{\sigma_x}{\sigma_y}(y_0-\mu_y),
-                          (1-\rho^2)\sigma_x^2
-                        \right)
+                        :
+                        \quad
+                        \begin{aligned}
+                          \mu_{X \mid Y=y_0} &= \mu_x + \rho\frac{\sigma_x}{\sigma_y}(y_0-\mu_y) \\
+                          \sigma^2_{X \mid Y=y_0} &= (1-\rho^2)\sigma_x^2
+                        \end{aligned}
                       \]
                     </div>
                     <div class="equation-line" data-katex-display>
                       \[
                         Y \mid X=x_0
-                        \sim
-                        \mathcal{N}\!\left(
-                          \mu_y + \rho\frac{\sigma_y}{\sigma_x}(x_0-\mu_x),
-                          (1-\rho^2)\sigma_y^2
-                        \right)
+                        :
+                        \quad
+                        \begin{aligned}
+                          \mu_{Y \mid X=x_0} &= \mu_y + \rho\frac{\sigma_y}{\sigma_x}(x_0-\mu_x) \\
+                          \sigma^2_{Y \mid X=x_0} &= (1-\rho^2)\sigma_y^2
+                        \end{aligned}
                       \]
                     </div>
                   </div>
@@ -563,31 +608,51 @@
           </div>
         </section>
 
-        <section class="section reveal" id="playground" data-nav="Try these patterns">
+        <section class="section reveal" id="takeaways" data-nav="Takeaways">
           <div class="section__header">
             <p class="section__eyebrow">Section 5</p>
-            <h2 class="section__title">A few good things to notice</h2>
+            <h2 class="section__title">What to keep in your head</h2>
             <p class="section__subtitle">
-              These quick patterns are where the intuition tends to click. Tap one, then adjust the sliders yourself.
+              If you forget the exact formulas, these are the pictures and rules worth keeping.
             </p>
           </div>
 
-          <div class="challenge-grid">
+          <div class="challenge-grid challenge-grid--two">
             <article class="challenge-card">
-              <h3>Correlation rotates, not just squeezes</h3>
-              <p>Keep both spreads fixed and slide <code>&rho;</code>. Watch the same cloud pivot from downward to upward tilt.</p>
-              <button class="preset-button" data-two-d-preset="symmetric">Use symmetric spreads</button>
+              <p class="card-kicker">Core picture</p>
+              <h3>In 1D, the mean is a location and the variance is a width.</h3>
+              <p>The bell curve slides when the mean changes and spreads when the variance grows. Everything in higher dimensions is this same story with more directions available.</p>
             </article>
             <article class="challenge-card">
-              <h3>Marginals ignore tilt</h3>
-              <p>Change <code>&rho;</code> while looking at the x and y marginals. Their widths do not change, because marginals only care about the diagonal of the covariance matrix.</p>
+              <p class="card-kicker">Core picture</p>
+              <h3>In 2D, the mean is a point and the covariance matrix makes the ellipse.</h3>
+              <p>The diagonal terms decide how wide the cloud wants to be along each axis. The off-diagonal terms decide whether the cloud leans.</p>
+              <button class="preset-button" data-two-d-preset="symmetric">Show a rotating cloud</button>
+            </article>
+            <article class="challenge-card">
+              <p class="card-kicker">Marginals</p>
+              <h3>A marginal forgets one axis.</h3>
+              <p>That is why changing <code>&rho;</code> rotates the joint cloud while the marginal widths stay fixed. A marginal only reads the diagonal entries of <code>&Sigma;</code>.</p>
               <button class="preset-button" data-two-d-preset="marginal-demo">Show this</button>
             </article>
             <article class="challenge-card">
-              <h3>Conditionals get tighter with stronger correlation</h3>
-              <p>Push <code>|&rho;|</code> toward 1 and the conditional distribution becomes sharply concentrated around a line.</p>
+              <p class="card-kicker">Conditionals</p>
+              <h3>A conditional keeps the Gaussian shape but becomes narrower.</h3>
+              <p>Once one coordinate is observed, the other one has less room to wander. The shrink factor is <code>&radic;(1 - &rho;²)</code>, so stronger correlation means tighter slices.</p>
               <button class="preset-button" data-two-d-preset="conditional-demo">Tighten the slice</button>
             </article>
+            <article class="challenge-card">
+              <p class="card-kicker">Prediction</p>
+              <h3>Slices are a first visual model of regression.</h3>
+              <p>When you drag the slice line, you are watching the conditional mean move along the best linear trend through the cloud.</p>
+              <button class="preset-button" data-two-d-preset="positive">Show an upward trend</button>
+            </article>
+          </div>
+
+          <div class="section-note section-note--closing">
+            <p>
+              If you remember one picture, remember this: a multivariate normal is a smooth cloud with a center, a preferred spread, and a tilt. Marginals look at the cloud from the side. Conditionals cut through it and become narrower when the variables agree.
+            </p>
           </div>
         </section>
       </main>

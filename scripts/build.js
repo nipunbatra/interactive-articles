@@ -69,16 +69,6 @@ function loadArticles() {
   return articles.sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
 }
 
-function uniqueTags(articles) {
-  return [...new Set(articles.flatMap((article) => article.tags || []))];
-}
-
-function renderTagPills(tags, extraClass = '') {
-  return tags
-    .map((tag) => `<span class="pill ${extraClass}">${escapeHtml(tag)}</span>`)
-    .join('');
-}
-
 function renderHighlights(highlights, compact = false) {
   return `
     <ul class="feature-list${compact ? ' feature-list--compact' : ''}">
@@ -90,20 +80,11 @@ function renderHighlights(highlights, compact = false) {
 function renderFeaturedArticle(article) {
   return `
     <aside class="spotlight-card">
-      <div class="spotlight-card__preview" aria-hidden="true">
-        <span class="preview-pill preview-pill--coral">1D bell</span>
-        <span class="preview-pill preview-pill--teal">2D cloud</span>
-        <span class="preview-pill preview-pill--gold">Slices</span>
-      </div>
       <div class="spotlight-card__body">
         <p class="card__meta">Featured explainer</p>
         <h2 class="spotlight-card__title">${escapeHtml(article.title)}</h2>
         <p class="card__copy">${escapeHtml(article.summary)}</p>
-        <div class="pill-row pill-row--soft">
-          <span class="pill">${escapeHtml(article.collection || 'Explainer')}</span>
-          <span class="pill">${escapeHtml(article.difficulty || 'Open level')}</span>
-          <span class="pill">${escapeHtml(article.readingTime || '')}</span>
-        </div>
+        <p class="spotlight-card__facts">${escapeHtml(article.collection || 'Explainer')} · ${escapeHtml(article.difficulty || 'Open level')} · ${escapeHtml(article.readingTime || '')}</p>
         ${renderHighlights(article.highlights)}
         <div class="spotlight-card__footer">
           <a class="article-link" href="${escapeHtml(article.url)}">Read the explainer</a>
@@ -114,25 +95,14 @@ function renderFeaturedArticle(article) {
 }
 
 function renderArticleCards(articles) {
-  return articles.map((article, index) => `
+  return articles.map((article) => `
       <article class="article-card">
-        <div class="article-card__preview" aria-hidden="true">
-          <span>${String(index + 1).padStart(2, '0')}</span>
-          <p>${escapeHtml(article.tagline || article.collection || '')}</p>
-        </div>
         <div class="article-card__body">
-          <div class="article-card__header">
-            <div>
-              <p class="card__meta">${escapeHtml(article.collection || 'Explainer')}</p>
-              <h2 class="card__title">${escapeHtml(article.title)}</h2>
-            </div>
-            <span class="pill">${escapeHtml(article.readingTime || '')}</span>
-          </div>
+          <p class="card__meta">${escapeHtml(article.collection || 'Explainer')} · ${escapeHtml(article.readingTime || '')}</p>
+          <h2 class="card__title">${escapeHtml(article.title)}</h2>
           <p class="card__copy">${escapeHtml(article.summary || '')}</p>
           ${renderHighlights(article.highlights, true)}
-          <div class="pill-row">${renderTagPills(article.tags || [])}</div>
           <div class="article-card__footer">
-            <span class="pill">${escapeHtml(article.status || 'published')}</span>
             <a class="article-link" href="${escapeHtml(article.url)}">Open article</a>
           </div>
         </div>
@@ -142,7 +112,6 @@ function renderArticleCards(articles) {
 
 function renderHomePage(siteConfig, articles) {
   const featuredArticle = articles[0];
-  const tags = uniqueTags(articles);
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -160,8 +129,7 @@ function renderHomePage(siteConfig, articles) {
         <a class="brand-mark" href="./">${escapeHtml(siteConfig.title)}</a>
       </div>
       <div class="site-header__meta">
-        <span class="tiny-pill">${articles.length} published</span>
-        <span class="tiny-pill">Narrative + math + interaction</span>
+        <span class="tiny-pill">${articles.length} explainer</span>
       </div>
     </header>
 
@@ -169,30 +137,17 @@ function renderHomePage(siteConfig, articles) {
       <section class="hero">
         <div class="hero__copy">
           <p class="eyebrow">Interactive explainers</p>
-          <h1 class="hero__title">Articles that let you drag the idea until it clicks.</h1>
+          <h1 class="hero__title">Short visual essays where the picture moves and the idea gets simpler.</h1>
           <p class="hero__copy">${escapeHtml(siteConfig.description)}</p>
-          <p class="hero__copy">Each piece is designed as a guided experience: start with intuition, adjust live controls, then land on the math once the shape already makes sense.</p>
+          <p class="hero__copy">The aim is not to impress with widgets. It is to pace the idea well: first the picture, then the motion, then the formulas, then a few durable takeaways.</p>
+          <ul class="hero-list">
+            <li>Start with intuition.</li>
+            <li>Touch the figure.</li>
+            <li>Finish with the math once the shape already makes sense.</li>
+          </ul>
           <div class="hero__actions">
             <a class="article-link" href="${escapeHtml(featuredArticle.url)}">Start with the featured explainer</a>
             <a class="ghost-link" href="#library">Browse the library</a>
-          </div>
-          <div class="pill-row pill-row--hero">${renderTagPills(tags)}</div>
-          <div class="hero__stats">
-            <article class="stat-card">
-              <p class="eyebrow">Format</p>
-              <p class="stat-card__value">Hands-on</p>
-              <p class="hero__copy">Readers should move sliders, drag points, and watch the story change.</p>
-            </article>
-            <article class="stat-card">
-              <p class="eyebrow">Arc</p>
-              <p class="stat-card__value">Feel then formalize</p>
-              <p class="hero__copy">The goal is not a glossary. It is a sequence that makes the math feel inevitable.</p>
-            </article>
-            <article class="stat-card">
-              <p class="eyebrow">Deploy</p>
-              <p class="stat-card__value">Static + fast</p>
-              <p class="hero__copy">Everything ships as a lightweight static site and deploys cleanly with GitHub Pages.</p>
-            </article>
           </div>
         </div>
         ${renderFeaturedArticle(featuredArticle)}
@@ -211,32 +166,8 @@ function renderHomePage(siteConfig, articles) {
         </div>
       </section>
 
-      <section class="section section--tracks">
-        <div class="section__head">
-          <div>
-            <p class="eyebrow">What makes these different</p>
-            <h2 class="section__title">Built like explainers, not notes</h2>
-          </div>
-          <p class="section__copy">The reference bar is an explainer that has a point of view, a rhythm, and a reason to exist interactively.</p>
-        </div>
-        <div class="guide-grid">
-          <article class="guide-card">
-            <p class="guide__label">Narrative spine</p>
-            <p class="guide__copy">Every explainer should have a visible path: what you know at the start, what changes in the middle, and what you can now answer at the end.</p>
-          </article>
-          <article class="guide-card">
-            <p class="guide__label">Visual payoffs</p>
-            <p class="guide__copy">Interactions are not decoration. They should expose the one thing that is hard to understand from static text alone.</p>
-          </article>
-          <article class="guide-card">
-            <p class="guide__label">Library quality</p>
-            <p class="guide__copy">The landing page should feel curated: clear spotlight, clear catalog, and a strong sense of what kind of learning experience lives here.</p>
-          </article>
-        </div>
-      </section>
-
       <footer class="site-footer">
-        <p>${escapeHtml(siteConfig.title)}. Static, fast, and organized for adding more interactive explainers without reworking the whole site.</p>
+        <p>${escapeHtml(siteConfig.title)}. Quiet, static, and organized for adding more explainers without rebuilding the whole site each time.</p>
       </footer>
     </main>
   </body>
