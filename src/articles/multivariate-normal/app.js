@@ -18,6 +18,14 @@ const twoDState = {
   ySliceOffset: 0,
 };
 
+const samplingState = {
+  count: 120,
+};
+
+const learningState = {
+  datasetKey: 'sleep-class',
+};
+
 const elements = {
   progressFill: document.getElementById('progressFill'),
   navLinks: Array.from(document.querySelectorAll('.toc__link')),
@@ -52,6 +60,22 @@ const elements = {
   majorSpread: document.getElementById('majorSpread'),
   twoDCanvas: document.getElementById('twoDCanvas'),
 
+  samplingCount: document.getElementById('samplingCount'),
+  samplingCountValue: document.getElementById('samplingCountValue'),
+  resampleSamples: document.getElementById('resampleSamples'),
+  samplingCanvas: document.getElementById('samplingCanvas'),
+  samplingMean: document.getElementById('samplingMean'),
+  samplingCovariance: document.getElementById('samplingCovariance'),
+  samplingNarrative: document.getElementById('samplingNarrative'),
+
+  datasetDescription: document.getElementById('datasetDescription'),
+  datasetPreview: document.getElementById('datasetPreview'),
+  learningCanvas: document.getElementById('learningCanvas'),
+  estimatedMean: document.getElementById('estimatedMean'),
+  estimatedCovariance: document.getElementById('estimatedCovariance'),
+  datasetSize: document.getElementById('datasetSize'),
+  datasetTakeaway: document.getElementById('datasetTakeaway'),
+
   xSliceOffset: document.getElementById('xSliceOffset'),
   xSliceOffsetValue: document.getElementById('xSliceOffsetValue'),
   ySliceOffset: document.getElementById('ySliceOffset'),
@@ -77,10 +101,39 @@ const elements = {
 };
 
 const baseSamples = Array.from({ length: 280 }, () => [randn(), randn()]);
+let samplingBaseSamples = generateStandardPairs(320);
 const conditionalInteraction = {
   plane: null,
   dragMode: null,
 };
+
+const learningDatasetConfigs = {
+  'sleep-class': {
+    description: 'A small classroom-style dataset where more sleep tends to come with better quiz scores, but there is still a lot of scatter.',
+    takeaway: 'Even with only a handful of points, the fitted ellipse usually recovers the main upward trend.',
+    count: 18,
+    seed: 17,
+    state: { muX: 0.2, muY: 0.35, sigmaX: 0.95, sigmaY: 0.85, rho: 0.62 },
+  },
+  'budget-class': {
+    description: 'A toy household-budget dataset where higher planned spending tends to leave less cash at the end of the month.',
+    takeaway: 'The negative tilt appears quickly because the tradeoff is visible even in a small sample.',
+    count: 18,
+    seed: 29,
+    state: { muX: 0.1, muY: -0.2, sigmaX: 1.1, sigmaY: 0.85, rho: -0.7 },
+  },
+  'road-class': {
+    description: 'A tracking dataset for an object moving along a road, where position along the road is much more uncertain than position across it.',
+    takeaway: 'The estimated covariance reveals the long-and-thin uncertainty direction even when the raw coordinates look messy.',
+    count: 20,
+    seed: 43,
+    state: { muX: 0, muY: 0, sigmaX: 1.7, sigmaY: 0.42, rho: 0.84 },
+  },
+};
+
+const learningDatasets = Object.fromEntries(
+  Object.entries(learningDatasetConfigs).map(([key, config]) => [key, buildLearningDataset(config)])
+);
 
 function normalPdf(x, mu = 0, sigma = 1) {
   const z = (x - mu) / sigma;
@@ -111,6 +164,26 @@ function randn() {
   while (u === 0) u = Math.random();
   while (v === 0) v = Math.random();
   return Math.sqrt(-2 * Math.log(u)) * Math.cos(TAU * v);
+}
+
+function randnFromRng(rng) {
+  let u = 0;
+  let v = 0;
+  while (u === 0) u = rng();
+  while (v === 0) v = rng();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(TAU * v);
+}
+
+function createSeededRandom(seed) {
+  let value = seed >>> 0;
+  return () => {
+    value = (1664525 * value + 1013904223) >>> 0;
+    return (value + 0.5) / 4294967296;
+  };
+}
+
+function generateStandardPairs(count, rng = Math.random) {
+  return Array.from({ length: count }, () => [randnFromRng(rng), randnFromRng(rng)]);
 }
 
 function clamp(value, min, max) {
@@ -169,6 +242,80 @@ function resizeCanvas(canvas) {
   const ctx = canvas.getContext('2d');
   ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
   return { ctx, width: cssWidth, height: cssHeight };
+}
+
+function projectStandardPairs(state, pairs, count = pairs.length) {
+  const sqrtTerm = Math.sqrt(Math.max(1 - state.rho ** 2, 0.0001));
+  return pairs.slice(0, count).map(([z1, z2]) => ({
+    x: state.muX + state.sigmaX * z1,
+    y: state.muY + state.sigmaY * (state.rho * z1 + sqrtTerm * z2),
+  }));
+}
+
+function computePointStats(points) {
+  const n = Math.max(points.length, 1);
+  const meanX = points.reduce((sum, point) => sum + point.x, 0) / n;
+  const meanY = points.reduce((sum, point) => sum + point.y, 0) / n;
+  const covXX = points.reduce((sum, point) => sum + (point.x - meanX) ** 2, 0) / n;
+  const covYY = points.reduce((sum, point) => sum + (point.y - meanY) ** 2, 0) / n;
+  const covXY = points.reduce((sum, point) => sum + (point.x - meanX) * (point.y - meanY), 0) / n;
+  return { meanX, meanY, covXX, covYY, covXY };
+}
+
+function statsToGaussianState(stats) {
+  const sigmaX = Math.sqrt(Math.max(stats.covXX, 0.0001));
+  const sigmaY = Math.sqrt(Math.max(stats.covYY, 0.0001));
+  const rho = clamp(stats.covXY / Math.max(sigmaX * sigmaY, 0.0001), -0.97, 0.97);
+  return {
+    muX: stats.meanX,
+    muY: stats.meanY,
+    sigmaX,
+    sigmaY,
+    rho,
+  };
+}
+
+function getBoundsForPointsAndStates(points, states) {
+  let xMin = Infinity;
+  let xMax = -Infinity;
+  let yMin = Infinity;
+  let yMax = -Infinity;
+
+  points.forEach((point) => {
+    xMin = Math.min(xMin, point.x);
+    xMax = Math.max(xMax, point.x);
+    yMin = Math.min(yMin, point.y);
+    yMax = Math.max(yMax, point.y);
+  });
+
+  states.forEach((state) => {
+    const bounds = getViewBounds(state);
+    xMin = Math.min(xMin, bounds.xMin);
+    xMax = Math.max(xMax, bounds.xMax);
+    yMin = Math.min(yMin, bounds.yMin);
+    yMax = Math.max(yMax, bounds.yMax);
+  });
+
+  return { xMin, xMax, yMin, yMax };
+}
+
+function formatPointList(points, count = 4) {
+  return points
+    .slice(0, count)
+    .map((point) => `(${formatFixed(point.x)}, ${formatFixed(point.y)})`)
+    .join(', ');
+}
+
+function buildLearningDataset(config) {
+  const pairs = generateStandardPairs(config.count, createSeededRandom(config.seed));
+  const points = projectStandardPairs(config.state, pairs, config.count);
+  const stats = computePointStats(points);
+  return {
+    ...config,
+    points,
+    stats,
+    estimatedState: statsToGaussianState(stats),
+  };
 }
 
 function drawAxes(ctx, width, height, xMin, xMax, yMin, yMax, options = {}) {
@@ -322,11 +469,7 @@ function eigenDecomposition(sigmaX, sigmaY, rho) {
 }
 
 function samplePoints(state) {
-  const sqrtTerm = Math.sqrt(Math.max(1 - state.rho ** 2, 0.0001));
-  return baseSamples.map(([z1, z2]) => ({
-    x: state.muX + state.sigmaX * z1,
-    y: state.muY + state.sigmaY * (state.rho * z1 + sqrtTerm * z2),
-  }));
+  return projectStandardPairs(state, baseSamples);
 }
 
 function getViewBounds(state) {
@@ -447,39 +590,12 @@ function drawPlane(ctx, width, height, bounds, options = {}) {
 }
 
 function drawGaussianCloud(ctx, plane, state, options = {}) {
-  const { xToPx, yToPx } = plane;
-  const { lambda1, lambda2, angle } = eigenDecomposition(state.sigmaX, state.sigmaY, state.rho);
-  const levels = [3.1, 2.45, 1.8, 1.15];
-
-  ctx.save();
-  ctx.translate(xToPx(state.muX), yToPx(state.muY));
-  ctx.rotate(-angle);
-  levels.forEach((level, index) => {
-    const rx = level * Math.sqrt(lambda1) * plane.plotWidth / (plane.bounds.xMax - plane.bounds.xMin);
-    const ry = level * Math.sqrt(lambda2) * plane.plotHeight / (plane.bounds.yMax - plane.bounds.yMin);
-    ctx.beginPath();
-    ctx.ellipse(0, 0, rx, ry, 0, 0, TAU);
-    ctx.fillStyle = `rgba(45, 139, 136, ${0.06 + index * 0.04})`;
-    ctx.fill();
-    ctx.strokeStyle = `rgba(45, 139, 136, ${0.18 + index * 0.1})`;
-    ctx.lineWidth = 1.4;
-    ctx.stroke();
-  });
-  ctx.restore();
-
-  const points = samplePoints(state);
-  ctx.fillStyle = 'rgba(216, 112, 79, 0.34)';
-  points.forEach((point) => {
-    const px = xToPx(point.x);
-    const py = yToPx(point.y);
-    ctx.beginPath();
-    ctx.arc(px, py, 2.1, 0, TAU);
-    ctx.fill();
-  });
+  drawGaussianContours(ctx, plane, state);
+  drawScatterPoints(ctx, plane, samplePoints(state), { color: 'rgba(216, 112, 79, 0.34)', radius: 2.1 });
 
   ctx.fillStyle = '#1e2430';
   ctx.beginPath();
-  ctx.arc(xToPx(state.muX), yToPx(state.muY), 4.2, 0, TAU);
+  ctx.arc(plane.xToPx(state.muX), plane.yToPx(state.muY), 4.2, 0, TAU);
   ctx.fill();
 
   if (options.showConditional) {
@@ -493,48 +609,89 @@ function drawGaussianCloud(ctx, plane, state, options = {}) {
 
     ctx.strokeStyle = 'rgba(216, 112, 79, 0.45)';
     ctx.beginPath();
-    ctx.moveTo(xToPx(plane.bounds.xMin), yToPx(clamp(yFromX(plane.bounds.xMin), plane.bounds.yMin, plane.bounds.yMax)));
-    ctx.lineTo(xToPx(plane.bounds.xMax), yToPx(clamp(yFromX(plane.bounds.xMax), plane.bounds.yMin, plane.bounds.yMax)));
+    ctx.moveTo(plane.xToPx(plane.bounds.xMin), plane.yToPx(clamp(yFromX(plane.bounds.xMin), plane.bounds.yMin, plane.bounds.yMax)));
+    ctx.lineTo(plane.xToPx(plane.bounds.xMax), plane.yToPx(clamp(yFromX(plane.bounds.xMax), plane.bounds.yMin, plane.bounds.yMax)));
     ctx.stroke();
 
     ctx.strokeStyle = 'rgba(197, 164, 58, 0.55)';
     ctx.beginPath();
-    ctx.moveTo(xToPx(clamp(xFromY(plane.bounds.yMin), plane.bounds.xMin, plane.bounds.xMax)), yToPx(plane.bounds.yMin));
-    ctx.lineTo(xToPx(clamp(xFromY(plane.bounds.yMax), plane.bounds.xMin, plane.bounds.xMax)), yToPx(plane.bounds.yMax));
+    ctx.moveTo(plane.xToPx(clamp(xFromY(plane.bounds.yMin), plane.bounds.xMin, plane.bounds.xMax)), plane.yToPx(plane.bounds.yMin));
+    ctx.lineTo(plane.xToPx(clamp(xFromY(plane.bounds.yMax), plane.bounds.xMin, plane.bounds.xMax)), plane.yToPx(plane.bounds.yMax));
     ctx.stroke();
     ctx.restore();
 
     ctx.strokeStyle = 'rgba(216, 112, 79, 0.95)';
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(xToPx(info.observedX), plane.plotTop);
-    ctx.lineTo(xToPx(info.observedX), plane.plotBottom);
+    ctx.moveTo(plane.xToPx(info.observedX), plane.plotTop);
+    ctx.lineTo(plane.xToPx(info.observedX), plane.plotBottom);
     ctx.stroke();
 
     ctx.strokeStyle = 'rgba(197, 164, 58, 0.95)';
     ctx.beginPath();
-    ctx.moveTo(plane.plotLeft, yToPx(info.observedY));
-    ctx.lineTo(plane.plotRight, yToPx(info.observedY));
+    ctx.moveTo(plane.plotLeft, plane.yToPx(info.observedY));
+    ctx.lineTo(plane.plotRight, plane.yToPx(info.observedY));
     ctx.stroke();
 
     ctx.fillStyle = '#d8704f';
     ctx.beginPath();
-    ctx.arc(xToPx(info.observedX), yToPx(info.yConditionalMu), 5.5, 0, TAU);
+    ctx.arc(plane.xToPx(info.observedX), plane.yToPx(info.yConditionalMu), 5.5, 0, TAU);
     ctx.fill();
 
     ctx.fillStyle = '#c5a43a';
     ctx.beginPath();
-    ctx.arc(xToPx(info.xConditionalMu), yToPx(info.observedY), 5.5, 0, TAU);
+    ctx.arc(plane.xToPx(info.xConditionalMu), plane.yToPx(info.observedY), 5.5, 0, TAU);
     ctx.fill();
 
     ctx.fillStyle = 'white';
     ctx.strokeStyle = '#1e2430';
     ctx.lineWidth = 1.6;
     ctx.beginPath();
-    ctx.arc(xToPx(info.observedX), yToPx(info.observedY), 4.6, 0, TAU);
+    ctx.arc(plane.xToPx(info.observedX), plane.yToPx(info.observedY), 4.6, 0, TAU);
     ctx.fill();
     ctx.stroke();
   }
+}
+
+function drawGaussianContours(ctx, plane, state, options = {}) {
+  const { xToPx, yToPx } = plane;
+  const { lambda1, lambda2, angle } = eigenDecomposition(state.sigmaX, state.sigmaY, state.rho);
+  const levels = [3.1, 2.45, 1.8, 1.15];
+  const fillRgb = options.fillRgb ?? '45, 139, 136';
+  const strokeRgb = options.strokeRgb ?? '45, 139, 136';
+  const fillBase = options.fillBase ?? 0.06;
+  const strokeBase = options.strokeBase ?? 0.18;
+  const fillStep = options.fillStep ?? 0.04;
+  const strokeStep = options.strokeStep ?? 0.1;
+
+  ctx.save();
+  ctx.translate(xToPx(state.muX), yToPx(state.muY));
+  ctx.rotate(-angle);
+  if (options.dashed) ctx.setLineDash([6, 5]);
+  levels.forEach((level, index) => {
+    const rx = level * Math.sqrt(lambda1) * plane.plotWidth / (plane.bounds.xMax - plane.bounds.xMin);
+    const ry = level * Math.sqrt(lambda2) * plane.plotHeight / (plane.bounds.yMax - plane.bounds.yMin);
+    ctx.beginPath();
+    ctx.ellipse(0, 0, rx, ry, 0, 0, TAU);
+    if (options.fill !== false) {
+      ctx.fillStyle = `rgba(${fillRgb}, ${fillBase + index * fillStep})`;
+      ctx.fill();
+    }
+    ctx.strokeStyle = `rgba(${strokeRgb}, ${strokeBase + index * strokeStep})`;
+    ctx.lineWidth = 1.4;
+    ctx.stroke();
+  });
+  ctx.restore();
+}
+
+function drawScatterPoints(ctx, plane, points, options = {}) {
+  const radius = options.radius ?? 2.1;
+  ctx.fillStyle = options.color ?? 'rgba(216, 112, 79, 0.34)';
+  points.forEach((point) => {
+    ctx.beginPath();
+    ctx.arc(plane.xToPx(point.x), plane.yToPx(point.y), radius, 0, TAU);
+    ctx.fill();
+  });
 }
 
 function getJointConditionals(state) {
@@ -592,6 +749,97 @@ function drawJointMath() {
       \end{bmatrix}
     \end{aligned}`
   );
+}
+
+function drawSamplingSection() {
+  const points = projectStandardPairs(twoDState, samplingBaseSamples, samplingState.count);
+  const stats = computePointStats(points);
+  const { ctx, width, height } = resizeCanvas(elements.samplingCanvas);
+  ctx.clearRect(0, 0, width, height);
+
+  const bounds = getBoundsForPointsAndStates(points, [twoDState]);
+  const plane = drawPlane(ctx, width, height, bounds, { padding: 28, equalUnits: true });
+  drawGaussianContours(ctx, plane, twoDState);
+  drawScatterPoints(ctx, plane, points, { color: 'rgba(216, 112, 79, 0.42)', radius: 2.25 });
+
+  ctx.fillStyle = '#d8704f';
+  ctx.beginPath();
+  ctx.arc(plane.xToPx(stats.meanX), plane.yToPx(stats.meanY), 4.8, 0, TAU);
+  ctx.fill();
+
+  renderTex(
+    elements.samplingMean,
+    String.raw`\hat{\mu}_{\mathrm{sample}} =
+      \begin{bmatrix}
+        ${formatFixed(stats.meanX)} \\
+        ${formatFixed(stats.meanY)}
+      \end{bmatrix}`,
+    false
+  );
+  renderTex(
+    elements.samplingCovariance,
+    String.raw`\hat{\Sigma}_{\mathrm{sample}} =
+      \begin{bmatrix}
+        ${formatFixed(stats.covXX)} & ${formatFixed(stats.covXY)} \\
+        ${formatFixed(stats.covXY)} & ${formatFixed(stats.covYY)}
+      \end{bmatrix}`,
+    false
+  );
+  elements.samplingNarrative.textContent = samplingState.count >= 180 ? 'Cloud is settling' : 'Small-sample wobble';
+}
+
+function drawLearningSection() {
+  const dataset = learningDatasets[learningState.datasetKey];
+  const { ctx, width, height } = resizeCanvas(elements.learningCanvas);
+  ctx.clearRect(0, 0, width, height);
+
+  const bounds = getBoundsForPointsAndStates(dataset.points, [dataset.state, dataset.estimatedState]);
+  const plane = drawPlane(ctx, width, height, bounds, { padding: 28, equalUnits: true });
+
+  drawGaussianContours(ctx, plane, dataset.state, {
+    fill: false,
+    dashed: true,
+    strokeRgb: '30, 36, 48',
+    strokeBase: 0.12,
+    strokeStep: 0.04,
+  });
+  drawGaussianContours(ctx, plane, dataset.estimatedState, {
+    fillRgb: '216, 112, 79',
+    strokeRgb: '216, 112, 79',
+    fillBase: 0.03,
+    fillStep: 0.025,
+    strokeBase: 0.18,
+    strokeStep: 0.08,
+  });
+  drawScatterPoints(ctx, plane, dataset.points, { color: 'rgba(45, 139, 136, 0.5)', radius: 2.6 });
+
+  ctx.fillStyle = '#d8704f';
+  ctx.beginPath();
+  ctx.arc(plane.xToPx(dataset.stats.meanX), plane.yToPx(dataset.stats.meanY), 5, 0, TAU);
+  ctx.fill();
+
+  renderTex(
+    elements.estimatedMean,
+    String.raw`\hat{\mu} =
+      \begin{bmatrix}
+        ${formatFixed(dataset.stats.meanX)} \\
+        ${formatFixed(dataset.stats.meanY)}
+      \end{bmatrix}`,
+    false
+  );
+  renderTex(
+    elements.estimatedCovariance,
+    String.raw`\hat{\Sigma} =
+      \begin{bmatrix}
+        ${formatFixed(dataset.stats.covXX)} & ${formatFixed(dataset.stats.covXY)} \\
+        ${formatFixed(dataset.stats.covXY)} & ${formatFixed(dataset.stats.covYY)}
+      \end{bmatrix}`,
+    false
+  );
+  elements.datasetDescription.textContent = dataset.description;
+  elements.datasetPreview.textContent = `First points: ${formatPointList(dataset.points)}`;
+  elements.datasetSize.textContent = `${dataset.points.length} points`;
+  elements.datasetTakeaway.textContent = dataset.takeaway;
 }
 
 function drawMarginalGuides(ctx, plane, state) {
@@ -925,6 +1173,8 @@ function syncTwoDInputs() {
   elements.rho.value = twoDState.rho;
   elements.xSliceOffset.value = twoDState.xSliceOffset;
   elements.ySliceOffset.value = twoDState.ySliceOffset;
+  elements.samplingCount.value = samplingState.count;
+  elements.samplingCountValue.textContent = String(samplingState.count);
 }
 
 function renderAll() {
@@ -932,6 +1182,8 @@ function renderAll() {
   syncTwoDInputs();
   drawOneD();
   drawTwoDOverview();
+  drawSamplingSection();
+  drawLearningSection();
   drawJointMath();
   drawMarginalStage();
   drawConditionalStage();
@@ -972,6 +1224,16 @@ function wireInputs() {
     });
   });
 
+  elements.samplingCount.addEventListener('input', () => {
+    samplingState.count = Number(elements.samplingCount.value);
+    renderAll();
+  });
+
+  elements.resampleSamples.addEventListener('click', () => {
+    samplingBaseSamples = generateStandardPairs(320);
+    renderAll();
+  });
+
   document.querySelectorAll('[data-one-d-preset]').forEach((button) => {
     button.addEventListener('click', () => {
       const preset = button.dataset.oneDPreset;
@@ -995,6 +1257,13 @@ function wireInputs() {
       if (preset === 'study-habits') Object.assign(twoDState, { muX: 0.2, muY: 0.35, sigmaX: 1.0, sigmaY: 0.9, rho: 0.63, xSliceOffset: 0.9, ySliceOffset: 1.1 });
       if (preset === 'budget') Object.assign(twoDState, { muX: 0.1, muY: -0.15, sigmaX: 1.25, sigmaY: 0.95, rho: -0.68, xSliceOffset: 1.1, ySliceOffset: -0.8 });
       if (preset === 'road-gps') Object.assign(twoDState, { muX: 0.0, muY: 0.0, sigmaX: 1.9, sigmaY: 0.45, rho: 0.86, xSliceOffset: 1.5, ySliceOffset: 0.7 });
+      renderAll();
+    });
+  });
+
+  document.querySelectorAll('[data-learning-dataset]').forEach((button) => {
+    button.addEventListener('click', () => {
+      learningState.datasetKey = button.dataset.learningDataset;
       renderAll();
     });
   });

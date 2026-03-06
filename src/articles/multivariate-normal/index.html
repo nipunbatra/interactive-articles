@@ -26,6 +26,8 @@
             <a class="toc__link" href="#intro">Intro</a>
             <a class="toc__link" href="#one-d">1D normal</a>
             <a class="toc__link" href="#two-d">2D Gaussian</a>
+            <a class="toc__link" href="#sampling">Sampling</a>
+            <a class="toc__link" href="#learning">Learning from data</a>
             <a class="toc__link" href="#examples">Examples</a>
             <a class="toc__link" href="#slices">Marginals and conditionals</a>
             <a class="toc__link" href="#takeaways">Takeaways</a>
@@ -356,9 +358,142 @@
           </div>
         </section>
 
-        <section class="section reveal" id="examples" data-nav="Examples">
+        <section class="section reveal" id="sampling" data-nav="Sampling">
           <div class="section__header">
             <p class="section__eyebrow">Section 3</p>
+            <h2 class="section__title">Sampling: how the cloud becomes points</h2>
+            <p class="section__subtitle">
+              A Gaussian is not just a contour plot. It is a recipe for generating actual points. Start with a standard normal, stretch and rotate it, then shift it by the mean.
+            </p>
+          </div>
+
+          <div class="story-grid story-grid--wide">
+            <div class="prose-panel">
+              <p>
+                In practice, sampling from a multivariate normal means drawing a simple isotropic vector first, then transforming it so it picks up the mean and covariance you want.
+              </p>
+              <div class="equation-stack">
+                <div class="equation-line" data-katex-display>
+                  \[
+                    z \sim \mathcal{N}(0, I)
+                  \]
+                </div>
+                <div class="equation-line" data-katex-display>
+                  \[
+                    x = \mu + Lz,
+                    \qquad
+                    LL^\top = \Sigma
+                  \]
+                </div>
+              </div>
+              <p>
+                The outline below is the current Gaussian from the 2D controls above. The points are actual draws from that model. Increase the sample size and the cloud starts to look more like the target ellipse.
+              </p>
+            </div>
+
+            <div class="viz-panel">
+              <div class="controls-card controls-card--sampling">
+                <div class="control-group">
+                  <label for="samplingCount">Sample count <span id="samplingCountValue">120</span></label>
+                  <input id="samplingCount" type="range" min="20" max="320" step="10" value="120" />
+                </div>
+                <button class="preset-button preset-button--action" id="resampleSamples" type="button">Resample points</button>
+              </div>
+
+              <div class="canvas-card canvas-card--cool">
+                <canvas id="samplingCanvas" width="920" height="540" aria-label="Samples drawn from the current multivariate normal"></canvas>
+                <p class="figure-note">The teal ellipses show the target Gaussian. The coral dots are an actual sample from that model.</p>
+              </div>
+
+              <div class="stats-grid stats-grid--matrix">
+                <article class="stat-card stat-card--matrix">
+                  <p class="stat-card__label">Sample mean</p>
+                  <div class="matrix-display" id="samplingMean"></div>
+                </article>
+                <article class="stat-card stat-card--matrix">
+                  <p class="stat-card__label">Sample covariance</p>
+                  <div class="matrix-display" id="samplingCovariance"></div>
+                </article>
+                <article class="stat-card">
+                  <p class="stat-card__label">What to notice</p>
+                  <p class="stat-card__value" id="samplingNarrative">Sample estimates wobble less as n grows.</p>
+                  <p class="stat-card__copy">Finite samples are noisy. Larger samples settle down around the true mean and covariance.</p>
+                </article>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section reveal" id="learning" data-nav="Learning from data">
+          <div class="section__header">
+            <p class="section__eyebrow">Section 4</p>
+            <h2 class="section__title">Learning the parameters from a toy dataset</h2>
+            <p class="section__subtitle">
+              Once you have data, the Gaussian can be fit with two summaries: the average location and the average spread around that location.
+            </p>
+          </div>
+
+          <div class="story-grid story-grid--wide">
+            <div class="prose-panel">
+              <p>
+                For a Gaussian, the core estimates are simple. The mean is the average of the points. The covariance is the average outer product of the centered points. These are the maximum-likelihood estimates for the model.
+              </p>
+              <div class="equation-stack">
+                <div class="equation-line" data-katex-display>
+                  \[
+                    \hat{\mu} = \frac{1}{n}\sum_{i=1}^n x_i
+                  \]
+                </div>
+                <div class="equation-line" data-katex-display>
+                  \[
+                    \hat{\Sigma}_{\mathrm{MLE}}
+                    =
+                    \frac{1}{n}\sum_{i=1}^n
+                    (x_i-\hat{\mu})(x_i-\hat{\mu})^\top
+                  \]
+                </div>
+              </div>
+              <p>
+                Pick a small toy dataset. The plot shows the observed points, a fitted ellipse from the estimated parameters, and a faint dashed ellipse for the hidden Gaussian that generated the data.
+              </p>
+              <div class="preset-row">
+                <button class="preset-button" data-learning-dataset="sleep-class">Sleep and quiz score</button>
+                <button class="preset-button" data-learning-dataset="budget-class">Budget and leftover cash</button>
+                <button class="preset-button" data-learning-dataset="road-class">Road position uncertainty</button>
+              </div>
+              <div class="section-note">
+                <p id="datasetDescription">A small classroom-style dataset where more sleep tends to come with better quiz scores.</p>
+              </div>
+            </div>
+
+            <div class="viz-panel">
+              <div class="canvas-card canvas-card--paper">
+                <canvas id="learningCanvas" width="920" height="540" aria-label="Toy dataset with fitted Gaussian ellipse"></canvas>
+                <p class="figure-note" id="datasetPreview">First points: (0.00, 0.00), (0.00, 0.00), (0.00, 0.00)</p>
+              </div>
+
+              <div class="stats-grid stats-grid--matrix">
+                <article class="stat-card stat-card--matrix">
+                  <p class="stat-card__label">Estimated mean</p>
+                  <div class="matrix-display" id="estimatedMean"></div>
+                </article>
+                <article class="stat-card stat-card--matrix">
+                  <p class="stat-card__label">Estimated covariance</p>
+                  <div class="matrix-display" id="estimatedCovariance"></div>
+                </article>
+                <article class="stat-card">
+                  <p class="stat-card__label">Dataset fit</p>
+                  <p class="stat-card__value" id="datasetSize">18 points</p>
+                  <p class="stat-card__copy" id="datasetTakeaway">The fitted ellipse should roughly follow the same orientation as the data cloud, even with a small sample.</p>
+                </article>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section reveal" id="examples" data-nav="Examples">
+          <div class="section__header">
+            <p class="section__eyebrow">Section 5</p>
             <h2 class="section__title">Six stories told with the same Gaussian language</h2>
             <p class="section__subtitle">
               The distribution does not care whether the axes mean sleep, money, location, or measurement drift. What changes is the story you map onto the same geometry.
@@ -439,7 +574,7 @@
 
         <section class="section reveal" id="slices" data-nav="Marginals and conditionals">
           <div class="section__header">
-            <p class="section__eyebrow">Section 4</p>
+            <p class="section__eyebrow">Section 6</p>
             <h2 class="section__title">Marginals forget. Conditionals slice.</h2>
             <p class="section__subtitle">
               A marginal ignores one axis entirely. A conditional fixes one axis and asks what remains on the other. For a Gaussian, both operations stay Gaussian, which is why this family is so useful.
@@ -610,7 +745,7 @@
 
         <section class="section reveal" id="takeaways" data-nav="Takeaways">
           <div class="section__header">
-            <p class="section__eyebrow">Section 5</p>
+            <p class="section__eyebrow">Section 7</p>
             <h2 class="section__title">What to keep in your head</h2>
             <p class="section__subtitle">
               If you forget the exact formulas, these are the pictures and rules worth keeping.
