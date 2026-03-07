@@ -19,68 +19,86 @@
         <p class="kicker">Interactive Explainer</p>
         <h1>Seeing the Multivariate Normal</h1>
         <p class="abstract">
-          Start with a bell curve on a line. Stretch it into an elliptical cloud on a plane.
-          Then slice that cloud to see where marginals and conditionals come from &mdash; and why
-          the Gaussian is the first distribution most practitioners reach for.
-        </p>
-        <p class="abstract">
-          Every section below builds on the one before it. The interactive figures are not
-          decorations; they are the argument. Move the sliders, click inside the plots, and
-          watch the math respond.
+          You already know the bell curve. This article shows you how it generalizes to two
+          dimensions, why the covariance matrix controls everything, and what happens when you
+          condition on one variable to learn about the other. Every formula below has an
+          interactive figure right next to it &mdash; move the sliders and watch the math update
+          in real time.
         </p>
         <div class="byline">
-          <span>~15 min read</span>
-          <span>Probability &middot; Statistics</span>
+          <span>~20 min</span>
+          <span>Probability &middot; Statistics &middot; Linear Algebra</span>
         </div>
       </header>
 
       <nav class="toc" aria-label="Table of contents">
         <ol>
-          <li><a class="toc__link" href="#one-d">I. The bell curve you already know</a></li>
-          <li><a class="toc__link" href="#two-d">II. From a curve to a cloud</a></li>
-          <li><a class="toc__link" href="#sampling">III. Sampling: the cloud becomes points</a></li>
-          <li><a class="toc__link" href="#learning">IV. Fitting a Gaussian to data</a></li>
-          <li><a class="toc__link" href="#marginals">V. Marginals: what one axis sees</a></li>
-          <li><a class="toc__link" href="#conditionals">VI. Conditionals: what one observation tells you</a></li>
-          <li><a class="toc__link" href="#takeaways">VII. What to remember</a></li>
+          <li><a class="toc__link" href="#one-d">I. One dimension: density, area, and the 68-95-99.7 rule</a></li>
+          <li><a class="toc__link" href="#two-d">II. Two dimensions: the covariance matrix and what it controls</a></li>
+          <li><a class="toc__link" href="#sampling">III. Sampling: turning a distribution into actual data</a></li>
+          <li><a class="toc__link" href="#learning">IV. Estimation: fitting parameters from observed points</a></li>
+          <li><a class="toc__link" href="#marginals">V. Marginals: projecting away one axis</a></li>
+          <li><a class="toc__link" href="#conditionals">VI. Conditionals: the Gaussian version of &ldquo;given that&rdquo;</a></li>
+          <li><a class="toc__link" href="#takeaways">VII. Summary and connections</a></li>
         </ol>
       </nav>
 
       <!-- ===== I. 1D NORMAL ===== -->
       <section id="one-d" data-nav="1D">
-        <h2><span class="num">I.</span> The bell curve you already know</h2>
+        <h2><span class="num">I.</span> One dimension: density, area, and the 68-95-99.7 rule</h2>
 
         <p>
-          A normal distribution in one dimension is a statement about where points tend to land
-          on a number line. There is a center, called <code>&mu;</code>, and a width, called
-          <code>&sigma;</code>. Points close to the center are common. Points far from it are
-          exponentially rare. That single sentence is the whole idea.
+          A normal distribution describes a random variable that clusters around a center value
+          and drops off symmetrically in both directions. It is specified by exactly two numbers:
+          the mean <code>&mu;</code>, which sets the center, and the standard deviation
+          <code>&sigma;</code>, which sets the width. Nothing else matters. Every bell curve in
+          the world, once you know those two numbers, is the same shape up to a shift and a
+          stretch.
         </p>
+
         <p>
-          The density function looks complicated but says something simple: the farther you get
-          from the mean, the less likely you are to land there, and the rate of that drop-off is
-          controlled entirely by the standard deviation.
+          The density function tells you the relative likelihood of landing near any particular
+          value of <code>x</code>. It is <em>not</em> a probability &mdash; it can actually be
+          greater than 1 for narrow distributions. Probability comes only from <em>area under the
+          curve</em> between two endpoints:
         </p>
 
         <div class="math-block" data-katex-display>
           \[
-            f_X(x) =
+            f(x) =
             \frac{1}{\sigma\sqrt{2\pi}}
-            \exp\!\left(-\frac{(x-\mu)^2}{2\sigma^2}\right)
+            \exp\!\Bigl(-\frac{(x-\mu)^2}{2\sigma^2}\Bigr),
+            \qquad
+            P(a \le X \le b) = \int_a^b f(x)\,dx
           \]
         </div>
 
         <p>
-          Pull <code>&mu;</code> left or right and the whole curve slides. Increase
-          <code>&sigma;</code> and the curve spreads out: the peak drops because the same total
-          probability must cover a wider range. The shaded region is not &ldquo;height&rdquo;; it
-          is <em>area under the curve</em>. That area is the probability that a draw from the
-          distribution lands inside the chosen interval.
+          The exponential in the formula is doing all the work. The quantity
+          <code>(x&minus;&mu;)&sup2; / (2&sigma;&sup2;)</code> measures how far <code>x</code>
+          sits from the center in units of the standard deviation. At the mean, this exponent is
+          zero and the density is at its peak. One standard deviation away, the exponent is
+          <code>&minus;&frac12;</code>, so the density has dropped by a factor of
+          <code>e<sup>&minus;0.5</sup> &approx; 0.61</code>. Two standard deviations away, the
+          exponent is <code>&minus;2</code>, and the density has dropped to
+          <code>e<sup>&minus;2</sup> &approx; 0.14</code> of the peak. The drop-off is fast.
         </p>
+
         <p>
-          This is where people often get tripped up. The curve is not a histogram of observed
-          counts. It is an idealized density. The only thing with probabilistic meaning is area,
-          not the height at one exact point.
+          This leads to the famous <strong>68-95-99.7 rule</strong>: about 68% of the probability
+          mass lies within &plusmn;1&sigma; of the mean, about 95% within &plusmn;2&sigma;, and
+          about 99.7% within &plusmn;3&sigma;. These numbers do not depend on which particular
+          &mu; and &sigma; you have &mdash; they are universal properties of the bell-curve shape.
+          You can verify them in the figure below by adjusting the interval edges.
+        </p>
+
+        <p>
+          <strong>Concrete example.</strong> Suppose the temperature sensor on a weather station
+          reads 20.0&deg;C on average (&mu;&nbsp;=&nbsp;20) with a measurement noise of
+          &sigma;&nbsp;=&nbsp;0.5&deg;C. Then about 68% of readings will fall between 19.5&deg;C
+          and 20.5&deg;C, and a reading outside the range 18.5&ndash;21.5&deg;C
+          (&plusmn;3&sigma;) would occur less than 0.3% of the time. That is the kind of
+          quantitative statement the normal distribution lets you make with just two numbers.
         </p>
 
         <figure class="interactive-figure">
@@ -96,56 +114,62 @@
           <figcaption>
             <span class="readout"><strong>P(a&le;X&le;b)</strong> = <span id="oneDProbability">68.27%</span></span>
             <span class="readout"><strong>z-range</strong> <span id="oneDZRange">[-1.00, 1.00]</span></span>
-            <span class="readout"><strong>Peak</strong> <span id="oneDPeak">0.399</span></span>
+            <span class="readout"><strong>Peak density</strong> <span id="oneDPeak">0.399</span></span>
             <span class="readout-text" id="oneDProbabilityCopy">Probability that X lands inside the shaded region.</span>
           </figcaption>
         </figure>
 
         <p>
-          A good mental picture: exam scores around a class average, or measurement error around
-          a sensor&rsquo;s true reading. The mean tells you the center of the story; the standard
-          deviation tells you how noisy the story is.
+          <strong>What to notice.</strong> Watch the peak drop as &sigma; grows. The total area
+          under the curve is always exactly 1, so spreading the mass wider forces the peak down.
+          For the standard normal (&mu;=0, &sigma;=1), the peak height is
+          <code>1/&radic;(2&pi;) &approx; 0.399</code>. For &sigma;=2 it is half that.
         </p>
+
         <p>
-          The standardized coordinate <code>z = (x &minus; &mu;) / &sigma;</code> removes the units
-          and tells you how surprising a point is relative to the bell. When you center the
-          interval around the mean, one, two, and three standard deviations collect about 68%,
-          95%, and 99.7% of the mass. Most of the later formulas in this article are just
-          higher-dimensional versions of the same &ldquo;recenter, then rescale&rdquo; idea.
+          The <em>standardized variable</em> <code>z = (x&minus;&mu;)/&sigma;</code> converts any
+          normal to the standard normal. This is not just a trick for looking up tables &mdash;
+          it is the conceptual move that makes higher dimensions manageable. In 2D, the analogue
+          of &ldquo;how many standard deviations away?&rdquo; is the <em>Mahalanobis
+          distance</em>, which accounts for the fact that spread can be different in different
+          directions.
         </p>
 
         <div class="try-this">
           <strong>Try:</strong>
           <button class="preset-link" data-one-d-preset="standard">Standard normal</button> &middot;
-          <button class="preset-link" data-one-d-preset="wide">Wide &amp; uncertain</button> &middot;
-          <button class="preset-link" data-one-d-preset="shifted">Shifted right</button>
+          <button class="preset-link" data-one-d-preset="wide">Wide (&sigma;=1.8)</button> &middot;
+          <button class="preset-link" data-one-d-preset="shifted">Shifted right (&mu;=1.2)</button>
         </div>
       </section>
 
       <!-- ===== II. 2D GAUSSIAN ===== -->
       <section id="two-d" data-nav="2D">
-        <h2><span class="num">II.</span> From a curve to a cloud</h2>
+        <h2><span class="num">II.</span> Two dimensions: the covariance matrix and what it controls</h2>
 
         <p>
-          In two dimensions the normal distribution becomes a hill over the plane. Seen from
-          above, equal-density contours look like ellipses. Their tilt and stretch come from the
-          <em>covariance matrix</em>.
+          Now imagine measuring two quantities at once &mdash; say, hours studied and exam score,
+          or latitude and longitude from a noisy GPS. Each measurement pair is a point in the
+          plane. If the noise in both coordinates is roughly Gaussian, the joint distribution is a
+          <em>bivariate normal</em>. Instead of a single bell curve, you get a bell-shaped hill
+          in 3D. Viewed from above, the level curves of that hill are ellipses.
         </p>
+
         <p>
-          The conceptual jump from 1D to 2D is smaller than it looks. The mean becomes a point
-          instead of a number. The variance becomes a 2&times;2 matrix instead of a single
-          number. That matrix does two things: it sets the width along each axis, and it encodes
-          whether the two variables tend to move together.
+          The bivariate normal is parametrized by five numbers: two means
+          (&mu;<sub>x</sub>,&nbsp;&mu;<sub>y</sub>), two standard deviations
+          (&sigma;<sub>x</sub>,&nbsp;&sigma;<sub>y</sub>), and one correlation coefficient &rho;.
+          Those five numbers get packaged into a mean vector and a 2&times;2 covariance matrix:
         </p>
 
         <div class="math-block" data-katex-display>
           \[
-            \begin{bmatrix} X \\ Y \end{bmatrix}
-            \sim
-            \mathcal{N}\!\left(
-              \begin{bmatrix} \mu_x \\ \mu_y \end{bmatrix},\;
+            \mathbf{x} \sim \mathcal{N}\!\left(
+              \boldsymbol{\mu},\;
               \Sigma
             \right),
+            \qquad
+            \boldsymbol{\mu} = \begin{bmatrix} \mu_x \\ \mu_y \end{bmatrix},
             \qquad
             \Sigma =
             \begin{bmatrix}
@@ -156,62 +180,100 @@
         </div>
 
         <p>
-          If <code>&rho; = 0</code>, the cloud is axis-aligned: knowing <code>x</code> tells you
-          nothing about <code>y</code>. As <code>|&rho;|</code> grows, the cloud leans. Positive
-          correlation tilts upward &mdash; large values of one variable tend to arrive with large
-          values of the other. Negative correlation tilts downward.
+          <strong>Reading the covariance matrix.</strong> The diagonal entries
+          &sigma;<sub>x</sub>&sup2; and &sigma;<sub>y</sub>&sup2; are the variances you already
+          know from 1D &mdash; they control spread along each axis independently. The
+          off-diagonal entry &rho;&sigma;<sub>x</sub>&sigma;<sub>y</sub> is the
+          <em>covariance</em>. It tells you whether the two variables tend to increase together
+          (positive), move in opposite directions (negative), or vary independently (zero). The
+          correlation &rho; is just the covariance normalized to lie between &minus;1 and +1.
         </p>
+
         <p>
-          The nested ellipses below are contour lines: each collects points with the same
-          <em>Mahalanobis distance</em> from the mean. The dots are random draws from the
-          current Gaussian. A practical way to read the covariance matrix: the diagonal terms set
-          axis spread, the off-diagonal term controls tilt.
+          <strong>Why ellipses?</strong> The density formula for the 2D case involves the
+          <em>quadratic form</em> <code>(&mathbf;x}&minus;&mu;)&sup;T &Sigma;&sup;{&minus;1}
+          (&mathbf;x}&minus;&mu;)</code>. Setting that quadratic form equal to a constant gives
+          you the equation of an ellipse. Points on the same ellipse have the same density, so
+          the contours of the distribution are ellipses. The eigenvalues of &Sigma; determine the
+          lengths of the ellipse axes; the eigenvectors determine the tilt.
+        </p>
+
+        <div class="math-block" data-katex-display>
+          \[
+            f(\mathbf{x}) =
+            \frac{1}{2\pi\,|\Sigma|^{1/2}}
+            \exp\!\Bigl(
+              -\tfrac{1}{2}
+              (\mathbf{x}-\boldsymbol{\mu})^\top
+              \Sigma^{-1}
+              (\mathbf{x}-\boldsymbol{\mu})
+            \Bigr)
+          \]
+        </div>
+
+        <p>
+          The prefactor <code>1/(2&pi;|&Sigma;|<sup>1/2</sup>)</code> is the normalization
+          constant &mdash; it ensures the density integrates to 1 over the whole plane. The
+          determinant |&Sigma;| measures the &ldquo;volume&rdquo; of the ellipse: larger
+          determinant means more spread, which means lower peak density, just like the 1D case.
         </p>
 
         <figure class="interactive-figure">
           <div class="figure-controls figure-controls--grid">
             <label>Mean x <input id="muX" type="range" min="-2.5" max="2.5" step="0.1" value="0" /> <span id="muXValue">0.0</span></label>
             <label>Mean y <input id="muY" type="range" min="-2.5" max="2.5" step="0.1" value="0" /> <span id="muYValue">0.0</span></label>
-            <label>Spread x <input id="sigmaX" type="range" min="0.45" max="2.4" step="0.05" value="1.2" /> <span id="sigmaXValue">1.2</span></label>
-            <label>Spread y <input id="sigmaY" type="range" min="0.45" max="2.4" step="0.05" value="0.9" /> <span id="sigmaYValue">0.9</span></label>
+            <label>Spread &sigma;<sub>x</sub> <input id="sigmaX" type="range" min="0.45" max="2.4" step="0.05" value="1.2" /> <span id="sigmaXValue">1.2</span></label>
+            <label>Spread &sigma;<sub>y</sub> <input id="sigmaY" type="range" min="0.45" max="2.4" step="0.05" value="0.9" /> <span id="sigmaYValue">0.9</span></label>
             <label class="full-width">Correlation &rho; <input id="rho" type="range" min="-0.95" max="0.95" step="0.01" value="0.55" /> <span id="rhoValue">0.55</span></label>
           </div>
           <div class="figure-canvas">
             <canvas id="twoDCanvas" width="860" height="520" aria-label="2D Gaussian contour and samples"></canvas>
           </div>
           <figcaption>
-            <span class="readout"><strong>Cov matrix</strong> <span id="covarianceMatrix"></span></span>
-            <span class="readout"><strong>Ellipse angle</strong> <span id="ellipseAngle">31.0&deg;</span></span>
-            <span class="readout"><strong>Major spread</strong> <span id="majorSpread">1.41</span></span>
+            <span class="readout"><strong>Covariance</strong> <span id="covarianceMatrix"></span></span>
+            <span class="readout"><strong>Ellipse tilt</strong> <span id="ellipseAngle">31.0&deg;</span></span>
+            <span class="readout"><strong>Major axis &sigma;</strong> <span id="majorSpread">1.41</span></span>
           </figcaption>
         </figure>
 
         <p>
-          Another way to say the same thing: the covariance matrix chooses the shape of the
-          ellipse that best summarizes uncertainty. Round means all directions are equally
-          uncertain. Long and thin means one direction is much less certain than another.
-          Tilt means the variables do not vary independently.
+          <strong>What to notice.</strong> The dots are random samples from the current
+          distribution. The nested ellipses are contour lines at 1, 1.8, 2.45, and 3.1 standard
+          deviations (Mahalanobis distance). When &rho;=0, the ellipses are axis-aligned &mdash;
+          the axes of the ellipse line up with the coordinate axes. As |&rho;| increases toward 1,
+          the ellipses tilt and narrow. At &rho;&approx;&plusmn;1, all the mass concentrates near
+          a line, and the two variables become nearly deterministic functions of each other.
         </p>
 
-        <h3>Where this shape shows up</h3>
         <p>
-          <strong>Height and weight.</strong> Taller people tend to weigh more, so the cloud
-          leans upward. <strong>Speed and travel time.</strong> Faster trips take less time, so
-          the cloud leans downward. <strong>GPS on a road.</strong> The position is much more
-          uncertain along the road than across it, producing a thin ridge. <strong>Two
-          measurements from one drifting machine.</strong> If the machine drifts, both readings
-          drift together and the cloud becomes narrow along one preferred direction. The
-          distribution does not care what the axes mean. What changes is the story you map onto
-          the same geometry.
+          <strong>Eigenvalue interpretation.</strong> The covariance matrix &Sigma; can be
+          decomposed as &Sigma;&nbsp;=&nbsp;Q&Lambda;Q<sup>T</sup>, where Q is a rotation matrix
+          (the eigenvectors) and &Lambda; is diagonal (the eigenvalues). The eigenvectors give
+          the directions of the ellipse axes. The eigenvalues give the variances along those
+          axes. This decomposition is the reason the bivariate normal &ldquo;looks like&rdquo; an
+          axis-aligned Gaussian that has been rotated: because that is exactly what it is.
+        </p>
+
+        <h3>Concrete examples</h3>
+        <p>
+          <strong>Hours studied vs. exam score</strong> (&rho;&approx;0.7): more study time
+          is associated with higher scores, but not perfectly &mdash; the ellipse is tilted
+          upward but still has substantial width. <strong>Speed vs. travel time</strong>
+          (&rho;&approx;&minus;0.8): faster speeds mean shorter trips, producing a downward tilt.
+          <strong>GPS latitude vs. longitude on a road</strong>: the uncertainty along the road
+          is much larger than across it, producing a very narrow ellipse aligned with the road
+          direction. <strong>Manufacturing width vs. thickness</strong> (&rho;&approx;0.9): if
+          the production line drifts, both measurements drift together, so the ellipse is narrow
+          and tilted.
         </p>
 
         <div class="try-this">
           <strong>Try:</strong>
-          <button class="preset-link" data-two-d-preset="independent">Independent</button> &middot;
+          <button class="preset-link" data-two-d-preset="independent">Independent (&rho;=0)</button> &middot;
           <button class="preset-link" data-two-d-preset="positive">Positive &rho;</button> &middot;
           <button class="preset-link" data-two-d-preset="negative">Negative &rho;</button> &middot;
-          <button class="preset-link" data-two-d-preset="needle">Thin ridge</button> &middot;
-          <button class="preset-link" data-two-d-preset="study-habits">Sleep &amp; quiz</button> &middot;
+          <button class="preset-link" data-two-d-preset="needle">Near-perfect correlation</button> &middot;
+          <button class="preset-link" data-two-d-preset="study-habits">Study habits</button> &middot;
           <button class="preset-link" data-two-d-preset="budget">Budget</button> &middot;
           <button class="preset-link" data-two-d-preset="road-gps">Road GPS</button>
         </div>
@@ -219,36 +281,55 @@
 
       <!-- ===== III. SAMPLING ===== -->
       <section id="sampling" data-nav="Sampling">
-        <h2><span class="num">III.</span> Sampling: the cloud becomes points</h2>
+        <h2><span class="num">III.</span> Sampling: turning a distribution into actual data</h2>
 
         <p>
-          A Gaussian is not just a contour plot. It is a recipe for generating actual points.
-          Start with a standard normal &mdash; a circular cloud centered at the origin &mdash;
-          then stretch, rotate, and shift it so it picks up the mean and covariance you want.
+          Knowing the formula for a distribution is one thing. Being able to generate actual
+          draws from it is another. In practice, every Monte Carlo simulation, every Bayesian
+          posterior sample, and every generative model relies on being able to sample efficiently.
+          For the multivariate normal, the algorithm is elegant and relies on a single idea:
+          <strong>start with something simple and transform it.</strong>
+        </p>
+
+        <p>
+          Step 1: draw a vector <code>z</code> of independent standard normals &mdash; each
+          component is an independent N(0,1). This gives you a spherical distribution centered
+          at the origin.
+          Step 2: find a matrix <code>L</code> such that <code>LL<sup>T</sup> = &Sigma;</code>.
+          This is the <em>Cholesky decomposition</em> of the covariance matrix &mdash; it exists
+          whenever &Sigma; is positive definite, which is always the case for a legitimate
+          covariance matrix.
+          Step 3: compute <code>x = &mu; + Lz</code>. The multiplication by L stretches and
+          rotates the spherical distribution into the correct elliptical shape, and adding &mu;
+          shifts it to the right location.
         </p>
 
         <div class="math-block" data-katex-display>
           \[
-            z \sim \mathcal{N}(0, I),
+            z \sim \mathcal{N}(\mathbf{0}, I),
             \qquad
-            x = \mu + L\,z,
+            \mathbf{x} = \boldsymbol{\mu} + L\,z,
             \qquad
             LL^\top = \Sigma
           \]
         </div>
 
         <p>
-          The matrix <code>L</code> is the Cholesky factor of the covariance. It does the
-          stretching and rotating. This matters because it turns a fancy-looking model into a
-          very concrete procedure: draw simple random numbers, then apply a linear
-          transformation. The multivariate normal is not mysterious once you see it as a
-          transformed standard normal.
+          <strong>Why does this work?</strong> If <code>z</code> has covariance
+          <code>I</code>, then <code>Lz</code> has covariance
+          <code>L &middot; I &middot; L<sup>T</sup> = LL<sup>T</sup> = &Sigma;</code>. That is
+          the entire proof. The linearity of expectations gives us the correct mean, and the
+          covariance transformation rule gives us the correct spread. This is why linear algebra
+          and probability fit together so naturally.
         </p>
+
         <p>
-          The figure below uses the same parameters from the 2D controls above. Increase the
-          sample size and the cloud starts to look more like the target ellipse. Small samples
-          wobble &mdash; they can look lopsided, off-center, or more correlated than the true
-          model. That is not a bug. It is what sampling noise looks like.
+          The figure below draws actual samples from the bivariate normal you configured in
+          Section&nbsp;II. Each time you hit &ldquo;Redraw,&rdquo; a fresh set of independent
+          standard normals is generated and transformed through the Cholesky factor. Notice how
+          the sample mean and sample covariance fluctuate from draw to draw, especially at small
+          sample sizes. This is <em>sampling variability</em>, and it is the fundamental reason
+          why statistical estimation is needed at all.
         </p>
 
         <figure class="interactive-figure">
@@ -268,40 +349,60 @@
         </figure>
 
         <p>
-          <span id="samplingNarrative">Sample estimates wobble less as n grows.</span>
-          <span id="samplingDetail">Finite samples are noisy. Larger samples settle down around the true mean and covariance.</span>
+          <strong>What to notice.</strong>
+          <span id="samplingNarrative">At n=20, the sample estimates can be way off.</span>
+          <span id="samplingDetail">At n=300, they settle down close to the true parameters. This convergence is the law of large numbers in action.</span>
+          Try setting the count to 20 and hitting Redraw several times. You will see the sample
+          mean jump around and the sample covariance matrix change noticeably between draws.
+          Then set it to 300 and do the same &mdash; the estimates become much more stable.
+          The rate of convergence is roughly proportional to <code>1/&radic;n</code>.
         </p>
       </section>
 
       <!-- ===== IV. LEARNING ===== -->
       <section id="learning" data-nav="Learning">
-        <h2><span class="num">IV.</span> Fitting a Gaussian to data</h2>
+        <h2><span class="num">IV.</span> Estimation: fitting parameters from observed points</h2>
 
         <p>
-          Once you have data, the Gaussian can be fit with two summaries: the average location
-          and the average spread around that location. These are the maximum-likelihood
-          estimates.
+          In practice, you rarely know &mu; and &Sigma; &mdash; you have to estimate them from
+          data. For the Gaussian, the maximum-likelihood estimates have a beautifully simple form:
+          the sample mean is the average of the data points, and the sample covariance is the
+          average of the outer products of the centered data.
         </p>
 
         <div class="math-block" data-katex-display>
           \[
-            \hat{\mu} = \frac{1}{n}\sum_{i=1}^n x_i,
-            \qquad
-            \hat{\Sigma} = \frac{1}{n}\sum_{i=1}^n (x_i - \hat{\mu})(x_i - \hat{\mu})^\top
+            \hat{\boldsymbol{\mu}} = \frac{1}{n}\sum_{i=1}^n \mathbf{x}_i,
+            \qquad\qquad
+            \hat{\Sigma} = \frac{1}{n}\sum_{i=1}^n
+              (\mathbf{x}_i - \hat{\boldsymbol{\mu}})
+              (\mathbf{x}_i - \hat{\boldsymbol{\mu}})^\top
           \]
         </div>
 
         <p>
-          Intuitively: the mean asks <em>where is the center of the cloud?</em> The covariance
-          asks <em>once I recenter the cloud, how does it spread out, and in which directions
-          does it spread together?</em> Those two summaries are enough to reconstruct the full
-          multivariate normal. Nothing is hidden behind a magical optimizer.
+          <strong>What the outer product does.</strong> For each data point, the term
+          <code>(x<sub>i</sub>&minus;&mu;&#x0302;)(x<sub>i</sub>&minus;&mu;&#x0302;)<sup>T</sup></code>
+          is a 2&times;2 matrix. Its (1,1) entry is the squared x-deviation. Its (2,2) entry is
+          the squared y-deviation. Its off-diagonal entries are the product of the x- and
+          y-deviations. Averaging these over all data points gives you the sample variances on the
+          diagonal and the sample covariance off the diagonal. There is no black box here &mdash;
+          it is literally averaging squared deviations.
         </p>
+
+        <aside class="aside">
+          <strong>Bias note.</strong> The MLE divides by n, which gives a biased estimate of the
+          covariance. The unbiased version divides by n&minus;1 (Bessel&rsquo;s correction). For
+          large n the difference is negligible. For small n, the bias is usually the least of
+          your worries.
+        </aside>
+
         <p>
-          <strong>Click anywhere inside the plot to add a new observation</strong> and watch the
-          Gaussian refit instantly. The solid ellipse is the fitted model. The dashed ellipse is
-          the hidden Gaussian that generated the original data. If the fit looks wrong, it is
-          because the data are small, noisy, or both.
+          The figure below shows a small toy dataset. The solid ellipse is the fitted Gaussian
+          using the sample mean and covariance. The dashed ellipse is the true distribution that
+          generated the data. <strong>Click anywhere inside the plot to add new data
+          points</strong> and watch the fitted ellipse adjust in real time. Adding points near the
+          center stabilizes the estimates; adding outliers can tilt the ellipse dramatically.
         </p>
 
         <figure class="interactive-figure">
@@ -313,10 +414,10 @@
             <canvas id="learningCanvas" width="920" height="540" aria-label="Toy dataset with fitted Gaussian; click to add points"></canvas>
           </div>
           <figcaption>
-            <span class="readout"><strong>Points</strong> <span id="datasetSize">18</span></span>
+            <span class="readout"><strong>n</strong> = <span id="datasetSize">18</span></span>
             <span class="readout"><strong>Est. mean</strong> <span id="estimatedMean"></span></span>
             <span class="readout"><strong>Est. cov</strong> <span id="estimatedCovariance"></span></span>
-            <span class="readout-text" id="datasetTakeaway">The fitted ellipse should roughly follow the data cloud&rsquo;s orientation.</span>
+            <span class="readout-text" id="datasetTakeaway">The fitted ellipse should roughly follow the data&rsquo;s orientation.</span>
           </figcaption>
         </figure>
 
@@ -329,26 +430,34 @@
           </table>
         </div>
 
+        <p>
+          <strong>What to notice.</strong> With 10&ndash;15 points, the fitted ellipse is often
+          visibly tilted away from the true one. With 50+ points it becomes a close match. Try
+          clicking a cluster of points far from the current mean &mdash; you will see the mean
+          get pulled toward the new cluster and the covariance expand to cover the wider spread.
+          This is exactly what happens in practice when your data contains subpopulations or
+          outliers.
+        </p>
+
         <div class="try-this">
           <strong>Datasets:</strong>
           <button class="preset-link" data-learning-dataset="sleep-class">Sleep &amp; quiz</button> &middot;
           <button class="preset-link" data-learning-dataset="budget-class">Budget &amp; cash</button> &middot;
           <button class="preset-link" data-learning-dataset="road-class">Road position</button>
-          <span class="try-this__sep">&nbsp;</span>
-          <button class="preset-link" id="undoLearningPoint" type="button">Undo last point</button> &middot;
-          <button class="preset-link" id="resetLearningDataset" type="button">Reset dataset</button>
+          <span class="try-this__sep"></span>
+          <button class="preset-link" id="undoLearningPoint" type="button">Undo</button> &middot;
+          <button class="preset-link" id="resetLearningDataset" type="button">Reset</button>
         </div>
       </section>
 
       <!-- ===== V. MARGINALS ===== -->
       <section id="marginals" data-nav="Marginals">
-        <h2><span class="num">V.</span> Marginals: what one axis sees</h2>
+        <h2><span class="num">V.</span> Marginals: projecting away one axis</h2>
 
         <p>
-          A marginal distribution answers the simplest possible question: if I forget one of the
-          two coordinates entirely, what does the remaining coordinate look like? For a Gaussian,
-          the answer is still Gaussian, and you read the parameters straight off the diagonal of
-          the covariance matrix.
+          A <em>marginal distribution</em> answers the question: if I completely ignore one of
+          the two coordinates, what does the remaining coordinate look like on its own? Formally,
+          you integrate (sum) the joint density over the coordinate you want to forget:
         </p>
 
         <div class="math-block" data-katex-display>
@@ -360,21 +469,36 @@
         </div>
 
         <p>
-          This is the key surprise: <strong>correlation does not change the marginal widths.</strong>
-          You can slide <code>&rho;</code> all the way from &minus;0.95 to +0.95 and the teal
-          marginal curves below stay exactly the same width. The joint cloud rotates, but
-          the shadows it casts onto each axis do not.
+          For the Gaussian, this integration has a remarkable result: the marginal is itself
+          Gaussian, and its parameters are simply the corresponding entries from the mean vector
+          and the diagonal of the covariance matrix. You do not need &rho; to compute the
+          marginal. The marginal of X depends only on &mu;<sub>x</sub> and
+          &sigma;<sub>x</sub>&sup2;. The marginal of Y depends only on &mu;<sub>y</sub> and
+          &sigma;<sub>y</sub>&sup2;.
         </p>
+
         <p>
-          The figure below shows the joint distribution in the center, with the X marginal
-          projected above and the Y marginal projected to the right. Change the parameters in
-          <a href="#two-d">Section&nbsp;II</a> and these plots update together.
+          <strong>This is counterintuitive.</strong> You might expect that if two variables are
+          correlated, the marginal of one should somehow reflect that correlation. It does not.
+          Correlation controls the <em>shape</em> of the joint distribution &mdash; it determines
+          how the ellipse tilts &mdash; but when you project that ellipse onto a single axis,
+          the shadow has the same width regardless of the tilt. Try it: go back to
+          <a href="#two-d">Section&nbsp;II</a>, change &rho; while keeping &sigma;<sub>x</sub>
+          and &sigma;<sub>y</sub> fixed, and watch the marginal curves below stay unchanged.
+        </p>
+
+        <p>
+          Geometrically, the marginal is the &ldquo;shadow&rdquo; of the 2D distribution
+          projected onto one axis. Imagine shining a light straight down onto the xy-plane and
+          looking at the resulting silhouette on the x-axis. The shape of that silhouette is the
+          x-marginal. No matter how you tilt the ellipse, as long as its horizontal extent stays
+          the same, the shadow stays the same.
         </p>
 
         <figure class="interactive-figure wide-figure">
           <div class="joint-grid">
             <div class="joint-grid__top">
-              <div class="strip-head"><h3>X marginal</h3><p id="marginalTopSummary">X ~ N(0.00, 1.20&sup2;)</p></div>
+              <div class="strip-head"><h3>X marginal (top projection)</h3><p id="marginalTopSummary">X ~ N(0.00, 1.20&sup2;)</p></div>
               <canvas id="marginalTopCanvas" width="920" height="220" aria-label="X marginal"></canvas>
             </div>
             <div class="joint-grid__note">
@@ -391,52 +515,72 @@
           <figcaption>
             <span class="readout" id="marginalXMath"></span>
             <span class="readout" id="marginalYMath"></span>
-            <span class="readout-text" id="marginalCorrelationNote">Changing &rho; rotates the cloud, but the teal marginal curves stay anchored to the diagonal of &Sigma;.</span>
+            <span class="readout-text" id="marginalCorrelationNote">Changing &rho; rotates the joint ellipse, but the marginal curves do not change width.</span>
           </figcaption>
         </figure>
 
         <p>
-          This is why marginals are the cleanest place to see what the variances alone are doing.
-          The marginal &ldquo;forgets&rdquo; the relationship between x and y. It only remembers
-          each axis&rsquo;s own spread. To learn something about relationships, you need
-          conditionals.
+          <strong>Why this matters.</strong> In many applications, you observe only one variable
+          at a time. If you are looking at a patient&rsquo;s blood pressure without knowing their
+          cholesterol, you are looking at a marginal. The marginal tells you about the spread of
+          that one variable in isolation, but it throws away all information about how the
+          variables relate. That relationship information is exactly what conditionals recover.
         </p>
       </section>
 
       <!-- ===== VI. CONDITIONALS ===== -->
       <section id="conditionals" data-nav="Conditionals">
-        <h2><span class="num">VI.</span> Conditionals: what one observation tells you</h2>
+        <h2><span class="num">VI.</span> Conditionals: the Gaussian version of &ldquo;given that&rdquo;</h2>
 
         <p>
-          A conditional distribution answers a sharper question: if I <em>observe</em> that
-          <code>X = x<sub>0</sub></code>, what does the remaining uncertainty about
-          <code>Y</code> look like? For a Gaussian, the answer is again Gaussian, but now the
-          mean slides and the variance shrinks.
+          A <em>conditional distribution</em> answers a much sharper question than the marginal:
+          if I <em>know</em> that X takes a specific value x<sub>0</sub>, what can I say about Y?
+          For the Gaussian, the answer is again Gaussian, with two specific changes:
         </p>
 
         <div class="math-block" data-katex-display>
           \[
             Y \mid X = x_0
             \;\sim\;
-            \mathcal{N}\!\Big(
-              \mu_y + \rho\,\frac{\sigma_y}{\sigma_x}(x_0 - \mu_x),\;
-              (1-\rho^2)\,\sigma_y^2
-            \Big)
+            \mathcal{N}\!\left(
+              \underbrace{\mu_y + \rho\,\frac{\sigma_y}{\sigma_x}(x_0 - \mu_x)}_{\text{conditional mean}},\;\;
+              \underbrace{(1-\rho^2)\,\sigma_y^2}_{\text{conditional variance}}
+            \right)
           \]
         </div>
 
         <p>
-          Two things happen. First, the conditional mean moves: it slides along the tilted cloud
-          toward wherever the observation predicts. Second, the conditional variance shrinks by
-          the factor <code>(1 &minus; &rho;&sup2;)</code>. Stronger correlation means a sharper
-          conditional &mdash; observing one coordinate gives you more information about the other.
+          <strong>The conditional mean shifts.</strong> It does not stay at &mu;<sub>y</sub>.
+          Instead, it moves by an amount proportional to how far x<sub>0</sub> is from
+          &mu;<sub>x</sub>, scaled by the regression coefficient
+          &rho;&sigma;<sub>y</sub>/&sigma;<sub>x</sub>. This is <em>exactly</em> the slope
+          of the least-squares regression line of Y on X. The conditional mean traces out a
+          straight line as x<sub>0</sub> varies &mdash; and that line is the regression line.
         </p>
+
         <p>
-          The figure below adds two slice lines to the joint plot. Drag them (or use the
-          sliders) to see the conditional distributions appear. The gold curve on top shows
-          <code>X | Y = y<sub>0</sub></code>. The coral curve on the right shows
-          <code>Y | X = x<sub>0</sub></code>. Compare each to its teal marginal: the conditional
-          is always narrower.
+          <strong>The conditional variance shrinks.</strong> It is reduced from
+          &sigma;<sub>y</sub>&sup2; to (1&minus;&rho;&sup2;)&sigma;<sub>y</sub>&sup2;. The
+          factor (1&minus;&rho;&sup2;) is the fraction of variance in Y that is <em>not</em>
+          explained by X. When &rho;=0, no variance is explained and the conditional equals the
+          marginal. When |&rho;|=1, all variance is explained and the conditional collapses to a
+          point &mdash; if you know X exactly, you know Y exactly.
+        </p>
+
+        <p>
+          <strong>Connection to R&sup2;.</strong> In linear regression, R&sup2; is the proportion
+          of variance explained by the predictor. For a bivariate normal, R&sup2;&nbsp;=&nbsp;&rho;&sup2;.
+          The conditional variance is (1&minus;R&sup2;) times the marginal variance. So the entire
+          machinery of simple linear regression is already hiding inside the bivariate normal &mdash;
+          the conditional distribution is literally what regression computes.
+        </p>
+
+        <p>
+          The figure below adds two slice lines to the joint distribution: a vertical slice at
+          x<sub>0</sub> (which reveals Y|X) and a horizontal slice at y<sub>0</sub> (which
+          reveals X|Y). Drag the slice lines or use the sliders. Compare each conditional curve
+          to its marginal (shown in teal): the conditional is <em>always</em> narrower or equal,
+          never wider.
         </p>
 
         <figure class="interactive-figure wide-figure">
@@ -446,13 +590,13 @@
           </div>
           <div class="joint-grid">
             <div class="joint-grid__top">
-              <div class="strip-head"><h3>X axis: marginal <span class="color-teal">&bull;</span> &amp; conditional <span class="color-gold">&bull;</span></h3><p id="conditionalTopSummary">Teal: X marginal. Gold: X | Y = 0.00.</p></div>
+              <div class="strip-head"><h3>X marginal <span class="color-teal">&mdash;</span> &amp; X|Y conditional <span class="color-gold">&mdash;</span></h3><p id="conditionalTopSummary">Teal: X marginal. Gold: X | Y = 0.00.</p></div>
               <canvas id="conditionalTopCanvas" width="920" height="220" aria-label="X marginal and conditional"></canvas>
             </div>
             <div class="joint-grid__note">
               <p class="note-label">Slice readout</p>
               <p id="sliceReadout">x<sub>0</sub> = 0.00, y<sub>0</sub> = 0.00</p>
-              <p id="jointNarrative" class="note-copy">Gold: X | Y. Coral: Y | X.</p>
+              <p id="jointNarrative" class="note-copy">Gold: X|Y. Coral: Y|X.</p>
             </div>
             <div class="joint-grid__main">
               <canvas id="conditionalMainCanvas" width="920" height="540" aria-label="Joint density with conditional slices"></canvas>
@@ -465,75 +609,104 @@
             <span class="readout" id="xConditionalFormula"></span>
             <span class="readout" id="yConditionalFormula"></span>
             <span class="readout" id="shrinkageFormula"></span>
-            <span class="readout-text" id="jointSummary">Marginals keep their width. Conditionals get narrower as &rho; grows.</span>
+            <span class="readout-text" id="jointSummary">Marginals keep their width. Conditionals get narrower as |&rho;| grows.</span>
           </figcaption>
         </figure>
 
         <p>
-          This is the payoff of the whole article. Up to now, the Gaussian has been a static
-          object: a curve, then a cloud, then a sampling recipe, then a fitted model. Conditionals
-          are where the object starts <em>answering questions</em>. What changes if I observe one
-          coordinate? The mean slides. The spread shrinks. And the result is still Gaussian.
+          <strong>What to notice.</strong> Move x<sub>0</sub> to +2 standard deviations with
+          high positive &rho;. The conditional mean of Y jumps well above &mu;<sub>y</sub>, and
+          the conditional curve becomes noticeably narrower than the marginal. Now set &rho;=0.
+          The conditional becomes identical to the marginal: observing X tells you nothing about Y.
+          This is the operational definition of independence for Gaussian variables.
         </p>
+
         <p>
-          That closure property &mdash; Gaussian in, Gaussian out &mdash; is why this family
-          dominates so many workflows, from Kalman filters to Bayesian regression. The algebra
-          stays manageable and the picture stays readable, no matter how many times you condition.
+          <strong>The closure property.</strong> The fact that conditioning a Gaussian on a subset
+          of variables produces another Gaussian is the single most important algebraic property
+          of this family. It is the reason Kalman filters work (prediction + update are both
+          Gaussian operations), the reason Gaussian processes produce closed-form posteriors, and
+          the reason Bayesian linear regression has an exact solution. Every time you see a model
+          that says &ldquo;assume the data is Gaussian,&rdquo; this closure property is usually
+          the real motivation.
         </p>
 
         <div class="try-this">
           <strong>Try:</strong>
           <button class="preset-link" data-two-d-preset="symmetric">Equal spreads, high &rho;</button> &middot;
-          <button class="preset-link" data-two-d-preset="conditional-demo">Tight conditional</button> &middot;
-          <button class="preset-link" data-two-d-preset="independent">Independent (no shrinkage)</button>
+          <button class="preset-link" data-two-d-preset="conditional-demo">Very tight conditional</button> &middot;
+          <button class="preset-link" data-two-d-preset="independent">Independent (no information gain)</button>
         </div>
       </section>
 
       <!-- ===== VII. TAKEAWAYS ===== -->
       <section id="takeaways" data-nav="Takeaways">
-        <h2><span class="num">VII.</span> What to remember</h2>
+        <h2><span class="num">VII.</span> Summary and connections</h2>
 
         <dl class="takeaway-list">
           <div class="takeaway">
-            <dt>The 1D base case</dt>
-            <dd>A Gaussian is a center and a width. Probability lives in area, not in the height at a single point.</dd>
+            <dt>Density is not probability</dt>
+            <dd>The value of the density at a point is a relative likelihood, not a probability. Probability is area under the curve between two values. The density can exceed 1.</dd>
           </div>
           <div class="takeaway">
-            <dt>The 2D upgrade</dt>
-            <dd>The mean becomes a point and the covariance matrix becomes an ellipse. Diagonal entries set axis spread; off-diagonal entries create tilt.</dd>
+            <dt>Two parameters control everything in 1D</dt>
+            <dd>&mu; sets the center, &sigma; sets the width. The 68-95-99.7 rule gives you quick probability estimates without computing any integrals.</dd>
           </div>
           <div class="takeaway">
-            <dt>Sampling is concrete</dt>
-            <dd>To draw from a multivariate normal, transform a standard normal vector. The cloud is a recipe, not just a picture.</dd>
+            <dt>The covariance matrix is the whole story in 2D</dt>
+            <dd>Diagonal entries are variances. The off-diagonal entry is the covariance. The eigenvalues and eigenvectors of &Sigma; directly give you the ellipse shape and orientation.</dd>
           </div>
           <div class="takeaway">
-            <dt>Learning is simple</dt>
-            <dd>Average the points for the mean. Average the centered outer products for the covariance. The difficulty is usually small data, not complicated formulas.</dd>
+            <dt>Sampling = transform a standard normal</dt>
+            <dd>Draw z ~ N(0,I), compute x = &mu; + Lz where LL<sup>T</sup> = &Sigma;. The Cholesky factor L does the stretching and rotating. This is how every Monte Carlo sampler generates multivariate normals.</dd>
           </div>
           <div class="takeaway">
-            <dt>Marginals forget</dt>
-            <dd>Integrate out one axis and you keep only that axis&rsquo;s own mean and variance. Correlation changes the joint cloud, not the marginal widths.</dd>
+            <dt>MLE is just averaging</dt>
+            <dd>The maximum-likelihood mean is the sample average. The maximum-likelihood covariance is the average outer product of centered observations. No gradient descent, no iteration &mdash; just summation.</dd>
           </div>
           <div class="takeaway">
-            <dt>Conditionals focus</dt>
-            <dd>Observe one coordinate and the other stays Gaussian but becomes narrower. Stronger correlation means sharper focus.</dd>
+            <dt>Marginals ignore correlation</dt>
+            <dd>The marginal of X depends only on &mu;<sub>x</sub> and &sigma;<sub>x</sub>&sup2;, no matter how strong the correlation. Marginals are projections, and projections discard relationship information.</dd>
+          </div>
+          <div class="takeaway">
+            <dt>Conditionals are regression</dt>
+            <dd>Conditioning on X=x<sub>0</sub> gives a Gaussian for Y whose mean follows the regression line and whose variance is (1&minus;&rho;&sup2;)&sigma;<sub>y</sub>&sup2;. The conditional distribution <em>is</em> what linear regression computes.</dd>
+          </div>
+          <div class="takeaway">
+            <dt>Closure is the real superpower</dt>
+            <dd>Marginals, conditionals, and linear combinations of Gaussians are all Gaussian. This closure property is why the family dominates: Kalman filters, Gaussian processes, Bayesian linear regression, and factor analysis all rely on it.</dd>
           </div>
         </dl>
 
+        <h3>Where to go from here</h3>
         <p>
-          If you remember one picture, remember this: a multivariate normal is a smooth cloud
-          with a center, a preferred spread, and a tilt. Marginals look at the cloud from the
-          side. Conditionals cut through it and become narrower when the variables agree.
+          <strong>Higher dimensions.</strong> Everything above generalizes directly: &mu; becomes
+          a d-dimensional vector, &Sigma; becomes a d&times;d matrix, contours become
+          ellipsoids. Marginals and conditionals remain Gaussian with the same formulas (just
+          involving submatrices of &Sigma;).
         </p>
         <p>
-          If you remember one workflow, remember this: write down a mean and covariance, sample
-          points, estimate the mean and covariance back from those points, then ask marginal and
-          conditional questions. That loop is the full story in miniature.
+          <strong>Gaussian processes.</strong> A GP is a distribution over <em>functions</em>,
+          defined by the property that any finite collection of function values is jointly
+          Gaussian. Conditioning on observed data points is exactly the conditional formula from
+          Section&nbsp;VI, applied to a potentially infinite-dimensional covariance structure.
+        </p>
+        <p>
+          <strong>Kalman filters.</strong> The state of a linear dynamical system at each time
+          step is Gaussian. The predict step is a marginal (project forward in time). The update
+          step is a conditional (incorporate a new measurement). Both operations stay Gaussian,
+          which is why the Kalman filter is exact and efficient.
+        </p>
+        <p>
+          <strong>Maximum entropy.</strong> Among all distributions with a given mean and
+          covariance, the Gaussian has the highest entropy &mdash; it makes the fewest additional
+          assumptions. This is the information-theoretic justification for using Gaussians as
+          default models of uncertainty.
         </p>
       </section>
 
       <footer class="article-footer">
-        <p>An interactive explainer. No external dependencies except KaTeX for math rendering.</p>
+        <p>An interactive explainer. Built with vanilla JavaScript and KaTeX. No frameworks.</p>
       </footer>
     </article>
 
