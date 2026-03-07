@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="../../vendor/katex/katex.min.css" />
+    <link rel="stylesheet" href="../vendor/katex/katex.min.css" />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
@@ -15,7 +15,7 @@
 
     <article class="article">
       <header class="article-header">
-        <a class="back-link" href="../../index.html">&larr; Explainer Library</a>
+        <a class="back-link" href="../index.html">&larr; Explainer Library</a>
         <p class="kicker">Interactive Explainer</p>
         <h1>Seeing the Multivariate Normal</h1>
         <p class="abstract">
@@ -32,7 +32,7 @@
       </header>
 
       <nav class="toc" aria-label="Table of contents">
-        <ol>
+        <ul>
           <li><a class="toc__link" href="#one-d">I. One dimension: density, area, and the 68-95-99.7 rule</a></li>
           <li><a class="toc__link" href="#two-d">II. Two dimensions: the covariance matrix and what it controls</a></li>
           <li><a class="toc__link" href="#sampling">III. Sampling: turning a distribution into actual data</a></li>
@@ -40,7 +40,7 @@
           <li><a class="toc__link" href="#marginals">V. Marginals: projecting away one axis</a></li>
           <li><a class="toc__link" href="#conditionals">VI. Conditionals: the Gaussian version of &ldquo;given that&rdquo;</a></li>
           <li><a class="toc__link" href="#takeaways">VII. Summary and connections</a></li>
-        </ol>
+        </ul>
       </nav>
 
       <!-- ===== I. 1D NORMAL ===== -->
@@ -191,8 +191,11 @@
 
         <p>
           <strong>Why ellipses?</strong> The density formula for the 2D case involves the
-          <em>quadratic form</em> <code>(&mathbf;x}&minus;&mu;)&sup;T &Sigma;&sup;{&minus;1}
-          (&mathbf;x}&minus;&mu;)</code>. Setting that quadratic form equal to a constant gives
+          <em>quadratic form</em>
+          (<strong>x</strong>&minus;<strong>&mu;</strong>)<sup>T</sup>
+          &Sigma;<sup>&minus;1</sup>
+          (<strong>x</strong>&minus;<strong>&mu;</strong>).
+          Setting that quadratic form equal to a constant gives
           you the equation of an ellipse. Points on the same ellipse have the same density, so
           the contours of the distribution are ellipses. The eigenvalues of &Sigma; determine the
           lengths of the ellipse axes; the eigenvectors determine the tilt.
@@ -255,17 +258,12 @@
         </p>
 
         <h3>Concrete examples</h3>
-        <p>
-          <strong>Hours studied vs. exam score</strong> (&rho;&approx;0.7): more study time
-          is associated with higher scores, but not perfectly &mdash; the ellipse is tilted
-          upward but still has substantial width. <strong>Speed vs. travel time</strong>
-          (&rho;&approx;&minus;0.8): faster speeds mean shorter trips, producing a downward tilt.
-          <strong>GPS latitude vs. longitude on a road</strong>: the uncertainty along the road
-          is much larger than across it, producing a very narrow ellipse aligned with the road
-          direction. <strong>Manufacturing width vs. thickness</strong> (&rho;&approx;0.9): if
-          the production line drifts, both measurements drift together, so the ellipse is narrow
-          and tilted.
-        </p>
+        <ul class="example-list">
+          <li><strong>Hours studied vs. exam score</strong> (&rho;&approx;0.7): more study time is associated with higher scores, but not perfectly &mdash; the ellipse is tilted upward but still has substantial width.</li>
+          <li><strong>Speed vs. travel time</strong> (&rho;&approx;&minus;0.8): faster speeds mean shorter trips, producing a downward tilt.</li>
+          <li><strong>GPS latitude vs. longitude on a road</strong>: the uncertainty along the road is much larger than across it, producing a very narrow ellipse aligned with the road direction.</li>
+          <li><strong>Manufacturing width vs. thickness</strong> (&rho;&approx;0.9): if the production line drifts, both measurements drift together, so the ellipse is narrow and tilted.</li>
+        </ul>
 
         <div class="try-this">
           <strong>Try:</strong>
@@ -291,18 +289,11 @@
           <strong>start with something simple and transform it.</strong>
         </p>
 
-        <p>
-          Step 1: draw a vector <code>z</code> of independent standard normals &mdash; each
-          component is an independent N(0,1). This gives you a spherical distribution centered
-          at the origin.
-          Step 2: find a matrix <code>L</code> such that <code>LL<sup>T</sup> = &Sigma;</code>.
-          This is the <em>Cholesky decomposition</em> of the covariance matrix &mdash; it exists
-          whenever &Sigma; is positive definite, which is always the case for a legitimate
-          covariance matrix.
-          Step 3: compute <code>x = &mu; + Lz</code>. The multiplication by L stretches and
-          rotates the spherical distribution into the correct elliptical shape, and adding &mu;
-          shifts it to the right location.
-        </p>
+        <ol class="example-list">
+          <li><strong>Draw</strong> a vector <code>z</code> of independent standard normals &mdash; each component is an independent N(0,1). This gives you a spherical distribution centered at the origin.</li>
+          <li><strong>Find</strong> a matrix <code>L</code> such that <code>LL<sup>T</sup> = &Sigma;</code>. This is the <em>Cholesky decomposition</em> of the covariance matrix &mdash; it exists whenever &Sigma; is positive definite, which is always the case for a legitimate covariance matrix.</li>
+          <li><strong>Compute</strong> <code>x = &mu; + Lz</code>. The multiplication by L stretches and rotates the spherical distribution into the correct elliptical shape, and adding &mu; shifts it to the right location.</li>
+        </ol>
 
         <div class="math-block" data-katex-display>
           \[
@@ -496,6 +487,13 @@
         </p>
 
         <figure class="interactive-figure wide-figure">
+          <div class="figure-controls figure-controls--grid">
+            <label>Mean x <input id="muXMarg" type="range" min="-2.5" max="2.5" step="0.1" value="0" /> <span id="muXMargValue">0.0</span></label>
+            <label>Mean y <input id="muYMarg" type="range" min="-2.5" max="2.5" step="0.1" value="0" /> <span id="muYMargValue">0.0</span></label>
+            <label>Spread &sigma;<sub>x</sub> <input id="sigmaXMarg" type="range" min="0.45" max="2.4" step="0.05" value="1.2" /> <span id="sigmaXMargValue">1.2</span></label>
+            <label>Spread &sigma;<sub>y</sub> <input id="sigmaYMarg" type="range" min="0.45" max="2.4" step="0.05" value="0.9" /> <span id="sigmaYMargValue">0.9</span></label>
+            <label class="full-width">Correlation &rho; <input id="rhoMarg" type="range" min="-0.95" max="0.95" step="0.01" value="0.55" /> <span id="rhoMargValue">0.55</span></label>
+          </div>
           <div class="joint-grid">
             <div class="joint-grid__top">
               <div class="strip-head"><h3>X marginal (top projection)</h3><p id="marginalTopSummary">X ~ N(0.00, 1.20&sup2;)</p></div>
@@ -585,6 +583,11 @@
 
         <figure class="interactive-figure wide-figure">
           <div class="figure-controls figure-controls--grid">
+            <label>Mean x <input id="muXCond" type="range" min="-2.5" max="2.5" step="0.1" value="0" /> <span id="muXCondValue">0.0</span></label>
+            <label>Mean y <input id="muYCond" type="range" min="-2.5" max="2.5" step="0.1" value="0" /> <span id="muYCondValue">0.0</span></label>
+            <label>Spread &sigma;<sub>x</sub> <input id="sigmaXCond" type="range" min="0.45" max="2.4" step="0.05" value="1.2" /> <span id="sigmaXCondValue">1.2</span></label>
+            <label>Spread &sigma;<sub>y</sub> <input id="sigmaYCond" type="range" min="0.45" max="2.4" step="0.05" value="0.9" /> <span id="sigmaYCondValue">0.9</span></label>
+            <label>Correlation &rho; <input id="rhoCond" type="range" min="-0.95" max="0.95" step="0.01" value="0.55" /> <span id="rhoCondValue">0.55</span></label>
             <label>Vertical slice x<sub>0</sub> <input id="xSliceOffset" type="range" min="-3" max="3" step="0.05" value="0" /> <span id="xSliceOffsetValue">+0.00</span></label>
             <label>Horizontal slice y<sub>0</sub> <input id="ySliceOffset" type="range" min="-3" max="3" step="0.05" value="0" /> <span id="ySliceOffsetValue">+0.00</span></label>
           </div>
@@ -705,12 +708,10 @@
         </p>
       </section>
 
-      <footer class="article-footer">
-        <p>An interactive explainer. Built with vanilla JavaScript and KaTeX. No frameworks.</p>
-      </footer>
+      <footer class="article-footer"></footer>
     </article>
 
-    <script defer src="../../vendor/katex/katex.min.js"></script>
+    <script defer src="../vendor/katex/katex.min.js"></script>
     <script defer src="app.js"></script>
   </body>
 </html>

@@ -62,7 +62,7 @@ function loadArticles() {
     return {
       ...meta,
       slug,
-      url: `articles/${slug}/`,
+      url: `${slug}/`,
     };
   });
 
@@ -174,7 +174,6 @@ function build() {
   }
 
   cleanDir(docsDir);
-  ensureDir(path.join(docsDir, 'articles'));
   ensureDir(path.join(docsDir, 'assets'));
   ensureDir(path.join(docsDir, 'vendor'));
 
@@ -184,7 +183,7 @@ function build() {
   for (const article of articles) {
     copyDir(
       path.join(articlesDir, article.slug),
-      path.join(docsDir, 'articles', article.slug)
+      path.join(docsDir, article.slug)
     );
   }
 

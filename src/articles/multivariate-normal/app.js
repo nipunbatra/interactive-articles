@@ -107,6 +107,30 @@ const elements = {
   yConditionalFormula: document.getElementById('yConditionalFormula'),
   shrinkageFormula: document.getElementById('shrinkageFormula'),
   jointSummary: document.getElementById('jointSummary'),
+
+  // Duplicate 2D controls in marginal figure
+  muXMarg: document.getElementById('muXMarg'),
+  muXMargValue: document.getElementById('muXMargValue'),
+  muYMarg: document.getElementById('muYMarg'),
+  muYMargValue: document.getElementById('muYMargValue'),
+  sigmaXMarg: document.getElementById('sigmaXMarg'),
+  sigmaXMargValue: document.getElementById('sigmaXMargValue'),
+  sigmaYMarg: document.getElementById('sigmaYMarg'),
+  sigmaYMargValue: document.getElementById('sigmaYMargValue'),
+  rhoMarg: document.getElementById('rhoMarg'),
+  rhoMargValue: document.getElementById('rhoMargValue'),
+
+  // Duplicate 2D controls in conditional figure
+  muXCond: document.getElementById('muXCond'),
+  muXCondValue: document.getElementById('muXCondValue'),
+  muYCond: document.getElementById('muYCond'),
+  muYCondValue: document.getElementById('muYCondValue'),
+  sigmaXCond: document.getElementById('sigmaXCond'),
+  sigmaXCondValue: document.getElementById('sigmaXCondValue'),
+  sigmaYCond: document.getElementById('sigmaYCond'),
+  sigmaYCondValue: document.getElementById('sigmaYCondValue'),
+  rhoCond: document.getElementById('rhoCond'),
+  rhoCondValue: document.getElementById('rhoCondValue'),
 };
 
 const baseSamples = Array.from({ length: 280 }, () => [randn(), randn()]);
@@ -1292,6 +1316,22 @@ function syncTwoDInputs() {
   elements.ySliceOffset.value = twoDState.ySliceOffset;
   elements.samplingCount.value = samplingState.count;
   elements.samplingCountValue.textContent = String(samplingState.count);
+
+  // Sync duplicate controls in marginal figure
+  const margSuffix = 'Marg';
+  const condSuffix = 'Cond';
+  ['muX', 'muY', 'sigmaX', 'sigmaY', 'rho'].forEach((key) => {
+    const val = twoDState[key];
+    const fmt = (key === 'muX' || key === 'muY') ? val.toFixed(1) : val.toFixed(2);
+    if (elements[key + margSuffix]) {
+      elements[key + margSuffix].value = val;
+      elements[key + margSuffix + 'Value'].textContent = fmt;
+    }
+    if (elements[key + condSuffix]) {
+      elements[key + condSuffix].value = val;
+      elements[key + condSuffix + 'Value'].textContent = fmt;
+    }
+  });
 }
 
 function renderAll() {
@@ -1331,6 +1371,16 @@ function wireInputs() {
     elements[key].addEventListener('input', () => {
       twoDState[key] = Number(elements[key].value);
       renderAll();
+    });
+    // Wire duplicate controls in marginal and conditional figures
+    ['Marg', 'Cond'].forEach((suffix) => {
+      const el = elements[key + suffix];
+      if (el) {
+        el.addEventListener('input', () => {
+          twoDState[key] = Number(el.value);
+          renderAll();
+        });
+      }
     });
   });
 

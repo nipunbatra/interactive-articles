@@ -109,9 +109,10 @@ body {
   border-bottom: 1px solid var(--border);
 }
 
-.toc ol {
+.toc ul {
   margin: 0;
-  padding-left: 1.2rem;
+  padding-left: 0;
+  list-style: none;
   display: grid;
   gap: 0.4rem;
 }
@@ -172,6 +173,16 @@ code {
 }
 
 a { color: var(--accent); }
+
+/* ---- Example / step lists ---- */
+.example-list {
+  margin: 0.5rem 0 1rem;
+  padding-left: 1.5rem;
+  max-width: 65ch;
+}
+.example-list li {
+  margin-bottom: 0.5rem;
+}
 
 /* ---- Math blocks ---- */
 .math-block {
