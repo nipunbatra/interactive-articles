@@ -1,5 +1,5 @@
 {
-  "title": "Interactive Articles",
-  "tagline": "Quiet visual essays with live figures",
-  "description": "Interactive essays that start with intuition, let you manipulate the picture, and only then bring in the math."
+  "title": "Interactive Lab",
+  "tagline": "Editorial explainers for machine learning, probability, and the systems underneath them",
+  "description": "Scroll-driven articles that make the mechanism visible: concrete examples first, live figures second, and formal math only when it earns its place."
 }

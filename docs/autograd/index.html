@@ -6,7 +6,7 @@
     <title>Autograd, Seen</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="../vendor/katex/katex.min.css" />
     <link rel="stylesheet" href="styles.css" />
   </head>
@@ -21,28 +21,26 @@
             <p class="kicker">Interactive Explainer</p>
             <h1>Autograd, Seen</h1>
             <p class="abstract">
-              Backprop can look like magic because the final derivative appears all at once.
-              It is not magic. It is bookkeeping: each node knows one tiny local derivative,
-              and the global gradient appears when those local rules are stitched together in
-              reverse.
+              Automatic differentiation is often introduced as if it were just backprop magic.
+              It is simpler than that. It is a way to compute exact derivatives of the program you
+              actually ran by storing intermediate values and applying the chain rule locally.
             </p>
             <p class="abstract abstract--secondary">
-              This explainer starts with the small rules, walks a single scalar graph forward and
-              backward, then compresses the same graph into framework-style modules and a tiny
-              three-example training loop.
+              Before we touch the interactive graph, we will separate autodiff from finite
+              differences and symbolic algebra, then sketch the graph mechanics in plain view.
             </p>
             <div class="hero__meta">
-              <span>~18 min</span>
+              <span>~20 min</span>
               <span>Deep Learning &middot; Optimization &middot; Chain Rule</span>
             </div>
             <div class="hero__actions">
-              <a class="primary-link" href="#single-example">Enter the graph</a>
-              <a class="ghost-link" href="#batching">Jump to the mini batch</a>
+              <a class="primary-link" href="#what-is-autodiff">Start with the definition</a>
+              <a class="ghost-link" href="#single-example">Jump to the interactive graph</a>
             </div>
           </div>
 
           <aside class="hero-card">
-            <p class="hero-card__eyebrow">The entire trick</p>
+            <p class="hero-card__eyebrow">The one-sentence version</p>
             <div class="hero-card__formula" data-katex-display>
               \[
                 \frac{\partial L}{\partial a}
@@ -53,18 +51,18 @@
               \]
             </div>
             <p class="hero-card__copy">
-              One message comes from the right: the <strong>upstream gradient</strong>. One rule
-              lives locally at the node: the <strong>local derivative</strong>. Multiply them,
-              and pass the result left.
+              The backward pass carries an <strong>upstream gradient</strong> from right to left.
+              Each node contributes one <strong>local derivative</strong>. Multiply the two, send
+              the result to the parents, and accumulate whenever paths merge.
             </p>
-            <div class="hero-stats">
+            <div class="hero-notes">
               <div>
-                <span class="stat-label">Five rules</span>
-                <strong>multiply, add, exp, reciprocal, log</strong>
+                <span class="note-label">Not this</span>
+                <strong>Repeatedly nudging inputs with a tiny <code>h</code></strong>
               </div>
               <div>
-                <span class="stat-label">One reusable pattern</span>
-                <strong>forward store, backward multiply, accumulate</strong>
+                <span class="note-label">This</span>
+                <strong>Exact chain-rule bookkeeping on executed intermediate values</strong>
               </div>
             </div>
           </aside>
@@ -73,38 +71,154 @@
 
       <nav class="toc" aria-label="Table of contents">
         <ul>
-          <li><a class="toc__link" href="#why-graphs">I. Why graphs make the chain rule usable</a></li>
-          <li><a class="toc__link" href="#local-rules">II. The tiny rulebook every engine needs</a></li>
-          <li><a class="toc__link" href="#single-example">III. One example, traced forward and backward</a></li>
-          <li><a class="toc__link" href="#modules">IV. Why frameworks collapse graphs into modules</a></li>
-          <li><a class="toc__link" href="#batching">V. Three examples, shared parameters, one update</a></li>
-          <li><a class="toc__link" href="#takeaways">VI. What an autograd engine really stores</a></li>
+          <li><a class="toc__link" href="#what-is-autodiff">I. What autodiff is, and what it is not</a></li>
+          <li><a class="toc__link" href="#graph-anatomy">II. A graph sketch before the interactive view</a></li>
+          <li><a class="toc__link" href="#local-rules">III. The tiny rulebook every engine needs</a></li>
+          <li><a class="toc__link" href="#single-example">IV. One example, traced forward and backward</a></li>
+          <li><a class="toc__link" href="#modules">V. Why frameworks collapse graphs into modules</a></li>
+          <li><a class="toc__link" href="#batching">VI. Three examples, shared parameters, one update</a></li>
+          <li><a class="toc__link" href="#takeaways">VII. What an autograd engine really stores</a></li>
         </ul>
       </nav>
 
-      <section id="why-graphs" data-nav="Why">
-        <h2><span class="num">I.</span> Why graphs make the chain rule usable</h2>
+      <section id="what-is-autodiff" data-nav="Definition">
+        <h2><span class="num">I.</span> What autodiff is, and what it is not</h2>
         <p>
-          In calculus class, the chain rule usually appears as a short symbolic identity. In deep
-          learning, it becomes a graph problem. Every intermediate quantity is a node. Every
-          operation creates a new node from older ones. The loss sits at the far right. During the
-          backward pass, information simply travels back along the arrows.
-        </p>
-        <p>
-          That graph view matters because real expressions are not one neat composition. They fork,
-          merge, and reuse values. A parameter can influence the loss through many paths. The graph
-          gives the engine a precise map of those dependencies, and the backward pass becomes a
-          disciplined walk over that map rather than symbolic guesswork.
+          There are three different ideas that often get blurred together. They all answer the
+          question “how fast does the output change when the input changes?”, but they do it in
+          very different ways.
         </p>
 
-        <div class="aside">
-          <strong>The key mental shift.</strong>
-          Think less about differentiating the whole expression at once and more about attaching a
-          tiny local gradient recipe to each operation as it is created.
+        <div class="compare-grid">
+          <article class="compare-card">
+            <p class="eyebrow">Finite differences</p>
+            <h3>Perturb the input and approximate the slope</h3>
+            <div class="math-block" data-katex-display>
+              \[
+                f'(x) \approx \frac{f(x+h)-f(x)}{h}
+              \]
+            </div>
+            <p>
+              This is numerical estimation. You rerun the function with a tiny change in the input.
+              It is useful for gradient checking, but it is slow, approximate, and sensitive to the
+              choice of <code>h</code>.
+            </p>
+          </article>
+
+          <article class="compare-card">
+            <p class="eyebrow">Symbolic differentiation</p>
+            <h3>Rewrite the expression algebraically</h3>
+            <div class="math-block" data-katex-display>
+              \[
+                \frac{d}{dx}\bigl((x^2+1)^5\bigr) = 10x(x^2+1)^4
+              \]
+            </div>
+            <p>
+              This manipulates formulas directly. It can be exact, but large real programs are not
+              clean symbolic expressions. They include branching, reused values, and big composite
+              operations.
+            </p>
+          </article>
+
+          <article class="compare-card compare-card--highlight">
+            <p class="eyebrow">Automatic differentiation</p>
+            <h3>Differentiate the executed program by local rules</h3>
+            <div class="math-block" data-katex-display>
+              \[
+                \text{upstream gradient} \times \text{local derivative}
+              \]
+            </div>
+            <p>
+              This is what deep-learning frameworks use. It follows the actual computation graph,
+              stores the intermediate values from the forward pass, and produces exact derivatives
+              up to normal floating-point arithmetic.
+            </p>
+          </article>
         </div>
 
+        <div class="aside">
+          <strong>Practical takeaway.</strong>
+          If you are training a model, autodiff is the workhorse. Finite differences are mainly a
+          debugging tool. Symbolic differentiation is a different style of system.
+        </div>
+      </section>
+
+      <section id="graph-anatomy" data-nav="Sketch">
+        <h2><span class="num">II.</span> A graph sketch before the interactive view</h2>
+        <p>
+          Here is the whole idea in still form. The forward pass creates intermediate values from
+          left to right. The backward pass sends gradients back from the loss to the leaves. The
+          graph matters because it tells us exactly who depends on whom.
+        </p>
+
+        <figure class="diagram-board">
+          <svg class="flow-diagram" viewBox="0 0 1040 360" aria-label="Static diagram of a forward pass and backward pass through a small computation graph">
+            <defs>
+              <marker id="arrowBlue" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#3c68cf"></path>
+              </marker>
+              <marker id="arrowCoral" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#d35b43"></path>
+              </marker>
+            </defs>
+
+            <rect x="20" y="20" width="1000" height="320" rx="24" fill="#fcfbf8" stroke="#d9d2c7"></rect>
+
+            <text x="58" y="66" class="diagram-kicker">Forward pass</text>
+            <text x="56" y="92" class="diagram-copy">Build values from left to right and cache what later rules will need.</text>
+            <text x="760" y="66" class="diagram-kicker diagram-kicker--coral">Backward pass</text>
+            <text x="758" y="92" class="diagram-copy">Start from the scalar loss and send gradient messages right to left.</text>
+
+            <g transform="translate(90 170)">
+              <rect class="diagram-node" width="112" height="60" rx="18"></rect>
+              <text x="20" y="28" class="diagram-label">x, w, b</text>
+              <text x="20" y="46" class="diagram-sub">leaf values</text>
+            </g>
+            <g transform="translate(300 170)">
+              <rect class="diagram-node" width="120" height="60" rx="18"></rect>
+              <text x="20" y="28" class="diagram-label">wx + b</text>
+              <text x="20" y="46" class="diagram-sub">logit z</text>
+            </g>
+            <g transform="translate(540 170)">
+              <rect class="diagram-node" width="120" height="60" rx="18"></rect>
+              <text x="20" y="28" class="diagram-label">sigmoid</text>
+              <text x="20" y="46" class="diagram-sub">probability p</text>
+            </g>
+            <g transform="translate(780 170)">
+              <rect class="diagram-node diagram-node--loss" width="150" height="60" rx="18"></rect>
+              <text x="20" y="28" class="diagram-label">-log(p)</text>
+              <text x="20" y="46" class="diagram-sub">scalar loss L</text>
+            </g>
+
+            <path d="M 202 200 C 240 200, 254 200, 300 200" class="flow-arrow flow-arrow--forward" marker-end="url(#arrowBlue)"></path>
+            <path d="M 420 200 C 470 200, 488 200, 540 200" class="flow-arrow flow-arrow--forward" marker-end="url(#arrowBlue)"></path>
+            <path d="M 660 200 C 710 200, 728 200, 780 200" class="flow-arrow flow-arrow--forward" marker-end="url(#arrowBlue)"></path>
+
+            <path d="M 780 144 C 720 116, 612 118, 540 144" class="flow-arrow flow-arrow--backward" marker-end="url(#arrowCoral)"></path>
+            <path d="M 540 144 C 470 116, 372 118, 300 144" class="flow-arrow flow-arrow--backward" marker-end="url(#arrowCoral)"></path>
+            <path d="M 300 144 C 236 116, 156 118, 120 144" class="flow-arrow flow-arrow--backward" marker-end="url(#arrowCoral)"></path>
+
+            <g transform="translate(308 248)">
+              <rect width="110" height="34" rx="17" class="legend-pill legend-pill--blue"></rect>
+              <text x="16" y="22" class="legend-text">cache value z</text>
+            </g>
+            <g transform="translate(548 248)">
+              <rect width="122" height="34" rx="17" class="legend-pill legend-pill--blue"></rect>
+              <text x="15" y="22" class="legend-text">cache value p</text>
+            </g>
+            <g transform="translate(702 114)">
+              <rect width="154" height="34" rx="17" class="legend-pill legend-pill--coral"></rect>
+              <text x="14" y="22" class="legend-text">send ∂L/∂p backward</text>
+            </g>
+          </svg>
+          <figcaption>
+            Reverse-mode autodiff is especially useful in learning because many parameters feed one
+            scalar loss. One backward sweep gives all parameter gradients together.
+          </figcaption>
+        </figure>
+
         <div class="code-panel">
-          <p class="code-panel__eyebrow">A node only needs a little memory</p>
+          <p class="code-panel__eyebrow">A node only needs a small amount of memory</p>
           <pre><code>node = {
   value,
   parents,
@@ -116,7 +230,7 @@
       </section>
 
       <section id="local-rules" data-nav="Rules">
-        <h2><span class="num">II.</span> The tiny rulebook every engine needs</h2>
+        <h2><span class="num">III.</span> The tiny rulebook every engine needs</h2>
         <p>
           The scalar version of autograd can go a long way with a very small lookup table. The
           exact list below matches the pedagogical core from the animation notes: multiplication,
@@ -144,11 +258,12 @@
       </section>
 
       <section id="single-example" data-nav="Graph">
-        <h2><span class="num">III.</span> One example, traced forward and backward</h2>
+        <h2><span class="num">IV.</span> One example, traced forward and backward</h2>
         <p>
-          Start with a single positive example. We will compute a log-loss from a scalar logit
-          <code>z = wx + b</code>. The exact expression is deliberately expanded into tiny
-          operations so you can see what the engine is really doing under the hood.
+          Now we can animate a concrete scalar graph. Start with a single positive example. We will
+          compute a log-loss from a scalar logit <code>z = wx + b</code>. The expression is
+          deliberately expanded into tiny operations so you can see what the engine is really doing
+          under the hood.
         </p>
 
         <div class="math-block" data-katex-display>
@@ -209,7 +324,7 @@
       </section>
 
       <section id="modules" data-nav="Modules">
-        <h2><span class="num">IV.</span> Why frameworks collapse graphs into modules</h2>
+        <h2><span class="num">V.</span> Why frameworks collapse graphs into modules</h2>
         <p>
           A teaching graph should show everything. A production graph should show just enough.
           That is why frameworks package chains of small operations into larger blocks. A linear
@@ -238,7 +353,7 @@
       </section>
 
       <section id="batching" data-nav="Batch">
-        <h2><span class="num">V.</span> Three examples, shared parameters, one update</h2>
+        <h2><span class="num">VI.</span> Three examples, shared parameters, one update</h2>
         <p>
           The point of autograd is not a single example. It is repeated reuse. The same parameters
           show up in every example, so the backward pass must accumulate gradient contributions
@@ -316,7 +431,7 @@
       </section>
 
       <section id="takeaways" data-nav="Summary">
-        <h2><span class="num">VI.</span> What an autograd engine really stores</h2>
+        <h2><span class="num">VII.</span> What an autograd engine really stores</h2>
         <p>
           The finished story is smaller than the notation makes it seem. A node stores a value, a
           set of parents, and a local backward rule. The forward pass builds the graph and caches
@@ -351,8 +466,8 @@
 
       <footer class="article-footer">
         <p>
-          If this clicked, the next useful step is to rebuild the same scalar engine yourself.
-          Keep the graph small, keep the rulebook tiny, and keep the backward pass boring.
+          If this clicked, the next good exercise is to build the scalar engine yourself. Keep the
+          graph tiny, keep the rulebook short, and keep the backward pass honest.
         </p>
       </footer>
     </article>

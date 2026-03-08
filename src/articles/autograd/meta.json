@@ -1,19 +1,19 @@
 {
   "slug": "autograd",
   "title": "Autograd, Seen",
-  "tagline": "Why backprop is just local rules flowing through a graph",
-  "summary": "A visual explainer for automatic differentiation that starts from five local gradient rules, walks a single computation graph forward and backward, then shows how modern frameworks hide the tiny ops inside larger modules and batch training.",
-  "readingTime": "18 min",
+  "tagline": "What autodiff is, what it is not, and how gradients move through a graph",
+  "summary": "A visual explainer for automatic differentiation that first distinguishes autodiff from finite differences and symbolic algebra, then walks a single computation graph forward and backward before showing modules and mini-batch training.",
+  "readingTime": "20 min",
   "difficulty": "Intermediate",
   "collection": "Deep learning",
   "order": 0,
   "status": "published",
-  "tags": ["Autograd", "Backpropagation", "Deep Learning", "Interactive"],
+  "tags": ["Autodiff", "Backpropagation", "Deep Learning", "Interactive"],
   "highlights": [
+    "Start with a clean comparison of finite differences, symbolic differentiation, and autodiff before touching the interactive graph.",
     "See a single scalar graph reveal values on the forward pass and gradients on the backward pass, one stage at a time.",
     "Keep the main graph clean while a separate ledger explains the exact upstream-times-local rule driving the current step.",
     "Switch between atomic operations and framework-style modules to see what PyTorch or JAX are really hiding.",
-    "Explore a tiny three-example batch where the same parameters receive gradient contributions from multiple examples.",
-    "Export the current graph stage or the full timeline as JSON from inside the article."
+    "Explore a tiny three-example batch where the same parameters receive gradient contributions from multiple examples."
   ]
 }

@@ -3,44 +3,78 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Interactive Articles</title>
-    <meta name="description" content="Interactive essays that start with intuition, let you manipulate the picture, and only then bring in the math." />
+    <title>Interactive Lab</title>
+    <meta name="description" content="Scroll-driven articles that make the mechanism visible: concrete examples first, live figures second, and formal math only when it earns its place." />
     <link rel="stylesheet" href="assets/site.css" />
   </head>
   <body>
     <header class="site-header">
       <div class="site-header__brand">
-        <p class="eyebrow">Explainer library</p>
-        <a class="brand-mark" href="./">Interactive Articles</a>
+        <p class="eyebrow">Interactive explainers</p>
+        <a class="brand-mark" href="./">Interactive Lab</a>
+      </div>
+      <div class="site-header__meta">
+        <span class="pill">2 live articles</span>
+        <span class="pill">Editorial explainers for machine learning, probability, and the systems underneath them</span>
       </div>
     </header>
 
     <main class="site-shell">
       <section class="hero">
-        <div class="hero__copy">
-          <p class="eyebrow">Interactive explainers</p>
-          <h1 class="hero__title">Ideas first. Interaction second. Math when it helps.</h1>
-          <p class="hero__copy">Interactive essays that start with intuition, let you manipulate the picture, and only then bring in the math.</p>
-          <p class="hero__copy">Each page is meant to read like a short visual essay: an example, a picture, a live figure, and only then the formal statement.</p>
-          <div class="hero__actions">
-            <a class="article-link" href="autograd/">Start with the featured explainer</a>
-            <a class="ghost-link" href="#library">Browse the library</a>
+        <div class="hero__copy-wrap">
+          <div class="hero__copy">
+            <p class="eyebrow">Curated library</p>
+            <h1 class="hero__title">Mechanisms, not slogans.</h1>
+            <p class="hero__copy">Scroll-driven articles that make the mechanism visible: concrete examples first, live figures second, and formal math only when it earns its place.</p>
+            <p class="hero__copy">The front page is intentionally small. Each article is meant to feel like a product-quality lab note: editorial pacing, deliberate visuals, and interactivity that exposes the machinery instead of decorating it.</p>
+            <div class="hero__actions">
+              <a class="article-link" href="autograd/">Start with Autograd, Seen</a>
+              <a class="ghost-link" href="#library">Browse the library</a>
+            </div>
           </div>
+          
+    <div class="hero__stats">
+      <article class="stat-card">
+        <p class="guide__label">Now live</p>
+        <p class="stat-card__value">2</p>
+        <p class="guide__copy">Interactive articles published and linked from this front page.</p>
+      </article>
+      <article class="stat-card">
+        <p class="guide__label">Coverage</p>
+        <p class="stat-card__value">2</p>
+        <p class="guide__copy">Collections spanning Deep learning, Probability and statistics.</p>
+      </article>
+      <article class="stat-card">
+        <p class="guide__label">Reading shape</p>
+        <p class="stat-card__value">20 min</p>
+        <p class="guide__copy">Essay-length explainers designed to be manipulated, not skimmed as static notes.</p>
+      </article>
+    </div>
+  
         </div>
         
     <aside class="spotlight-card">
       <div class="spotlight-card__body">
-        <p class="card__meta">Start here</p>
+        <div class="spotlight-card__header">
+          <p class="card__meta">Featured release</p>
+          <span class="preview-pill">Deep learning</span>
+        </div>
         <h2 class="spotlight-card__title">Autograd, Seen</h2>
-        <p class="card__copy">A visual explainer for automatic differentiation that starts from five local gradient rules, walks a single computation graph forward and backward, then shows how modern frameworks hide the tiny ops inside larger modules and batch training.</p>
-        <p class="spotlight-card__facts">Deep learning · 18 min</p>
+        <p class="card__copy">A visual explainer for automatic differentiation that first distinguishes autodiff from finite differences and symbolic algebra, then walks a single computation graph forward and backward before showing modules and mini-batch training.</p>
+        <p class="spotlight-card__facts">20 min · Intermediate</p>
+        
+    <div class="pill-row">
+      <span class="tiny-pill">Autodiff</span><span class="tiny-pill">Backpropagation</span><span class="tiny-pill">Deep Learning</span>
+    </div>
+  
         
     <ul class="feature-list">
-      <li>See a single scalar graph reveal values on the forward pass and gradients on the backward pass, one stage at a time.</li><li>Keep the main graph clean while a separate ledger explains the exact upstream-times-local rule driving the current step.</li><li>Switch between atomic operations and framework-style modules to see what PyTorch or JAX are really hiding.</li><li>Explore a tiny three-example batch where the same parameters receive gradient contributions from multiple examples.</li><li>Export the current graph stage or the full timeline as JSON from inside the article.</li>
+      <li>Start with a clean comparison of finite differences, symbolic differentiation, and autodiff before touching the interactive graph.</li><li>See a single scalar graph reveal values on the forward pass and gradients on the backward pass, one stage at a time.</li><li>Keep the main graph clean while a separate ledger explains the exact upstream-times-local rule driving the current step.</li><li>Switch between atomic operations and framework-style modules to see what PyTorch or JAX are really hiding.</li>
     </ul>
   
         <div class="spotlight-card__footer">
-          <a class="article-link" href="autograd/">Read the explainer</a>
+          <a class="article-link" href="autograd/">Read the featured article</a>
+          <span class="ghost-note">Scroll essay, live figures, exportable state</span>
         </div>
       </div>
     </aside>
@@ -53,15 +87,28 @@
             <p class="eyebrow">Published</p>
             <h2 class="section__title">The library</h2>
           </div>
-          <p class="section__copy">Quiet visual essays with live figures</p>
+          <p class="section__copy">Editorial explainers for machine learning, probability, and the systems underneath them</p>
         </div>
         <div class="card-grid">
           
       <article class="article-card">
         <div class="article-card__body">
-          <p class="card__meta">Deep learning · 18 min</p>
+          <div class="article-card__header">
+            <p class="card__meta">Deep learning · 20 min · Intermediate</p>
+            <span class="tiny-pill">published</span>
+          </div>
           <h2 class="card__title">Autograd, Seen</h2>
-          <p class="card__copy">A visual explainer for automatic differentiation that starts from five local gradient rules, walks a single computation graph forward and backward, then shows how modern frameworks hide the tiny ops inside larger modules and batch training.</p>
+          <p class="card__copy">A visual explainer for automatic differentiation that first distinguishes autodiff from finite differences and symbolic algebra, then walks a single computation graph forward and backward before showing modules and mini-batch training.</p>
+          
+    <div class="pill-row">
+      <span class="tiny-pill">Autodiff</span><span class="tiny-pill">Backpropagation</span><span class="tiny-pill">Deep Learning</span>
+    </div>
+  
+          
+    <ul class="feature-list feature-list--compact">
+      <li>Start with a clean comparison of finite differences, symbolic differentiation, and autodiff before touching the interactive graph.</li><li>See a single scalar graph reveal values on the forward pass and gradients on the backward pass, one stage at a time.</li>
+    </ul>
+  
           <div class="article-card__footer">
             <a class="article-link" href="autograd/">Open article</a>
           </div>
@@ -71,9 +118,22 @@
 
       <article class="article-card">
         <div class="article-card__body">
-          <p class="card__meta">Probability and statistics · 24 min</p>
+          <div class="article-card__header">
+            <p class="card__meta">Probability and statistics · 24 min · Intermediate</p>
+            <span class="tiny-pill">published</span>
+          </div>
           <h2 class="card__title">Seeing the Multivariate Normal</h2>
           <p class="card__copy">A narrative explainer that starts with the ordinary bell curve, then builds a 2D Gaussian through examples, sampling, parameter learning, marginals, and conditional slices.</p>
+          
+    <div class="pill-row">
+      <span class="tiny-pill">Probability</span><span class="tiny-pill">Statistics</span><span class="tiny-pill">Gaussian</span>
+    </div>
+  
+          
+    <ul class="feature-list feature-list--compact">
+      <li>Start with a live 1D bell curve before moving into the 2D cloud.</li><li>See how covariance turns a round blob into a tilted ellipse and how eigenvectors reveal its natural axes.</li>
+    </ul>
+  
           <div class="article-card__footer">
             <a class="article-link" href="multivariate-normal/">Open article</a>
           </div>
@@ -84,7 +144,7 @@
       </section>
 
       <footer class="site-footer">
-        <p>Interactive Articles. Quiet pages, simple builds, and room to add more explainers over time.</p>
+        <p>Interactive Lab is designed as a small, high-signal collection. Additions should feel like flagship explainers, not filler posts.</p>
       </footer>
     </main>
   </body>
