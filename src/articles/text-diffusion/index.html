@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Text Diffusion, Tiny</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../vendor/katex/katex.min.css" />
+    <link rel="stylesheet" href="styles.css?v=2" />
+  </head>
+  <body>
+    <div class="progress-bar" aria-hidden="true"><div class="progress-bar__fill" id="progressFill"></div></div>
+
+    <article class="article">
+      <header class="hero">
+        <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+        <div class="hero__grid">
+          <div class="hero__copy">
+            <p class="kicker">Interactive Explainer</p>
+            <h1>Text Diffusion, Tiny</h1>
+            <p class="abstract">
+              Language models usually predict one token at a time, left to right.
+              Diffusion models take a different path: start with noise, and iteratively
+              refine the whole sequence at once.
+            </p>
+            <p class="abstract abstract--secondary">
+              This page trains a character-level discrete diffusion model on Indian names
+              in your browser and lets you watch it denoise from pure masks to readable text.
+            </p>
+            <div class="hero__meta">
+              <span>~15 min</span>
+              <span>Deep Learning &middot; Diffusion &middot; Generative Models</span>
+            </div>
+            <div class="hero__actions">
+              <a class="primary-link" href="#idea">Start with the idea</a>
+              <a class="ghost-link" href="#training">Jump to training</a>
+            </div>
+          </div>
+
+          <aside class="hero-card">
+            <p class="hero-card__eyebrow">The one-sentence version</p>
+            <div class="hero-card__formula" data-katex-display>
+              \[
+                x_t = \text{mask}(x_0,\; t), \qquad
+                \hat{x}_0 = f_\theta(x_t,\; t)
+              \]
+            </div>
+            <p class="hero-card__copy">
+              Corrupt a clean sequence by <strong>randomly masking</strong> characters.
+              Train a model to <strong>predict the original</strong>.
+              At generation time, start from all masks and <strong>iteratively reveal</strong>.
+            </p>
+            <div class="hero-notes">
+              <div>
+                <span class="note-label">Autoregressive</span>
+                <strong>Predict one token at a time, left to right</strong>
+              </div>
+              <div>
+                <span class="note-label">Diffusion</span>
+                <strong>Predict all tokens at once, refine over multiple steps</strong>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </header>
+
+      <nav class="toc" aria-label="Table of contents">
+        <ul>
+          <li><a class="toc__link" href="#idea">I. Not one token at a time</a></li>
+          <li><a class="toc__link" href="#corruption">II. How corruption dissolves a name</a></li>
+          <li><a class="toc__link" href="#model">III. A model that guesses the original</a></li>
+          <li><a class="toc__link" href="#training">IV. Train in your browser</a></li>
+          <li><a class="toc__link" href="#sampling">V. Denoise step by step</a></li>
+          <li><a class="toc__link" href="#takeaways">VI. What we built</a></li>
+          <li><a class="toc__link" href="#qa">VII. From words to answers</a></li>
+        </ul>
+      </nav>
+
+      <!-- ─── Section I ─── -->
+
+      <section id="idea" data-nav="Idea">
+        <h2><span class="num">I.</span> Not one token at a time</h2>
+        <p>
+          Most language models you have seen are autoregressive. They predict the next token
+          given everything before it. GPT, LLaMA, Claude &mdash; all left-to-right, one token
+          at a time. This works brilliantly, but it is not the only way to generate sequences.
+        </p>
+
+        <div class="compare-grid">
+          <article class="compare-card">
+            <p class="eyebrow">Autoregressive</p>
+            <h3>Predict each token from its left context</h3>
+            <div class="math-block" data-katex-display>
+              \[
+                p(x_1, \dots, x_L) = \prod_{i=1}^{L} p(x_i \mid x_1, \dots, x_{i-1})
+              \]
+            </div>
+            <p>
+              Generation is sequential: sample position 1, then 2 given 1, then 3 given 1&ndash;2,
+              and so on. The model never looks to the right. Each step waits for the previous one
+              to finish.
+            </p>
+          </article>
+
+          <article class="compare-card compare-card--highlight">
+            <p class="eyebrow">Discrete diffusion</p>
+            <h3>Corrupt the whole sequence, then learn to undo it</h3>
+            <div class="math-block" data-katex-display>
+              \[
+                \hat{x}_0 = f_\theta\!\bigl(\text{mask}(x_0,\; t),\; t\bigr)
+              \]
+            </div>
+            <p>
+              The model predicts <em>all</em> positions at once. At generation time it starts
+              from pure noise (all masks) and iteratively fills in characters. Positions can be
+              revealed in any order &mdash; not just left to right.
+            </p>
+          </article>
+        </div>
+
+        <p>
+          Here is what these two approaches look like in practice, step by step, for the name
+          <strong>rahul</strong>.
+        </p>
+
+        <div class="step-compare">
+          <div class="step-panel">
+            <p class="eyebrow">Autoregressive: left to right</p>
+            <div class="step-sequence">
+              <div class="step-row">
+                <span class="step-num">1</span>
+                <div class="char-row">
+                  <div class="char-cell char-cell--reveal">r</div>
+                  <div class="char-cell char-cell--empty">&middot;</div>
+                  <div class="char-cell char-cell--empty">&middot;</div>
+                  <div class="char-cell char-cell--empty">&middot;</div>
+                  <div class="char-cell char-cell--empty">&middot;</div>
+                </div>
+                <span class="step-desc">sample p(x<sub>1</sub>)</span>
+              </div>
+              <div class="step-row">
+                <span class="step-num">2</span>
+                <div class="char-row">
+                  <div class="char-cell char-cell--char">r</div>
+                  <div class="char-cell char-cell--reveal">a</div>
+                  <div class="char-cell char-cell--empty">&middot;</div>
+                  <div class="char-cell char-cell--empty">&middot;</div>
+                  <div class="char-cell char-cell--empty">&middot;</div>
+                </div>
+                <span class="step-desc">sample p(x<sub>2</sub> | r)</span>
+              </div>
+              <div class="step-row">
+                <span class="step-num">3</span>
+                <div class="char-row">
+                  <div class="char-cell char-cell--char">r</div>
+                  <div class="char-cell char-cell--char">a</div>
+                  <div class="char-cell char-cell--reveal">h</div>
+                  <div class="char-cell char-cell--empty">&middot;</div>
+                  <div class="char-cell char-cell--empty">&middot;</div>
+                </div>
+                <span class="step-desc">sample p(x<sub>3</sub> | r, a)</span>
+              </div>
+              <div class="step-row">
+                <span class="step-num">4</span>
+                <div class="char-row">
+                  <div class="char-cell char-cell--char">r</div>
+                  <div class="char-cell char-cell--char">a</div>
+                  <div class="char-cell char-cell--char">h</div>
+                  <div class="char-cell char-cell--reveal">u</div>
+                  <div class="char-cell char-cell--empty">&middot;</div>
+                </div>
+                <span class="step-desc">sample p(x<sub>4</sub> | r, a, h)</span>
+              </div>
+              <div class="step-row">
+                <span class="step-num">5</span>
+                <div class="char-row">
+                  <div class="char-cell char-cell--char">r</div>
+                  <div class="char-cell char-cell--char">a</div>
+                  <div class="char-cell char-cell--char">h</div>
+                  <div class="char-cell char-cell--char">u</div>
+                  <div class="char-cell char-cell--reveal">l</div>
+                </div>
+                <span class="step-desc">sample p(x<sub>5</sub> | r, a, h, u)</span>
+              </div>
+            </div>
+            <p class="step-caption">
+              Five sequential steps. Each step must wait for the previous one.
+              The model never sees characters to the right of the cursor.
+            </p>
+          </div>
+
+          <div class="step-panel">
+            <p class="eyebrow">Discrete diffusion: denoise in parallel</p>
+            <div class="step-sequence">
+              <div class="step-row">
+                <span class="step-num">&nbsp;</span>
+                <div class="char-row">
+                  <div class="char-cell char-cell--mask">?</div>
+                  <div class="char-cell char-cell--mask">?</div>
+                  <div class="char-cell char-cell--mask">?</div>
+                  <div class="char-cell char-cell--mask">?</div>
+                  <div class="char-cell char-cell--mask">?</div>
+                </div>
+                <span class="step-desc">start: all masked (t = 1)</span>
+              </div>
+              <div class="step-row">
+                <span class="step-num">1</span>
+                <div class="char-row">
+                  <div class="char-cell char-cell--mask">?</div>
+                  <div class="char-cell char-cell--mask">?</div>
+                  <div class="char-cell char-cell--reveal">h</div>
+                  <div class="char-cell char-cell--mask">?</div>
+                  <div class="char-cell char-cell--mask">?</div>
+                </div>
+                <span class="step-desc">reveal one (t = 0.7)</span>
+              </div>
+              <div class="step-row">
+                <span class="step-num">2</span>
+                <div class="char-row">
+                  <div class="char-cell char-cell--mask">?</div>
+                  <div class="char-cell char-cell--reveal">a</div>
+                  <div class="char-cell char-cell--char">h</div>
+                  <div class="char-cell char-cell--reveal">u</div>
+                  <div class="char-cell char-cell--mask">?</div>
+                </div>
+                <span class="step-desc">reveal two more (t = 0.4)</span>
+              </div>
+              <div class="step-row">
+                <span class="step-num">3</span>
+                <div class="char-row">
+                  <div class="char-cell char-cell--reveal">r</div>
+                  <div class="char-cell char-cell--char">a</div>
+                  <div class="char-cell char-cell--char">h</div>
+                  <div class="char-cell char-cell--char">u</div>
+                  <div class="char-cell char-cell--reveal">l</div>
+                </div>
+                <span class="step-desc">final clean pass (t = 0)</span>
+              </div>
+            </div>
+            <p class="step-caption">
+              Three parallel steps. The model predicts all positions at once.
+              Characters can appear in any order &mdash; the middle before the start.
+            </p>
+          </div>
+        </div>
+
+        <div class="aside">
+          <strong>Why this matters.</strong>
+          Discrete diffusion for text is an active research area (MDLM, SEDD, UDLM). The core
+          idea is simple enough to fit in a browser demo. This page builds the smallest useful
+          version: a mask-diffusion model on fixed-length character sequences. We will train it
+          on 40 Indian names and watch it learn to generate new ones.
+        </div>
+      </section>
+
+      <!-- ─── Section II ─── -->
+
+      <section id="corruption" data-nav="Corruption">
+        <h2><span class="num">II.</span> How corruption dissolves a name</h2>
+        <p>
+          The forward corruption process is dead simple. Given a clean name like
+          <code>priya</code>, pad it to a fixed length and replace each character with a
+          mask token <code>?</code> independently with probability <code>t</code>.
+          At <code>t&thinsp;=&thinsp;0</code> the name is untouched.
+          At <code>t&thinsp;=&thinsp;1</code> every character is masked and all information
+          is destroyed.
+        </p>
+
+        <div class="math-block" data-katex-display>
+          \[
+            x_t[i] =
+            \begin{cases}
+              \texttt{?} & \text{with probability } t \\
+              x_0[i] & \text{otherwise}
+            \end{cases}
+          \]
+        </div>
+
+        <p>
+          This is the discrete analogue of adding Gaussian noise in image diffusion. Instead
+          of blurring pixel values, we erase characters. The noise level <code>t</code> plays
+          the same role as the diffusion timestep: it controls how much information the model
+          gets to work with.
+        </p>
+
+        <figure class="interactive-figure">
+          <div class="figure-controls">
+            <label class="slider-label">
+              Noise level <code>t</code>
+              <input id="corruptionSlider" type="range" min="0" max="100" step="1" value="0" />
+              <span id="corruptionSliderValue">0.00</span>
+            </label>
+          </div>
+          <div class="corruption-grid" id="corruptionGrid"></div>
+          <figcaption>
+            Slide the noise level to watch characters dissolve into masks. Each name uses a
+            fixed random order so the reveal is smooth as you drag. Notice how short names
+            like <strong>dev</strong> lose all information faster than long ones like <strong>reyansh</strong>.
+          </figcaption>
+        </figure>
+
+        <div class="dataset-listing">
+          <p class="eyebrow">Training dataset &mdash; 40 Indian names</p>
+          <div class="names-list" id="datasetNames"></div>
+        </div>
+      </section>
+
+      <!-- ─── Section III ─── -->
+
+      <section id="model" data-nav="Model">
+        <h2><span class="num">III.</span> A model that guesses the original</h2>
+        <p>
+          The model takes the corrupted sequence <code>x<sub>t</sub></code> plus the noise
+          level <code>t</code>, and outputs logits for the clean character at every position.
+          We use the simplest possible architecture: embed each token, flatten everything,
+          concatenate the time, pass through a hidden layer, and reshape into per-position
+          predictions.
+        </p>
+
+        <figure class="diagram-board">
+          <div class="arch-flow">
+            <div class="arch-stage">
+              <span class="arch-label">Input (corrupted name, padded to length 7)</span>
+              <div class="arch-row" id="archInput"></div>
+            </div>
+            <div class="arch-arrow-down">&darr; <span>embed each token (8 dims)</span></div>
+            <div class="arch-block">
+              Flatten 7 &times; 8 = 56 values, append time <em>t</em> &rarr; <strong>57-dim vector</strong>
+            </div>
+            <div class="arch-arrow-down">&darr;</div>
+            <div class="arch-block arch-block--accent">
+              Linear (57 &rarr; 128) + ReLU
+              <span class="arch-note">~28k learnable parameters total</span>
+            </div>
+            <div class="arch-arrow-down">&darr;</div>
+            <div class="arch-block">
+              Linear (128 &rarr; 154) &rarr; reshape to 7 &times; 22
+            </div>
+            <div class="arch-arrow-down">&darr; <span>softmax per position &rarr; probability over 22 characters</span></div>
+            <div class="arch-stage">
+              <span class="arch-label">Output (predicted clean name)</span>
+              <div class="arch-row" id="archOutput"></div>
+            </div>
+          </div>
+          <figcaption>
+            The model is a plain two-layer MLP &mdash; no attention, no recurrence. It sees all
+            positions at once and predicts them all in parallel. The vocabulary has 22 symbols:
+            20 letters that appear in the names, plus a padding token <code>_</code> and a mask
+            token <code>?</code>.
+          </figcaption>
+        </figure>
+
+        <div class="math-block" data-katex-display>
+          \[
+            \mathcal{L} = -\frac{1}{L}\sum_{i=1}^{L} \log\, p_\theta(x_{0,i} \mid x_t,\; t)
+          \]
+        </div>
+
+        <p>
+          The loss is cross-entropy averaged over all positions. The model must predict every
+          character of the original name &mdash; whether that position was masked or not.
+          Positions it can see give easy signal; masked positions force real learning. Time
+          conditioning via <code>t</code> tells the model how noisy the input is, so it can
+          calibrate its confidence accordingly.
+        </p>
+
+        <p>
+          During training, each step picks a random name, a random noise level
+          <code>t ~ Uniform(0, 1)</code>, corrupts the name, and backpropagates the
+          prediction error. Over time the model learns the structure of Indian names &mdash;
+          common character patterns, typical lengths, where vowels and consonants tend to fall.
+        </p>
+      </section>
+
+      <!-- ─── Section IV ─── -->
+
+      <section id="training" data-nav="Training">
+        <h2><span class="num">IV.</span> Train in your browser</h2>
+        <p>
+          Below is a live neural network. Click <strong>Train</strong> to initialize random
+          weights and run stochastic gradient descent. Each training step picks a random name,
+          a random noise level, corrupts the name, and backpropagates. The loss should drop
+          from ~3.1 (random guessing over 22 characters) to near zero.
+        </p>
+        <p>
+          After training completes, click <strong>+500 more</strong> to continue training
+          for extra epochs. You can adjust the learning rate and see how it affects convergence.
+          A high learning rate trains fast but can overshoot. A low one is stable but slow.
+        </p>
+
+        <figure class="interactive-figure">
+          <div class="figure-toolbar">
+            <button type="button" class="toolbar-button toolbar-button--accent" id="trainBtn">Train</button>
+            <button type="button" class="toolbar-button" id="trainMoreBtn" style="display:none">+500 more</button>
+            <button type="button" class="toolbar-button" id="resetBtn">Reset</button>
+            <div class="epoch-chips">
+              <span class="chip-label">Epochs:</span>
+              <button type="button" class="epoch-chip" data-epochs="250">250</button>
+              <button type="button" class="epoch-chip is-active" data-epochs="500">500</button>
+              <button type="button" class="epoch-chip" data-epochs="1000">1000</button>
+            </div>
+            <div class="train-status">
+              <span>Epoch</span>
+              <strong id="epochDisplay">0</strong>
+            </div>
+            <div class="train-status">
+              <span>Loss</span>
+              <strong id="lossDisplay">&mdash;</strong>
+            </div>
+          </div>
+
+          <div class="training-shell">
+            <div class="chart-wrap">
+              <canvas id="lossCanvas" width="560" height="220"></canvas>
+              <div class="chart-axes">
+                <span class="chart-y-label">loss</span>
+                <span class="chart-x-label">epoch</span>
+              </div>
+            </div>
+
+            <aside class="preview-panel">
+              <p class="eyebrow">Live prediction</p>
+              <div class="preview-block">
+                <span class="preview-label">Corrupted input (t = 0.5)</span>
+                <div class="char-row" id="previewInput"></div>
+              </div>
+              <div class="preview-block">
+                <span class="preview-label">Model predicts</span>
+                <div class="char-row" id="previewOutput"></div>
+              </div>
+              <div class="preview-block">
+                <span class="preview-label">Target (clean)</span>
+                <div class="char-row" id="previewTarget"></div>
+              </div>
+              <div class="preview-block">
+                <span class="preview-label">Showing</span>
+                <strong id="previewName" class="preview-name-label">&mdash;</strong>
+              </div>
+              <label class="control-stack">
+                Learning rate
+                <input id="lrSlider" type="range" min="1" max="50" step="1" value="10" />
+                <span id="lrValue">0.010</span>
+              </label>
+            </aside>
+          </div>
+          <figcaption>
+            All ~28,000 parameters are trained here in vanilla JavaScript &mdash; no server,
+            no GPU, no ML libraries. Forward pass, cross-entropy loss, and backpropagation are
+            computed step by step with raw matrix arithmetic.
+          </figcaption>
+        </figure>
+      </section>
+
+      <!-- ─── Section V ─── -->
+
+      <section id="sampling" data-nav="Sampling">
+        <h2><span class="num">V.</span> Denoise step by step</h2>
+        <p>
+          Once trained, generation starts from a fully masked sequence
+          <code>? ? ? ? ? ? ?</code> and runs the model repeatedly. At each step the model
+          predicts clean characters for every position. We reveal a fraction of the masked
+          positions and repeat, gradually lowering the noise level until the sequence is
+          fully determined.
+        </p>
+
+        <p>
+          The <strong>temperature</strong> controls randomness: lower values make the model
+          more confident (more likely to pick training names exactly), higher values introduce
+          variation (sometimes producing novel combinations). The number of <strong>steps</strong>
+          controls how gradually positions are revealed.
+        </p>
+
+        <figure class="interactive-figure">
+          <div class="figure-toolbar">
+            <button type="button" class="toolbar-button toolbar-button--accent" id="generateBtn" disabled>Generate</button>
+            <label class="slider-label slider-label--compact">
+              Steps
+              <input id="stepsSlider" type="range" min="4" max="20" step="1" value="10" />
+              <span id="stepsValue">10</span>
+            </label>
+            <label class="slider-label slider-label--compact">
+              Temperature
+              <input id="tempSlider" type="range" min="10" max="200" step="5" value="80" />
+              <span id="tempValue">0.80</span>
+            </label>
+          </div>
+
+          <div class="sampling-shell">
+            <div class="timeline-wrap">
+              <p class="eyebrow">Denoising timeline</p>
+              <div class="timeline" id="timeline"></div>
+            </div>
+
+            <aside class="names-panel">
+              <p class="eyebrow">Generated names (click Generate repeatedly for more)</p>
+              <div class="names-list" id="namesList">
+                <span class="names-placeholder">Train the model first, then click Generate.</span>
+              </div>
+            </aside>
+          </div>
+          <figcaption>
+            Each row shows the sequence state at one denoising step. Newly revealed characters
+            are highlighted in purple. The final row is a clean pass at t = 0 that polishes
+            the result. Try different temperatures &mdash; low values reproduce training names,
+            high values explore new combinations.
+          </figcaption>
+        </figure>
+      </section>
+
+      <!-- ─── Section VI ─── -->
+
+      <section id="takeaways" data-nav="Summary">
+        <h2><span class="num">VI.</span> What we built</h2>
+        <p>
+          This toy model is BERT-style masked denoising + timestep conditioning + iterative
+          sampling. It is the simplest practical diffusion-like model for character sequences,
+          and it captures all the essential ingredients of discrete diffusion for text.
+        </p>
+
+        <div class="takeaway-grid">
+          <article class="takeaway-card">
+            <p class="eyebrow">1. Corruption is the noise</p>
+            <h3>Random masking plays the role of Gaussian noise in image diffusion.</h3>
+            <p>Instead of adding continuous noise to pixel values, we replace discrete tokens with a mask symbol. The noise level <code>t</code> controls how much is hidden.</p>
+          </article>
+          <article class="takeaway-card">
+            <p class="eyebrow">2. Whole-sequence prediction</p>
+            <h3>The model predicts every position at once, not one at a time.</h3>
+            <p>This is the key departure from autoregressive models. The model sees the full (corrupted) context and produces a complete clean prediction in parallel.</p>
+          </article>
+          <article class="takeaway-card">
+            <p class="eyebrow">3. Time tells the model how noisy the input is</p>
+            <h3>Conditioning on <code>t</code> lets a single model handle all noise levels.</h3>
+            <p>At high <code>t</code>, the model must guess from almost nothing. At low <code>t</code>, it mostly confirms what it already sees. One set of weights serves the whole corruption spectrum.</p>
+          </article>
+          <article class="takeaway-card">
+            <p class="eyebrow">4. Iterative refinement at generation</p>
+            <h3>Sampling is a loop: predict, reveal some, repeat.</h3>
+            <p>Starting from all masks, each step reveals a few more characters. This iterative structure &mdash; not the architecture &mdash; is what makes it "diffusion."</p>
+          </article>
+        </div>
+
+        <div class="aside">
+          <strong>From toy to real.</strong>
+          The real versions of this idea (MDLM, SEDD, Plaid) use transformers, variable lengths,
+          and much larger vocabularies. But the mechanism you just saw &mdash; mask, predict,
+          reveal &mdash; is the same one at the core. The key insight is that you do not need
+          Gaussian diffusion or continuous embeddings to get diffusion-style generation. Discrete
+          masking is enough.
+        </div>
+      </section>
+
+      <!-- ─── Section VII ─── -->
+
+      <section id="qa" data-nav="Q&amp;A">
+        <h2><span class="num">VII.</span> From words to answers</h2>
+        <p>
+          The name generator creates sequences from nothing &mdash; unconditional generation.
+          But diffusion can also do <strong>conditional generation</strong>: given a question,
+          produce the answer. The only change is what gets masked.
+        </p>
+
+        <p>
+          We will train a second model on 30 English-to-Hindi word pairs. Each training
+          example looks like <code>hello&gt;namaste</code>. The question and separator
+          <code>&gt;</code> are <em>never</em> masked &mdash; only the answer gets corrupted.
+          The model learns to denoise the answer while reading the question as fixed context.
+        </p>
+
+        <div class="qa-format-demo">
+          <div class="qa-format-row">
+            <span class="qa-format-label">Clean</span>
+            <div class="char-row" id="qaFormatClean"></div>
+          </div>
+          <div class="qa-format-row">
+            <span class="qa-format-label">Corrupted</span>
+            <div class="char-row" id="qaFormatCorrupt"></div>
+          </div>
+          <div class="qa-format-row">
+            <span class="qa-format-label">Key</span>
+            <div class="qa-key">
+              <span class="qa-key-item"><span class="qa-key-swatch qa-key-swatch--q"></span> question (never masked)</span>
+              <span class="qa-key-item"><span class="qa-key-swatch qa-key-swatch--sep"></span> separator</span>
+              <span class="qa-key-item"><span class="qa-key-swatch qa-key-swatch--mask"></span> masked answer</span>
+              <span class="qa-key-item"><span class="qa-key-swatch qa-key-swatch--ans"></span> visible answer</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="dataset-listing">
+          <p class="eyebrow">Training dataset &mdash; 30 English &rarr; Hindi pairs</p>
+          <div class="names-list" id="qaDatasetList"></div>
+        </div>
+
+        <p>
+          Loss is computed <em>only</em> on answer positions. The model sees the question as
+          context and learns what answer should follow. At inference, you type a question,
+          mask the entire answer region, and iteratively denoise &mdash; exactly the same
+          loop as before, but now the question steers the output.
+        </p>
+
+        <div class="math-block" data-katex-display>
+          \[
+            \mathcal{L}_{\text{cond}}
+            = -\frac{1}{|\mathcal{A}|}
+              \sum_{i \in \mathcal{A}}
+              \log\, p_\theta(x_{0,i} \mid x_t,\; t)
+            \qquad
+            \mathcal{A} = \{\text{answer positions}\}
+          \]
+        </div>
+
+        <h3>Train the translator</h3>
+
+        <figure class="interactive-figure">
+          <div class="figure-toolbar">
+            <button type="button" class="toolbar-button toolbar-button--accent" id="qaTrainBtn">Train</button>
+            <button type="button" class="toolbar-button" id="qaTrainMoreBtn" style="display:none">+500 more</button>
+            <button type="button" class="toolbar-button" id="qaResetBtn">Reset</button>
+            <div class="epoch-chips">
+              <span class="chip-label">Epochs:</span>
+              <button type="button" class="epoch-chip" data-qa-epochs="500">500</button>
+              <button type="button" class="epoch-chip is-active" data-qa-epochs="1000">1000</button>
+              <button type="button" class="epoch-chip" data-qa-epochs="2000">2000</button>
+            </div>
+            <div class="train-status">
+              <span>Epoch</span>
+              <strong id="qaEpochDisplay">0</strong>
+            </div>
+            <div class="train-status">
+              <span>Loss</span>
+              <strong id="qaLossDisplay">&mdash;</strong>
+            </div>
+          </div>
+
+          <div class="training-shell">
+            <div class="chart-wrap">
+              <canvas id="qaLossCanvas" width="560" height="220"></canvas>
+              <div class="chart-axes">
+                <span class="chart-y-label">loss</span>
+                <span class="chart-x-label">epoch</span>
+              </div>
+            </div>
+
+            <aside class="preview-panel">
+              <p class="eyebrow">Live prediction</p>
+              <div class="preview-block">
+                <span class="preview-label">Corrupted (answer masked)</span>
+                <div class="char-row" id="qaPreviewInput"></div>
+              </div>
+              <div class="preview-block">
+                <span class="preview-label">Model predicts</span>
+                <div class="char-row" id="qaPreviewOutput"></div>
+              </div>
+              <div class="preview-block">
+                <span class="preview-label">Target</span>
+                <div class="char-row" id="qaPreviewTarget"></div>
+              </div>
+            </aside>
+          </div>
+          <figcaption>
+            This model has ~43k parameters. It only needs to learn 30 mappings, so training
+            converges quickly. The loss drops to zero when the model has memorized every pair.
+          </figcaption>
+        </figure>
+
+        <h3>Translate a word</h3>
+
+        <figure class="interactive-figure">
+          <div class="figure-toolbar">
+            <label class="slider-label" style="flex:0 1 auto;min-width:auto">
+              English word
+              <select id="qaWordSelect" class="qa-select">
+                <option value="">choose&hellip;</option>
+              </select>
+            </label>
+            <button type="button" class="toolbar-button toolbar-button--accent" id="qaTranslateBtn" disabled>Translate</button>
+            <div class="train-status" id="qaResultBox" style="display:none">
+              <span>Hindi</span>
+              <strong id="qaResultText"></strong>
+            </div>
+          </div>
+
+          <div class="sampling-shell">
+            <div class="timeline-wrap">
+              <p class="eyebrow">Denoising timeline &mdash; question fixed, answer revealed</p>
+              <div class="timeline" id="qaTimeline"></div>
+            </div>
+          </div>
+          <figcaption>
+            The question (blue cells) stays locked. Only the answer positions (right of
+            <code>&gt;</code>) get denoised step by step. This is conditional diffusion &mdash;
+            the same iterative reveal, but steered by a fixed input.
+          </figcaption>
+        </figure>
+
+        <div class="qa-summary-table">
+          <p class="eyebrow">Unconditional vs conditional diffusion</p>
+          <table class="compare-table">
+            <thead>
+              <tr><th></th><th>Names (unconditional)</th><th>Q&amp;A (conditional)</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Corrupt</td><td>All positions</td><td>Answer only</td></tr>
+              <tr><td>Loss</td><td>All positions</td><td>Answer only</td></tr>
+              <tr><td>Sampling</td><td>Start from all masks</td><td>Fix question, mask answer</td></tr>
+              <tr><td>Output</td><td>Random name</td><td>Answer to a given question</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <footer class="article-footer">
+        <p>
+          This model memorizes 40 names &mdash; that is by design. The point is not
+          generalization but mechanism: seeing the corruption schedule, the denoising prediction,
+          and the iterative reveal work together to produce a generative model that is
+          fundamentally different from autoregressive prediction.
+        </p>
+      </footer>
+    </article>
+
+    <script defer src="../vendor/katex/katex.min.js"></script>
+    <script defer src="app.js?v=2"></script>
+  </body>
+</html>
