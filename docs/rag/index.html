@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RAG, From Scratch</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../vendor/katex/katex.min.css" />
+    <link rel="stylesheet" href="styles.css?v=2" />
+  </head>
+  <body>
+    <div class="progress-bar" aria-hidden="true"><div class="progress-bar__fill" id="progressFill"></div></div>
+
+    <article class="article">
+      <header class="hero">
+        <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+        <p class="kicker">Interactive Explainer</p>
+        <h1>RAG, From Scratch</h1>
+        <p class="abstract">
+          You already know how language models predict the next token.
+          You already know how kNN finds nearest neighbours.
+          RAG is what happens when you combine the two.
+        </p>
+        <p class="abstract abstract--secondary">
+          This page walks through every step of retrieval-augmented generation
+          with concrete examples, interactive 2D embeddings, and four domains.
+        </p>
+        <div class="hero__meta">
+          <span>~12 min</span>
+          <span>Deep Learning</span>
+          <span>Retrieval</span>
+          <span>Language Models</span>
+        </div>
+      </header>
+
+      <nav class="toc" aria-label="Table of contents">
+        <ul>
+          <li><a class="toc__link" href="#prerequisites">I. What you already know</a></li>
+          <li><a class="toc__link" href="#pipeline">II. The pipeline</a></li>
+          <li><a class="toc__link" href="#embedding">III. Embed</a></li>
+          <li><a class="toc__link" href="#retrieval">IV. Retrieve</a></li>
+          <li><a class="toc__link" href="#prompt">V. Build prompt</a></li>
+          <li><a class="toc__link" href="#generate">VI. Generate</a></li>
+          <li><a class="toc__link" href="#domains">VII. Four domains</a></li>
+          <li><a class="toc__link" href="#why">VIII. Why it works</a></li>
+          <li><a class="toc__link" href="#failures">IX. Failure modes</a></li>
+          <li><a class="toc__link" href="#takeaways">X. Takeaways</a></li>
+        </ul>
+      </nav>
+
+      <!-- ─── Section I ─── -->
+
+      <section id="prerequisites">
+        <h2><span class="num">I.</span> What you already know</h2>
+        <p>
+          RAG combines exactly two ideas. Let's make sure we agree on both
+          before wiring them together.
+        </p>
+
+        <div class="two-col">
+          <div class="col-card">
+            <p class="eyebrow">Language Model</p>
+            <h3>Next-token prediction</h3>
+            <div class="math-block" id="math-lm"></div>
+            <p>
+              Given all previous tokens, predict the next one. GPT, LLaMA,
+              Claude &mdash; all left-to-right, one token at a time. Knowledge
+              lives entirely in the weights (parametric memory).
+            </p>
+          </div>
+          <div class="col-card col-card--accent">
+            <p class="eyebrow">k-Nearest Neighbours</p>
+            <h3>Retrieve similar items</h3>
+            <div class="math-block" id="math-knn"></div>
+            <p>
+              Embed items as vectors. Given a query, find the closest points.
+              Pure geometry, no learning at query time.
+            </p>
+          </div>
+        </div>
+
+        <div class="callout">
+          <strong>The key insight.</strong>
+          An LM's parametric memory is frozen at training time. If you ask about
+          events after training, or domain-specific facts it never saw, it either
+          hallucinates or says "I don't know." RAG gives the LM an <em>open-book
+          exam</em> &mdash; relevant documents retrieved at query time.
+        </div>
+      </section>
+
+      <!-- ─── Section II ─── -->
+
+      <section id="pipeline">
+        <h2><span class="num">II.</span> The RAG pipeline</h2>
+        <p>Five steps. We'll walk through each one with a concrete example.</p>
+
+        <div class="pipeline">
+          <div class="pipe-step"><span class="pipe-icon">q</span><span class="pipe-label">Query</span></div>
+          <span class="pipe-arrow">&rarr;</span>
+          <div class="pipe-step"><span class="pipe-icon">E</span><span class="pipe-label">Embed</span></div>
+          <span class="pipe-arrow">&rarr;</span>
+          <div class="pipe-step pipe-step--hl"><span class="pipe-icon">kNN</span><span class="pipe-label">Retrieve</span></div>
+          <span class="pipe-arrow">&rarr;</span>
+          <div class="pipe-step"><span class="pipe-icon">[ ]</span><span class="pipe-label">Prompt</span></div>
+          <span class="pipe-arrow">&rarr;</span>
+          <div class="pipe-step"><span class="pipe-icon">LM</span><span class="pipe-label">Generate</span></div>
+        </div>
+
+        <p>
+          The <strong>offline stage</strong> embeds all documents and stores them in
+          an index. The <strong>online stage</strong> takes a query through the
+          pipeline above. Let's build both.
+        </p>
+      </section>
+
+      <!-- ─── Section III ─── -->
+
+      <section id="embedding">
+        <h2><span class="num">III.</span> Embedding documents</h2>
+        <p>
+          First we need a corpus. Pick a domain and see the documents:
+        </p>
+
+        <div class="domain-switcher">
+          <button class="domain-btn domain-btn--active" data-domain="airquality">Air Quality</button>
+          <button class="domain-btn" data-domain="cooking">Cooking</button>
+          <button class="domain-btn" data-domain="history">History</button>
+          <button class="domain-btn" data-domain="medical">Medical</button>
+        </div>
+
+        <div class="doc-list" id="docList"></div>
+
+        <p>
+          An encoder maps each document to a vector. In reality these are
+          high-dimensional (768-d or more), but for intuition we'll use
+          <strong>2D embeddings</strong>.
+        </p>
+
+        <div class="code-block"><pre><code>docs  = split(corpus)       <span class="cm"># chunk text</span>
+emb   = encoder(docs)       <span class="cm"># embed each chunk</span>
+index = FAISS(emb)          <span class="cm"># build search index</span></code></pre></div>
+
+        <p>
+          Below is the 2D embedding space. <strong>Drag the orange query
+          point</strong> to explore. The two nearest docs are highlighted with
+          distance lines.
+        </p>
+
+        <figure class="figure">
+          <canvas id="embeddingCanvas" width="560" height="400"></canvas>
+          <figcaption>
+            Drag the <span style="color:var(--coral);font-weight:700">query point</span>
+            to see kNN retrieval update in real time.
+          </figcaption>
+        </figure>
+      </section>
+
+      <!-- ─── Section IV ─── -->
+
+      <section id="retrieval">
+        <h2><span class="num">IV.</span> Retrieve with kNN</h2>
+        <p>
+          We embed the query with the same encoder and find its nearest
+          neighbours. Euclidean distance:
+        </p>
+
+        <div class="math-block" id="math-dist"></div>
+
+        <div class="query-box">
+          <span class="query-label">Query</span>
+          <span id="queryText"></span>
+        </div>
+
+        <table class="data-table" id="distanceTable">
+          <thead>
+            <tr><th>Document</th><th>Embedding</th><th>Distance</th><th>Retrieved?</th></tr>
+          </thead>
+          <tbody id="distanceTableBody"></tbody>
+        </table>
+
+        <div class="callout">
+          <strong>Probabilistic view.</strong>
+          The retriever approximates
+          <span id="math-retriever-inline"></span>.
+          Documents closer to the query get higher probability. In practice we
+          take the top-k.
+        </div>
+      </section>
+
+      <!-- ─── Section V ─── -->
+
+      <section id="prompt">
+        <h2><span class="num">V.</span> Build the prompt</h2>
+        <p>
+          Retrieval meets generation. We concatenate the retrieved documents
+          and the user's question into a single prompt:
+        </p>
+
+        <div class="prompt-builder" id="promptBuilder">
+          <div class="prompt-part prompt-part--ctx">
+            <span class="prompt-tag prompt-tag--ctx">Context</span>
+            <div id="promptContext"></div>
+          </div>
+          <div class="prompt-part prompt-part--q">
+            <span class="prompt-tag prompt-tag--q">Question</span>
+            <div id="promptQuery"></div>
+          </div>
+        </div>
+
+        <div class="code-block"><pre><code>q_emb  = encoder(query)            <span class="cm"># embed the query</span>
+docs   = index.search(q_emb, k=2)  <span class="cm"># retrieve top-2</span>
+prompt = concat(docs, query)        <span class="cm"># assemble prompt</span>
+output = LLM(prompt)                <span class="cm"># generate answer</span></code></pre></div>
+
+        <p>
+          After this step, <strong>RAG is done</strong>. The retriever has done its
+          job. Everything from here is standard language modelling.
+        </p>
+      </section>
+
+      <!-- ─── Section VI ─── -->
+
+      <section id="generate">
+        <h2><span class="num">VI.</span> Generate the answer</h2>
+        <p>
+          The LM generates tokens one at a time, conditioned on the full prompt.
+          Plain next-token prediction &mdash; nothing new:
+        </p>
+
+        <div class="math-block" id="math-gen"></div>
+
+        <p>
+          But the context tokens profoundly change <em>which</em> tokens are likely.
+          Click to watch generation unfold:
+        </p>
+
+        <div class="gen-box">
+          <div class="gen-prompt" id="genPromptPreview"></div>
+          <div class="gen-output" id="genOutput"></div>
+          <div class="gen-controls">
+            <button class="btn" id="generateBtn">Generate answer</button>
+            <button class="btn btn--ghost" id="resetGenBtn">Reset</button>
+          </div>
+        </div>
+
+        <p>
+          Tokens <span class="hl-ctx">highlighted in green</span> come directly
+          from retrieved context &mdash; the LM "copies" factual content.
+        </p>
+
+        <h3>How does the LM use the context?</h3>
+        <p>
+          It doesn't explicitly "decide" to. Self-attention naturally attends to
+          relevant tokens. The attention weight from output token to context token:
+        </p>
+
+        <div class="math-block" id="math-attn"></div>
+
+        <div class="attn-heatmap" id="attentionHeatmap"></div>
+
+        <p>
+          Darker cells = higher attention. When generating a word, the model
+          attends most to matching words in the retrieved context.
+        </p>
+
+        <div class="callout">
+          <strong>Instruction tuning matters.</strong>
+          A base LM might continue the prompt weirdly instead of answering.
+          An instruction-tuned LM has learned "Question + Context &rarr; Answer."
+          The math is still next-token prediction, but the weights are aligned to
+          produce helpful answers.
+        </div>
+
+        <h3>With vs. without RAG</h3>
+
+        <div class="two-col">
+          <div class="col-card">
+            <p class="eyebrow">Without RAG</p>
+            <div class="math-block" id="math-norag"></div>
+            <p>Model digs into its weights. May hallucinate.</p>
+            <div class="example example--bad">
+              "Air pollution in Delhi is a significant concern, particularly during certain seasons..."
+              <span class="verdict verdict--bad">Vague, hedging</span>
+            </div>
+          </div>
+          <div class="col-card col-card--accent">
+            <p class="eyebrow">With RAG</p>
+            <div class="math-block" id="math-withrag"></div>
+            <p>Context contains the fact. Attention copies it.</p>
+            <div class="example example--good">
+              "Air pollution in Delhi during winter is very high, often reaching hazardous PM2.5 levels."
+              <span class="verdict verdict--good">Specific, grounded</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── Section VII ─── -->
+
+      <section id="domains">
+        <h2><span class="num">VII.</span> Try different domains</h2>
+        <p>
+          The same pipeline works on any corpus. Switch domains and watch all
+          five steps adapt:
+        </p>
+
+        <div class="domain-switcher" id="domainSwitcher2">
+          <button class="domain-btn domain-btn--active" data-domain="airquality">Air Quality</button>
+          <button class="domain-btn" data-domain="cooking">Cooking</button>
+          <button class="domain-btn" data-domain="history">History</button>
+          <button class="domain-btn" data-domain="medical">Medical</button>
+        </div>
+
+        <div class="walkthrough" id="walkthrough">
+          <div class="wt-step">
+            <div class="wt-num">1</div>
+            <div class="wt-body">
+              <h4>Corpus</h4>
+              <div id="wtDocs"></div>
+            </div>
+          </div>
+          <div class="wt-step">
+            <div class="wt-num">2</div>
+            <div class="wt-body">
+              <h4>Query</h4>
+              <div id="wtQuery"></div>
+            </div>
+          </div>
+          <div class="wt-step">
+            <div class="wt-num">3</div>
+            <div class="wt-body">
+              <h4>Retrieved (k = 2)</h4>
+              <div id="wtRetrieved"></div>
+            </div>
+          </div>
+          <div class="wt-step">
+            <div class="wt-num">4</div>
+            <div class="wt-body">
+              <h4>Assembled prompt</h4>
+              <div class="wt-prompt" id="wtPrompt"></div>
+            </div>
+          </div>
+          <div class="wt-step">
+            <div class="wt-num">5</div>
+            <div class="wt-body">
+              <h4>Generated answer</h4>
+              <div class="wt-answer" id="wtAnswer"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── Section VIII ─── -->
+
+      <section id="why">
+        <h2><span class="num">VIII.</span> Why RAG works</h2>
+        <p>Instead of relying on parametric memory alone:</p>
+        <div class="math-block" id="math-why1"></div>
+        <p>we marginalise over retrieved documents:</p>
+        <div class="math-block" id="math-why2"></div>
+        <p>In practice, top-k approximation:</p>
+        <div class="math-block" id="math-why3"></div>
+
+        <h3>Three benefits</h3>
+        <ul>
+          <li><strong>Reduces hallucination.</strong> The LM has real text to reference.</li>
+          <li><strong>Up-to-date knowledge.</strong> Update the document store, no retraining.</li>
+          <li><strong>Cheaper than fine-tuning.</strong> Weights stay frozen, only the index changes.</li>
+        </ul>
+
+        <h3>RAG vs kNN-LM</h3>
+        <table class="data-table">
+          <thead>
+            <tr><th>Method</th><th>Retrieval unit</th><th>Used where</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>kNN-LM</strong></td><td>Token-level neighbours</td><td>Interpolated into output logits</td></tr>
+            <tr><td><strong>RAG</strong></td><td>Document-level neighbours</td><td>Prepended to input context</td></tr>
+          </tbody>
+        </table>
+
+        <div class="callout">
+          <strong>Mental model.</strong>
+          RAG = kNN over knowledge + LM over text.
+          Parametric memory (weights) + non-parametric memory (retrieved docs).
+        </div>
+      </section>
+
+      <!-- ─── Section IX ─── -->
+
+      <section id="failures">
+        <h2><span class="num">IX.</span> When RAG fails</h2>
+        <p>RAG is not magic. Four failure modes to know:</p>
+
+        <div class="failure-list">
+          <div class="failure">
+            <h4>1. Retriever fails</h4>
+            <p>Wrong documents retrieved &rarr; garbage context &rarr; wrong answer. The embedding model's quality is the ceiling.</p>
+          </div>
+          <div class="failure">
+            <h4>2. Context dilution</h4>
+            <p>Too many docs (large k) drowns the signal. Attention spreads thin. The relevant doc gets buried.</p>
+          </div>
+          <div class="failure">
+            <h4>3. Redundant documents</h4>
+            <p>Five docs saying the same thing wastes context tokens without adding information.</p>
+          </div>
+          <div class="failure">
+            <h4>4. No reasoning over docs</h4>
+            <p>The LM often copies from context rather than synthesising. Multi-hop reasoning across documents is hard.</p>
+          </div>
+        </div>
+
+        <div class="callout">
+          <strong>Citations are not proof.</strong>
+          Even if the model writes "[Source 1]", it may cite the wrong document
+          or misrepresent what it says. Citations are a learned output style,
+          not a grounding guarantee.
+        </div>
+      </section>
+
+      <!-- ─── Section X ─── -->
+
+      <section id="takeaways">
+        <h2><span class="num">X.</span> What we built</h2>
+
+        <ul>
+          <li><strong>RAG = Retrieval + Generation.</strong> Nearest neighbours in embedding space &rarr; condition the language model.</li>
+          <li><strong>Five steps.</strong> Embed &rarr; Index &rarr; Retrieve &rarr; Build prompt &rarr; Generate.</li>
+          <li><strong>Better input, not better model.</strong> RAG changes the prompt. Instruction tuning changes the behaviour. The underlying math stays the same.</li>
+          <li><strong>Attention is the mechanism.</strong> The LM attends to context tokens via self-attention and "copies" relevant facts into the output.</li>
+        </ul>
+
+        <div class="final-eq" id="math-final"></div>
+      </section>
+    </article>
+
+    <script src="../vendor/katex/katex.min.js"></script>
+    <script src="app.js?v=2"></script>
+  </body>
+</html>
