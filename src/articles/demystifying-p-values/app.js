@@ -82,6 +82,7 @@ function renderMath() {
     'math-choose':    ['\\binom{10}{5} = \\frac{10!}{5!\\;5!} = 252', true],
     'math-pval':      ['p = \\frac{\\text{\\# splits with gap} \\ge \\text{observed gap}}{\\text{total splits (252)}}', true],
     'math-bigchoose': ['\\binom{40}{20} = 137{,}846{,}528{,}640', true],
+    'math-gaussian':  ['f(x) = \\frac{1}{\\sigma \\sqrt{2\\pi}} e^{-\\frac{1}{2}\\left(\\frac{x-\\mu}{\\sigma}\\right)^2}', true],
   };
   Object.keys(blocks).forEach(function (id) {
     var el = document.getElementById(id);

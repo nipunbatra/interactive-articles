@@ -321,17 +321,21 @@
         <div class="shortcut-viz">
           <h4>1. Parametric (t-test)</h4>
           <p>
-            Instead of counting combinations, a two-sample t-test estimates the <em>standard deviation</em> of random noise using a mathematical formula, then compares our observed gap to it. 
+            Instead of counting combinations, a parametric test assumes the distribution of random noise forms a perfect, continuous Bell Curve (a Gaussian distribution).
+          </p>
+          <div class="math-block" id="math-gaussian"></div>
+          <p>
+            This terrifying formula just draws the smooth curve below. Because the Null Hypothesis assumes the treatment does nothing, the centre of the curve is exactly zero ($\mu = 0$). To draw the rest of the curve, we only need one number: the <strong>Standard Deviation ($\sigma$)</strong>, which measures how wide or narrow the random noise is. We estimate it directly from our 10 data points using a shortcut formula.
           </p>
           <div class="callout">
             <strong>Worked out for our data:</strong>
-            Based on the 10 numbers in our current scenario, the standard deviation of random differences is <strong id="param-sd">...</strong>. Our observed gap is <strong id="param-obs">...</strong>.
+            For the 10 numbers in our current scenario, the estimated standard deviation of random differences is <strong id="param-sd">...</strong>. Our observed gap is <strong id="param-obs">...</strong>.
             <div class="math-block" id="math-tstat-dynamic"></div>
-            Because our gap is <strong id="param-tstat">...</strong> standard deviations away from zero, it lands deep in the tail of the bell curve. The shaded area in the tails gives us our estimated p-value.
+            Because our gap is <strong id="param-tstat">...</strong> standard deviations away from zero, it lands deep in the tail of the bell curve. We use calculus to find the shaded area under the curve in the tails, giving us our estimated p-value.
           </div>
           <figure class="interactive-figure">
             <canvas id="parametricCanvas" width="920" height="280"></canvas>
-            <figcaption>Theoretical t-distribution. Shaded area = extreme outcomes.</figcaption>
+            <figcaption>Theoretical Gaussian (t-distribution). Shaded area = extreme outcomes.</figcaption>
           </figure>
         </div>
 
