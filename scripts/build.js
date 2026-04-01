@@ -90,76 +90,23 @@ function renderTagPills(tags = []) {
   `;
 }
 
-function renderMetrics(articles) {
-  const collections = new Set(articles.map((article) => article.collection).filter(Boolean));
-  const readingTimes = articles.map((article) => article.readingTime).filter(Boolean);
-
-  return `
-    <div class="hero__stats">
-      <article class="stat-card">
-        <p class="guide__label">Now live</p>
-        <p class="stat-card__value">${articles.length}</p>
-        <p class="guide__copy">Interactive articles published and linked from this front page.</p>
-      </article>
-      <article class="stat-card">
-        <p class="guide__label">Coverage</p>
-        <p class="stat-card__value">${collections.size}</p>
-        <p class="guide__copy">Collections spanning ${escapeHtml(Array.from(collections).join(', '))}.</p>
-      </article>
-      <article class="stat-card">
-        <p class="guide__label">Reading shape</p>
-        <p class="stat-card__value">${escapeHtml(readingTimes[0] || 'Short')}</p>
-        <p class="guide__copy">Essay-length explainers designed to be manipulated, not skimmed as static notes.</p>
-      </article>
-    </div>
-  `;
-}
-
-function renderFeaturedArticle(article) {
-  return `
-    <aside class="spotlight-card">
-      <div class="spotlight-card__body">
-        <div class="spotlight-card__header">
-          <p class="card__meta">Featured release</p>
-          <span class="preview-pill">${escapeHtml(article.collection || 'Explainer')}</span>
-        </div>
-        <h2 class="spotlight-card__title">${escapeHtml(article.title)}</h2>
-        <p class="card__copy">${escapeHtml(article.summary)}</p>
-        <p class="spotlight-card__facts">${escapeHtml(article.readingTime || '')} · ${escapeHtml(article.difficulty || 'All levels')}</p>
-        ${renderTagPills(article.tags)}
-        ${renderHighlights(article.highlights, false, 4)}
-        <div class="spotlight-card__footer">
-          <a class="article-link" href="${escapeHtml(article.url)}">Read the featured article</a>
-          <span class="ghost-note">Scroll essay, live figures, exportable state</span>
-        </div>
-      </div>
-    </aside>
-  `;
-}
-
-function renderArticleCards(articles) {
+function renderArticleList(articles) {
   return articles.map((article) => `
-      <article class="article-card">
-        <div class="article-card__body">
-          <div class="article-card__header">
-            <p class="card__meta">${escapeHtml(article.collection || 'Explainer')} · ${escapeHtml(article.readingTime || '')} · ${escapeHtml(article.difficulty || 'General')}</p>
-            <span class="tiny-pill">${escapeHtml(article.status || 'Published')}</span>
-          </div>
-          <h2 class="card__title">${escapeHtml(article.title)}</h2>
-          <p class="card__copy">${escapeHtml(article.summary || '')}</p>
-          ${renderTagPills(article.tags)}
-          ${renderHighlights(article.highlights, true, 2)}
-          <div class="article-card__footer">
-            <a class="article-link" href="${escapeHtml(article.url)}">Open article</a>
-          </div>
+      <article class="simple-article-row">
+        <div class="simple-article-header">
+          <span class="simple-article-meta">${escapeHtml(article.collection || 'Explainer')} &middot; ${escapeHtml(article.readingTime || '')}</span>
+          ${article.difficulty ? `<span class="simple-article-difficulty">${escapeHtml(article.difficulty)}</span>` : ''}
+        </div>
+        <h2 class="simple-article-title"><a href="${escapeHtml(article.url)}">${escapeHtml(article.title)}</a></h2>
+        <p class="simple-article-summary">${escapeHtml(article.summary || '')}</p>
+        <div class="simple-article-footer">
+          <a class="simple-article-link" href="${escapeHtml(article.url)}">Read interactive explainer &rarr;</a>
         </div>
       </article>
     `).join('\n');
 }
 
 function renderHomePage(siteConfig, articles) {
-  const featuredArticle = articles[0];
-
   return `<!DOCTYPE html>
 <html lang="en">
   <head>
@@ -168,52 +115,123 @@ function renderHomePage(siteConfig, articles) {
     <title>${escapeHtml(siteConfig.title)}</title>
     <meta name="description" content="${escapeHtml(siteConfig.description)}" />
     <link rel="stylesheet" href="assets/site.css" />
+    <style>
+      .simple-shell {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 4rem 1.5rem;
+      }
+      .simple-header {
+        margin-bottom: 4rem;
+        text-align: center;
+      }
+      .simple-header h1 {
+        font-family: var(--font-serif);
+        font-size: clamp(2.5rem, 5vw, 3.5rem);
+        margin: 0 0 1rem;
+        color: var(--ink);
+        letter-spacing: -0.02em;
+        line-height: 1.1;
+      }
+      .simple-header p {
+        font-size: 1.15rem;
+        color: var(--muted);
+        max-width: 600px;
+        margin: 0 auto;
+        line-height: 1.6;
+      }
+      .simple-article-list {
+        display: grid;
+        gap: 2rem;
+      }
+      .simple-article-row {
+        background: var(--panel);
+        padding: 2.5rem;
+        border-radius: var(--radius-lg);
+        border: 1px solid var(--border);
+        box-shadow: 0 8px 30px rgba(31, 38, 48, 0.04);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+      }
+      .simple-article-row:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 12px 40px rgba(31, 38, 48, 0.08);
+      }
+      .simple-article-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+      }
+      .simple-article-meta {
+        font-size: 0.85rem;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+      }
+      .simple-article-difficulty {
+        font-size: 0.8rem;
+        background: var(--panel-soft);
+        padding: 0.3rem 0.8rem;
+        border-radius: 999px;
+        color: var(--muted);
+        border: 1px solid var(--border);
+      }
+      .simple-article-title {
+        margin: 0 0 0.8rem;
+        font-size: 1.8rem;
+        font-family: var(--font-serif);
+        line-height: 1.2;
+      }
+      .simple-article-title a {
+        text-decoration: none;
+        color: var(--ink);
+      }
+      .simple-article-title a:hover {
+        color: var(--accent);
+      }
+      .simple-article-summary {
+        color: var(--muted);
+        font-size: 1.05rem;
+        margin: 0 0 1.5rem;
+        line-height: 1.6;
+      }
+      .simple-article-footer {
+        margin-top: 1.5rem;
+      }
+      .simple-article-link {
+        display: inline-block;
+        text-decoration: none;
+        color: var(--accent);
+        font-weight: 600;
+        font-size: 1rem;
+        transition: color 0.2s;
+      }
+      .simple-article-link:hover {
+        color: var(--accent-2);
+      }
+      .simple-footer {
+        margin-top: 5rem;
+        text-align: center;
+        color: var(--muted);
+        font-size: 0.95rem;
+        border-top: 1px solid var(--border);
+        padding-top: 2rem;
+      }
+    </style>
   </head>
   <body>
-    <header class="site-header">
-      <div class="site-header__brand">
-        <p class="eyebrow">Interactive explainers</p>
-        <a class="brand-mark" href="./">${escapeHtml(siteConfig.title)}</a>
+    <main class="simple-shell">
+      <header class="simple-header">
+        <h1>${escapeHtml(siteConfig.title)}</h1>
+        <p>${escapeHtml(siteConfig.description)}</p>
+      </header>
+
+      <div class="simple-article-list">
+        ${renderArticleList(articles)}
       </div>
-      <div class="site-header__meta">
-        <span class="pill">${articles.length} live article${articles.length === 1 ? '' : 's'}</span>
-        <span class="pill">${escapeHtml(siteConfig.tagline)}</span>
-      </div>
-    </header>
-
-    <main class="site-shell">
-      <section class="hero">
-        <div class="hero__copy-wrap">
-          <div class="hero__copy">
-            <p class="eyebrow">Curated library</p>
-            <h1 class="hero__title">Mechanisms, not slogans.</h1>
-            <p class="hero__copy">${escapeHtml(siteConfig.description)}</p>
-            <p class="hero__copy">The front page is intentionally small. Each article is meant to feel like a product-quality lab note: editorial pacing, deliberate visuals, and interactivity that exposes the machinery instead of decorating it.</p>
-            <div class="hero__actions">
-              <a class="article-link" href="${escapeHtml(featuredArticle.url)}">Start with ${escapeHtml(featuredArticle.title)}</a>
-              <a class="ghost-link" href="#library">Browse the library</a>
-            </div>
-          </div>
-          ${renderMetrics(articles)}
-        </div>
-        ${renderFeaturedArticle(featuredArticle)}
-      </section>
-
-      <section class="section" id="library">
-        <div class="section__head">
-          <div>
-            <p class="eyebrow">Published</p>
-            <h2 class="section__title">The library</h2>
-          </div>
-          <p class="section__copy">${escapeHtml(siteConfig.tagline)}</p>
-        </div>
-        <div class="card-grid">
-          ${renderArticleCards(articles)}
-        </div>
-      </section>
-
-      <footer class="site-footer">
-        <p>${escapeHtml(siteConfig.title)} is designed as a small, high-signal collection. Additions should feel like flagship explainers, not filler posts.</p>
+      
+      <footer class="simple-footer">
+        <p>Interactive explainers designed to be manipulated, not skimmed as static notes.</p>
       </footer>
     </main>
   </body>
