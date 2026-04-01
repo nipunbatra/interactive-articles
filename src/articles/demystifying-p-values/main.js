@@ -1,26 +1,6 @@
-const SCENARIOS = {
-  smartPills: {
-    name: "Smart Pills vs Placebo",
-    groupA: [85, 88, 82, 89, 81], // mean 85.0
-    groupB: [92, 95, 91, 90, 96], // mean 92.8
-    unit: "pts",
-    description: "A pharmaceutical company tests a new 'smart pill' designed to boost cognitive function. Five students take the pill, and five take a sugar pill. These are their scores on a subsequent memory test."
-  },
-  fertilizer: {
-    name: "New Fertilizer vs Old",
-    groupA: [12, 14, 13, 15, 14], // mean 13.6
-    groupB: [13, 15, 14, 14, 15], // mean 14.2
-    unit: "cm",
-    description: "A botanist wants to see if a new experimental fertilizer makes plants grow taller than the standard mix. Five seedlings get the old mix, and five get the new one. Here are their heights after two weeks."
-  },
-  coffee: {
-    name: "Coffee vs Decaf",
-    groupA: [58, 62, 55, 60, 56], // mean 58.2
-    groupB: [65, 71, 62, 68, 64], // mean 66.0
-    unit: "wpm",
-    description: "Does caffeine actually make you type faster? We asked ten people to transcribe a document. Five were secretly given decaf, while the other five were given strong espresso. Here are their typing speeds."
-  }
-};
+import { SCENARIOS } from './scenarios.js';
+import { mean, meanGap, generateAllResplits, shuffle, renderMath, normalCdf } from './math.js';
+import { renderBubbles, setupCanvas } from './ui.js';
 
 let state = {
   scenario: 'smartPills',
@@ -67,112 +47,12 @@ const elements = {
   pValueMath: document.getElementById('p-value-math'),
   pValueExplanation: document.getElementById('p-value-explanation'),
 
-  // Bonus section elements
   parametricCanvas: document.getElementById('parametricCanvas'),
   btnRunMonteCarlo: document.getElementById('btn-run-monte-carlo'),
   monteCarloCanvas: document.getElementById('monteCarloCanvas'),
   mcCount: document.getElementById('mc-count'),
   mcPval: document.getElementById('mc-pval')
 };
-
-// --- KaTeX math rendering ---
-function renderMath() {
-  if (!window.katex) return;
-  var blocks = {
-    'math-choose':    ['\\binom{10}{5} = \\frac{10!}{5!\\;5!} = 252', true],
-    'math-pval':      ['p = \\frac{\\text{\\# splits with gap} \\ge \\text{observed gap}}{\\text{total splits (252)}}', true],
-    'math-bigchoose': ['\\binom{40}{20} = 137{,}846{,}528{,}640', true],
-    'math-gaussian':  ['f(x) = \\frac{1}{\\sigma \\sqrt{2\\pi}} e^{-\\frac{1}{2}\\left(\\frac{x-\\mu}{\\sigma}\\right)^2}', true],
-  };
-  Object.keys(blocks).forEach(function (id) {
-    var el = document.getElementById(id);
-    if (!el) return;
-    try {
-      katex.render(blocks[id][0], el, { displayMode: blocks[id][1], throwOnError: false });
-    } catch (_) {}
-  });
-}
-
-// --- Math Helpers ---
-function erf(x) {
-  const sign = x >= 0 ? 1 : -1;
-  x = Math.abs(x);
-  const a1 = 0.254829592, a2 = -0.284496736, a3 = 1.421413741, a4 = -1.453152027, a5 = 1.061405429, p = 0.3275911;
-  const t = 1.0 / (1.0 + p * x);
-  const y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-x * x);
-  return sign * y;
-}
-
-function normalCdf(x) {
-  return 0.5 * (1 + erf(x / Math.sqrt(2)));
-}
-
-function mean(arr) {
-  return arr.reduce((a, b) => a + b, 0) / arr.length;
-}
-
-function meanGap(a, b) {
-  return Math.abs(mean(a) - mean(b));
-}
-
-function combinations(array, choose) {
-  const results = [];
-  function helper(start, combo) {
-    if (combo.length === choose) {
-      results.push([...combo]);
-      return;
-    }
-    for (let i = start; i < array.length; i++) {
-      combo.push(array[i]);
-      helper(i + 1, combo);
-      combo.pop();
-    }
-  }
-  helper(0, []);
-  return results;
-}
-
-function generateAllResplits(values) {
-  const indexed = values.map((value, index) => ({ value, index }));
-  const groupAs = combinations(indexed, values.length / 2);
-
-  return groupAs.map(groupA => {
-    const groupAIds = new Set(groupA.map(item => item.index));
-    const groupB = indexed.filter(item => !groupAIds.has(item.index));
-    const sampleA = groupA.map(item => item.value);
-    const sampleB = groupB.map(item => item.value);
-    const mA = mean(sampleA);
-    const mB = mean(sampleB);
-    return {
-      sampleA,
-      sampleB,
-      gap: Math.abs(mA - mB),
-      diff: mA - mB
-    };
-  });
-}
-
-function shuffle(array) {
-  let currentIndex = array.length, randomIndex;
-  while (currentIndex !== 0) {
-    randomIndex = Math.floor(Math.random() * currentIndex);
-    currentIndex--;
-    [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
-  }
-  return array;
-}
-
-// --- Render Helpers ---
-function renderBubbles(container, values, type = 'neutral') {
-  container.innerHTML = '';
-  values.forEach((v, i) => {
-    const el = document.createElement('div');
-    el.className = `bubble ${type}`;
-    el.textContent = v;
-    el.style.animationDelay = `${i * 0.04}s`;
-    container.appendChild(el);
-  });
-}
 
 // --- Setup ---
 function loadScenario(key) {
@@ -197,7 +77,6 @@ function loadScenario(key) {
 
   elements.units.forEach(u => u.textContent = data.unit);
 
-  // Reset downstream state
   state.bucketMixed = false;
   state.manualGaps = [];
   state.allCalculated = false;
@@ -243,7 +122,6 @@ elements.btnBucket.addEventListener('click', () => {
   renderBubbles(elements.bucketView, shuffle([...allValues]), 'neutral');
 
   state.bucketMixed = true;
-  unlockStep(elements.step3);
 });
 
 // --- Step 3: Manual Draw ---
@@ -291,18 +169,6 @@ elements.btnDrawMany.addEventListener('click', async () => {
   elements.btnDrawMany.disabled = false;
   elements.btnDrawOne.disabled = false;
 });
-
-function setupCanvas(canvas, logicalWidth, logicalHeight) {
-  const dpr = window.devicePixelRatio || 1;
-  if (canvas.width !== logicalWidth * dpr) {
-    canvas.width = logicalWidth * dpr;
-    canvas.height = logicalHeight * dpr;
-  }
-  const ctx = canvas.getContext('2d');
-  ctx.resetTransform();
-  ctx.scale(dpr, dpr);
-  return { ctx, w: logicalWidth, h: logicalHeight };
-}
 
 function drawManualCanvas() {
   const canvas = elements.manualCanvas;
@@ -548,9 +414,6 @@ function finishCalculation() {
 
   elements.statObservedGap.textContent = state.observedGap.toFixed(1);
   elements.extremeCount.textContent = `${extremeSplits.length}`;
-
-  // Step 5 Update
-  unlockStep(elements.step5);
 
   const pVal = extremeSplits.length / state.allResplits.length;
   elements.finalPValue.textContent = pVal.toFixed(3);
