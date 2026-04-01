@@ -174,14 +174,6 @@ function renderBubbles(container, values, type = 'neutral') {
   });
 }
 
-function unlockStep(stepEl) {
-  if (stepEl.classList.contains('disabled')) {
-    stepEl.classList.remove('disabled');
-    stepEl.classList.add('unlocked');
-    setTimeout(() => stepEl.classList.remove('unlocked'), 1200);
-  }
-}
-
 // --- Setup ---
 function loadScenario(key) {
   state.scenario = key;
@@ -214,14 +206,6 @@ function loadScenario(key) {
 
   elements.bucketView.innerHTML = '<p class="bucket-empty-text">Bucket is empty. Click the button above to mix!</p>';
   elements.bucketView.classList.remove('filled');
-
-  [elements.step2, elements.step3, elements.step4, elements.step5].forEach(el => {
-    el.classList.add('disabled');
-    el.classList.remove('unlocked');
-  });
-
-  // Unlock step 2 immediately
-  unlockStep(elements.step2);
 
   elements.manualResultBox.innerHTML = '<p>Click a button to draw random splits.</p>';
   elements.btnDrawMany.disabled = false;
@@ -283,10 +267,6 @@ function drawSingleSplit() {
   `;
 
   drawManualCanvas();
-
-  if (state.manualGaps.length >= 1) {
-    unlockStep(elements.step4);
-  }
 }
 
 elements.btnDrawOne.addEventListener('click', () => {
@@ -865,5 +845,12 @@ function init() {
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', init);
 } else {
+  init();
+}
+t);
+} else {
+  init();
+}
+ else {
   init();
 }
