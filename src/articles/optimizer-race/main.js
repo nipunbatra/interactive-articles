@@ -1,6 +1,7 @@
 function renderMath() {
   if (!window.katex) return;
   const blocks = {
+    'math-landscape': ['L(x, y) = \\frac{x^2}{20} + y^2', true],
     'math-sgd': ['W_{t+1} = W_t - \\alpha \\nabla L(W_t)', true],
     'math-momentum': ['V_{t+1} = \\beta V_t + \\nabla L(W_t) \\\\ W_{t+1} = W_t - \\alpha V_{t+1}', true],
     'math-adam': ['m_{t+1} = \\beta_1 m_t + (1-\\beta_1) \\nabla L(W_t) \\\\ v_{t+1} = \\beta_2 v_t + (1-\\beta_2) \\nabla L(W_t)^2 \\\\ W_{t+1} = W_t - \\alpha \\frac{m_{t+1}}{\\sqrt{v_{t+1}} + \\epsilon}', true],

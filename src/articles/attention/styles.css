@@ -58,6 +58,15 @@ p { max-width: 68ch; font-size: 1.1rem; }
 ul { max-width: 68ch; font-size: 1.1rem; }
 li { margin-bottom: 0.5rem; }
 
+.explanation-list {
+  max-width: 68ch;
+  font-size: 1.1rem;
+  margin: 1rem 0;
+}
+.explanation-list li {
+  margin-bottom: 0.6rem;
+}
+
 .interactive-figure {
   margin: 2.5rem 0;
   padding: 1.5rem;

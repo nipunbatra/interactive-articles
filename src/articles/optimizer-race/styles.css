@@ -53,6 +53,15 @@ h1 { margin: 0 auto 1rem; font-size: clamp(2.4rem, 5vw, 3.5rem); line-height: 1.
 h2 { margin: 0 0 1rem; font-size: clamp(1.6rem, 3.5vw, 2.2rem); line-height: 1.15; color: #1a1815; }
 p { max-width: 68ch; font-size: 1.1rem; }
 
+.explanation-list {
+  max-width: 68ch;
+  font-size: 1.1rem;
+  margin: 1rem 0;
+}
+.explanation-list li {
+  margin-bottom: 0.6rem;
+}
+
 .interactive-figure {
   margin: 2.5rem 0;
   padding: 1.5rem;

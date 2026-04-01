@@ -27,43 +27,47 @@
 
       <section class="step-section" id="step-1">
         <div class="step-badge">Part I</div>
-        <h2>Queries, Keys, and Values</h2>
+        <h2>The Context Problem</h2>
         <p>
-          Let's look at a simple phrase: <strong>"The river bank"</strong>.
+          Imagine reading the phrase: <strong>"The river bank"</strong>.
         </p>
         <p>
-          In a Transformer, every word holds three vectors:
+          To a computer, "bank" is just a discrete token. But does it mean a financial institution where you deposit money, or the muddy edge of a flowing river? To understand the word, the model must look at the surrounding context.
         </p>
-        <ul>
-          <li><strong>Query (Q):</strong> What am I looking for?</li>
-          <li><strong>Key (K):</strong> What do I contain?</li>
-          <li><strong>Value (V):</strong> If you care about me, here is what I contribute to your meaning.</li>
+        <p>
+          In a Transformer network, every word is given three distinct roles, represented as vectors (lists of numbers):
+        </p>
+        <ul class="explanation-list">
+          <li><strong>Query ($Q$):</strong> What kind of context am I looking for? (e.g., "I am the word 'bank'. I need to know if there's money or water nearby.")</li>
+          <li><strong>Key ($K$):</strong> What kind of context do I provide? (e.g., "I am the word 'river'. I have water-related meaning.")</li>
+          <li><strong>Value ($V$):</strong> If you decide to pay attention to me, here is the actual meaning I will contribute to your new understanding.</li>
         </ul>
-        <p>
-          Let's focus on the word <strong>"bank"</strong>. It wants to know if it's a financial institution or the side of a river. It broadcasts its Query vector ($Q_{\\text{bank}}$) to compare against the Key vectors ($K$) of all other words.
-        </p>
-        <div class="interactive-figure">
-          <canvas id="qkCanvas" width="800" height="400"></canvas>
-          <figcaption>
-            <strong>Interactive:</strong> Drag the <span style="color:var(--q-color);font-weight:bold;">Query</span> vector for "bank", and the <span style="color:var(--k-color);font-weight:bold;">Key</span> vectors for "The", "river", and "bank". Try to make "bank" pay maximum attention to "river" by aligning their vectors!
-          </figcaption>
-        </div>
       </section>
 
       <section class="step-section" id="step-2">
         <div class="step-badge">Part II</div>
         <h2>The Dot Product (Raw Scores)</h2>
         <p>
+          Let's focus on the word <strong>"bank"</strong>. It wants to figure out its context. It broadcasts its Query vector ($Q_{\text{bank}}$) to compare against the Key vectors ($K$) of all other words.
+        </p>
+        <p>
           To calculate how much "bank" cares about "river", we take the <strong>Dot Product</strong> of their vectors. If the Query and Key point in the same direction, the score is high. If they are orthogonal (90 degrees), the score is zero. If they point in opposite directions, the score is negative.
         </p>
         <div class="math-block" id="math-dot-product"></div>
+        
+        <div class="interactive-figure">
+          <canvas id="qkCanvas" width="800" height="400"></canvas>
+          <figcaption>
+            <strong>Interactive:</strong> Drag the <span style="color:var(--q-color);font-weight:bold;">Query</span> vector for "bank", and the <span style="color:var(--k-color);font-weight:bold;">Key</span> vectors for "The", "river", and "bank". Watch the raw dot product scores change in the table below.
+          </figcaption>
+        </div>
         
         <div class="table-wrap">
           <table class="data-table" id="rawScoresTable">
             <thead>
               <tr>
                 <th>Word</th>
-                <th>Dot Product ($Q_{\\text{bank}} \\cdot K_{\\text{word}}$)</th>
+                <th>Dot Product ($Q_{\text{bank}} \cdot K_{\text{word}}$)</th>
               </tr>
             </thead>
             <tbody>
@@ -81,7 +85,7 @@
         </p>
         <div class="math-block" id="math-softmax"></div>
         <p>
-          Softmax aggressively rewards the highest score, turning the "winning" word into the dominant focus of attention.
+          Softmax exponentially rewards the highest score, turning the "winning" word into the dominant focus of attention. Notice how a slightly higher raw score turns into a massive percentage!
         </p>
         <div class="table-wrap">
           <table class="data-table" id="attentionTable">
@@ -108,7 +112,7 @@
         <div class="math-block" id="math-final-v"></div>
         <div class="callout callout--think" style="margin-top: 2rem;">
           <strong>Final Takeaway</strong><br />
-          Before Attention, "bank" was just an isolated token. After Attention, its new vector represents "a bank, specifically in the context of a river." This is how Transformers build deep, contextual understanding without reading left-to-right!
+          Before Attention, "bank" was just an isolated token. After Attention, its new vector represents "a bank, specifically in the context of a river." This mathematical blending is exactly how Transformers build deep, contextual understanding across thousands of words simultaneously!
         </div>
       </section>
     </article>

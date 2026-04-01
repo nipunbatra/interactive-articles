@@ -32,55 +32,92 @@
           Imagine training a neural network with two parameters ($x$ and $y$). The height of the terrain is the <strong>loss</strong> (error). Our goal is to reach the lowest point (the minimum).
         </p>
         <p>
-          Below is a classic "ravine" optimization problem (similar to Beale's function or Rosenbrock's valley). The ravine slopes gently towards the minimum, but its sides are incredibly steep.
+          Below, we will explore a classic "ravine" optimization problem (similar to Beale's function or Rosenbrock's valley). The ravine slopes gently towards the minimum, but its sides are incredibly steep. We can define this mathematically as:
         </p>
-        
-        <div class="interactive-figure">
-          <div style="display:flex; justify-content:space-between; margin-bottom:1rem; align-items:center;">
-            <div>
-              <label><strong>Learning Rate:</strong> <span id="lr-val">0.05</span></label>
-              <input type="range" id="lr-slider" min="0.001" max="0.1" step="0.001" value="0.05" />
-            </div>
-            <button id="reset-btn" class="action-btn">Reset Points</button>
-          </div>
-          <canvas id="optCanvas" width="800" height="500"></canvas>
-          <figcaption>
-            <strong>Interactive:</strong> Click anywhere on the terrain to drop a starting point. Watch the three optimizers race to the star (global minimum).
-          </figcaption>
-          
-          <div class="legend" style="margin-top: 1rem; display:flex; gap:2rem; justify-content:center;">
-            <div style="display:flex; align-items:center; gap:0.5rem;"><div style="width:12px;height:12px;background:#ca5b2a;border-radius:50%"></div> <strong>SGD</strong></div>
-            <div style="display:flex; align-items:center; gap:0.5rem;"><div style="width:12px;height:12px;background:#245b8f;border-radius:50%"></div> <strong>Momentum</strong></div>
-            <div style="display:flex; align-items:center; gap:0.5rem;"><div style="width:12px;height:12px;background:#1e7770;border-radius:50%"></div> <strong>Adam</strong></div>
-          </div>
-        </div>
+        <div class="math-block" id="math-landscape"></div>
+        <p>
+          Moving along the $y$-axis is very steep, but moving along the $x$-axis is very flat. This unevenness is what makes neural networks so notoriously difficult to train.
+        </p>
       </section>
 
       <section class="step-section">
         <div class="step-badge">Part II</div>
         <h2>Why SGD struggles</h2>
         <p>
-          <strong>Stochastic Gradient Descent (SGD)</strong> simply points directly downhill at every step. In a ravine, downhill points across the walls, not along the floor. So SGD spends all its energy bouncing violently wall-to-wall, making agonizingly slow progress toward the minimum.
+          <strong>Stochastic Gradient Descent (SGD)</strong> is the simplest optimization algorithm. At every step, it calculates the slope (the gradient) and takes a step directly downhill.
         </p>
         <div class="math-block" id="math-sgd"></div>
+        <ul class="explanation-list">
+          <li><strong>$W_t$:</strong> Our current position (weights).</li>
+          <li><strong>$\alpha$:</strong> The Learning Rate (step size).</li>
+          <li><strong>$\nabla L(W_t)$:</strong> The gradient (slope) at our current position.</li>
+        </ul>
+        <p>
+          In a ravine, "downhill" mostly points straight across the steep walls, not along the flat floor. So SGD spends all its energy bouncing violently wall-to-wall, making agonizingly slow progress toward the minimum.
+        </p>
       </section>
 
       <section class="step-section">
         <div class="step-badge">Part III</div>
         <h2>Momentum: Adding Mass</h2>
         <p>
-          <strong>Momentum</strong> remembers the direction of previous steps. It acts like a heavy ball rolling down the hill. The bouncing wall-to-wall movements cancel each other out, while the consistent push down the ravine floor builds up speed.
+          What if our optimizer had physical mass? <strong>Momentum</strong> remembers the direction of previous steps. It acts like a heavy ball rolling down the hill.
         </p>
         <div class="math-block" id="math-momentum"></div>
+        <ul class="explanation-list">
+          <li><strong>$V_t$:</strong> Our current velocity.</li>
+          <li><strong>$\beta$:</strong> A friction factor (usually 0.9) that slowly decays old velocity.</li>
+        </ul>
+        <p>
+          Because the gradients point back and forth across the ravine walls, those perpendicular forces cancel each other out in the velocity vector. Meanwhile, the tiny consistent push down the flat floor accumulates, building up speed exactly where we want it!
+        </p>
       </section>
 
       <section class="step-section">
         <div class="step-badge">Part IV</div>
         <h2>Adam: Smart Scaling</h2>
         <p>
-          <strong>Adam</strong> (Adaptive Moment Estimation) goes a step further. It not only keeps momentum, but it also measures how steep the gradients are in each direction. It dampens the steps along the steep walls and boosts the steps along the flat floor, creating a smooth, direct path to the minimum.
+          <strong>Adam</strong> (Adaptive Moment Estimation) goes a step further. What if we could magically warp the landscape so the steep walls flatter and the flat floor steeper?
         </p>
         <div class="math-block" id="math-adam"></div>
+        <ul class="explanation-list">
+          <li><strong>$m_{t+1}$:</strong> The momentum (average of past gradients).</li>
+          <li><strong>$v_{t+1}$:</strong> The variance (average of past squared gradients).</li>
+        </ul>
+        <p>
+          Adam divides the step size by the square root of the variance ($\sqrt{v_{t+1}}$). This is genius: gradients along the steep walls have high variance, so Adam dynamically shrinks the learning rate there. Gradients along the floor have low variance, so Adam dynamically boosts the learning rate there. It creates a smooth, direct path to the minimum.
+        </p>
+      </section>
+
+      <section class="step-section">
+        <div class="step-badge">Part V</div>
+        <h2>The Grand Prix</h2>
+        <p>
+          Let's see the math in action. The contour lines represent our ravine. The global minimum (Loss = 0) is marked by the star.
+        </p>
+        <p>
+          Adjust the learning rate and click anywhere on the terrain to drop a starting point. Watch how SGD bounces, Momentum swings, and Adam elegantly finds the bottom.
+        </p>
+        
+        <div class="interactive-figure">
+          <div style="display:flex; justify-content:space-between; margin-bottom:1rem; align-items:center;">
+            <div>
+              <label><strong>Learning Rate ($\alpha$):</strong> <span id="lr-val">0.05</span></label>
+              <input type="range" id="lr-slider" min="0.001" max="0.1" step="0.001" value="0.05" />
+            </div>
+            <button id="reset-btn" class="action-btn">Reset Board</button>
+          </div>
+          <canvas id="optCanvas" width="800" height="500"></canvas>
+          <figcaption>
+            <strong>Interactive:</strong> Click anywhere on the terrain to drop a starting point.
+          </figcaption>
+          
+          <div class="legend" style="margin-top: 1.5rem; display:flex; gap:2.5rem; justify-content:center; font-family: var(--sans); font-size: 1.1rem;">
+            <div style="display:flex; align-items:center; gap:0.5rem;"><div style="width:16px;height:16px;background:#ca5b2a;border-radius:50%"></div> <strong>SGD</strong></div>
+            <div style="display:flex; align-items:center; gap:0.5rem;"><div style="width:16px;height:16px;background:#245b8f;border-radius:50%"></div> <strong>Momentum</strong></div>
+            <div style="display:flex; align-items:center; gap:0.5rem;"><div style="width:16px;height:16px;background:#1e7770;border-radius:50%"></div> <strong>Adam</strong></div>
+          </div>
+        </div>
       </section>
     </article>
 
