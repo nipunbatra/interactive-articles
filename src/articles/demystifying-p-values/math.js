@@ -4,7 +4,8 @@ export function renderMath() {
     'math-choose':    ['\\binom{10}{5} = \\frac{10!}{5!\\;5!} = 252', true],
     'math-pval':      ['p = \\frac{\\text{\\# splits with gap} \\ge \\text{observed gap}}{\\text{total splits (252)}}', true],
     'math-bigchoose': ['\\binom{40}{20} = 137{,}846{,}528{,}640', true],
-    'math-se-formula':['SE = \\sqrt{\\frac{s_A^2}{n_A} + \\frac{s_B^2}{n_B}}', true]
+    'math-se-formula':['SE = \\sqrt{\\frac{s_A^2}{n_A} + \\frac{s_B^2}{n_B}}', true],
+    'math-integral':  ['p = 2 \\times \\int_{|t|}^{\\infty} \\frac{1}{\\sqrt{2\\pi}} e^{-\\frac{x^2}{2}} dx', true]
   };
   Object.keys(blocks).forEach(function (id) {
     var el = document.getElementById(id);

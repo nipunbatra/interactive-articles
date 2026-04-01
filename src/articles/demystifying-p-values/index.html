@@ -333,13 +333,17 @@
               <li><strong>Group B:</strong> <span id="param-group-b" class="mono-text">...</span> (Mean: <span id="param-mean-b">...</span>, Var: <span id="param-var-b">...</span>)</li>
               <li><strong>Observed Gap (The "Signal"):</strong> <span id="param-obs" style="font-weight: bold; color: var(--extreme)">...</span></li>
             </ul>
-            <p>Using the data's spread (the variance of each group), the mathematical formula estimates the standard deviation (<i>&sigma;</i>) of random differences to be <strong id="param-sd">...</strong>. This represents the expected <strong>"Noise"</strong>.</p>
+            <p>
+              In statistics, the variance of an average shrinks by the number of data points ($n$). Because we are subtracting two independent groups to find the gap, their variances <em>add up</em>. By taking the square root, the formula below estimates the Standard Deviation (<i>&sigma;</i>) of random differences. This represents the expected <strong>"Noise"</strong>.
+            </p>
             <div class="math-block" id="math-sd-dynamic"></div>
             
-            <p>Now we calculate the famous <strong>t-statistic</strong>. Why "t"? It was invented by William Sealy Gosset, a brewer at Guinness, who needed a way to measure the quality of small batches of stout. The formula is beautifully simple: it is just the ratio of <strong>Signal to Noise</strong>.</p>
+            <p>Now we calculate the famous <strong>t-statistic</strong>. (It's called "t" because its inventor, a Guinness brewer named William Sealy Gosset, published his work anonymously under the pen name "Student" and simply used the letter $t$ for his variable). The formula is beautifully simple: it is just the ratio of <strong>Signal to Noise</strong>.</p>
             <div class="math-block" id="math-tstat-dynamic"></div>
             
             <p id="param-conclusion-text"></p>
+            <p>To compute the exact shaded area in the tails without manually counting combinations, we use calculus to integrate the continuous curve from our $t$ value all the way to infinity:</p>
+            <div class="math-block" id="math-integral"></div>
           </div>
           <figure class="interactive-figure">
             <canvas id="parametricCanvas" width="920" height="280"></canvas>
@@ -377,7 +381,7 @@
                 <td><strong><span id="summary-exact-pval">...</span></strong></td>
               </tr>
               <tr>
-                <td><strong>2. Parametric (t-test)</strong></td>
+                <td><strong>2. Parametric (z-approximation)</strong></td>
                 <td>Assumes a Gaussian curve and uses standard deviation formulas.</td>
                 <td><strong>&approx; <span id="summary-param-pval">...</span></strong></td>
               </tr>
@@ -388,6 +392,13 @@
               </tr>
             </tbody>
           </table>
+        </div>
+
+        <div class="callout" style="margin-top: 1.5rem; background: rgba(217, 98, 43, 0.05); border-color: rgba(217, 98, 43, 0.2);">
+          <strong style="color: var(--extreme)">Wait, why is the Parametric test so different?</strong><br />
+          If you run the "New Fertilizer" or "Coffee" scenarios, you might notice the Parametric test gives a much smaller p-value than the Exact test. Did the math fail? <br /><br />
+          Yes! This is the fundamental danger of shortcuts. A perfect Bell Curve has very "thin tails." But when dealing with small, noisy datasets ($N=10$), extreme random events happen far more often than a perfect Bell Curve expects. A normal distribution underestimates the probability of these extreme tail events, artificially driving the p-value down. <br /><br />
+          This exact problem is why Gosset invented the "Student's t-distribution"—a special curve with fatter tails designed for small samples. But even that is an approximation. The <strong>Exact Permutation Test</strong> (Method 1) makes zero assumptions and gives the absolute ground truth for your specific data!
         </div>
 
         <div class="callout callout--think" style="margin-top: 2rem;">
