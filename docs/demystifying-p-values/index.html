@@ -222,7 +222,7 @@
       </section>
 
       <!-- ─── Step 5 ─── -->
-      <section class="step-section disabled" id="step-5">
+      <section class="step-section" id="step-5">
         <div class="step-badge">Step 5</div>
         <h2>The p-value is just a fraction</h2>
         <p>
@@ -330,11 +330,12 @@
           <div class="callout">
             <strong>Worked out for our data:</strong>
             <ul class="explanation-list" style="margin-top: 0.5rem">
-              <li><strong>Group A:</strong> <span id="param-group-a" class="mono-text">...</span> (Mean: <span id="param-mean-a">...</span>)</li>
-              <li><strong>Group B:</strong> <span id="param-group-b" class="mono-text">...</span> (Mean: <span id="param-mean-b">...</span>)</li>
+              <li><strong>Group A:</strong> <span id="param-group-a" class="mono-text">...</span> (Mean: <span id="param-mean-a">...</span>, Var: <span id="param-var-a">...</span>)</li>
+              <li><strong>Group B:</strong> <span id="param-group-b" class="mono-text">...</span> (Mean: <span id="param-mean-b">...</span>, Var: <span id="param-var-b">...</span>)</li>
               <li><strong>Observed Gap:</strong> <span id="param-obs">...</span></li>
             </ul>
-            <p>Using the data's spread, the mathematical formula estimates the standard deviation ($\sigma$) of random differences to be <strong id="param-sd">...</strong>.</p>
+            <p>Using the data's spread (the variance of each group), the mathematical formula estimates the standard deviation (<i>&sigma;</i>) of random differences to be <strong id="param-sd">...</strong>.</p>
+            <div class="math-block" id="math-sd-dynamic"></div>
             <p>Now we calculate the <strong>t-statistic</strong>. This simply measures how many standard deviations away from zero our observed gap is:</p>
             <div class="math-block" id="math-tstat-dynamic"></div>
             <p>Because our gap is <strong id="param-tstat">...</strong> standard deviations away from zero, it lands deep in the tail of the curve. Using calculus to find the shaded area under the curve gives us our theoretical p-value: <strong>p &approx; <span id="param-pval-approx">...</span></strong>.</p>

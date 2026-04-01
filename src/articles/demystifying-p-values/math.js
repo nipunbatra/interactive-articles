@@ -5,6 +5,7 @@ export function renderMath() {
     'math-pval':      ['p = \\frac{\\text{\\# splits with gap} \\ge \\text{observed gap}}{\\text{total splits (252)}}', true],
     'math-bigchoose': ['\\binom{40}{20} = 137{,}846{,}528{,}640', true],
     'math-gaussian':  ['f(x) = \\frac{1}{\\sigma \\sqrt{2\\pi}} e^{-\\frac{1}{2}\\left(\\frac{x-\\mu}{\\sigma}\\right)^2}', true],
+    'math-se-formula':['SE = \\sqrt{\\frac{s_A^2}{n_A} + \\frac{s_B^2}{n_B}}', true]
   };
   Object.keys(blocks).forEach(function (id) {
     var el = document.getElementById(id);
@@ -34,6 +35,15 @@ export function mean(arr) {
 
 export function meanGap(a, b) {
   return Math.abs(mean(a) - mean(b));
+}
+
+export function variance(arr) {
+  const m = mean(arr);
+  return arr.reduce((acc, val) => acc + Math.pow(val - m, 2), 0) / (arr.length - 1);
+}
+
+export function standardError(groupA, groupB) {
+  return Math.sqrt(variance(groupA) / groupA.length + variance(groupB) / groupB.length);
 }
 
 export function combinations(array, choose) {

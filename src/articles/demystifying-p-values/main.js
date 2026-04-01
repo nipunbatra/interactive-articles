@@ -1,5 +1,5 @@
 import { SCENARIOS } from './scenarios.js';
-import { mean, meanGap, generateAllResplits, shuffle, renderMath, normalCdf } from './math.js';
+import { mean, meanGap, generateAllResplits, shuffle, renderMath, normalCdf, variance, standardError } from './math.js';
 import { renderBubbles, setupCanvas } from './ui.js';
 
 let state = {
@@ -439,11 +439,10 @@ function drawParametric() {
 
   // Compute standard deviation of the permutation null distribution
   const data = SCENARIOS[state.scenario];
-  const allValues = [...data.groupA, ...data.groupB];
-  const resplits = generateAllResplits(allValues);
-  const diffs = resplits.map(r => r.diff);
-  const variance = diffs.reduce((sum, d) => sum + d*d, 0) / diffs.length;
-  const sd = Math.sqrt(variance);
+  
+  const varA = variance(data.groupA);
+  const varB = variance(data.groupB);
+  const sd = Math.sqrt(varA / data.groupA.length + varB / data.groupB.length);
 
   const margin = { top: 30, right: 50, bottom: 40, left: 50 };
   const plotW = w - margin.left - margin.right;
@@ -469,10 +468,20 @@ function drawParametric() {
   if (paramGroupA) paramGroupA.textContent = '[' + data.groupA.join(', ') + ']';
   const paramMeanA = document.getElementById('param-mean-a');
   if (paramMeanA) paramMeanA.textContent = mean(data.groupA).toFixed(1);
+  const paramVarA = document.getElementById('param-var-a');
+  if (paramVarA) paramVarA.textContent = varA.toFixed(2);
+
   const paramGroupB = document.getElementById('param-group-b');
   if (paramGroupB) paramGroupB.textContent = '[' + data.groupB.join(', ') + ']';
   const paramMeanB = document.getElementById('param-mean-b');
   if (paramMeanB) paramMeanB.textContent = mean(data.groupB).toFixed(1);
+  const paramVarB = document.getElementById('param-var-b');
+  if (paramVarB) paramVarB.textContent = varB.toFixed(2);
+
+  const sdMathEl = document.getElementById('math-sd-dynamic');
+  if (sdMathEl && window.katex) {
+    katex.render(`\\sigma \\approx \\sqrt{\\frac{\\text{Var}_A}{n_A} + \\frac{\\text{Var}_B}{n_B}} = \\sqrt{\\frac{${varA.toFixed(2)}}{5} + \\frac{${varB.toFixed(2)}}{5}} = ${sd.toFixed(2)}`, sdMathEl, { displayMode: true, throwOnError: false });
+  }
 
   const tstatMathEl = document.getElementById('math-tstat-dynamic');
   if (tstatMathEl && window.katex) {
