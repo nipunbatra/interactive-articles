@@ -456,23 +456,20 @@ function drawParametric() {
   if (paramObsEl) paramObsEl.textContent = state.observedGap.toFixed(2);
   const paramTstatEl = document.getElementById('param-tstat');
   if (paramTstatEl) paramTstatEl.textContent = tStat.toFixed(2);
-  const paramTstatTextEl = document.getElementById('param-tstat-text');
-  if (paramTstatTextEl) paramTstatTextEl.textContent = tStat.toFixed(2);
-  
   // Calculate two-tailed p-value using normal distribution
   const paramPval = 2 * (1 - normalCdf(tStat));
   const pValStr = paramPval < 0.001 ? 'p < 0.001' : `p \\approx ${paramPval.toFixed(3)}`;
-  
-  const paramPvalEl = document.getElementById('param-pval-approx');
-  if (paramPvalEl) {
-    paramPvalEl.textContent = '';
-    if (window.katex) {
-      katex.render(pValStr, paramPvalEl, { displayMode: false, throwOnError: false });
+  const inlinePvalStr = paramPval < 0.001 ? '< 0.001' : `≈ ${paramPval.toFixed(3)}`;
+
+  const paramConclusionEl = document.getElementById('param-conclusion-text');
+  if (paramConclusionEl) {
+    if (paramPval < 0.05) {
+      paramConclusionEl.innerHTML = `Our gap is <strong>${tStat.toFixed(2)}</strong> times larger than the expected noise. It lands deep in the tail of the curve. To find the p-value, we don't count combinations; we just use calculus to find the area under the curve in those extreme tails. Because ${tStat.toFixed(2)} standard deviations is so far out, the area is tiny: <strong>p ${inlinePvalStr}</strong>.`;
     } else {
-      paramPvalEl.textContent = paramPval < 0.001 ? '< 0.001' : `≈ ${paramPval.toFixed(3)}`;
+      paramConclusionEl.innerHTML = `Our gap is <strong>${tStat.toFixed(2)}</strong> times larger than the expected noise. Because ${tStat.toFixed(2)} is relatively close to zero, it lands in the fat middle of the curve. Using calculus to find the shaded area under the curve in the tails gives us a large probability: <strong>p ${inlinePvalStr}</strong>.`;
     }
   }
-  
+
   const summaryParamPvalEl = document.getElementById('summary-param-pval');
   if (summaryParamPvalEl) summaryParamPvalEl.textContent = paramPval < 0.001 ? '< 0.001' : paramPval.toFixed(3);
   

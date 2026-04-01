@@ -321,9 +321,8 @@
         <div class="shortcut-viz">
           <h4>1. Parametric (t-test)</h4>
           <p>
-            Instead of counting combinations, a parametric test assumes the distribution of random noise forms a perfect, continuous Bell Curve (a Gaussian distribution).
+            Instead of counting combinations, a parametric test assumes the distribution of random noise forms a perfect, continuous Bell Curve (a normal distribution).
           </p>
-          <div class="math-block" id="math-gaussian"></div>
           <p>
             Because the Null Hypothesis assumes the treatment does nothing, the centre of the curve is exactly zero (<i>&mu;</i> = 0). To draw the curve, we estimate the <strong>Standard Deviation (<i>&sigma;</i>)</strong> directly from the spread of our 10 data points using a shortcut formula.
           </p>
@@ -340,7 +339,7 @@
             <p>Now we calculate the famous <strong>t-statistic</strong>. Why "t"? It was invented by William Sealy Gosset, a brewer at Guinness, who needed a way to measure the quality of small batches of stout. The formula is beautifully simple: it is just the ratio of <strong>Signal to Noise</strong>.</p>
             <div class="math-block" id="math-tstat-dynamic"></div>
             
-            <p>Our gap is <strong id="param-tstat">...</strong> times larger than the expected noise. It lands deep in the tail of the curve. To find the p-value, we don't count combinations; we just use calculus to find the area under the curve in those extreme tails. Because <span id="param-tstat-text">...</span> standard deviations is so far out, the area is tiny: <strong id="param-pval-approx">...</strong>.</p>
+            <p id="param-conclusion-text"></p>
           </div>
           <figure class="interactive-figure">
             <canvas id="parametricCanvas" width="920" height="280"></canvas>
