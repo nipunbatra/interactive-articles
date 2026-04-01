@@ -94,6 +94,19 @@ function renderMath() {
 }
 
 // --- Math Helpers ---
+function erf(x) {
+  const sign = x >= 0 ? 1 : -1;
+  x = Math.abs(x);
+  const a1 = 0.254829592, a2 = -0.284496736, a3 = 1.421413741, a4 = -1.453152027, a5 = 1.061405429, p = 0.3275911;
+  const t = 1.0 / (1.0 + p * x);
+  const y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-x * x);
+  return sign * y;
+}
+
+function normalCdf(x) {
+  return 0.5 * (1 + erf(x / Math.sqrt(2)));
+}
+
 function mean(arr) {
   return arr.reduce((a, b) => a + b, 0) / arr.length;
 }
@@ -563,6 +576,9 @@ function finishCalculation() {
   elements.finalPValue.textContent = pVal.toFixed(3);
   elements.pValueMath.textContent = `p = ${extremeSplits.length} (extreme splits) / 252 (total splits) = ${pVal.toFixed(3)}`;
 
+  let summaryExact = document.getElementById('summary-exact-pval');
+  if (summaryExact) summaryExact.textContent = pVal.toFixed(3);
+
   let explanation = "";
   if (pVal < 0.05) {
     explanation = `Only ${extremeSplits.length} out of 252 random splits produced a gap this large. That's just ${(pVal*100).toFixed(1)}% of the null world. It's very hard to explain this gap by chance alone, so we reject H\u2080 and conclude the treatment likely had a real effect.`;
@@ -597,6 +613,24 @@ function drawParametric() {
   if (paramObsEl) paramObsEl.textContent = state.observedGap.toFixed(2);
   const paramTstatEl = document.getElementById('param-tstat');
   if (paramTstatEl) paramTstatEl.textContent = tStat.toFixed(2);
+  
+  // Calculate two-tailed p-value using normal distribution
+  const paramPval = 2 * (1 - normalCdf(tStat));
+  const paramPvalEl = document.getElementById('param-pval-approx');
+  if (paramPvalEl) paramPvalEl.textContent = paramPval.toFixed(3);
+  const summaryParamPvalEl = document.getElementById('summary-param-pval');
+  if (summaryParamPvalEl) summaryParamPvalEl.textContent = paramPval.toFixed(3);
+  
+  // Update groups info
+  const paramGroupA = document.getElementById('param-group-a');
+  if (paramGroupA) paramGroupA.textContent = '[' + data.groupA.join(', ') + ']';
+  const paramMeanA = document.getElementById('param-mean-a');
+  if (paramMeanA) paramMeanA.textContent = mean(data.groupA).toFixed(1);
+  const paramGroupB = document.getElementById('param-group-b');
+  if (paramGroupB) paramGroupB.textContent = '[' + data.groupB.join(', ') + ']';
+  const paramMeanB = document.getElementById('param-mean-b');
+  if (paramMeanB) paramMeanB.textContent = mean(data.groupB).toFixed(1);
+
   const tstatMathEl = document.getElementById('math-tstat-dynamic');
   if (tstatMathEl && window.katex) {
     katex.render(`t = \\frac{\\text{Gap}}{\\text{SD}} = \\frac{${state.observedGap.toFixed(2)}}{${sd.toFixed(2)}} = ${tStat.toFixed(2)}`, tstatMathEl, { displayMode: true, throwOnError: false });
@@ -801,6 +835,9 @@ if (elements.btnRunMonteCarlo) {
       
       elements.mcCount.textContent = state.mcGaps.length.toLocaleString();
       elements.mcPval.textContent = pval.toFixed(3);
+      
+      const summaryMcPvalEl = document.getElementById('summary-mc-pval');
+      if (summaryMcPvalEl) summaryMcPvalEl.textContent = pval.toFixed(3);
       
       drawMonteCarloCanvas();
       requestAnimationFrame(mcTick);

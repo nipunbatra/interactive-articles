@@ -325,13 +325,19 @@
           </p>
           <div class="math-block" id="math-gaussian"></div>
           <p>
-            This terrifying formula just draws the smooth curve below. Because the Null Hypothesis assumes the treatment does nothing, the centre of the curve is exactly zero ($\mu = 0$). To draw the rest of the curve, we only need one number: the <strong>Standard Deviation ($\sigma$)</strong>, which measures how wide or narrow the random noise is. We estimate it directly from our 10 data points using a shortcut formula.
+            Because the Null Hypothesis assumes the treatment does nothing, the centre of the curve is exactly zero ($\mu = 0$). To draw the curve, we estimate the <strong>Standard Deviation ($\sigma$)</strong> directly from the spread of our 10 data points using a shortcut formula.
           </p>
           <div class="callout">
             <strong>Worked out for our data:</strong>
-            For the 10 numbers in our current scenario, the estimated standard deviation of random differences is <strong id="param-sd">...</strong>. Our observed gap is <strong id="param-obs">...</strong>.
+            <ul class="explanation-list" style="margin-top: 0.5rem">
+              <li><strong>Group A:</strong> <span id="param-group-a" class="mono-text">...</span> (Mean: <span id="param-mean-a">...</span>)</li>
+              <li><strong>Group B:</strong> <span id="param-group-b" class="mono-text">...</span> (Mean: <span id="param-mean-b">...</span>)</li>
+              <li><strong>Observed Gap:</strong> <span id="param-obs">...</span></li>
+            </ul>
+            <p>Using the data's spread, the mathematical formula estimates the standard deviation ($\sigma$) of random differences to be <strong id="param-sd">...</strong>.</p>
+            <p>Now we calculate the <strong>t-statistic</strong>. This simply measures how many standard deviations away from zero our observed gap is:</p>
             <div class="math-block" id="math-tstat-dynamic"></div>
-            Because our gap is <strong id="param-tstat">...</strong> standard deviations away from zero, it lands deep in the tail of the bell curve. We use calculus to find the shaded area under the curve in the tails, giving us our estimated p-value.
+            <p>Because our gap is <strong id="param-tstat">...</strong> standard deviations away from zero, it lands deep in the tail of the curve. Using calculus to find the shaded area under the curve gives us our theoretical p-value: <strong>p &approx; <span id="param-pval-approx">...</span></strong>.</p>
           </div>
           <figure class="interactive-figure">
             <canvas id="parametricCanvas" width="920" height="280"></canvas>
@@ -351,12 +357,41 @@
           </figure>
         </div>
 
-        <p>
-          The permutation test you built today is the conceptual foundation
-          under <em>all</em> of these. When someone says "p = 0.03," they're
-          saying: "only 3% of the null world looks this extreme." Now you know
-          exactly what that means&mdash;because you've counted it yourself.
-        </p>
+        <h3>Comparing the Three Methods</h3>
+        <p>We've now seen three different ways to calculate a p-value for the exact same data. Let's compare them:</p>
+        <div class="examples-table-wrap">
+          <table class="examples-table">
+            <thead>
+              <tr>
+                <th>Method</th>
+                <th>How it works</th>
+                <th>Estimated p-value</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>1. Exact Permutation Test</strong></td>
+                <td>Calculated exactly by computing all 252 splits. (The gold standard for small data).</td>
+                <td><strong><span id="summary-exact-pval">...</span></strong></td>
+              </tr>
+              <tr>
+                <td><strong>2. Parametric (t-test)</strong></td>
+                <td>Assumes a Gaussian curve and uses standard deviation formulas.</td>
+                <td><strong>&approx; <span id="summary-param-pval">...</span></strong></td>
+              </tr>
+              <tr>
+                <td><strong>3. Monte Carlo Simulation</strong></td>
+                <td>Randomly shuffles data. (Converges to the exact test with enough samples).</td>
+                <td><strong>&approx; <span id="summary-mc-pval">Not run yet</span></strong></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout callout--think" style="margin-top: 2rem;">
+          <strong>Final Takeaway</strong><br />
+          The permutation test you built today is the conceptual foundation under <em>all</em> of these. When someone says "p = 0.03," they're saying: "Only 3% of the null world looks this extreme." Now you know exactly what that means&mdash;because you've counted it yourself.
+        </div>
       </section>
     </article>
 
