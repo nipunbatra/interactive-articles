@@ -508,14 +508,3 @@ elements.scenarioButtons.forEach(btn => {
 });
 
 loadScenario('smartPills');
-.`;
-  }
-  elements.pValueExplanation.textContent = explanation;
-}
-
-// --- Init ---
-elements.scenarioButtons.forEach(btn => {
-  btn.addEventListener('click', () => loadScenario(btn.dataset.case));
-});
-
-loadScenario('smartPills');
