@@ -115,7 +115,24 @@ code {
   border-left: 3px solid var(--teal); background: rgba(30, 119, 112, 0.04);
   border-radius: 0 10px 10px 0; font-size: 0.98rem;
 }
+.callout--think {
+  border-left-color: var(--blue); background: rgba(60, 104, 207, 0.04);
+}
 .callout strong { font-family: var(--sans); font-size: 0.88rem; }
+
+/* ─── Problem list ─── */
+.problem-list { margin: 1.2rem 0; display: flex; flex-direction: column; gap: 0.6rem; }
+.problem-card {
+  display: flex; gap: 0.8rem; align-items: flex-start;
+  padding: 0.8rem 1rem; border: 1px solid var(--line); border-radius: 10px;
+  background: var(--paper); font-size: 0.95rem;
+}
+.problem-num {
+  flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%;
+  background: var(--coral); color: #fff; font-family: var(--sans);
+  font-size: 0.8rem; font-weight: 700; display: flex; align-items: center; justify-content: center;
+}
+.problem-card div p { margin: 0.3rem 0 0; color: var(--muted); font-size: 0.9rem; }
 
 /* ─── Pipeline ─── */
 .pipeline {
@@ -133,6 +150,8 @@ code {
   font-family: var(--mono); font-size: 0.88rem; font-weight: 600;
 }
 .pipe-step--hl .pipe-icon { border-color: var(--teal); color: var(--teal); background: rgba(30, 119, 112, 0.06); }
+.pipe-step--hl .pipe-label { color: var(--teal); }
+.pipe-step { transition: all 200ms; }
 .pipe-label { font-family: var(--sans); font-size: 0.72rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
 .pipe-arrow { font-size: 1.2rem; color: var(--muted); }
 
@@ -173,6 +192,29 @@ code {
   border: none; padding: 0; color: inherit; line-height: 1.6;
 }
 .cm { color: #7a8694; }
+
+/* ─── Step tag ─── */
+.step-tag {
+  display: inline-block; font-family: var(--sans); font-size: 0.68rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.08em; color: #fff;
+  background: var(--teal); padding: 0.15rem 0.5rem; border-radius: 4px;
+  margin-right: 0.3rem; vertical-align: middle; position: relative; top: -1px;
+}
+
+/* ─── Embed demo ─── */
+.embed-demo { margin: 1rem 0; }
+.embed-demo__row {
+  display: flex; align-items: center; gap: 0.6rem;
+  padding: 0.6rem 0.9rem; border: 1px solid var(--line); border-radius: 10px;
+  background: var(--paper); font-size: 0.9rem;
+}
+.embed-demo__label {
+  font-family: var(--sans); font-size: 0.82rem; font-weight: 600; color: var(--coral);
+  white-space: nowrap;
+}
+.embed-demo__row code {
+  font-family: var(--mono); font-size: 0.85rem;
+}
 
 /* ─── Figure / canvas ─── */
 .figure { margin: 1.5rem 0; text-align: center; }

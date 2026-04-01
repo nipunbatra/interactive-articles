@@ -87,7 +87,7 @@
     return ds.slice(0, k);
   }
 
-  /* ═══════ KaTeX — render all math via JS, not HTML ═══════ */
+  /* ═══════ KaTeX — render all math via JS ═══════ */
 
   function renderMath() {
     if (!window.katex) return;
@@ -141,6 +141,56 @@
       });
     }, { rootMargin: '-20% 0px -70% 0px' });
     secs.forEach(function (s) { if (s) obs.observe(s); });
+  }
+
+  /* ═══════ Pipeline step highlighting ═══════ */
+
+  function setupPipelineHighlight() {
+    var sectionToStep = {
+      'embedding': 'embed',
+      'query-embed': 'embed',
+      'retrieval': 'retrieve',
+      'prompt': 'prompt',
+      'generate': 'generate'
+    };
+    var pipeSteps = document.querySelectorAll('.pipe-step[data-pipe]');
+    var secs = Object.keys(sectionToStep).map(function (id) { return document.getElementById(id); }).filter(Boolean);
+
+    var obs = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (!e.isIntersecting) return;
+        var stepName = sectionToStep[e.target.id];
+        pipeSteps.forEach(function (ps) {
+          ps.classList.toggle('pipe-step--hl', ps.dataset.pipe === stepName);
+        });
+      });
+    }, { rootMargin: '-30% 0px -60% 0px' });
+    secs.forEach(function (s) { obs.observe(s); });
+  }
+
+  /* ═══════ Embedding table (Section IV) ═══════ */
+
+  function updateEmbedTable() {
+    var el = document.getElementById('embedTable');
+    if (!el) return;
+    var d = D();
+    var html = '<table class="data-table"><thead><tr><th>Doc</th><th>Text</th><th>Embedding</th></tr></thead><tbody>';
+    d.docs.forEach(function (doc, i) {
+      var txt = doc.length > 40 ? doc.slice(0, 38) + '\u2026' : doc;
+      html += '<tr><td><code>d' + (i + 1) + '</code></td><td>' + txt + '</td>';
+      html += '<td><code>[' + d.embs[i].map(function (v) { return v.toFixed(2); }).join(', ') + ']</code></td></tr>';
+    });
+    html += '</tbody></table>';
+    el.innerHTML = html;
+  }
+
+  /* ═══════ Query embedding display (Section V) ═══════ */
+
+  function updateQueryEmbDisplay() {
+    var el = document.getElementById('queryEmbDisplay');
+    if (!el) return;
+    var d = D();
+    el.textContent = '[' + qPos.map(function (v) { return v.toFixed(2); }).join(', ') + ']';
   }
 
   /* ═══════ 2D Embedding Canvas ═══════ */
@@ -255,6 +305,7 @@
 
     updateTable(tk);
     updatePrompt(tk);
+    updateQueryEmbDisplay();
   }
 
   function mousePos(e) { var r = canvas.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
@@ -406,7 +457,7 @@
     el.innerHTML = html;
   }
 
-  /* ═══════ Walkthrough (Section VII) ═══════ */
+  /* ═══════ Walkthrough (Section IX) ═══════ */
 
   function updateWalkthrough() {
     var d = D(), tk = topK(d.embs, d.qEmb, K);
@@ -447,6 +498,7 @@
     qPos = D().qEmb.slice();
     draw();
     updateDocList();
+    updateEmbedTable();
     updateWalkthrough();
     renderAttn();
     if (refreshGen) refreshGen();
@@ -485,7 +537,9 @@
     renderAttn();
     setupDomainSwitching();
     updateDocList();
+    updateEmbedTable();
     updateWalkthrough();
+    setupPipelineHighlight();
   }
 
   if (document.readyState === 'loading') {
