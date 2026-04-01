@@ -77,7 +77,32 @@ body {
 .toc__link.is-active { color: var(--ink); font-weight: 800; }
 
 /* ─── Sections ─── */
-section { margin-top: 3.5rem; scroll-margin-top: 4rem; }
+.step-section {
+  position: relative;
+  margin-top: 4rem;
+  padding: 3rem 2.5rem;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.03);
+}
+
+.step-badge {
+  position: absolute;
+  top: -16px;
+  left: 32px;
+  background: var(--coral);
+  color: white;
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.4rem 1.2rem;
+  border-radius: 999px;
+  box-shadow: 0 4px 12px rgba(217, 98, 43, 0.25);
+}
+
 section h2 { margin: 0 0 0.8rem; font-size: 1.8rem; line-height: 1.15; letter-spacing: -0.02em; }
 section h3 { margin: 2rem 0 0.6rem; font-size: 1.25rem; }
 .num { color: var(--muted); font-weight: 400; }
@@ -377,6 +402,5 @@ figcaption { margin-top: 0.5rem; font-family: var(--sans); font-size: 0.78rem; c
 /* ─── Responsive ─── */
 @media (max-width: 640px) {
   .two-col { grid-template-columns: 1fr; }
-  .toc ul { flex-direction: column; }
   .pipeline { justify-content: flex-start; }
 }

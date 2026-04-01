@@ -24,7 +24,7 @@
           answers. That's RAG&mdash;retrieval-augmented generation&mdash;and you
           can build it from two ideas you already know.
         </p>
-        <p class="abstract abstract--secondary">
+        <p class="abstract">
           Drag points, switch domains, and watch token generation unfold. Every
           step of the pipeline is interactive.
         </p>
@@ -36,27 +36,11 @@
         </div>
       </header>
 
-      <nav class="toc" aria-label="Table of contents">
-        <ul>
-          <li><a class="toc__link" href="#motivation">I. The problem</a></li>
-          <li><a class="toc__link" href="#prerequisites">II. Building blocks</a></li>
-          <li><a class="toc__link" href="#pipeline">III. Pipeline</a></li>
-          <li><a class="toc__link" href="#embedding">IV. Embed docs</a></li>
-          <li><a class="toc__link" href="#query-embed">V. Embed query</a></li>
-          <li><a class="toc__link" href="#retrieval">VI. Retrieve</a></li>
-          <li><a class="toc__link" href="#prompt">VII. Prompt</a></li>
-          <li><a class="toc__link" href="#generate">VIII. Generate</a></li>
-          <li><a class="toc__link" href="#domains">IX. Domains</a></li>
-          <li><a class="toc__link" href="#why">X. Why it works</a></li>
-          <li><a class="toc__link" href="#failures">XI. Failures</a></li>
-          <li><a class="toc__link" href="#takeaways">XII. Takeaways</a></li>
-        </ul>
-      </nav>
-
       <!-- ─── Section I ─── -->
 
-      <section id="motivation">
-        <h2><span class="num">I.</span> The problem: frozen knowledge</h2>
+      <section class="step-section" id="motivation">
+        <div class="step-badge">Part I</div>
+        <h2>The problem: frozen knowledge</h2>
         <p>
           A language model's knowledge is baked into its weights during training.
           Once training ends, those weights are frozen. This creates three problems
@@ -100,8 +84,9 @@
 
       <!-- ─── Section II ─── -->
 
-      <section id="prerequisites">
-        <h2><span class="num">II.</span> Two building blocks</h2>
+      <section class="step-section" id="prerequisites">
+        <div class="step-badge">Part II</div>
+        <h2>Two building blocks</h2>
         <p>
           RAG combines exactly two ideas. If you've taken an intro ML course, you
           already know both. Let's make sure we agree on them before wiring them
@@ -145,8 +130,9 @@
 
       <!-- ─── Section III ─── -->
 
-      <section id="pipeline">
-        <h2><span class="num">III.</span> The RAG pipeline</h2>
+      <section class="step-section" id="pipeline">
+        <div class="step-badge">Part III</div>
+        <h2>The RAG pipeline</h2>
         <p>Five steps. We'll walk through each one interactively.</p>
 
         <div class="pipeline" id="pipelineSteps">
@@ -183,8 +169,9 @@
 
       <!-- ─── Pipeline Step 1: Corpus & Embedding ─── -->
 
-      <section id="embedding">
-        <h2><span class="num">IV.</span> <span class="step-tag">Step 1</span> Embed the documents</h2>
+      <section class="step-section" id="embedding">
+        <div class="step-badge">Part IV: Step 1</div>
+        <h2>Embed the documents</h2>
         <p>
           Here are the five documents in our mini-corpus. In a real system, you'd
           have thousands or millions&mdash;but five is enough to see the mechanism.
@@ -224,8 +211,9 @@ index = FAISS(emb)          <span class="cm"># build a searchable index</span></
 
       <!-- ─── Pipeline Step 2: Query embedding ─── -->
 
-      <section id="query-embed">
-        <h2><span class="num">V.</span> <span class="step-tag">Step 2</span> Embed the query</h2>
+      <section class="step-section" id="query-embed">
+        <div class="step-badge">Part V: Step 2</div>
+        <h2>Embed the query</h2>
         <p>
           A user asks a question. We pass it through the <em>same</em> encoder
           to get a query vector. Because the encoder maps semantically similar
@@ -263,8 +251,9 @@ index = FAISS(emb)          <span class="cm"># build a searchable index</span></
 
       <!-- ─── Pipeline Step 3: Retrieval ─── -->
 
-      <section id="retrieval">
-        <h2><span class="num">VI.</span> <span class="step-tag">Step 3</span> Retrieve with kNN</h2>
+      <section class="step-section" id="retrieval">
+        <div class="step-badge">Part VI: Step 3</div>
+        <h2>Retrieve with kNN</h2>
         <p>
           Now we compute the Euclidean distance between the query vector and
           every document vector:
@@ -296,8 +285,9 @@ index = FAISS(emb)          <span class="cm"># build a searchable index</span></
 
       <!-- ─── Pipeline Step 4: Prompt assembly ─── -->
 
-      <section id="prompt">
-        <h2><span class="num">VII.</span> <span class="step-tag">Step 4</span> Build the prompt</h2>
+      <section class="step-section" id="prompt">
+        <div class="step-badge">Part VII: Step 4</div>
+        <h2>Build the prompt</h2>
         <p>
           This is where retrieval meets generation. We take the retrieved
           documents and the user's question and concatenate them into a single
@@ -329,8 +319,9 @@ output = LLM(prompt)                <span class="cm"># step 5: generate answer</
 
       <!-- ─── Section VII ─── -->
 
-      <section id="generate">
-        <h2><span class="num">VIII.</span> <span class="step-tag">Step 5</span> Generate the answer</h2>
+      <section class="step-section" id="generate">
+        <div class="step-badge">Part VIII: Step 5</div>
+        <h2>Generate the answer</h2>
         <p>
           The LM generates tokens one at a time, conditioned on the full prompt
           (context + question). Mathematically, it's still plain next-token
@@ -415,8 +406,9 @@ output = LLM(prompt)                <span class="cm"># step 5: generate answer</
 
       <!-- ─── Section VIII ─── -->
 
-      <section id="domains">
-        <h2><span class="num">IX.</span> Try different domains</h2>
+      <section class="step-section" id="domains">
+        <div class="step-badge">Part IX</div>
+        <h2>Try different domains</h2>
         <p>
           The beauty of RAG is that the pipeline is domain-agnostic. Swap the
           corpus and the same five steps work on air quality, cooking, history,
@@ -471,8 +463,9 @@ output = LLM(prompt)                <span class="cm"># step 5: generate answer</
 
       <!-- ─── Section IX ─── -->
 
-      <section id="why">
-        <h2><span class="num">X.</span> Why RAG works</h2>
+      <section class="step-section" id="why">
+        <div class="step-badge">Part X</div>
+        <h2>Why RAG works</h2>
 
         <p>
           The intuition is simple: instead of asking the model to recall a fact
@@ -519,8 +512,9 @@ output = LLM(prompt)                <span class="cm"># step 5: generate answer</
 
       <!-- ─── Section X ─── -->
 
-      <section id="failures">
-        <h2><span class="num">XI.</span> When RAG fails</h2>
+      <section class="step-section" id="failures">
+        <div class="step-badge">Part XI</div>
+        <h2>When RAG fails</h2>
         <p>
           RAG is powerful, but it's not magic. Understanding the failure modes
           will save you hours of debugging:
@@ -573,8 +567,9 @@ output = LLM(prompt)                <span class="cm"># step 5: generate answer</
 
       <!-- ─── Section XI ─── -->
 
-      <section id="takeaways">
-        <h2><span class="num">XII.</span> What we built</h2>
+      <section class="step-section" id="takeaways">
+        <div class="step-badge">Part XII</div>
+        <h2>What we built</h2>
 
         <ul>
           <li><strong>RAG = Retrieval + Generation.</strong> Find the nearest

@@ -127,22 +127,6 @@
     });
   }
 
-  /* ═══════ TOC active tracking ═══════ */
-
-  function setupToc() {
-    var links = document.querySelectorAll('.toc__link');
-    var secs = Array.from(links).map(function (l) { return document.querySelector(l.getAttribute('href')); });
-    var obs = new IntersectionObserver(function (entries) {
-      entries.forEach(function (e) {
-        if (!e.isIntersecting) return;
-        links.forEach(function (l) { l.classList.remove('is-active'); });
-        var idx = secs.indexOf(e.target);
-        if (idx >= 0) links[idx].classList.add('is-active');
-      });
-    }, { rootMargin: '-20% 0px -70% 0px' });
-    secs.forEach(function (s) { if (s) obs.observe(s); });
-  }
-
   /* ═══════ Pipeline step highlighting ═══════ */
 
   function setupPipelineHighlight() {
@@ -540,7 +524,6 @@
     }
 
     setupProgress();
-    setupToc();
     canvasInit();
     refreshGen = setupGen();
     renderAttn();
