@@ -30,7 +30,9 @@ let state = {
   allResplits: [],
   observedGap: 0,
   animationProgress: 0,
-  isDrawingMany: false
+  isDrawingMany: false,
+  mcGaps: [],
+  mcRunning: false
 };
 
 const elements = {
@@ -63,7 +65,14 @@ const elements = {
   step5: document.getElementById('step-5'),
   finalPValue: document.getElementById('final-p-value'),
   pValueMath: document.getElementById('p-value-math'),
-  pValueExplanation: document.getElementById('p-value-explanation')
+  pValueExplanation: document.getElementById('p-value-explanation'),
+
+  // Bonus section elements
+  parametricCanvas: document.getElementById('parametricCanvas'),
+  btnRunMonteCarlo: document.getElementById('btn-run-monte-carlo'),
+  monteCarloCanvas: document.getElementById('monteCarloCanvas'),
+  mcCount: document.getElementById('mc-count'),
+  mcPval: document.getElementById('mc-pval')
 };
 
 // --- KaTeX math rendering ---
@@ -118,10 +127,13 @@ function generateAllResplits(values) {
     const groupB = indexed.filter(item => !groupAIds.has(item.index));
     const sampleA = groupA.map(item => item.value);
     const sampleB = groupB.map(item => item.value);
+    const mA = mean(sampleA);
+    const mB = mean(sampleB);
     return {
       sampleA,
       sampleB,
-      gap: meanGap(sampleA, sampleB)
+      gap: Math.abs(mA - mB),
+      diff: mA - mB
     };
   });
 }
@@ -209,6 +221,18 @@ function loadScenario(key) {
   elements.fullStats.classList.add('hidden');
   const ctx = elements.gapCanvas.getContext('2d');
   ctx.clearRect(0, 0, elements.gapCanvas.width, elements.gapCanvas.height);
+
+  state.mcGaps = [];
+  state.mcRunning = false;
+  if (elements.mcCount) elements.mcCount.textContent = '0';
+  if (elements.mcPval) elements.mcPval.textContent = '-';
+  if (elements.btnRunMonteCarlo) {
+    elements.btnRunMonteCarlo.disabled = false;
+    elements.btnRunMonteCarlo.textContent = 'Run 1,000 Samples';
+  }
+  
+  if (typeof drawParametric === 'function') drawParametric();
+  if (typeof drawMonteCarloCanvas === 'function') drawMonteCarloCanvas();
 }
 
 // --- Step 2: Mix Bucket ---
@@ -547,6 +571,232 @@ function finishCalculation() {
     explanation = `${extremeSplits.length} out of 252 random splits produced a gap this large or larger\u2014that's ${(pVal*100).toFixed(1)}% of the null world. A gap of ${state.observedGap.toFixed(1)} happens quite often by pure chance. We can't confidently say the treatment did anything.`;
   }
   elements.pValueExplanation.textContent = explanation;
+}
+
+// --- Bonus Section Visualizations ---
+function drawParametric() {
+  if (!elements.parametricCanvas) return;
+  const { ctx, w, h } = setupCanvas(elements.parametricCanvas, 920, 280);
+  ctx.clearRect(0, 0, w, h);
+
+  // Compute standard deviation of the permutation null distribution
+  const data = SCENARIOS[state.scenario];
+  const allValues = [...data.groupA, ...data.groupB];
+  const resplits = generateAllResplits(allValues);
+  const diffs = resplits.map(r => r.diff);
+  const variance = diffs.reduce((sum, d) => sum + d*d, 0) / diffs.length;
+  const sd = Math.sqrt(variance);
+
+  const margin = { top: 30, right: 50, bottom: 40, left: 50 };
+  const plotW = w - margin.left - margin.right;
+  const plotH = h - margin.top - margin.bottom;
+
+  // Plot from -3.5 SD to +3.5 SD (or observed gap + breathing room)
+  const maxAxis = Math.max(state.observedGap * 1.5, 3.5 * sd);
+
+  function getX(val) {
+    return margin.left + ((val + maxAxis) / (2 * maxAxis)) * plotW;
+  }
+
+  function normalPdf(x) {
+    return (1 / (sd * Math.sqrt(2 * Math.PI))) * Math.exp(-0.5 * Math.pow(x / sd, 2));
+  }
+
+  const maxY = normalPdf(0);
+  function getY(yVal) {
+    return margin.top + plotH - (yVal / maxY) * plotH * 0.9;
+  }
+
+  // Draw X axis
+  ctx.beginPath();
+  ctx.moveTo(margin.left, margin.top + plotH);
+  ctx.lineTo(w - margin.right, margin.top + plotH);
+  ctx.strokeStyle = '#c4beb1';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Draw Bell Curve Path
+  ctx.beginPath();
+  for(let x = -maxAxis; x <= maxAxis; x += (maxAxis/100)) {
+    const px = getX(x);
+    const py = getY(normalPdf(x));
+    if (x === -maxAxis) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+  ctx.strokeStyle = 'rgba(44, 111, 183, 0.8)';
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  // Shade extremes
+  ctx.fillStyle = 'rgba(217, 98, 43, 0.3)';
+  
+  // Right tail
+  ctx.beginPath();
+  ctx.moveTo(getX(state.observedGap), margin.top + plotH);
+  for(let x = state.observedGap; x <= maxAxis; x += (maxAxis/50)) {
+    ctx.lineTo(getX(x), getY(normalPdf(x)));
+  }
+  ctx.lineTo(getX(maxAxis), margin.top + plotH);
+  ctx.fill();
+  
+  // Left tail
+  ctx.beginPath();
+  ctx.moveTo(getX(-state.observedGap), margin.top + plotH);
+  for(let x = -state.observedGap; x >= -maxAxis; x -= (maxAxis/50)) {
+    ctx.lineTo(getX(x), getY(normalPdf(x)));
+  }
+  ctx.lineTo(getX(-maxAxis), margin.top + plotH);
+  ctx.fill();
+
+  // Annotations
+  ctx.fillStyle = '#d9622b';
+  ctx.font = '600 13px system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  const rx = getX(state.observedGap);
+  const lx = getX(-state.observedGap);
+  ctx.fillText(`\u2265 ${state.observedGap.toFixed(1)}`, Math.min(rx + 15, w - 20), margin.top + plotH - 10);
+  ctx.fillText(`\u2264 -${state.observedGap.toFixed(1)}`, Math.max(lx - 15, 20), margin.top + plotH - 10);
+  
+  // X-axis labels
+  ctx.fillStyle = '#9a917f';
+  ctx.font = '12px system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('0', getX(0), margin.top + plotH + 20);
+  ctx.fillText(`+${maxAxis.toFixed(0)}`, getX(maxAxis), margin.top + plotH + 20);
+  ctx.fillText(`-${maxAxis.toFixed(0)}`, getX(-maxAxis), margin.top + plotH + 20);
+  ctx.fillText('Mean Difference (A - B)', w / 2, h - 5);
+}
+
+function drawMonteCarloCanvas() {
+  if (!elements.monteCarloCanvas) return;
+  const canvas = elements.monteCarloCanvas;
+  const { ctx, w, h } = setupCanvas(canvas, 920, 280);
+  ctx.clearRect(0, 0, w, h);
+
+  const margin = { top: 40, right: 50, bottom: 40, left: 60 };
+  const plotW = w - margin.left - margin.right;
+  const plotH = h - margin.top - margin.bottom;
+
+  // Bin data
+  const bins = {};
+  let maxGap = state.observedGap;
+  state.mcGaps.forEach(gap => {
+    const key = gap.toFixed(1);
+    bins[key] = (bins[key] || 0) + 1;
+    if (gap > maxGap) maxGap = gap;
+  });
+
+  const keys = Object.keys(bins).map(Number).sort((a, b) => a - b);
+  const maxCount = Math.max(10, ...Object.values(bins));
+
+  function getX(val) {
+    return margin.left + (val / (maxGap * 1.2)) * plotW;
+  }
+  function getY(count) {
+    return margin.top + plotH - (count / maxCount) * plotH;
+  }
+
+  // Grid lines
+  ctx.strokeStyle = '#f0ebe1';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let i = 0; i <= 4; i++) {
+    const y = margin.top + (plotH / 4) * i;
+    ctx.moveTo(margin.left, y);
+    ctx.lineTo(w - margin.right, y);
+  }
+  ctx.stroke();
+
+  // Axes
+  ctx.beginPath();
+  ctx.moveTo(margin.left, margin.top + plotH);
+  ctx.lineTo(w - margin.right, margin.top + plotH);
+  ctx.moveTo(margin.left, margin.top);
+  ctx.lineTo(margin.left, margin.top + plotH);
+  ctx.strokeStyle = '#c4beb1';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Bars
+  const barW = Math.max(4, plotW / (maxGap * 1.2 * 10) - 2);
+  keys.forEach(k => {
+    const count = bins[k.toFixed(1)];
+    const x = getX(k);
+    const y = getY(count);
+    
+    ctx.fillStyle = k >= state.observedGap - 1e-9 ? 'rgba(217, 98, 43, 0.85)' : 'rgba(44, 111, 183, 0.6)';
+    const barH = margin.top + plotH - y;
+    ctx.beginPath();
+    ctx.roundRect(x - barW/2, y, barW, barH, [3, 3, 0, 0]);
+    ctx.fill();
+  });
+
+  // Observed Line
+  const obsX = getX(state.observedGap);
+  ctx.beginPath();
+  ctx.moveTo(obsX, margin.top - 15);
+  ctx.lineTo(obsX, margin.top + plotH);
+  ctx.strokeStyle = '#d9622b';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([5, 5]);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  
+  ctx.fillStyle = '#d9622b';
+  ctx.font = '600 13px system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(`\u2265 ${state.observedGap.toFixed(1)}`, obsX, margin.top - 20);
+
+  // Labels
+  ctx.fillStyle = '#9a917f';
+  ctx.font = '12px system-ui, sans-serif';
+  ctx.textAlign = 'right';
+  ctx.fillText('0', margin.left - 10, margin.top + plotH + 4);
+  ctx.fillText(maxCount.toString(), margin.left - 10, margin.top + 4);
+  ctx.textAlign = 'center';
+  ctx.fillText('Mean Gap', w / 2, h - 5);
+}
+
+if (elements.btnRunMonteCarlo) {
+  elements.btnRunMonteCarlo.addEventListener('click', () => {
+    if (state.mcRunning) return;
+    state.mcRunning = true;
+    state.mcGaps = [];
+    elements.btnRunMonteCarlo.disabled = true;
+    elements.btnRunMonteCarlo.textContent = 'Simulating...';
+    
+    const data = SCENARIOS[state.scenario];
+    const allValues = [...data.groupA, ...data.groupB];
+    const targetCount = 1000;
+    const batchSize = 50;
+    
+    function mcTick() {
+      if (state.mcGaps.length >= targetCount) {
+        state.mcRunning = false;
+        elements.btnRunMonteCarlo.textContent = 'Run Another 1,000';
+        elements.btnRunMonteCarlo.disabled = false;
+        return;
+      }
+      
+      for (let i = 0; i < batchSize; i++) {
+        const shuffled = shuffle([...allValues]);
+        const newA = shuffled.slice(0, 5);
+        const newB = shuffled.slice(5, 10);
+        state.mcGaps.push(meanGap(newA, newB));
+      }
+      
+      const extremeCount = state.mcGaps.filter(g => g >= state.observedGap - 1e-9).length;
+      const pval = extremeCount / state.mcGaps.length;
+      
+      elements.mcCount.textContent = state.mcGaps.length.toLocaleString();
+      elements.mcPval.textContent = pval.toFixed(3);
+      
+      drawMonteCarloCanvas();
+      requestAnimationFrame(mcTick);
+    }
+    
+    requestAnimationFrame(mcTick);
+  });
 }
 
 // --- Init ---

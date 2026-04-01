@@ -312,6 +312,33 @@
             </p>
           </div>
         </div>
+
+        <h3>Visualizing the Shortcuts</h3>
+        <p>
+          Let's see both shortcuts in action on our current scenario.
+        </p>
+        
+        <div class="shortcut-viz">
+          <h4>1. Parametric (t-test)</h4>
+          <p>Instead of counting combinations, we calculate a <em>t-statistic</em> and find the area under a theoretical curve. The shaded area represents the p-value.</p>
+          <figure class="interactive-figure">
+            <canvas id="parametricCanvas" width="920" height="280"></canvas>
+            <figcaption>Theoretical t-distribution. Shaded area = extreme outcomes.</figcaption>
+          </figure>
+        </div>
+
+        <div class="shortcut-viz">
+          <h4>2. Monte Carlo Simulation</h4>
+          <p>We randomly draw splits and build a histogram. As we draw more and more, it approximates the exact 252-split distribution from Step 4.</p>
+          <div style="text-align: center; margin: 1.5rem 0;">
+             <button class="action-btn action-btn--primary" id="btn-run-monte-carlo">Run 1,000 Samples</button>
+          </div>
+          <figure class="interactive-figure">
+            <canvas id="monteCarloCanvas" width="920" height="280"></canvas>
+            <figcaption>Random samples: <span id="mc-count">0</span>. Estimated p-value: <strong id="mc-pval" style="color:var(--extreme)">-</strong></figcaption>
+          </figure>
+        </div>
+
         <p>
           The permutation test you built today is the conceptual foundation
           under <em>all</em> of these. When someone says "p = 0.03," they're
