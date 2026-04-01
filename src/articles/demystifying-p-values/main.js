@@ -498,6 +498,11 @@ function drawParametric() {
     katex.render(`t = \\frac{\\text{Gap}}{\\text{SD}} = \\frac{${state.observedGap.toFixed(2)}}{${sd.toFixed(2)}} = ${tStat.toFixed(2)}`, tstatMathEl, { displayMode: true, throwOnError: false });
   }
 
+  const integralMathEl = document.getElementById('math-integral');
+  if (integralMathEl && window.katex) {
+    katex.render(`p = 2 \\times \\int_{${Math.abs(tStat).toFixed(2)}}^{\\infty} \\frac{1}{\\sqrt{2\\pi}} e^{-\\frac{x^2}{2}} dx \\approx ${paramPval.toFixed(3)}`, integralMathEl, { displayMode: true, throwOnError: false });
+  }
+
   // Plot from -3.5 SD to +3.5 SD (or observed gap + breathing room)
   const maxAxis = Math.max(state.observedGap * 1.5, 3.5 * sd);
 
