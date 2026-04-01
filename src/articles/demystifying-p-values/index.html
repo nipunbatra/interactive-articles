@@ -338,11 +338,11 @@
             </p>
             <div class="math-block" id="math-sd-dynamic"></div>
             
-            <p>Now we calculate the famous <strong>t-statistic</strong>. (It's called "t" because its inventor, a Guinness brewer named William Sealy Gosset, published his work anonymously under the pen name "Student" and simply used the letter $t$ for his variable). The formula is beautifully simple: it is just the ratio of <strong>Signal to Noise</strong>.</p>
-            <div class="math-block" id="math-tstat-dynamic"></div>
+            <p>Now we calculate the famous <strong>Z-score</strong> (sometimes called a Z-statistic). The formula is beautifully simple: it is just the ratio of <strong>Signal to Noise</strong>.</p>
+            <div class="math-block" id="math-zstat-dynamic"></div>
             
             <p id="param-conclusion-text"></p>
-            <p>To compute the exact shaded area in the tails without manually counting combinations, we use calculus to integrate the continuous curve from our $t$ value all the way to infinity:</p>
+            <p>To compute the exact shaded area in the tails without manually counting combinations, we use calculus to integrate the continuous curve from our $Z$ value all the way to infinity:</p>
             <div class="math-block" id="math-integral"></div>
           </div>
           <figure class="interactive-figure">
@@ -405,6 +405,14 @@
           <strong>Final Takeaway</strong><br />
           The permutation test you built today is the conceptual foundation under <em>all</em> of these. When someone says "p = 0.03," they're saying: "Only 3% of the null world looks this extreme." Now you know exactly what that means&mdash;because you've counted it yourself.
         </div>
+      </section>
+    </article>
+
+    <script src="../vendor/katex/katex.min.js"></script>
+    <script type="module" src="main.js"></script>
+  </body>
+</html>
+ </div>
       </section>
     </article>
 

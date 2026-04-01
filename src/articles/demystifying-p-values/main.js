@@ -449,24 +449,25 @@ function drawParametric() {
   const plotW = w - margin.left - margin.right;
   const plotH = h - margin.top - margin.bottom;
 
-  const tStat = state.observedGap / sd;
+  const zStat = state.observedGap / sd;
   const paramSdEl = document.getElementById('param-sd');
   if (paramSdEl) paramSdEl.textContent = sd.toFixed(2);
   const paramObsEl = document.getElementById('param-obs');
   if (paramObsEl) paramObsEl.textContent = state.observedGap.toFixed(2);
-  const paramTstatEl = document.getElementById('param-tstat');
-  if (paramTstatEl) paramTstatEl.textContent = tStat.toFixed(2);
+  const paramZstatEl = document.getElementById('param-tstat'); // keeping the old ID in HTML unless changed
+  if (paramZstatEl) paramZstatEl.textContent = zStat.toFixed(2);
+
   // Calculate two-tailed p-value using normal distribution
-  const paramPval = 2 * (1 - normalCdf(tStat));
+  const paramPval = 2 * (1 - normalCdf(zStat));
   const pValStr = paramPval < 0.001 ? 'p < 0.001' : `p \\approx ${paramPval.toFixed(3)}`;
   const inlinePvalStr = paramPval < 0.001 ? '< 0.001' : `≈ ${paramPval.toFixed(3)}`;
 
   const paramConclusionEl = document.getElementById('param-conclusion-text');
   if (paramConclusionEl) {
     if (paramPval < 0.05) {
-      paramConclusionEl.innerHTML = `Our gap is <strong>${tStat.toFixed(2)}</strong> times larger than the expected noise. It lands deep in the tail of the curve. To find the p-value, we don't count combinations; we just use calculus to find the area under the curve in those extreme tails. Because ${tStat.toFixed(2)} standard deviations is so far out, the area is tiny: <strong>p ${inlinePvalStr}</strong>.`;
+      paramConclusionEl.innerHTML = `Our gap is <strong>${zStat.toFixed(2)}</strong> times larger than the expected noise. It lands deep in the tail of the curve. To find the p-value, we don't count combinations; we just use calculus to find the area under the curve in those extreme tails. Because ${zStat.toFixed(2)} standard deviations is so far out, the area is tiny: <strong>p ${inlinePvalStr}</strong>.`;
     } else {
-      paramConclusionEl.innerHTML = `Our gap is <strong>${tStat.toFixed(2)}</strong> times larger than the expected noise. Because ${tStat.toFixed(2)} is relatively close to zero, it lands in the fat middle of the curve. Using calculus to find the shaded area under the curve in the tails gives us a large probability: <strong>p ${inlinePvalStr}</strong>.`;
+      paramConclusionEl.innerHTML = `Our gap is <strong>${zStat.toFixed(2)}</strong> times larger than the expected noise. Because ${zStat.toFixed(2)} is relatively close to zero, it lands in the fat middle of the curve. Using calculus to find the shaded area under the curve in the tails gives us a large probability: <strong>p ${inlinePvalStr}</strong>.`;
     }
   }
 
@@ -493,14 +494,14 @@ function drawParametric() {
     katex.render(`\\sigma \\approx \\sqrt{\\frac{\\text{Var}_A}{n_A} + \\frac{\\text{Var}_B}{n_B}} = \\sqrt{\\frac{${varA.toFixed(2)}}{5} + \\frac{${varB.toFixed(2)}}{5}} = ${sd.toFixed(2)}`, sdMathEl, { displayMode: true, throwOnError: false });
   }
 
-  const tstatMathEl = document.getElementById('math-tstat-dynamic');
-  if (tstatMathEl && window.katex) {
-    katex.render(`t = \\frac{\\text{Gap}}{\\text{SD}} = \\frac{${state.observedGap.toFixed(2)}}{${sd.toFixed(2)}} = ${tStat.toFixed(2)}`, tstatMathEl, { displayMode: true, throwOnError: false });
+  const zstatMathEl = document.getElementById('math-zstat-dynamic');
+  if (zstatMathEl && window.katex) {
+    katex.render(`Z = \\frac{\\text{Gap}}{\\text{SD}} = \\frac{${state.observedGap.toFixed(2)}}{${sd.toFixed(2)}} = ${zStat.toFixed(2)}`, zstatMathEl, { displayMode: true, throwOnError: false });
   }
 
   const integralMathEl = document.getElementById('math-integral');
   if (integralMathEl && window.katex) {
-    katex.render(`p = 2 \\times \\int_{${Math.abs(tStat).toFixed(2)}}^{\\infty} \\frac{1}{\\sqrt{2\\pi}} e^{-\\frac{x^2}{2}} dx \\approx ${paramPval.toFixed(3)}`, integralMathEl, { displayMode: true, throwOnError: false });
+    katex.render(`p = 2 \\times \\int_{${Math.abs(zStat).toFixed(2)}}^{\\infty} \\frac{1}{\\sqrt{2\\pi}} e^{-\\frac{x^2}{2}} dx \\approx ${paramPval.toFixed(3)}`, integralMathEl, { displayMode: true, throwOnError: false });
   }
 
   // Plot from -3.5 SD to +3.5 SD (or observed gap + breathing room)
