@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Attention, Calculated</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../vendor/katex/katex.min.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <article class="article">
+      <header class="article-header">
+        <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+        <p class="kicker">Interactive Explainer</p>
+        <h1>Attention, Calculated</h1>
+        <p class="abstract">
+          How does a Transformer know what a word means in context? The secret is "Self-Attention", a mechanism that lets words compare their "Queries" and "Keys" to calculate how much they should care about each other.
+        </p>
+        <div class="byline">
+          <span>~15 min</span>
+          <span>Deep Learning &middot; Transformers &middot; Attention</span>
+        </div>
+      </header>
+
+      <section class="step-section" id="step-1">
+        <div class="step-badge">Part I</div>
+        <h2>Queries, Keys, and Values</h2>
+        <p>
+          Let's look at a simple phrase: <strong>"The river bank"</strong>.
+        </p>
+        <p>
+          In a Transformer, every word holds three vectors:
+        </p>
+        <ul>
+          <li><strong>Query (Q):</strong> What am I looking for?</li>
+          <li><strong>Key (K):</strong> What do I contain?</li>
+          <li><strong>Value (V):</strong> If you care about me, here is what I contribute to your meaning.</li>
+        </ul>
+        <p>
+          Let's focus on the word <strong>"bank"</strong>. It wants to know if it's a financial institution or the side of a river. It broadcasts its Query vector ($Q_{\\text{bank}}$) to compare against the Key vectors ($K$) of all other words.
+        </p>
+        <div class="interactive-figure">
+          <canvas id="qkCanvas" width="800" height="400"></canvas>
+          <figcaption>
+            <strong>Interactive:</strong> Drag the <span style="color:var(--q-color);font-weight:bold;">Query</span> vector for "bank", and the <span style="color:var(--k-color);font-weight:bold;">Key</span> vectors for "The", "river", and "bank". Try to make "bank" pay maximum attention to "river" by aligning their vectors!
+          </figcaption>
+        </div>
+      </section>
+
+      <section class="step-section" id="step-2">
+        <div class="step-badge">Part II</div>
+        <h2>The Dot Product (Raw Scores)</h2>
+        <p>
+          To calculate how much "bank" cares about "river", we take the <strong>Dot Product</strong> of their vectors. If the Query and Key point in the same direction, the score is high. If they are orthogonal (90 degrees), the score is zero. If they point in opposite directions, the score is negative.
+        </p>
+        <div class="math-block" id="math-dot-product"></div>
+        
+        <div class="table-wrap">
+          <table class="data-table" id="rawScoresTable">
+            <thead>
+              <tr>
+                <th>Word</th>
+                <th>Dot Product ($Q_{\\text{bank}} \\cdot K_{\\text{word}}$)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Populated by JS -->
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="step-section" id="step-3">
+        <div class="step-badge">Part III</div>
+        <h2>Softmax (Attention Weights)</h2>
+        <p>
+          Raw dot products can be any number (positive or negative). We want them to act like percentages (probabilities) that add up to 100%. To do this, we push the raw scores through a <strong>Softmax</strong> function.
+        </p>
+        <div class="math-block" id="math-softmax"></div>
+        <p>
+          Softmax aggressively rewards the highest score, turning the "winning" word into the dominant focus of attention.
+        </p>
+        <div class="table-wrap">
+          <table class="data-table" id="attentionTable">
+            <thead>
+              <tr>
+                <th>Word</th>
+                <th>Raw Score</th>
+                <th>Attention Weight (Softmax)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Populated by JS -->
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="step-section" id="step-4">
+        <div class="step-badge">Part IV</div>
+        <h2>The Final Contextual Meaning</h2>
+        <p>
+          Now that "bank" has calculated its attention weights (e.g., 90% "river", 8% "bank", 2% "The"), it builds its new contextual meaning by mixing together the <strong>Value ($V$)</strong> vectors of all the words according to those weights.
+        </p>
+        <div class="math-block" id="math-final-v"></div>
+        <div class="callout callout--think" style="margin-top: 2rem;">
+          <strong>Final Takeaway</strong><br />
+          Before Attention, "bank" was just an isolated token. After Attention, its new vector represents "a bank, specifically in the context of a river." This is how Transformers build deep, contextual understanding without reading left-to-right!
+        </div>
+      </section>
+    </article>
+
+    <script src="../vendor/katex/katex.min.js"></script>
+    <script type="module" src="main.js"></script>
+  </body>
+</html>

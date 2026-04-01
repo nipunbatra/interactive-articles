@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>The Optimizer Race</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../vendor/katex/katex.min.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <article class="article">
+      <header class="article-header">
+        <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+        <p class="kicker">Interactive Explainer</p>
+        <h1>The Optimizer Race</h1>
+        <p class="abstract">
+          Deep learning models are trained by rolling down a hill (a "loss landscape"). Let's see why standard gradient descent gets stuck, and how Momentum and Adam were designed to fix it.
+        </p>
+        <div class="byline">
+          <span>~15 min</span>
+          <span>Deep Learning &middot; Optimization &middot; SGD</span>
+        </div>
+      </header>
+
+      <section class="step-section">
+        <div class="step-badge">Part I</div>
+        <h2>The Landscape</h2>
+        <p>
+          Imagine training a neural network with two parameters ($x$ and $y$). The height of the terrain is the <strong>loss</strong> (error). Our goal is to reach the lowest point (the minimum).
+        </p>
+        <p>
+          Below is a classic "ravine" optimization problem (similar to Beale's function or Rosenbrock's valley). The ravine slopes gently towards the minimum, but its sides are incredibly steep.
+        </p>
+        
+        <div class="interactive-figure">
+          <div style="display:flex; justify-content:space-between; margin-bottom:1rem; align-items:center;">
+            <div>
+              <label><strong>Learning Rate:</strong> <span id="lr-val">0.05</span></label>
+              <input type="range" id="lr-slider" min="0.001" max="0.1" step="0.001" value="0.05" />
+            </div>
+            <button id="reset-btn" class="action-btn">Reset Points</button>
+          </div>
+          <canvas id="optCanvas" width="800" height="500"></canvas>
+          <figcaption>
+            <strong>Interactive:</strong> Click anywhere on the terrain to drop a starting point. Watch the three optimizers race to the star (global minimum).
+          </figcaption>
+          
+          <div class="legend" style="margin-top: 1rem; display:flex; gap:2rem; justify-content:center;">
+            <div style="display:flex; align-items:center; gap:0.5rem;"><div style="width:12px;height:12px;background:#ca5b2a;border-radius:50%"></div> <strong>SGD</strong></div>
+            <div style="display:flex; align-items:center; gap:0.5rem;"><div style="width:12px;height:12px;background:#245b8f;border-radius:50%"></div> <strong>Momentum</strong></div>
+            <div style="display:flex; align-items:center; gap:0.5rem;"><div style="width:12px;height:12px;background:#1e7770;border-radius:50%"></div> <strong>Adam</strong></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="step-section">
+        <div class="step-badge">Part II</div>
+        <h2>Why SGD struggles</h2>
+        <p>
+          <strong>Stochastic Gradient Descent (SGD)</strong> simply points directly downhill at every step. In a ravine, downhill points across the walls, not along the floor. So SGD spends all its energy bouncing violently wall-to-wall, making agonizingly slow progress toward the minimum.
+        </p>
+        <div class="math-block" id="math-sgd"></div>
+      </section>
+
+      <section class="step-section">
+        <div class="step-badge">Part III</div>
+        <h2>Momentum: Adding Mass</h2>
+        <p>
+          <strong>Momentum</strong> remembers the direction of previous steps. It acts like a heavy ball rolling down the hill. The bouncing wall-to-wall movements cancel each other out, while the consistent push down the ravine floor builds up speed.
+        </p>
+        <div class="math-block" id="math-momentum"></div>
+      </section>
+
+      <section class="step-section">
+        <div class="step-badge">Part IV</div>
+        <h2>Adam: Smart Scaling</h2>
+        <p>
+          <strong>Adam</strong> (Adaptive Moment Estimation) goes a step further. It not only keeps momentum, but it also measures how steep the gradients are in each direction. It dampens the steps along the steep walls and boosts the steps along the flat floor, creating a smooth, direct path to the minimum.
+        </p>
+        <div class="math-block" id="math-adam"></div>
+      </section>
+    </article>
+
+    <script src="../vendor/katex/katex.min.js"></script>
+    <script type="module" src="main.js"></script>
+  </body>
+</html>

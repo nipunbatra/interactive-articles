@@ -1,0 +1,17 @@
+{
+  "slug": "attention",
+  "title": "Attention, Calculated",
+  "date": "2026-04-10",
+  "tagline": "How Transformers figure out which words care about each other",
+  "summary": "Drag query and key vectors to see dot products, softmax, and attention weights form a contextual meaning.",
+  "readingTime": "15 min",
+  "difficulty": "Intermediate",
+  "collection": "Deep learning",
+  "order": 5,
+  "status": "published",
+  "tags": ["Transformers", "Attention", "Deep Learning", "Interactive"],
+  "highlights": [
+    "Drag 2D query and key vectors to manually 'teach' words to attend to each other.",
+    "Watch the dot product output raw scores, softmax normalize them, and blend the final values."
+  ]
+}
