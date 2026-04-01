@@ -847,10 +847,3 @@ if (document.readyState === 'loading') {
 } else {
   init();
 }
-t);
-} else {
-  init();
-}
- else {
-  init();
-}
