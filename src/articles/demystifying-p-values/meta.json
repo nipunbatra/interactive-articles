@@ -1,0 +1,17 @@
+{
+  "slug": "demystifying-p-values",
+  "title": "Feeling p-values through re-splitting",
+  "tagline": "A tiny interactive for exact p-values with 10 numbers",
+  "summary": "Start with two tiny samples, re-split the combined values in all possible ways, and see a p-value as an exact fraction instead of a mysterious ritual.",
+  "readingTime": "8 min",
+  "difficulty": "Introductory",
+  "collection": "Probability and statistics",
+  "order": 4,
+  "status": "published",
+  "tags": ["Probability", "Statistics", "p-value", "Permutation test", "Interactive"],
+  "highlights": [
+    "Switch between a similar-samples case and a very-different-samples case.",
+    "See the observed mean gap, all 252 exact re-splits, and the exact p-value.",
+    "Generate random re-splits from the same 10 numbers and compare them to the observed split."
+  ]
+}

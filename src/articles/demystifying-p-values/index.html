@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>The Magic of P-Values: A Hands-On Guide</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <article class="article">
+      <header class="article-header">
+        <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+        <p class="kicker">Interactive Explainer</p>
+        <h1>The Magic of P-Values: A Hands-On Guide</h1>
+        <p class="abstract">
+          P-values often feel like a mysterious black box. Is a result "statistically significant"? What does 0.05 even mean? Let's demystify it by building a statistical test from scratch using nothing but shuffling. This is called a <strong>Permutation Test</strong>.
+        </p>
+        <div class="byline">
+          <span>~10 min</span>
+          <span>Probability &middot; Statistics &middot; p-values &middot; Permutation</span>
+        </div>
+      </header>
+
+      <section class="step-section" id="step-1">
+        <div class="step-badge">Step 1</div>
+        <h2>Choose a Scenario</h2>
+        <p>
+          Before we can talk about p-values, we need an experiment. We have two groups of 5 subjects each: a Control group and a Treatment group. To make this concrete, pick an experiment to analyze below:
+        </p>
+
+        <div class="button-row" id="scenario-buttons" role="group" aria-label="Choose scenario">
+          <button class="mode-button is-active" data-case="smartPills">Smart Pills vs Placebo</button>
+          <button class="mode-button" data-case="fertilizer">New Fertilizer vs Old</button>
+          <button class="mode-button" data-case="coffee">Coffee vs Decaf</button>
+        </div>
+        <p class="scenario-desc" id="scenario-desc">Scores on a cognitive test</p>
+
+        <div class="sample-grid">
+          <article class="sample-card">
+            <h3>Group A (Control)</h3>
+            <div class="number-bubbles" id="groupA-bubbles"></div>
+            <p class="sample-metric">Mean: <strong id="meanA"></strong> <span class="unit"></span></p>
+          </article>
+          <article class="sample-card">
+            <h3>Group B (Treatment)</h3>
+            <div class="number-bubbles" id="groupB-bubbles"></div>
+            <p class="sample-metric">Mean: <strong id="meanB"></strong> <span class="unit"></span></p>
+          </article>
+          <article class="sample-card sample-card--accent">
+            <h3>Observed Difference</h3>
+            <p class="big-number"><span id="observedGap"></span> <span class="unit"></span></p>
+            <p class="sample-metric">Is this gap real, or just lucky chance?</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="step-section disabled" id="step-2">
+        <div class="step-badge">Step 2</div>
+        <h2>The "What If" Game (The Null Hypothesis)</h2>
+        <p>
+          In statistics, to know if our treatment actually worked, we must play the ultimate skeptic. We ask: <strong>What if the treatment did absolutely nothing at all?</strong>
+        </p>
+        <p>
+          This skeptical stance is called the <em>Null Hypothesis</em>. The word <strong>"null"</strong> simply means "zero" or "none" &mdash; as in, there is <em>zero</em> real difference between the two groups, and the treatment had <em>no</em> effect.
+        </p>
+        <p>
+          If the Null Hypothesis is true, then a subject's score wouldn't depend on which group they were assigned to. They would have gotten that exact same score regardless! The gap we observed between Group A and Group B would just be a random coincidence of how we split the 10 subjects on day one.
+        </p>
+        <p>
+          Let's test this theory by breaking down the walls between the groups. We'll throw all 10 numbers into a single bucket and mix them up.
+        </p>
+        <div class="bucket-container">
+           <button class="action-btn" id="btn-bucket">
+             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+             Mix All Data Together
+           </button>
+           <div class="bucket" id="bucket-view">
+              <p class="bucket-empty-text">Bucket is empty. Click the button above to mix!</p>
+           </div>
+        </div>
+      </section>
+
+      <section class="step-section disabled" id="step-3">
+        <div class="step-badge">Step 3</div>
+        <h2>Try Re-splitting Manually</h2>
+        <p>
+          Now that we've mixed everyone together, let's pretend we are doing the experiment all over again, but this time, the treatment is totally fake.
+        </p>
+        <p>
+          We will blindly draw 5 subjects to be a fake "Group A" and the remaining 5 will be a fake "Group B". What kind of mean gap do we get by pure random chance? Click the buttons below to draw a few random splits and see what the "noise" looks like.
+        </p>
+        
+        <div class="reshuffle-controls">
+           <button class="action-btn" id="btn-draw-one">Draw 1 Split</button>
+           <button class="action-btn" id="btn-draw-many">Draw 10 Splits</button>
+           <div class="reshuffle-result" id="manual-result-box">
+              <p>Click a button to draw random splits.</p>
+           </div>
+        </div>
+
+        <figure class="interactive-figure">
+          <figcaption><strong>History of random draws:</strong> Each dot is a gap generated by pure chance.</figcaption>
+          <canvas id="manualCanvas" width="920" height="220"></canvas>
+        </figure>
+      </section>
+
+      <section class="step-section disabled" id="step-4">
+        <div class="step-badge">Step 4</div>
+        <h2>Calculate ALL Possibilities</h2>
+        <p>
+          Drawing splits manually gives us a good feel for random noise, but to do rigorous math, we need to know <em>exactly</em> how likely it is to get a large gap. Instead of clicking all day, let's have the computer find <strong>every single possible way</strong> to split these 10 numbers into two groups of 5.
+        </p>
+        <p>
+          Math tells us there are exactly <code>10 choose 5 = 252</code> unique ways to do this. Let's calculate them all and map out the entire landscape of random chance.
+        </p>
+        <div style="text-align: center; margin-bottom: 1.5rem;">
+           <button class="action-btn action-btn--primary" id="btn-calc-all">Calculate All 252 Splits</button>
+        </div>
+
+        <div class="stat-strip hidden" id="full-stats">
+          <div class="stat-pill">
+            <span class="stat-label">Total Possibilities</span>
+            <span class="stat-value">252</span>
+          </div>
+          <div class="stat-pill">
+            <span class="stat-label">Observed Gap</span>
+            <span class="stat-value" id="stat-observed-gap"></span>
+          </div>
+          <div class="stat-pill highlight-pill">
+            <span class="stat-label">Extreme Cases (&ge; Observed)</span>
+            <span class="stat-value" id="extremeCount"></span>
+          </div>
+        </div>
+
+        <figure class="interactive-figure">
+          <canvas id="gapCanvas" width="920" height="420" aria-label="Distribution of mean gaps under all re-splits"></canvas>
+          <figcaption>
+            This histogram shows the mean gaps from all 252 possible splits. The highlighted bars represent the splits that produced a gap <strong>as large or larger</strong> than our original observed gap.
+          </figcaption>
+        </figure>
+      </section>
+
+      <section class="step-section disabled" id="step-5">
+        <div class="step-badge">Step 5</div>
+        <h2>The Grand Finale: The P-Value</h2>
+        <p>
+           We can finally answer our original question: was the gap we saw in Step 1 real, or was it just lucky chance? To find out, we look at our histogram and count how many of the 252 random splits produced a gap <strong>as large or larger</strong> than our original observed gap.
+        </p>
+        <div class="p-value-card">
+           <h3 class="p-value-title">Your exact p-value is: <span id="final-p-value" class="p-val-number"></span></h3>
+           <p class="p-value-math" id="p-value-math"></p>
+           <p class="p-value-explanation" id="p-value-explanation"></p>
+        </div>
+        
+        <h3>What does this mean?</h3>
+        <ul class="explanation-list">
+          <li><strong>p</strong> stands for <strong>probability</strong>.</li>
+          <li>It tells us: <em>Under the assumption that there is NO real difference between the groups (the Null Hypothesis), what is the probability of seeing a gap this large (or larger) just by random chance?</em></li>
+          <li>A small p-value (typically < 0.05) suggests that the observed gap is very unlikely to be a random fluke, leading us to reject the Null Hypothesis and believe the treatment actually had an effect.</li>
+          <li>A large p-value means this kind of gap happens all the time by chance, so we can't confidently say the treatment did anything. We fail to reject the Null Hypothesis.</li>
+          <li><strong>Crucial Warning:</strong> A p-value is <em>not</em> the probability that the treatment worked, nor is it the probability that the Null Hypothesis is true or false. It is simply the probability of getting this specific data <em>if</em> the Null Hypothesis were true.</li>
+        </ul>
+      </section>
+
+      <section class="step-section">
+        <div class="step-badge">Bonus</div>
+        <h2>How does this fit into standard statistical tests?</h2>
+        <p>
+          What you just performed is called a <strong>Permutation Test</strong> (or Randomization Test). It is incredibly powerful because it is an <em>exact test</em>—it doesn't make assumptions about the shape of your data (like assuming a Bell Curve).
+        </p>
+        <p>
+          <strong>In practice, do statisticians calculate every single split?</strong>
+        </p>
+        <p>
+          Not always! For 10 items (5 vs 5), there are only 252 combinations. But for just 40 items (20 vs 20), there are over <strong>137 billion combinations!</strong> Calculating every single one would take too long, even for modern computers. So, statisticians use two main shortcuts to calculate p-values:
+        </p>
+        <ul class="explanation-list">
+          <li><strong>Shortcut 1: Math Formulas (Parametric Tests)</strong> Before computers, statisticians invented clever mathematical formulas to estimate p-values. You might have heard of tests like the <strong>Student's t-test</strong> (comparing two groups, like we did), <strong>ANOVA</strong> (comparing three or more groups), or <strong>Chi-Square</strong> (comparing categories). These tests assume the data follows a smooth, predictable shape—like a Bell Curve. Instead of counting combinations, they use calculus to find the area under the curve to estimate the p-value.</li>
+          <li><strong>Shortcut 2: Random Simulations (Monte Carlo)</strong> Today, instead of relying on complex math or strict assumptions, we can just use computers to do exactly what you did in Step 3! We don't need to calculate all 137 billion splits. We can just randomly shuffle the data 10,000 times. The p-value from 10,000 random shuffles is almost identical to the exact p-value, keeping the math simple, intuitive, and hands-on.</li>
+        </ul>
+      </section>
+    </article>
+
+    <script src="app.js"></script>
+  </body>
+</html>
