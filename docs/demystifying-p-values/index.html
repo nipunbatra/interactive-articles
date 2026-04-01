@@ -332,17 +332,19 @@
             <ul class="explanation-list" style="margin-top: 0.5rem">
               <li><strong>Group A:</strong> <span id="param-group-a" class="mono-text">...</span> (Mean: <span id="param-mean-a">...</span>, Var: <span id="param-var-a">...</span>)</li>
               <li><strong>Group B:</strong> <span id="param-group-b" class="mono-text">...</span> (Mean: <span id="param-mean-b">...</span>, Var: <span id="param-var-b">...</span>)</li>
-              <li><strong>Observed Gap:</strong> <span id="param-obs">...</span></li>
+              <li><strong>Observed Gap (The "Signal"):</strong> <span id="param-obs" style="font-weight: bold; color: var(--extreme)">...</span></li>
             </ul>
-            <p>Using the data's spread (the variance of each group), the mathematical formula estimates the standard deviation (<i>&sigma;</i>) of random differences to be <strong id="param-sd">...</strong>.</p>
+            <p>Using the data's spread (the variance of each group), the mathematical formula estimates the standard deviation (<i>&sigma;</i>) of random differences to be <strong id="param-sd">...</strong>. This represents the expected <strong>"Noise"</strong>.</p>
             <div class="math-block" id="math-sd-dynamic"></div>
-            <p>Now we calculate the <strong>t-statistic</strong>. This simply measures how many standard deviations away from zero our observed gap is:</p>
+            
+            <p>Now we calculate the famous <strong>t-statistic</strong>. Why "t"? It was invented by William Sealy Gosset, a brewer at Guinness, who needed a way to measure the quality of small batches of stout. The formula is beautifully simple: it is just the ratio of <strong>Signal to Noise</strong>.</p>
             <div class="math-block" id="math-tstat-dynamic"></div>
-            <p>Because our gap is <strong id="param-tstat">...</strong> standard deviations away from zero, it lands deep in the tail of the curve. Using calculus to find the shaded area under the curve gives us our theoretical p-value: <strong>p &approx; <span id="param-pval-approx">...</span></strong>.</p>
+            
+            <p>Our gap is <strong id="param-tstat">...</strong> times larger than the expected noise. It lands deep in the tail of the curve. To find the p-value, we don't count combinations; we just use calculus to find the area under the curve in those extreme tails. Because <span id="param-tstat-text">...</span> standard deviations is so far out, the area is tiny: <strong id="param-pval-approx">...</strong>.</p>
           </div>
           <figure class="interactive-figure">
             <canvas id="parametricCanvas" width="920" height="280"></canvas>
-            <figcaption>Theoretical Gaussian (t-distribution). Shaded area = extreme outcomes.</figcaption>
+            <figcaption>Theoretical continuous distribution. Shaded area = area under the curve (the p-value).</figcaption>
           </figure>
         </div>
 

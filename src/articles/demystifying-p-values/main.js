@@ -416,11 +416,12 @@ function finishCalculation() {
   elements.extremeCount.textContent = `${extremeSplits.length}`;
 
   const pVal = extremeSplits.length / state.allResplits.length;
-  elements.finalPValue.textContent = pVal.toFixed(3);
-  elements.pValueMath.textContent = `p = ${extremeSplits.length} (extreme splits) / 252 (total splits) = ${pVal.toFixed(3)}`;
+  const pValDisplay = pVal < 0.001 ? '< 0.001' : pVal.toFixed(3);
+  elements.finalPValue.textContent = pValDisplay;
+  elements.pValueMath.textContent = `p = ${extremeSplits.length} (extreme splits) / 252 (total splits) = ${pValDisplay}`;
 
   let summaryExact = document.getElementById('summary-exact-pval');
-  if (summaryExact) summaryExact.textContent = pVal.toFixed(3);
+  if (summaryExact) summaryExact.textContent = pValDisplay;
 
   let explanation = "";
   if (pVal < 0.05) {
@@ -455,13 +456,25 @@ function drawParametric() {
   if (paramObsEl) paramObsEl.textContent = state.observedGap.toFixed(2);
   const paramTstatEl = document.getElementById('param-tstat');
   if (paramTstatEl) paramTstatEl.textContent = tStat.toFixed(2);
+  const paramTstatTextEl = document.getElementById('param-tstat-text');
+  if (paramTstatTextEl) paramTstatTextEl.textContent = tStat.toFixed(2);
   
   // Calculate two-tailed p-value using normal distribution
   const paramPval = 2 * (1 - normalCdf(tStat));
+  const pValStr = paramPval < 0.001 ? 'p < 0.001' : `p \\approx ${paramPval.toFixed(3)}`;
+  
   const paramPvalEl = document.getElementById('param-pval-approx');
-  if (paramPvalEl) paramPvalEl.textContent = paramPval.toFixed(3);
+  if (paramPvalEl) {
+    paramPvalEl.textContent = '';
+    if (window.katex) {
+      katex.render(pValStr, paramPvalEl, { displayMode: false, throwOnError: false });
+    } else {
+      paramPvalEl.textContent = paramPval < 0.001 ? '< 0.001' : `≈ ${paramPval.toFixed(3)}`;
+    }
+  }
+  
   const summaryParamPvalEl = document.getElementById('summary-param-pval');
-  if (summaryParamPvalEl) summaryParamPvalEl.textContent = paramPval.toFixed(3);
+  if (summaryParamPvalEl) summaryParamPvalEl.textContent = paramPval < 0.001 ? '< 0.001' : paramPval.toFixed(3);
   
   // Update groups info
   const paramGroupA = document.getElementById('param-group-a');
@@ -684,12 +697,13 @@ if (elements.btnRunMonteCarlo) {
       
       const extremeCount = state.mcGaps.filter(g => g >= state.observedGap - 1e-9).length;
       const pval = extremeCount / state.mcGaps.length;
+      const pValDisplay = pval < 0.001 ? '< 0.001' : pval.toFixed(3);
       
       elements.mcCount.textContent = state.mcGaps.length.toLocaleString();
-      elements.mcPval.textContent = pval.toFixed(3);
+      elements.mcPval.textContent = pValDisplay;
       
       const summaryMcPvalEl = document.getElementById('summary-mc-pval');
-      if (summaryMcPvalEl) summaryMcPvalEl.textContent = pval.toFixed(3);
+      if (summaryMcPvalEl) summaryMcPvalEl.textContent = pValDisplay;
       
       drawMonteCarloCanvas();
       requestAnimationFrame(mcTick);
