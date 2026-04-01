@@ -91,10 +91,25 @@ function renderTagPills(tags = []) {
 }
 
 function renderArticleList(articles) {
-  return articles.map((article) => `
+  // Sort articles by date descending if available, else by order or fallback
+  const sortedArticles = [...articles].sort((a, b) => {
+    if (a.date && b.date) return new Date(b.date) - new Date(a.date);
+    return (a.order || 99) - (b.order || 99);
+  });
+
+  return sortedArticles.map((article) => {
+    const metaParts = [];
+    if (article.date) {
+      const d = new Date(article.date);
+      metaParts.push(d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }));
+    }
+    if (article.collection) metaParts.push(escapeHtml(article.collection));
+    if (article.readingTime) metaParts.push(escapeHtml(article.readingTime));
+
+    return `
       <article class="simple-article-row">
         <div class="simple-article-header">
-          <span class="simple-article-meta">${escapeHtml(article.collection || 'Explainer')} &middot; ${escapeHtml(article.readingTime || '')}</span>
+          <span class="simple-article-meta">${metaParts.join(' &middot; ')}</span>
           ${article.difficulty ? `<span class="simple-article-difficulty">${escapeHtml(article.difficulty)}</span>` : ''}
         </div>
         <h2 class="simple-article-title"><a href="${escapeHtml(article.url)}">${escapeHtml(article.title)}</a></h2>
@@ -103,7 +118,8 @@ function renderArticleList(articles) {
           <a class="simple-article-link" href="${escapeHtml(article.url)}">Read interactive explainer &rarr;</a>
         </div>
       </article>
-    `).join('\n');
+    `;
+  }).join('\n');
 }
 
 function renderHomePage(siteConfig, articles) {

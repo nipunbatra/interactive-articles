@@ -1,6 +1,7 @@
 {
   "slug": "autograd",
   "title": "Autograd, Seen",
+  "date": "2026-03-10",
   "tagline": "What autodiff is, what it is not, and how gradients move through a graph",
   "summary": "A visual explainer for automatic differentiation that first distinguishes autodiff from finite differences and symbolic algebra, then walks a single computation graph forward and backward before showing modules and mini-batch training.",
   "readingTime": "20 min",

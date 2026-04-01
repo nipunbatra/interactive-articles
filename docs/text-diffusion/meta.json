@@ -1,6 +1,7 @@
 {
   "slug": "text-diffusion",
   "title": "Text Diffusion, Tiny",
+  "date": "2026-03-22",
   "tagline": "Mask, predict, reveal — how diffusion generates text without going left to right",
   "summary": "A hands-on explainer that trains a discrete denoising diffusion model on Indian names in your browser, showing how iterative unmasking generates text without predicting one token at a time.",
   "readingTime": "15 min",
