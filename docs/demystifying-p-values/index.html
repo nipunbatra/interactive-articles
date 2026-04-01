@@ -320,7 +320,15 @@
         
         <div class="shortcut-viz">
           <h4>1. Parametric (t-test)</h4>
-          <p>Instead of counting combinations, we calculate a <em>t-statistic</em> and find the area under a theoretical curve. The shaded area represents the p-value.</p>
+          <p>
+            Instead of counting combinations, a two-sample t-test estimates the <em>standard deviation</em> of random noise using a mathematical formula, then compares our observed gap to it. 
+          </p>
+          <div class="callout">
+            <strong>Worked out for our data:</strong>
+            Based on the 10 numbers in our current scenario, the standard deviation of random differences is <strong id="param-sd">...</strong>. Our observed gap is <strong id="param-obs">...</strong>.
+            <div class="math-block" id="math-tstat-dynamic"></div>
+            Because our gap is <strong id="param-tstat">...</strong> standard deviations away from zero, it lands deep in the tail of the bell curve. The shaded area in the tails gives us our estimated p-value.
+          </div>
           <figure class="interactive-figure">
             <canvas id="parametricCanvas" width="920" height="280"></canvas>
             <figcaption>Theoretical t-distribution. Shaded area = extreme outcomes.</figcaption>

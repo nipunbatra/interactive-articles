@@ -303,8 +303,6 @@ function setupCanvas(canvas, logicalWidth, logicalHeight) {
   if (canvas.width !== logicalWidth * dpr) {
     canvas.width = logicalWidth * dpr;
     canvas.height = logicalHeight * dpr;
-    canvas.style.width = logicalWidth + 'px';
-    canvas.style.height = logicalHeight + 'px';
   }
   const ctx = canvas.getContext('2d');
   ctx.resetTransform();
@@ -590,6 +588,18 @@ function drawParametric() {
   const margin = { top: 30, right: 50, bottom: 40, left: 50 };
   const plotW = w - margin.left - margin.right;
   const plotH = h - margin.top - margin.bottom;
+
+  const tStat = state.observedGap / sd;
+  const paramSdEl = document.getElementById('param-sd');
+  if (paramSdEl) paramSdEl.textContent = sd.toFixed(2);
+  const paramObsEl = document.getElementById('param-obs');
+  if (paramObsEl) paramObsEl.textContent = state.observedGap.toFixed(2);
+  const paramTstatEl = document.getElementById('param-tstat');
+  if (paramTstatEl) paramTstatEl.textContent = tStat.toFixed(2);
+  const tstatMathEl = document.getElementById('math-tstat-dynamic');
+  if (tstatMathEl && window.katex) {
+    katex.render(`t = \\frac{\\text{Gap}}{\\text{SD}} = \\frac{${state.observedGap.toFixed(2)}}{${sd.toFixed(2)}} = ${tStat.toFixed(2)}`, tstatMathEl, { displayMode: true, throwOnError: false });
+  }
 
   // Plot from -3.5 SD to +3.5 SD (or observed gap + breathing room)
   const maxAxis = Math.max(state.observedGap * 1.5, 3.5 * sd);
