@@ -1,6 +1,7 @@
 {
   "slug": "rag",
   "title": "RAG, From Scratch",
+  "date": "2026-03-28",
   "tagline": "Retrieve neighbours, condition the LM — how retrieval-augmented generation actually works",
   "summary": "A step-by-step walkthrough that builds RAG from two things you already know: next-token prediction and k-nearest neighbours. Interactive 2D embeddings, live retrieval, prompt assembly, and examples across air quality, cooking, and history.",
   "readingTime": "12 min",

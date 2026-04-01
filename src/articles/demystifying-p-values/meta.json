@@ -1,6 +1,7 @@
 {
   "slug": "demystifying-p-values",
   "title": "Feeling p-values through re-splitting",
+  "date": "2026-04-01",
   "tagline": "A tiny interactive for exact p-values with 10 numbers",
   "summary": "Start with two tiny samples, re-split the combined values in all possible ways, and see a p-value as an exact fraction instead of a mysterious ritual.",
   "readingTime": "10 min",
