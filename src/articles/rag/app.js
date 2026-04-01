@@ -306,6 +306,8 @@
     updateTable(tk);
     updatePrompt(tk);
     updateQueryEmbDisplay();
+    renderAttn(tk);
+    if (typeof refreshGen === 'function') refreshGen(tk);
   }
 
   function mousePos(e) { var r = canvas.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
@@ -377,9 +379,9 @@
     var preview = document.getElementById('genPromptPreview');
     if (!btn) return;
 
-    function showPreview() {
+    function showPreview(tkPassed) {
       if (!preview) return;
-      var d = D(), tk = topK(d.embs, d.qEmb, K);
+      var d = D(), tk = tkPassed || topK(d.embs, qPos || d.qEmb, K);
       var lines = ['Context:'];
       tk.forEach(function (t, i) { lines.push((i + 1) + '. ' + d.docs[t.i]); });
       lines.push('', 'Question: ' + d.query);
@@ -388,20 +390,27 @@
     showPreview();
 
     btn.addEventListener('click', function () {
-      var d = D();
+      var d = D(), tk = topK(d.embs, qPos || d.qEmb, K);
       var tokens = d.answer.split(/(\s+)/);
       output.innerHTML = '';
       btn.disabled = true;
-      showPreview();
+      showPreview(tk);
+      
+      // Gather all words from retrieved docs to check for context highlighting
+      var contextText = tk.map(function(t) { return d.docs[t.i].toLowerCase(); }).join(' ');
+      
       var i = 0;
       (function tick() {
         if (i >= tokens.length) { btn.disabled = false; return; }
         var tok = tokens[i];
         var span = document.createElement('span');
         span.className = 'gen-token';
-        if (d.ctxWords.some(function (w) { return tok.toLowerCase().indexOf(w.toLowerCase()) >= 0; })) {
+        
+        // Only highlight words > 3 chars that actually appear in the current retrieved context
+        if (tok.trim().length > 3 && contextText.indexOf(tok.trim().toLowerCase()) >= 0) {
           span.classList.add('gen-token--context');
         }
+        
         span.textContent = tok;
         output.appendChild(span);
         i++;
@@ -418,10 +427,10 @@
 
   /* ═══════ Attention heatmap ═══════ */
 
-  function renderAttn() {
+  function renderAttn(tkPassed) {
     var el = document.getElementById('attentionHeatmap');
     if (!el) return;
-    var d = D(), tk = topK(d.embs, d.qEmb, K);
+    var d = D(), tk = tkPassed || topK(d.embs, qPos || d.qEmb, K);
 
     var ctxToks = [];
     tk.forEach(function (t) {

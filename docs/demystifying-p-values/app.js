@@ -296,7 +296,11 @@ function drawManualCanvas() {
 
   const margin = { left: 50, right: 50, bottom: 40, top: 40 };
   const plotW = w - margin.left - margin.right;
-  const maxAxis = Math.max(state.observedGap * 1.5, 10);
+  
+  let maxAxis = Math.max(state.observedGap * 1.5, 10);
+  if (state.manualGaps.length > 0) {
+    maxAxis = Math.max(maxAxis, ...state.manualGaps) * 1.1; // Give 10% breathing room
+  }
 
   // Background grid
   ctx.strokeStyle = '#f0ebe1';
