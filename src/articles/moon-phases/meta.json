@@ -1,0 +1,20 @@
+{
+  "slug": "moon-phases",
+  "title": "Why the Moon Changes Shape",
+  "date": "2026-04-04",
+  "tagline": "A playful, visual guide to new moons, crescents, quarters, and full moons",
+  "summary": "A kid-friendly interactive explainer where you drag the Moon around Earth, watch the sunlight shift, learn the eight phase names, and test yourself with a simple moon game.",
+  "readingTime": "8 min",
+  "difficulty": "Ages 6+",
+  "collection": "Astronomy",
+  "order": 7,
+  "status": "published",
+  "tags": ["Astronomy", "Moon", "Space", "Interactive", "Kids"],
+  "highlights": [
+    "Drag the Moon around Earth and watch the bright part change in real time.",
+    "See the eight main moon phases with big, clickable phase cards.",
+    "Learn the difference between waxing and waning with simple language.",
+    "Clear up the common mix-up between ordinary phases and Earth's shadow.",
+    "Finish with a friendly quiz that asks children to name the phase they see."
+  ]
+}

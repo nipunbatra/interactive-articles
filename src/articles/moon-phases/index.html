@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Why the Moon Changes Shape</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="stars" aria-hidden="true"></div>
+
+    <article class="page">
+      <header class="hero">
+        <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+        <div class="hero__grid">
+          <div class="hero__copy">
+            <p class="kicker">Space for curious kids</p>
+            <h1>Why does the Moon change shape?</h1>
+            <p class="lead">
+              The Moon is always a round ball. What changes is the part of the Moon's sunlit side
+              that we can see from Earth. Drag the Moon, watch the light move, and learn the phase names.
+            </p>
+            <div class="fact-row">
+              <article class="fact-pill">
+                <strong>The Sun lights it</strong>
+                <span>The Moon does not glow by itself.</span>
+              </article>
+              <article class="fact-pill">
+                <strong>Half is always lit</strong>
+                <span>The bright half always faces the Sun.</span>
+              </article>
+              <article class="fact-pill">
+                <strong>We see an angle</strong>
+                <span>Different positions show us different amounts of light.</span>
+              </article>
+            </div>
+            <div class="hero__actions">
+              <a class="primary-link" href="#explore">Start exploring</a>
+              <a class="ghost-link" href="#game">Try the Moon game</a>
+            </div>
+          </div>
+
+          <div class="hero__visual card">
+            <canvas id="heroMoonCanvas" width="340" height="340" aria-label="Hero moon illustration"></canvas>
+            <p class="hero__phase-label">Full Moon</p>
+            <p class="hero__phase-copy">A full Moon happens when the Moon is on the far side of Earth, so we see almost all of its lit half.</p>
+          </div>
+        </div>
+      </header>
+
+      <section class="section" id="explore">
+        <div class="section__head">
+          <div>
+            <p class="kicker">Section 1</p>
+            <h2>Move the Moon around Earth</h2>
+          </div>
+          <p class="section__lede">
+            This is the big idea: the Moon goes around Earth, the Sun lights one side, and our view changes.
+          </p>
+        </div>
+
+        <div class="explorer-grid">
+          <div class="story-card card">
+            <h3>How to use this picture</h3>
+            <ol class="kid-steps">
+              <li>Drag the small Moon around its path.</li>
+              <li>Watch the big Moon on the right.</li>
+              <li>Notice which side is bright and how much of it you can see.</li>
+            </ol>
+            <p>
+              The Sun is on the left. Earth is in the middle. The Moon goes around Earth in about a month.
+            </p>
+            <div class="control-row">
+              <button class="control-button" id="playButton" type="button">Play</button>
+              <label class="slider-wrap" for="phaseSlider">
+                <span>Moon position</span>
+                <input id="phaseSlider" type="range" min="0" max="359" step="1" value="180" />
+              </label>
+            </div>
+            <p class="orbit-note" id="dayReadout">About day 15 of 29.5</p>
+          </div>
+
+          <div class="visual-stack">
+            <div class="canvas-card card">
+              <h3>Sun, Earth, and Moon from above</h3>
+              <canvas id="orbitCanvas" width="760" height="460" aria-label="Orbit view of the Sun, Earth, and Moon"></canvas>
+              <p class="caption">Drag the Moon around its circle. The sunlight always comes from the left.</p>
+            </div>
+
+            <div class="canvas-card card canvas-card--moon-view">
+              <div class="moon-view__head">
+                <div>
+                  <h3>What you see from Earth</h3>
+                  <p class="moon-view__subtitle" id="phaseName">Full Moon</p>
+                </div>
+                <div class="phase-pill" id="phaseTrend">Waning starts after this</div>
+              </div>
+              <div class="moon-view__body">
+                <canvas id="moonCanvas" width="320" height="320" aria-label="View of the Moon from Earth"></canvas>
+                <div class="moon-explainer">
+                  <p class="moon-explainer__main" id="phaseStory">The whole face looks bright because the lit half is facing us.</p>
+                  <p class="moon-explainer__detail" id="phaseDetail">Bright part we can see: 100%</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="names">
+        <div class="section__head">
+          <div>
+            <p class="kicker">Section 2</p>
+            <h2>Meet the 8 main Moon phases</h2>
+          </div>
+          <p class="section__lede">
+            Click any phase card to jump there in the explorer.
+          </p>
+        </div>
+
+        <div class="phase-grid" id="phaseGrid">
+          <button class="phase-card card" type="button" data-phase-index="0">
+            <canvas width="120" height="120" data-phase-canvas="0" aria-hidden="true"></canvas>
+            <strong>New Moon</strong>
+            <span>We mostly see the dark side.</span>
+          </button>
+          <button class="phase-card card" type="button" data-phase-index="1">
+            <canvas width="120" height="120" data-phase-canvas="1" aria-hidden="true"></canvas>
+            <strong>Waxing Crescent</strong>
+            <span>A slim bright smile starts to grow.</span>
+          </button>
+          <button class="phase-card card" type="button" data-phase-index="2">
+            <canvas width="120" height="120" data-phase-canvas="2" aria-hidden="true"></canvas>
+            <strong>First Quarter</strong>
+            <span>Half looks bright. The Moon is a quarter of the way around.</span>
+          </button>
+          <button class="phase-card card" type="button" data-phase-index="3">
+            <canvas width="120" height="120" data-phase-canvas="3" aria-hidden="true"></canvas>
+            <strong>Waxing Gibbous</strong>
+            <span>More than half is bright and still growing.</span>
+          </button>
+          <button class="phase-card card" type="button" data-phase-index="4">
+            <canvas width="120" height="120" data-phase-canvas="4" aria-hidden="true"></canvas>
+            <strong>Full Moon</strong>
+            <span>The bright side faces us almost completely.</span>
+          </button>
+          <button class="phase-card card" type="button" data-phase-index="5">
+            <canvas width="120" height="120" data-phase-canvas="5" aria-hidden="true"></canvas>
+            <strong>Waning Gibbous</strong>
+            <span>More than half is bright, but now it is shrinking.</span>
+          </button>
+          <button class="phase-card card" type="button" data-phase-index="6">
+            <canvas width="120" height="120" data-phase-canvas="6" aria-hidden="true"></canvas>
+            <strong>Last Quarter</strong>
+            <span>Half looks bright again, this time on the other side.</span>
+          </button>
+          <button class="phase-card card" type="button" data-phase-index="7">
+            <canvas width="120" height="120" data-phase-canvas="7" aria-hidden="true"></canvas>
+            <strong>Waning Crescent</strong>
+            <span>A tiny bright piece is left before new Moon.</span>
+          </button>
+        </div>
+      </section>
+
+      <section class="section" id="words">
+        <div class="section__head">
+          <div>
+            <p class="kicker">Section 3</p>
+            <h2>Waxing means growing. Waning means shrinking.</h2>
+          </div>
+          <p class="section__lede">
+            These are the two words that make the whole cycle easier to remember.
+          </p>
+        </div>
+
+        <div class="lesson-grid">
+          <article class="lesson-card card">
+            <h3>Waxing</h3>
+            <p>The bright part is getting bigger night after night.</p>
+            <p class="lesson-card__example">New Moon → Crescent → First Quarter → Gibbous → Full Moon</p>
+          </article>
+          <article class="lesson-card card">
+            <h3>Waning</h3>
+            <p>The bright part is getting smaller night after night.</p>
+            <p class="lesson-card__example">Full Moon → Gibbous → Last Quarter → Crescent → New Moon</p>
+          </article>
+          <article class="lesson-card card lesson-card--accent">
+            <h3>Quarter does not mean tiny</h3>
+            <p>
+              A quarter Moon looks like half a circle. The word <strong>quarter</strong> means the Moon is a quarter of the way around Earth.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="shadow">
+        <div class="section__head">
+          <div>
+            <p class="kicker">Section 4</p>
+            <h2>Moon phases are not Earth's shadow</h2>
+          </div>
+          <p class="section__lede">
+            A common mix-up is thinking phases happen because Earth blocks the Sun. Usually it does not.
+          </p>
+        </div>
+
+        <div class="shadow-grid">
+          <div class="story-card card">
+            <div class="toggle-row" role="group" aria-label="Choose shadow demo">
+              <button class="toggle-button is-active" type="button" data-shadow-mode="phase">Ordinary phase</button>
+              <button class="toggle-button" type="button" data-shadow-mode="eclipse">Lunar eclipse</button>
+            </div>
+            <p id="shadowCopy">
+              On most nights, the Moon is a little above or below Earth's shadow, so the phase comes only from sunlight and our viewing angle.
+            </p>
+          </div>
+
+          <div class="canvas-card card">
+            <canvas id="shadowCanvas" width="760" height="320" aria-label="Phase versus eclipse comparison"></canvas>
+            <p class="caption">Earth's shadow matters during a lunar eclipse, not during the ordinary monthly phase cycle.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="game">
+        <div class="section__head">
+          <div>
+            <p class="kicker">Section 5</p>
+            <h2>Moon phase game</h2>
+          </div>
+          <p class="section__lede">
+            Look at the Moon. Can you pick its name?
+          </p>
+        </div>
+
+        <div class="game-card card">
+          <div class="game-card__visual">
+            <canvas id="quizCanvas" width="240" height="240" aria-label="Quiz moon phase"></canvas>
+          </div>
+          <div class="game-card__body">
+            <p class="quiz-score" id="quizScore">Score: 0</p>
+            <p class="quiz-question">What phase is this?</p>
+            <div class="quiz-options" id="quizOptions"></div>
+            <p class="quiz-feedback" id="quizFeedback">Pick an answer to check.</p>
+            <div class="hero__actions">
+              <button class="primary-link primary-link--button" id="nextQuestion" type="button">Next question</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section section--takeaways" id="takeaways">
+        <div class="section__head">
+          <div>
+            <p class="kicker">Remember this</p>
+            <h2>Three takeaways</h2>
+          </div>
+        </div>
+
+        <div class="takeaway-list card">
+          <div class="takeaway-item">
+            <strong>The Moon stays round.</strong>
+            <span>It is the sunlight and our viewing angle that change.</span>
+          </div>
+          <div class="takeaway-item">
+            <strong>Half is always lit by the Sun.</strong>
+            <span>We just cannot always see all of that lit half.</span>
+          </div>
+          <div class="takeaway-item">
+            <strong>Waxing grows. Waning shrinks.</strong>
+            <span>That one pair of words helps you follow the whole cycle.</span>
+          </div>
+        </div>
+      </section>
+    </article>
+
+    <script src="main.js"></script>
+  </body>
+</html>
