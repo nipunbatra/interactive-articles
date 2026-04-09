@@ -3,7 +3,7 @@
   "title": "Attention, Calculated",
   "date": "2026-04-10",
   "tagline": "How Transformers figure out which words care about each other",
-  "summary": "Drag query and key vectors to see dot products, softmax, and attention weights form a contextual meaning.",
+  "summary": "Pick an ambiguous sentence, drag the query and key arrows, and watch dot products, softmax, and value blending update live to produce one contextual meaning.",
   "readingTime": "15 min",
   "difficulty": "Intermediate",
   "collection": "Deep learning",
@@ -11,7 +11,8 @@
   "status": "published",
   "tags": ["Transformers", "Attention", "Deep Learning", "Interactive"],
   "highlights": [
-    "Drag 2D query and key vectors to manually 'teach' words to attend to each other.",
-    "Watch the dot product output raw scores, softmax normalize them, and blend the final values."
+    "Switch between five ambiguous sentences (bank, apple, bass) and see attention disambiguate each one.",
+    "Drag query, key, and value vectors on two live 2-D canvases; every number in the tables recomputes.",
+    "Watch the softmax, the per-word percentages, and the final blended value vector update in live KaTeX."
   ]
 }

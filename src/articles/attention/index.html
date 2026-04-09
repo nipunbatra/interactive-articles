@@ -17,7 +17,9 @@
         <p class="kicker">Interactive Explainer</p>
         <h1>Attention, Calculated</h1>
         <p class="abstract">
-          How does a Transformer know what a word means in context? The secret is "Self-Attention", a mechanism that lets words compare their "Queries" and "Keys" to calculate how much they should care about each other.
+          Pick an ambiguous word, drag its Query vector, and watch a Transformer
+          figure out which neighbors to listen to&mdash;with every dot product,
+          softmax weight, and value blend computed live as you move the arrows.
         </p>
         <div class="byline">
           <span>~15 min</span>
@@ -25,49 +27,115 @@
         </div>
       </header>
 
-      <section class="step-section" id="step-1">
-        <div class="step-badge">Part I</div>
-        <h2>The Context Problem</h2>
+      <!-- ─── Prelude ─── -->
+      <section class="step-section" id="prelude">
+        <div class="step-badge">Prelude</div>
+        <h2>The ambiguity problem</h2>
         <p>
-          Imagine reading the phrase: <strong>"The river bank"</strong>.
+          A word in isolation is almost meaningless. Consider the word
+          <strong>bank</strong>. Is it a <em>river bank</em> or a
+          <em>money bank</em>? The word alone can't tell you&mdash;you have to
+          look at its neighbors.
         </p>
         <p>
-          To a computer, "bank" is just a discrete token. But does it mean a financial institution where you deposit money, or the muddy edge of a flowing river? To understand the word, the model must look at the surrounding context.
+          Self-attention is how Transformers let each word <em>ask around</em>.
+          Every word in a sentence says to every other word: "Hey, how much
+          should I care about you?" The answer comes back as a single number
+          between 0 and 1. Then each word rebuilds itself as a weighted mix of
+          its neighbors' meanings.
         </p>
         <p>
-          In a Transformer network, every word is given three distinct roles, represented as vectors (lists of numbers):
+          This page makes all of that explicit. By the end you'll have pushed
+          raw scores through a softmax, watched a blended value vector form,
+          and built the intuition for why Transformers beat every prior
+          architecture at disambiguation.
         </p>
-        <ul class="explanation-list">
-          <li><strong>Query ($Q$):</strong> What kind of context am I looking for? (e.g., "I am the word 'bank'. I need to know if there's money or water nearby.")</li>
-          <li><strong>Key ($K$):</strong> What kind of context do I provide? (e.g., "I am the word 'river'. I have water-related meaning.")</li>
-          <li><strong>Value ($V$):</strong> If you decide to pay attention to me, here is the actual meaning I will contribute to your new understanding.</li>
-        </ul>
+
+        <h3>Pick your sentence</h3>
+        <p>
+          We'll work through a handful of classic ambiguous words. Pick one
+          and the whole page follows it:
+        </p>
+        <div class="button-row" id="scenario-buttons" role="group" aria-label="Choose ambiguous word">
+          <button class="mode-button is-active" data-scenario="riverBank">"The river bank"</button>
+          <button class="mode-button" data-scenario="moneyBank">"I deposit money at the bank"</button>
+          <button class="mode-button" data-scenario="appleFruit">"I ate an apple pie"</button>
+          <button class="mode-button" data-scenario="appleCorp">"Apple released a phone"</button>
+          <button class="mode-button" data-scenario="bassFish">"I caught a bass at the lake"</button>
+        </div>
+        <p class="scenario-caption" id="scenario-caption">
+          The focus word <strong>bank</strong> needs to figure out whether it is
+          water-related or money-related by listening to its neighbors.
+        </p>
       </section>
 
-      <section class="step-section" id="step-2">
-        <div class="step-badge">Part II</div>
-        <h2>The Dot Product (Raw Scores)</h2>
+      <!-- ─── Step 1 ─── -->
+      <section class="step-section" id="step-1">
+        <div class="step-badge">Step 1</div>
+        <h2>Three roles for every word</h2>
         <p>
-          Let's focus on the word <strong>"bank"</strong>. It wants to figure out its context. It broadcasts its Query vector ($Q_{\text{bank}}$) to compare against the Key vectors ($K$) of all other words.
+          In a Transformer, every word is associated with three separate
+          vectors, each playing a different role:
         </p>
+        <ul class="explanation-list">
+          <li><strong>Query ($Q$):</strong> "What am I looking for?" This is
+            the perspective of the word that wants to update itself.</li>
+          <li><strong>Key ($K$):</strong> "What do I offer?" Every other word
+            advertises its flavor here.</li>
+          <li><strong>Value ($V$):</strong> "If you decide to attend to me,
+            here is the actual meaning I contribute."</li>
+        </ul>
         <p>
-          To calculate how much "bank" cares about "river", we take the <strong>Dot Product</strong> of their vectors. If the Query and Key point in the same direction, the score is high. If they are orthogonal (90 degrees), the score is zero. If they point in opposite directions, the score is negative.
+          Queries and keys determine <em>how much</em> to attend. Values
+          determine <em>what</em> gets mixed in. Keeping those two roles apart
+          is what makes attention expressive.
+        </p>
+        <div class="callout callout--think">
+          <strong>The library analogy.</strong>
+          Imagine walking into a library with a question written on a sticky
+          note (your <em>query</em>). Every book has a spine label
+          (<em>key</em>) and a bunch of text inside (<em>value</em>). You match
+          your sticky note to the spine labels, pull out the books that fit,
+          and read their text. That's one step of attention.
+        </div>
+      </section>
+
+      <!-- ─── Step 2 ─── -->
+      <section class="step-section" id="step-2">
+        <div class="step-badge">Step 2</div>
+        <h2>Dot product = compatibility score</h2>
+        <p>
+          How do we measure how well a Query matches a Key? We use the
+          <strong>dot product</strong>. If the two vectors point the same way,
+          the score is large and positive. If they're perpendicular, zero. If
+          they point opposite ways, negative.
         </p>
         <div class="math-block" id="math-dot-product"></div>
-        
+        <p>
+          Drag the <span style="color:var(--q-color);font-weight:bold">orange Query</span>
+          arrow for the focus word, and the
+          <span style="color:var(--k-color);font-weight:bold">blue Key</span>
+          arrows for every other word. Watch the raw scores update live below.
+          Drag the query so it aligns with one specific key and you'll see
+          that word win.
+        </p>
+
         <div class="interactive-figure">
-          <canvas id="qkCanvas" width="800" height="400"></canvas>
+          <canvas id="qkCanvas" width="880" height="440"></canvas>
           <figcaption>
-            <strong>Interactive:</strong> Drag the <span style="color:var(--q-color);font-weight:bold;">Query</span> vector for "bank", and the <span style="color:var(--k-color);font-weight:bold;">Key</span> vectors for "The", "river", and "bank". Watch the raw dot product scores change in the table below.
+            2-D stand-in for the real high-dimensional Q/K space. All arrows
+            are constrained to the unit circle.
           </figcaption>
         </div>
-        
+
         <div class="table-wrap">
           <table class="data-table" id="rawScoresTable">
             <thead>
               <tr>
                 <th>Word</th>
-                <th>Dot Product ($Q_{\text{bank}} \cdot K_{\text{word}}$)</th>
+                <th>Query vector</th>
+                <th>Key vector</th>
+                <th>Dot product</th>
               </tr>
             </thead>
             <tbody>
@@ -75,44 +143,209 @@
             </tbody>
           </table>
         </div>
+
+        <div class="callout">
+          <strong>Scaled dot product in real Transformers.</strong>
+          In production, the dot product is divided by
+          $\sqrt{d_k}$ (where $d_k$ is the key dimension). With large
+          dimensions, raw dot products balloon and squash softmax to one-hot.
+          The scale factor keeps the gradient healthy. We ignore it in 2-D
+          because the effect is tiny.
+        </div>
       </section>
 
+      <!-- ─── Step 3 ─── -->
       <section class="step-section" id="step-3">
-        <div class="step-badge">Part III</div>
-        <h2>Softmax (Attention Weights)</h2>
+        <div class="step-badge">Step 3</div>
+        <h2>Softmax turns scores into percentages</h2>
         <p>
-          Raw dot products can be any number (positive or negative). We want them to act like percentages (probabilities) that add up to 100%. To do this, we push the raw scores through a <strong>Softmax</strong> function.
+          Raw dot products aren't weights&mdash;they can be negative, or
+          gigantic. We need them to behave like probabilities that sum to one.
+          <strong>Softmax</strong> does exactly that:
         </p>
         <div class="math-block" id="math-softmax"></div>
         <p>
-          Softmax exponentially rewards the highest score, turning the "winning" word into the dominant focus of attention. Notice how a slightly higher raw score turns into a massive percentage!
+          Exponentiating amplifies differences: a score that's just a bit
+          higher than the others rockets upward, dominating the weights. This
+          is why softmax is called "soft" argmax&mdash;it picks a winner, but
+          still passes non-zero signal to everyone else.
+        </p>
+
+        <h3>Step-by-step calculation (live)</h3>
+        <p>
+          Here's the full pipeline applied to your current dragged arrangement.
+          Every number comes from the canvas above:
         </p>
         <div class="table-wrap">
           <table class="data-table" id="attentionTable">
             <thead>
               <tr>
                 <th>Word</th>
-                <th>Raw Score</th>
-                <th>Attention Weight (Softmax)</th>
+                <th>Raw score</th>
+                <th>exp(score)</th>
+                <th>Weight (softmax)</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
               <!-- Populated by JS -->
             </tbody>
+            <tfoot id="attentionTableFoot">
+              <!-- Populated by JS -->
+            </tfoot>
           </table>
+        </div>
+
+        <div class="math-block" id="math-softmax-live"></div>
+
+        <div class="callout callout--think">
+          <strong>Notice the winner-take-most behavior.</strong>
+          Make one of your dot products visibly larger than the rest. You'll
+          see its softmax weight jump above 80% while the others shrink to
+          single digits. Now nudge another key vector toward the query&mdash;
+          the new word steals a huge chunk of attention even for a tiny tilt.
+          Small changes in scores mean large changes in weights.
         </div>
       </section>
 
+      <!-- ─── Step 4 ─── -->
       <section class="step-section" id="step-4">
-        <div class="step-badge">Part IV</div>
-        <h2>The Final Contextual Meaning</h2>
+        <div class="step-badge">Step 4</div>
+        <h2>Blend the values into a new meaning</h2>
         <p>
-          Now that "bank" has calculated its attention weights (e.g., 90% "river", 8% "bank", 2% "The"), it builds its new contextual meaning by mixing together the <strong>Value ($V$)</strong> vectors of all the words according to those weights.
+          Now the payoff. The focus word rebuilds its meaning as a weighted sum
+          of the <strong>Value</strong> vectors, with the softmax weights we
+          just computed:
         </p>
         <div class="math-block" id="math-final-v"></div>
-        <div class="callout callout--think" style="margin-top: 2rem;">
-          <strong>Final Takeaway</strong><br />
-          Before Attention, "bank" was just an isolated token. After Attention, its new vector represents "a bank, specifically in the context of a river." This mathematical blending is exactly how Transformers build deep, contextual understanding across thousands of words simultaneously!
+        <p>
+          Below, the <span style="color:var(--v-color);font-weight:bold">teal
+          arrows</span> are the value vectors for every word (drag them to
+          simulate different "meanings"). The dashed
+          <span style="color:var(--warm);font-weight:bold">orange arrow</span>
+          is $V_{\text{final}}$&mdash;the new contextual meaning for the focus
+          word. Watch it slide toward whichever value has the highest attention
+          weight.
+        </p>
+
+        <div class="interactive-figure">
+          <canvas id="valueCanvas" width="880" height="440"></canvas>
+          <figcaption>
+            Blend of value vectors by the current attention weights. Dashed
+            orange: the output $V_{\text{final}}$.
+          </figcaption>
+        </div>
+
+        <div class="math-block" id="math-final-live"></div>
+
+        <div class="callout">
+          <strong>Why keys and values are kept separate.</strong>
+          At first glance you might ask: why not use the value as both the key
+          <em>and</em> the thing to be averaged? Because then you couldn't
+          express "attend to the word <em>river</em> because it's a water
+          cue, but grab its broader <em>geography</em> meaning, not the raw
+          token." Keys ask "does this match?"; values answer "here's what to
+          contribute if I do."
+        </div>
+      </section>
+
+      <!-- ─── Step 5 ─── -->
+      <section class="step-section" id="step-5">
+        <div class="step-badge">Step 5</div>
+        <h2>Run it on all five sentences</h2>
+        <p>
+          Here's one more look at the pipeline, this time fully automated. The
+          table below evaluates the same Q, K, V vectors (the pre-set "sensible"
+          ones for each ambiguous word) through the entire attention formula
+          and shows which neighbor dominates. Click a different sentence to
+          see a different winner.
+        </p>
+        <div class="examples-table-wrap">
+          <table class="examples-table">
+            <thead>
+              <tr>
+                <th>Sentence</th>
+                <th>Focus word</th>
+                <th>Top-attended neighbor</th>
+                <th>Attention %</th>
+                <th>Interpretation</th>
+              </tr>
+            </thead>
+            <tbody id="summaryTableBody">
+              <!-- Populated by JS -->
+            </tbody>
+          </table>
+        </div>
+        <div class="callout callout--think">
+          <strong>Observe.</strong>
+          In every one of the five sentences, the ambiguous word's query lines
+          up with exactly one neighbor that disambiguates it. "Bank" listens to
+          "river" in one case, to "money" in another. "Apple" tunes in to "pie"
+          versus "phone". <em>That's</em> disambiguation by attention&mdash;no
+          hand-coded rules, just vector alignment.
+        </div>
+      </section>
+
+      <!-- ─── Step 6 ─── -->
+      <section class="step-section" id="step-6">
+        <div class="step-badge">Step 6</div>
+        <h2>Three things attention is <em>not</em></h2>
+        <div class="misconception-grid">
+          <div class="misconception-card">
+            <span class="misconception-icon">Myth</span>
+            <p><strong>"Attention is just a weighted average, nothing new."</strong><br />
+              The weights themselves are <em>computed from the data</em>
+              through $QK^\top$&mdash;they depend on every pair of tokens. No
+              static weighted sum gives you that. It's a function whose
+              coefficients are learned on the fly.</p>
+          </div>
+          <div class="misconception-card">
+            <span class="misconception-icon">Myth</span>
+            <p><strong>"Attention tells you what the model cares about."</strong><br />
+              Attention weights are <em>one</em> signal inside a deep model.
+              Cutting a low-weight neighbor doesn't necessarily change the
+              prediction, and the same logit can be reached via many weight
+              patterns. Reading them as explanations is risky.</p>
+          </div>
+          <div class="misconception-card">
+            <span class="misconception-icon">Myth</span>
+            <p><strong>"Every word attends to every other word equally in cost."</strong><br />
+              Self-attention is $O(n^2)$ in sequence length: doubling the
+              sentence quadruples the compute. That's why long-context models
+              use tricks (sparse, linear, sliding-window) to cut this down.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── Step 7 ─── -->
+      <section class="step-section" id="step-7">
+        <div class="step-badge">Step 7</div>
+        <h2>What we swept under the rug</h2>
+        <p>
+          Everything you built above is <em>one head</em> of
+          <em>one layer</em>. Real Transformers stack a bunch of these:
+        </p>
+        <ul class="explanation-list">
+          <li><strong>Multi-head attention.</strong> Run the same Q/K/V game 8
+            or 16 times in parallel, each with different learned projections.
+            Different heads end up specializing&mdash;some pick up syntax,
+            some coreference, some long-range dependencies.</li>
+          <li><strong>Many layers.</strong> The output of one attention block
+            becomes the input to the next. After a few layers, "bank" doesn't
+            just carry its own meaning plus its neighbors'&mdash;it carries
+            meaning shaped by <em>chains</em> of inference across the whole
+            sentence.</li>
+          <li><strong>Positional encodings.</strong> Attention itself is
+            permutation-invariant&mdash;it has no idea which word came first.
+            So we add a position signal to the embeddings before the first
+            attention block.</li>
+        </ul>
+        <div class="callout callout--think">
+          <strong>Final takeaway.</strong>
+          Self-attention is a Transformer's universal way of asking "which
+          neighbors should I listen to?" You just computed every step of that
+          answer by hand. Stacking this operation many times, in parallel and
+          in depth, is what builds GPT-level understanding from raw tokens.
         </div>
       </section>
     </article>

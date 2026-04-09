@@ -3,7 +3,7 @@
   "title": "The Optimizer Race",
   "date": "2026-04-12",
   "tagline": "Why we use Adam instead of pure Gradient Descent",
-  "summary": "Drop a starting point on a loss landscape and watch SGD, Momentum, and Adam race to the bottom. Adjust learning rates to see how each optimizer behaves.",
+  "summary": "Drop a starting point on any of four loss landscapes (ravine, saddle, plateau, Rosenbrock) and watch SGD, Momentum, and Adam race to the minimum with live step counters, loss scoreboards, and log-scale loss curves.",
   "readingTime": "15 min",
   "difficulty": "Intermediate",
   "collection": "Deep learning",
@@ -11,7 +11,8 @@
   "status": "published",
   "tags": ["Optimization", "Deep Learning", "Interactive", "Gradient Descent"],
   "highlights": [
-    "Visualize a 2D loss landscape with contours.",
-    "Compare SGD, Momentum, and Adam interactively."
+    "Switch between four diagnostic landscapes that each stress a different optimizer weakness.",
+    "Compare SGD, Momentum, and Adam side-by-side with live step counts and log-scale loss curves.",
+    "Tune the learning rate and max steps to see when each method diverges or stalls."
   ]
 }

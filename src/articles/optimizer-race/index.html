@@ -17,7 +17,10 @@
         <p class="kicker">Interactive Explainer</p>
         <h1>The Optimizer Race</h1>
         <p class="abstract">
-          Deep learning models are trained by rolling down a hill (a "loss landscape"). Let's see why standard gradient descent gets stuck, and how Momentum and Adam were designed to fix it.
+          Drop a starting point on four different loss landscapes and watch
+          SGD, Momentum, and Adam actually solve the optimization problem
+          side-by-side&mdash;with their step counts, current loss, and
+          trajectories all computed live.
         </p>
         <div class="byline">
           <span>~15 min</span>
@@ -25,98 +28,257 @@
         </div>
       </header>
 
-      <section class="step-section">
-        <div class="step-badge">Part I</div>
-        <h2>The Landscape</h2>
+      <!-- ─── Prelude ─── -->
+      <section class="step-section" id="prelude">
+        <div class="step-badge">Prelude</div>
+        <h2>Why not just use plain gradient descent?</h2>
         <p>
-          Imagine training a neural network with two parameters ($x$ and $y$). The height of the terrain is the <strong>loss</strong> (error). Our goal is to reach the lowest point (the minimum).
+          Training a neural network is, at heart, minimizing a <em>loss
+          function</em>. You have a dial for each weight, you measure how
+          wrong the model is, and you turn the dials in whatever direction
+          reduces the error. Simple.
         </p>
         <p>
-          Below, we will explore a classic "ravine" optimization problem (similar to Beale's function or Rosenbrock's valley). The ravine slopes gently towards the minimum, but its sides are incredibly steep. We can define this mathematically as:
+          The problem is that real loss surfaces are nothing like a smooth
+          bowl. They have long, narrow ravines; saddle points that look flat
+          in one direction but tilt in another; plateaus where gradients die;
+          and cliffs where they explode. Plain gradient descent handles none
+          of this gracefully&mdash;which is why, in 2014, Adam was introduced
+          and essentially never left.
         </p>
-        <div class="math-block" id="math-landscape"></div>
         <p>
-          Moving along the $y$-axis is very steep, but moving along the $x$-axis is very flat. This unevenness is what makes neural networks so notoriously difficult to train.
+          This page lets you race three optimizers across four diagnostic
+          landscapes. Every dot, every path, and every loss number is computed
+          in real time from the same closed-form landscapes you'll see in the
+          math blocks.
         </p>
       </section>
 
-      <section class="step-section">
-        <div class="step-badge">Part II</div>
-        <h2>Why SGD struggles</h2>
+      <!-- ─── Step 1 ─── -->
+      <section class="step-section" id="step-1">
+        <div class="step-badge">Step 1</div>
+        <h2>Plain SGD: follow the slope</h2>
         <p>
-          <strong>Stochastic Gradient Descent (SGD)</strong> is the simplest optimization algorithm. At every step, it calculates the slope (the gradient) and takes a step directly downhill.
+          <strong>Stochastic Gradient Descent (SGD)</strong> does the obvious
+          thing. At every step, it computes the gradient of the loss and
+          moves the weights a small amount against that direction:
         </p>
         <div class="math-block" id="math-sgd"></div>
         <ul class="explanation-list">
-          <li><strong>$W_t$:</strong> Our current position (weights).</li>
-          <li><strong>$\alpha$:</strong> The Learning Rate (step size).</li>
-          <li><strong>$\nabla L(W_t)$:</strong> The gradient (slope) at our current position.</li>
+          <li><strong>$W_t$:</strong> your current weights.</li>
+          <li><strong>$\alpha$:</strong> the learning rate (step size).</li>
+          <li><strong>$\nabla L(W_t)$:</strong> the gradient at the current point.</li>
         </ul>
         <p>
-          In a ravine, "downhill" mostly points straight across the steep walls, not along the flat floor. So SGD spends all its energy bouncing violently wall-to-wall, making agonizingly slow progress toward the minimum.
+          SGD is the right starting point, but it gets confused whenever the
+          gradient stops pointing toward the minimum. In a ravine the gradient
+          points <em>across</em> the ravine walls, not <em>along</em> them, so
+          SGD bounces from wall to wall and makes painfully slow progress
+          toward the bottom.
         </p>
       </section>
 
-      <section class="step-section">
-        <div class="step-badge">Part III</div>
-        <h2>Momentum: Adding Mass</h2>
+      <!-- ─── Step 2 ─── -->
+      <section class="step-section" id="step-2">
+        <div class="step-badge">Step 2</div>
+        <h2>Momentum: add a little inertia</h2>
         <p>
-          What if our optimizer had physical mass? <strong>Momentum</strong> remembers the direction of previous steps. It acts like a heavy ball rolling down the hill.
+          <strong>Momentum</strong> treats the optimizer like a heavy ball.
+          Instead of the current gradient being the step, it accumulates a
+          <em>velocity</em> that blends past gradients with the current one:
         </p>
         <div class="math-block" id="math-momentum"></div>
         <ul class="explanation-list">
-          <li><strong>$V_t$:</strong> Our current velocity.</li>
-          <li><strong>$\beta$:</strong> A friction factor (usually 0.9) that slowly decays old velocity.</li>
+          <li><strong>$V_t$:</strong> the velocity (a running average of recent
+            gradients).</li>
+          <li><strong>$\beta$:</strong> friction, usually 0.9. Smaller values
+            mean shorter memory; larger values mean a heavier ball.</li>
         </ul>
         <p>
-          Because the gradients point back and forth across the ravine walls, those perpendicular forces cancel each other out in the velocity vector. Meanwhile, the tiny consistent push down the flat floor accumulates, building up speed exactly where we want it!
+          In a ravine, the oscillating component of the gradient (across the
+          walls) cancels in the velocity because successive steps push in
+          opposite directions. Meanwhile the tiny consistent component
+          (along the floor) <em>accumulates</em>, building up speed exactly
+          where you want it.
         </p>
       </section>
 
-      <section class="step-section">
-        <div class="step-badge">Part IV</div>
-        <h2>Adam: Smart Scaling</h2>
+      <!-- ─── Step 3 ─── -->
+      <section class="step-section" id="step-3">
+        <div class="step-badge">Step 3</div>
+        <h2>Adam: adapt per-parameter</h2>
         <p>
-          <strong>Adam</strong> (Adaptive Moment Estimation) goes a step further. What if we could magically warp the landscape so the steep walls flatter and the flat floor steeper?
+          <strong>Adam</strong> adds a second running average: the squared
+          gradient. It uses the first moment for direction (like momentum) and
+          the second moment to <em>rescale</em> each parameter individually:
         </p>
         <div class="math-block" id="math-adam"></div>
-        <ul class="explanation-list">
-          <li><strong>$m_{t+1}$:</strong> The momentum (average of past gradients).</li>
-          <li><strong>$v_{t+1}$:</strong> The variance (average of past squared gradients).</li>
-        </ul>
         <p>
-          Adam divides the step size by the square root of the variance ($\sqrt{v_{t+1}}$). This is genius: gradients along the steep walls have high variance, so Adam dynamically shrinks the learning rate there. Gradients along the floor have low variance, so Adam dynamically boosts the learning rate there. It creates a smooth, direct path to the minimum.
+          The magic is in the division by $\sqrt{\hat v_{t+1}}$. Parameters
+          whose gradient wobbles a lot (large second moment) get a <em>smaller</em>
+          effective step. Parameters whose gradient has been small but
+          consistent (small second moment) get a <em>larger</em> step. It's
+          like running momentum on a warped version of the landscape where
+          steep walls have been flattened and gentle slopes have been steepened.
         </p>
       </section>
 
-      <section class="step-section">
-        <div class="step-badge">Part V</div>
-        <h2>The Grand Prix</h2>
+      <!-- ─── Step 4 ─── -->
+      <section class="step-section" id="step-4">
+        <div class="step-badge">Step 4</div>
+        <h2>The grand prix: four landscapes</h2>
         <p>
-          Let's see the math in action. The contour lines represent our ravine. The global minimum (Loss = 0) is marked by the star.
+          Pick a landscape, adjust the learning rate, and click anywhere on the
+          terrain to drop a starting point. Every optimizer runs for the same
+          number of steps from the same start so the comparison is honest.
         </p>
-        <p>
-          Adjust the learning rate and click anywhere on the terrain to drop a starting point. Watch how SGD bounces, Momentum swings, and Adam elegantly finds the bottom.
-        </p>
-        
-        <div class="interactive-figure">
-          <div style="display:flex; justify-content:space-between; margin-bottom:1rem; align-items:center;">
-            <div>
-              <label><strong>Learning Rate ($\alpha$):</strong> <span id="lr-val">0.05</span></label>
-              <input type="range" id="lr-slider" min="0.001" max="0.1" step="0.001" value="0.05" />
-            </div>
-            <button id="reset-btn" class="action-btn">Reset Board</button>
+
+        <h3>Choose a landscape</h3>
+        <div class="button-row" id="landscape-buttons" role="group" aria-label="Landscape">
+          <button class="mode-button is-active" data-landscape="ravine">Narrow ravine</button>
+          <button class="mode-button" data-landscape="saddle">Saddle point</button>
+          <button class="mode-button" data-landscape="plateau">Plateau + bowl</button>
+          <button class="mode-button" data-landscape="rosenbrock">Rosenbrock</button>
+        </div>
+        <p class="scenario-caption" id="landscape-caption"></p>
+        <div class="math-block" id="math-landscape"></div>
+
+        <div class="control-row">
+          <div class="control-block">
+            <label>Learning rate <span>&alpha; = <span id="lr-val">0.05</span></span></label>
+            <input type="range" id="lr-slider" min="0.005" max="0.25" step="0.005" value="0.05" />
           </div>
+          <div class="control-block">
+            <label>Maximum steps <span><span id="steps-val">300</span></span></label>
+            <input type="range" id="steps-slider" min="50" max="600" step="10" value="300" />
+          </div>
+        </div>
+
+        <div class="interactive-figure">
           <canvas id="optCanvas" width="800" height="500"></canvas>
           <figcaption>
-            <strong>Interactive:</strong> Click anywhere on the terrain to drop a starting point.
+            <strong>Click anywhere</strong> to drop a starting point. The
+            global minimum is marked with a star.
           </figcaption>
-          
-          <div class="legend" style="margin-top: 1.5rem; display:flex; gap:2.5rem; justify-content:center; font-family: var(--sans); font-size: 1.1rem;">
-            <div style="display:flex; align-items:center; gap:0.5rem;"><div style="width:16px;height:16px;background:#ca5b2a;border-radius:50%"></div> <strong>SGD</strong></div>
-            <div style="display:flex; align-items:center; gap:0.5rem;"><div style="width:16px;height:16px;background:#245b8f;border-radius:50%"></div> <strong>Momentum</strong></div>
-            <div style="display:flex; align-items:center; gap:0.5rem;"><div style="width:16px;height:16px;background:#1e7770;border-radius:50%"></div> <strong>Adam</strong></div>
+
+          <div class="legend" style="margin-top: 1.2rem;">
+            <div class="legend-item"><div class="legend-swatch" style="background:#ca5b2a"></div><strong>SGD</strong></div>
+            <div class="legend-item"><div class="legend-swatch" style="background:#245b8f"></div><strong>Momentum</strong></div>
+            <div class="legend-item"><div class="legend-swatch" style="background:#1e7770"></div><strong>Adam</strong></div>
           </div>
+        </div>
+
+        <h3>Live scoreboard</h3>
+        <div class="stat-strip">
+          <div class="stat-pill" style="border-color:#ca5b2a;">
+            <span class="stat-label">SGD</span>
+            <span class="stat-value" id="sgd-loss" style="color:#ca5b2a;">—</span>
+            <span class="stat-sub" id="sgd-steps">steps: 0</span>
+          </div>
+          <div class="stat-pill" style="border-color:#245b8f;">
+            <span class="stat-label">Momentum</span>
+            <span class="stat-value" id="mom-loss" style="color:#245b8f;">—</span>
+            <span class="stat-sub" id="mom-steps">steps: 0</span>
+          </div>
+          <div class="stat-pill" style="border-color:#1e7770;">
+            <span class="stat-label">Adam</span>
+            <span class="stat-value" id="adam-loss" style="color:#1e7770;">—</span>
+            <span class="stat-sub" id="adam-steps">steps: 0</span>
+          </div>
+        </div>
+
+        <h3>Loss vs. step</h3>
+        <div class="interactive-figure">
+          <canvas id="lossCanvas" width="800" height="220"></canvas>
+          <figcaption>Log-scale loss curves. Lower is better.</figcaption>
+        </div>
+      </section>
+
+      <!-- ─── Step 5 ─── -->
+      <section class="step-section" id="step-5">
+        <div class="step-badge">Step 5</div>
+        <h2>What each landscape reveals</h2>
+        <div class="examples-table-wrap">
+          <table class="examples-table">
+            <thead>
+              <tr>
+                <th>Landscape</th>
+                <th>What it tests</th>
+                <th>Who wins, and why</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Narrow ravine</strong></td>
+                <td>Direction mismatch: gradient points across, not along.</td>
+                <td>Momentum and Adam. SGD bounces off the walls.</td>
+              </tr>
+              <tr>
+                <td><strong>Saddle point</strong></td>
+                <td>Escaping a "flat" region with curvature in both signs.</td>
+                <td>Adam (aggressive per-parameter scaling). SGD gets stuck; Momentum is slow.</td>
+              </tr>
+              <tr>
+                <td><strong>Plateau + bowl</strong></td>
+                <td>Dead flat region before any real signal appears.</td>
+                <td>Adam (bootstraps from tiny gradients). SGD plods. Momentum eventually picks up.</td>
+              </tr>
+              <tr>
+                <td><strong>Rosenbrock</strong></td>
+                <td>A curved valley that snakes toward the minimum.</td>
+                <td>Everyone struggles; Adam usually first to the basin because it re-scales per-axis.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          Try starting each landscape from the same extreme corner and watch
+          the loss curves diverge. The total compute for one step of Adam is
+          roughly twice that of SGD, but the ratio of <em>steps-to-convergence</em>
+          is usually far more than two&mdash;which is why nobody trains modern
+          models with plain SGD anymore.
+        </p>
+      </section>
+
+      <!-- ─── Step 6 ─── -->
+      <section class="step-section" id="step-6">
+        <div class="step-badge">Step 6</div>
+        <h2>Three things people get wrong about Adam</h2>
+        <div class="misconception-grid">
+          <div class="misconception-card">
+            <span class="misconception-icon">Myth</span>
+            <p><strong>"Adam always beats SGD."</strong><br />
+              On large-scale image classification tasks with well-tuned
+              learning-rate schedules, plain SGD + momentum still outperforms
+              Adam at the final test accuracy. Adam converges <em>faster</em>
+              but can generalize worse. The right optimizer depends on the
+              problem.</p>
+          </div>
+          <div class="misconception-card">
+            <span class="misconception-icon">Myth</span>
+            <p><strong>"A higher learning rate always means faster training."</strong><br />
+              Crank $\alpha$ high enough on any of the landscapes above and
+              the optimizers overshoot and diverge (loss balloons to infinity).
+              Every landscape has a range of "safe" learning rates, and it
+              differs per algorithm.</p>
+          </div>
+          <div class="misconception-card">
+            <span class="misconception-icon">Myth</span>
+            <p><strong>"Momentum is just about speed."</strong><br />
+              Its more important job is <em>averaging noise</em>. On
+              mini-batch gradients that jitter from step to step, momentum's
+              running average filters out the noise and keeps the net
+              direction stable. Speed is a side-effect.</p>
+          </div>
+        </div>
+        <div class="callout callout--think" style="margin-top: 2rem;">
+          <strong>Final takeaway.</strong>
+          Gradient descent is elegant but naive. Momentum adds memory to
+          handle bouncy ravines. Adam adds per-parameter scaling to handle
+          landscapes where every axis has different curvature. Every
+          improvement you see in the race above is the optimizer building a
+          better mental model of the surface&mdash;from a blind stepper to a
+          shape-aware scout.
         </div>
       </section>
     </article>

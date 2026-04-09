@@ -1,0 +1,18 @@
+{
+  "slug": "universal-approximation",
+  "title": "Watching a Neural Network Become Universal",
+  "date": "2026-04-15",
+  "tagline": "Build any function by stacking simple bumps",
+  "summary": "Slide neurons in and out of a tiny network and watch it approximate a target curve live. Train an actual MLP in the browser to feel why one hidden layer can match any shape.",
+  "readingTime": "14 min",
+  "difficulty": "Intermediate",
+  "collection": "Deep learning",
+  "order": 9,
+  "status": "published",
+  "tags": ["Neural Networks", "Universal Approximation", "Deep Learning", "Interactive"],
+  "highlights": [
+    "Start with a single ReLU neuron and watch its shape, then see how two neurons subtract to make a bump.",
+    "Drag the width slider to add more hidden neurons and watch the fit snap to any of five target shapes.",
+    "Train an actual MLP in your browser on sine, step, spike, or zigzag targets and see the loss curve in real time."
+  ]
+}

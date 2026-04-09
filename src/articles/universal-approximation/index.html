@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Watching a Neural Network Become Universal</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../vendor/katex/katex.min.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <article class="article">
+      <header class="article-header">
+        <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+        <p class="kicker">Interactive Explainer</p>
+        <h1>Watching a Neural Network Become Universal</h1>
+        <p class="abstract">
+          The Universal Approximation Theorem says a neural net with <em>one</em>
+          hidden layer can match almost any shape you draw. Most people read that
+          and shrug. This page lets you feel it&mdash;by building the bumps
+          yourself, then training a real network in your browser.
+        </p>
+        <div class="byline">
+          <span>~14 min</span>
+          <span>Deep Learning &middot; Neural Networks &middot; Approximation</span>
+        </div>
+      </header>
+
+      <!-- ─── Prelude ─── -->
+      <section class="step-section" id="prelude">
+        <div class="step-badge">Prelude</div>
+        <h2>The claim that sounds too good</h2>
+        <p>
+          In 1989, Cybenko proved something startling: a feed-forward neural
+          network with a <strong>single hidden layer</strong> and enough neurons
+          can approximate any continuous function on a bounded interval to any
+          accuracy you want. Sigmoids, ReLUs, tanh&mdash;the exact activation
+          doesn't matter, as long as it isn't linear.
+        </p>
+        <p>
+          Read that literally and it sounds absurd. One layer? Any function?
+          How can bending a few straight lines possibly match a wild curve?
+        </p>
+        <p>
+          The trick is to stop thinking of the hidden layer as "a network" and
+          start thinking of it as a <em>Lego kit of bumps</em>. Each neuron is
+          one Lego brick. Wide enough, any shape can be built. Let's build.
+        </p>
+      </section>
+
+      <!-- ─── Step 1 ─── -->
+      <section class="step-section" id="step-1">
+        <div class="step-badge">Step 1</div>
+        <h2>One neuron is a bent line</h2>
+        <p>
+          A single hidden neuron computes three simple operations:
+        </p>
+        <div class="math-block" id="math-single-neuron"></div>
+        <p>
+          It takes the input $x$, multiplies it by a weight $w$, shifts it by a
+          bias $b$, then passes the whole thing through a non-linear activation
+          $\phi$. With ReLU ($\phi(z) = \max(0, z)$), that produces a
+          <em>hinge</em>&mdash;flat on one side, linear on the other, with the
+          bend at $x = -b / w$.
+        </p>
+        <p>
+          Drag the sliders below. Notice two things: the weight $w$ controls
+          which direction the hinge rises, and the bias $b$ slides it left and
+          right. A single ReLU neuron can only make <strong>one</strong> kink
+          in an otherwise straight line&mdash;it can't do much on its own.
+        </p>
+
+        <div class="control-row">
+          <div class="control-block">
+            <label>Weight <span>w = <span id="val-single-w">1.0</span></span></label>
+            <input type="range" id="single-w" min="-3" max="3" step="0.1" value="1" />
+          </div>
+          <div class="control-block">
+            <label>Bias <span>b = <span id="val-single-b">0.0</span></span></label>
+            <input type="range" id="single-b" min="-3" max="3" step="0.1" value="0" />
+          </div>
+        </div>
+
+        <figure class="interactive-figure">
+          <canvas id="singleCanvas" width="920" height="300"></canvas>
+          <figcaption>
+            One ReLU neuron: <span id="single-formula" style="font-family:var(--mono)"></span>
+          </figcaption>
+        </figure>
+
+        <div class="callout callout--think">
+          <strong>Pause and think.</strong>
+          You just have a hinge. It can tilt, it can shift, but it can never
+          <em>peak</em> and come back down. So how could a pile of these ever
+          match a smooth sine wave?
+        </div>
+      </section>
+
+      <!-- ─── Step 2 ─── -->
+      <section class="step-section" id="step-2">
+        <div class="step-badge">Step 2</div>
+        <h2>Two neurons make a bump</h2>
+        <p>
+          The secret is <em>subtraction</em>. Take two rising hinges shifted
+          slightly apart, multiply one by a positive output weight and the
+          other by a negative output weight, and add them together. The result
+          is a localized bump: zero far away, rising up at one kink, falling
+          back at the next.
+        </p>
+        <div class="math-block" id="math-two-neurons"></div>
+        <p>
+          Below you control two neurons feeding a single output. The blue
+          dashed lines show each neuron's individual hinge; the solid orange
+          curve is their weighted sum. Slide the second bias to pull the
+          second hinge to the right&mdash;watch a bump appear.
+        </p>
+
+        <div class="control-row">
+          <div class="control-block">
+            <label>Bias 1 <span>b&#8321; = <span id="val-b1">-1.0</span></span></label>
+            <input type="range" id="b1" min="-3" max="3" step="0.1" value="-1" />
+          </div>
+          <div class="control-block">
+            <label>Bias 2 <span>b&#8322; = <span id="val-b2">1.0</span></span></label>
+            <input type="range" id="b2" min="-3" max="3" step="0.1" value="1" />
+          </div>
+          <div class="control-block">
+            <label>Output 1 <span>c&#8321; = <span id="val-c1">1.0</span></span></label>
+            <input type="range" id="c1" min="-2" max="2" step="0.1" value="1" />
+          </div>
+          <div class="control-block">
+            <label>Output 2 <span>c&#8322; = <span id="val-c2">-1.0</span></span></label>
+            <input type="range" id="c2" min="-2" max="2" step="0.1" value="-1" />
+          </div>
+        </div>
+
+        <figure class="interactive-figure">
+          <canvas id="bumpCanvas" width="920" height="320"></canvas>
+          <figcaption>
+            Two ReLU neurons combining into a bump. Dashed lines: individual
+            neurons. Solid line: weighted sum.
+          </figcaption>
+        </figure>
+
+        <div class="callout callout--think">
+          <strong>Try this.</strong>
+          Set $c_2$ equal to $-c_1$ and move $b_1$ and $b_2$ close together.
+          You get a narrow, tall spike. Move them far apart: a wide, short
+          plateau. The <em>spacing</em> of the biases sets the width, and the
+          <em>output weights</em> set the height and sign. That's your Lego
+          brick.
+        </div>
+      </section>
+
+      <!-- ─── Step 3 ─── -->
+      <section class="step-section" id="step-3">
+        <div class="step-badge">Step 3</div>
+        <h2>Stack bumps until the shape appears</h2>
+        <p>
+          Here is the whole theorem in plain English: if you can place a bump
+          anywhere, of any height and width, you can approximate any continuous
+          function as a sum of many little bumps. A wider hidden layer means
+          more bumps, means finer resolution.
+        </p>
+        <p>
+          Below, pick a target function and drag the width slider. The network
+          uses <strong>equally-spaced bias positions</strong> and sets each
+          output weight to the value of the target at that position&mdash;a
+          crude, hand-made approximation, but it already shows the shape
+          snapping into place as you add neurons.
+        </p>
+
+        <div class="button-row" id="manual-scenario-buttons" role="group" aria-label="Target function">
+          <button class="mode-button is-active" data-target="sine">Sine wave</button>
+          <button class="mode-button" data-target="step">Step</button>
+          <button class="mode-button" data-target="spike">Spike</button>
+          <button class="mode-button" data-target="zigzag">Zigzag</button>
+          <button class="mode-button" data-target="bumpy">Bumpy</button>
+        </div>
+
+        <div class="control-row">
+          <div class="control-block" style="grid-column: 1 / -1;">
+            <label>Hidden neurons <span>N = <span id="val-manual-width">8</span></span></label>
+            <input type="range" id="manual-width" min="1" max="60" step="1" value="8" />
+          </div>
+        </div>
+
+        <figure class="interactive-figure">
+          <canvas id="manualCanvas" width="920" height="360"></canvas>
+          <figcaption>
+            <span style="color:var(--target);font-weight:600">Orange</span> target.
+            <span style="color:var(--network);font-weight:600">Blue</span> network output.
+            Grey bumps: individual neurons (one per hidden unit).
+          </figcaption>
+        </figure>
+
+        <div class="stat-strip">
+          <div class="stat-pill">
+            <span class="stat-label">Hidden neurons</span>
+            <span class="stat-value" id="stat-manual-neurons">8</span>
+          </div>
+          <div class="stat-pill stat-pill--accent">
+            <span class="stat-label">Parameters</span>
+            <span class="stat-value" id="stat-manual-params">25</span>
+          </div>
+          <div class="stat-pill stat-pill--warm">
+            <span class="stat-label">Mean squared error</span>
+            <span class="stat-value" id="stat-manual-mse">—</span>
+          </div>
+        </div>
+
+        <div class="callout callout--think">
+          <strong>Watch the error drop.</strong>
+          Go from $N=1$ (one hinge, hopeless) to $N=60$ (sixty bumps, nearly
+          perfect). The curve literally <em>discretizes into a smoother and
+          smoother staircase</em> of little bumps. That staircase intuition is
+          exactly how Cybenko's original proof works: chop the x-axis into tiny
+          intervals and put a bump on each.
+        </div>
+      </section>
+
+      <!-- ─── Step 4 ─── -->
+      <section class="step-section" id="step-4">
+        <div class="step-badge">Step 4</div>
+        <h2>Why can't one neuron just do it?</h2>
+        <p>
+          The difficulty is geometric. Here's a table that makes the
+          bottleneck concrete for the <em>sine</em> target:
+        </p>
+        <div class="examples-table-wrap">
+          <table class="examples-table">
+            <thead>
+              <tr>
+                <th>Hidden width $N$</th>
+                <th>What the network can express</th>
+                <th>Best achievable MSE on sine</th>
+              </tr>
+            </thead>
+            <tbody id="manual-table-body">
+              <!-- Populated by JS -->
+            </tbody>
+          </table>
+        </div>
+        <p>
+          Every row of this table is computed live from the current scenario.
+          Notice how the error falls roughly as $1/N^2$&mdash;doubling the
+          width quarters the error. Cybenko's theorem says this continues
+          forever: there's no wall you hit, only a trade-off between width
+          and accuracy.
+        </p>
+      </section>
+
+      <!-- ─── Step 5 ─── -->
+      <section class="step-section" id="step-5">
+        <div class="step-badge">Step 5</div>
+        <h2>Now let gradient descent do the placing</h2>
+        <p>
+          Our hand-placed bumps are evenly spaced. A <em>trained</em> network
+          finds much better placements on its own&mdash;clustering bumps where
+          the target is wiggly, spreading them out where it's flat. Click
+          <strong>Train</strong> and watch it happen. The browser runs actual
+          stochastic gradient descent on a one-hidden-layer MLP with the width,
+          activation, and target you pick below.
+        </p>
+
+        <div class="button-row" id="train-scenario-buttons" role="group" aria-label="Train target">
+          <button class="mode-button is-active" data-target="sine">Sine wave</button>
+          <button class="mode-button" data-target="step">Step</button>
+          <button class="mode-button" data-target="spike">Spike</button>
+          <button class="mode-button" data-target="zigzag">Zigzag</button>
+          <button class="mode-button" data-target="bumpy">Bumpy</button>
+        </div>
+
+        <div class="control-row">
+          <div class="control-block">
+            <label>Hidden neurons <span>N = <span id="val-train-width">16</span></span></label>
+            <input type="range" id="train-width" min="2" max="64" step="1" value="16" />
+          </div>
+          <div class="control-block">
+            <label>Activation
+              <span id="val-train-activation">ReLU</span>
+            </label>
+            <div class="chip-row" id="activation-chips">
+              <button class="chip is-active" data-act="relu">ReLU</button>
+              <button class="chip" data-act="tanh">tanh</button>
+              <button class="chip" data-act="sigmoid">sigmoid</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="train-row">
+          <button class="action-btn action-btn--primary" id="btn-train">Train</button>
+          <button class="action-btn action-btn--ghost" id="btn-step">Single step</button>
+          <button class="action-btn action-btn--ghost" id="btn-reset">Reset weights</button>
+        </div>
+
+        <figure class="interactive-figure">
+          <canvas id="trainCanvas" width="920" height="340"></canvas>
+          <figcaption>
+            Live fit while gradient descent runs.
+          </figcaption>
+        </figure>
+        <figure class="interactive-figure">
+          <canvas id="lossCanvas" width="920" height="180"></canvas>
+          <figcaption>
+            Training loss (log scale). Each dot is one mini-batch.
+          </figcaption>
+        </figure>
+
+        <div class="stat-strip">
+          <div class="stat-pill">
+            <span class="stat-label">Epoch</span>
+            <span class="stat-value" id="stat-epoch">0</span>
+          </div>
+          <div class="stat-pill stat-pill--accent">
+            <span class="stat-label">Parameters</span>
+            <span class="stat-value" id="stat-train-params">—</span>
+          </div>
+          <div class="stat-pill stat-pill--warm">
+            <span class="stat-label">Train MSE</span>
+            <span class="stat-value" id="stat-train-mse">—</span>
+          </div>
+        </div>
+
+        <div class="callout callout--think">
+          <strong>Things to try.</strong>
+          Train a width-2 network on the sine wave&mdash;it will find the best
+          two-bump fit it can. Then bump the width to 32 and retrain. Now
+          switch the activation to <em>tanh</em> on the spike target: tanh is
+          bad at sharp corners and you'll see residual wiggle. The theorem
+          guarantees <em>existence</em> of a fit, not that every activation
+          reaches it equally fast.
+        </div>
+      </section>
+
+      <!-- ─── Step 6 ─── -->
+      <section class="step-section" id="step-6">
+        <div class="step-badge">Step 6</div>
+        <h2>The big number</h2>
+        <p>
+          At 16 neurons, a one-hidden-layer MLP already has only a few dozen
+          parameters&mdash;yet it can represent curves that polynomials of the
+          same complexity cannot. Here's the count for the network you're
+          currently training:
+        </p>
+
+        <div class="reveal-card">
+          <h3>Parameters in a single hidden layer of width <span id="reveal-n">16</span></h3>
+          <div class="reveal-number" id="reveal-params">49</div>
+          <p>
+            = <span id="reveal-breakdown">N inputs weights + N biases + N outputs + 1 output bias</span>
+          </p>
+        </div>
+
+        <p>
+          Compare that to what the theorem promises: <em>any</em> continuous
+          function on $[0,1]$, to arbitrary precision, using nothing but these
+          few numbers. The &ldquo;cost&rdquo; is not in complexity but in
+          width&mdash;and in a training procedure that can find the right
+          parameters.
+        </p>
+      </section>
+
+      <!-- ─── Step 7 ─── -->
+      <section class="step-section" id="step-7">
+        <div class="step-badge">Step 7</div>
+        <h2>Three things the theorem does <em>not</em> say</h2>
+        <p>
+          Universal Approximation is often repeated as a slogan ("neural nets
+          can learn anything!"). Three important caveats usually get dropped:
+        </p>
+        <div class="misconception-grid">
+          <div class="misconception-card">
+            <span class="misconception-icon">Myth</span>
+            <p><strong>"It means one hidden layer is enough in practice."</strong><br />
+              The theorem says <em>enough width</em> suffices. In practice, the
+              required width can be astronomical for complicated functions.
+              Adding <em>depth</em> lets you build bumps from bumps, cutting
+              the parameter budget dramatically. That's why modern networks
+              are deep, not one layer wide.</p>
+          </div>
+          <div class="misconception-card">
+            <span class="misconception-icon">Myth</span>
+            <p><strong>"Training is guaranteed to find the approximation."</strong><br />
+              The proof shows a good approximation <em>exists</em>; it says
+              nothing about whether gradient descent can find it. In the demo
+              above you'll see tanh on a spike get stuck&mdash;not a failure of
+              the theorem, but of the optimizer on that loss surface.</p>
+          </div>
+          <div class="misconception-card">
+            <span class="misconception-icon">Myth</span>
+            <p><strong>"It means networks generalize to unseen inputs."</strong><br />
+              Cybenko's theorem is about fitting training points&mdash;i.e.
+              <em>memorizing</em>. Whether the fit is sensible <em>between</em>
+              training points (generalization) is a completely separate
+              question, handled by regularization, inductive bias, and more
+              data.</p>
+          </div>
+        </div>
+
+        <div class="callout callout--warn" style="margin-top: 2rem;">
+          <strong>Final takeaway.</strong>
+          A one-hidden-layer network is a bump builder. The theorem says: with
+          enough bumps, you can match any shape. The practice of deep learning
+          is about finding the bumps <em>efficiently</em>&mdash;through depth,
+          better optimizers, and good inductive biases. You now know exactly
+          what &ldquo;universal&rdquo; in Universal Approximation means,
+          because you just watched the bumps stack up one at a time.
+        </div>
+      </section>
+    </article>
+
+    <script src="../vendor/katex/katex.min.js"></script>
+    <script type="module" src="main.js"></script>
+  </body>
+</html>
