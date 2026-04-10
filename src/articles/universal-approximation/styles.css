@@ -407,11 +407,91 @@ figcaption {
   font-size: 1rem;
 }
 
+/* --- Draw-your-own button --- */
+.mode-button--draw {
+  border-color: var(--warm);
+  color: var(--warm);
+  background: rgba(217, 98, 43, 0.04);
+}
+.mode-button--draw:hover {
+  background: rgba(217, 98, 43, 0.1);
+  border-color: var(--warm);
+}
+.mode-button--draw.is-active {
+  background: var(--warm);
+  color: white;
+  border-color: var(--warm);
+}
+
+.action-btn--small {
+  padding: 0.4rem 1rem;
+  font-size: 0.85rem;
+  border-radius: 8px;
+}
+
+/* --- Three-column control row --- */
+.control-row--three {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+/* --- Toggle buttons (Show neurons, vs. Hand-placed) --- */
+.toggle-btn {
+  padding: 0.45rem 1rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: white;
+  color: var(--muted);
+  font: 600 0.82rem var(--sans);
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+.toggle-btn:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+.toggle-btn.is-active {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+  box-shadow: 0 2px 8px rgba(44, 111, 183, 0.2);
+}
+
+.train-row-separator {
+  display: inline-block;
+  width: 1px;
+  height: 28px;
+  background: var(--border);
+  margin: 0 0.25rem;
+  vertical-align: middle;
+}
+
+/* --- Keyboard hint --- */
+kbd {
+  display: inline-block;
+  padding: 0.15em 0.5em;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: #f5f0e5;
+  font-family: var(--sans);
+  font-size: 0.85em;
+  line-height: 1;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+}
+
+/* --- Drawing cursor & glow --- */
+canvas.draw-mode {
+  cursor: crosshair;
+  box-shadow: inset 0 0 0 2px rgba(217, 98, 43, 0.25);
+  border-radius: 12px;
+}
+
 @media (max-width: 880px) {
-  .control-row, .stat-strip { grid-template-columns: 1fr; }
+  .control-row, .control-row--three, .stat-strip { grid-template-columns: 1fr; }
 }
 @media (max-width: 640px) {
   .article { padding-inline: 1rem; }
   .step-section { padding: 2rem 1.5rem; }
   .action-btn { width: 100%; justify-content: center; }
+  .train-row-separator { display: none; }
+  .toggle-btn { width: 100%; text-align: center; }
 }

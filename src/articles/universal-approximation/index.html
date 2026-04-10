@@ -165,11 +165,12 @@
           more bumps, means finer resolution.
         </p>
         <p>
-          Below, pick a target function and drag the width slider. The network
-          uses <strong>equally-spaced bias positions</strong> and sets each
-          output weight to the value of the target at that position&mdash;a
-          crude, hand-made approximation, but it already shows the shape
-          snapping into place as you add neurons.
+          Below, pick a target function &mdash; or <strong>draw your own</strong>
+          &mdash; and drag the width slider. The network uses
+          <strong>equally-spaced bias positions</strong> and sets each output
+          weight to the value of the target at that position&mdash;a crude,
+          hand-made approximation, but it already shows the shape snapping
+          into place as you add neurons.
         </p>
 
         <div class="button-row" id="manual-scenario-buttons" role="group" aria-label="Target function">
@@ -178,7 +179,9 @@
           <button class="mode-button" data-target="spike">Spike</button>
           <button class="mode-button" data-target="zigzag">Zigzag</button>
           <button class="mode-button" data-target="bumpy">Bumpy</button>
+          <button class="mode-button mode-button--draw" data-target="custom">Draw your own</button>
         </div>
+        <button class="action-btn action-btn--ghost action-btn--small" id="btn-manual-clear-draw" style="display:none; margin-top: 0.5rem;">Clear drawing</button>
 
         <div class="control-row">
           <div class="control-block" style="grid-column: 1 / -1;">
@@ -261,8 +264,13 @@
           finds much better placements on its own&mdash;clustering bumps where
           the target is wiggly, spreading them out where it's flat. Click
           <strong>Train</strong> and watch it happen. The browser runs actual
-          stochastic gradient descent on a one-hidden-layer MLP with the width,
-          activation, and target you pick below.
+          stochastic gradient descent on a one-hidden-layer MLP.
+        </p>
+        <p>
+          New here: you can <strong>draw any curve</strong> as a target,
+          <strong>tune the learning rate</strong>, toggle <strong>Show
+          neurons</strong> to see each learned bump, and overlay the
+          <strong>hand-placed fit</strong> from Step&nbsp;3 for comparison.
         </p>
 
         <div class="button-row" id="train-scenario-buttons" role="group" aria-label="Train target">
@@ -271,12 +279,18 @@
           <button class="mode-button" data-target="spike">Spike</button>
           <button class="mode-button" data-target="zigzag">Zigzag</button>
           <button class="mode-button" data-target="bumpy">Bumpy</button>
+          <button class="mode-button mode-button--draw" data-target="custom">Draw your own</button>
         </div>
+        <button class="action-btn action-btn--ghost action-btn--small" id="btn-train-clear-draw" style="display:none; margin-top: 0.5rem;">Clear drawing</button>
 
-        <div class="control-row">
+        <div class="control-row control-row--three">
           <div class="control-block">
             <label>Hidden neurons <span>N = <span id="val-train-width">16</span></span></label>
             <input type="range" id="train-width" min="2" max="64" step="1" value="16" />
+          </div>
+          <div class="control-block">
+            <label>Learning rate <span>&eta; = <span id="val-train-lr">0.050</span></span></label>
+            <input type="range" id="train-lr" min="0.005" max="0.2" step="0.005" value="0.05" />
           </div>
           <div class="control-block">
             <label>Activation
@@ -294,18 +308,22 @@
           <button class="action-btn action-btn--primary" id="btn-train">Train</button>
           <button class="action-btn action-btn--ghost" id="btn-step">Single step</button>
           <button class="action-btn action-btn--ghost" id="btn-reset">Reset weights</button>
+          <span class="train-row-separator"></span>
+          <button class="toggle-btn" id="btn-show-neurons">Show neurons</button>
+          <button class="toggle-btn" id="btn-show-comparison">vs. Hand-placed</button>
         </div>
 
         <figure class="interactive-figure">
-          <canvas id="trainCanvas" width="920" height="340"></canvas>
+          <canvas id="trainCanvas" width="920" height="340" aria-label="Training fit visualization"></canvas>
           <figcaption>
-            Live fit while gradient descent runs.
+            Live fit while gradient descent runs. Toggle <em>Show neurons</em>
+            to see individual bumps and kink positions.
           </figcaption>
         </figure>
         <figure class="interactive-figure">
-          <canvas id="lossCanvas" width="920" height="180"></canvas>
+          <canvas id="lossCanvas" width="920" height="180" aria-label="Training loss curve"></canvas>
           <figcaption>
-            Training loss (log scale). Each dot is one mini-batch.
+            Training loss (log scale). Full history from epoch 0 onward.
           </figcaption>
         </figure>
 
@@ -326,12 +344,25 @@
 
         <div class="callout callout--think">
           <strong>Things to try.</strong>
-          Train a width-2 network on the sine wave&mdash;it will find the best
-          two-bump fit it can. Then bump the width to 32 and retrain. Now
-          switch the activation to <em>tanh</em> on the spike target: tanh is
-          bad at sharp corners and you'll see residual wiggle. The theorem
-          guarantees <em>existence</em> of a fit, not that every activation
-          reaches it equally fast.
+          <strong>(1)</strong> Train width-2 on sine &mdash; it finds the best two-bump fit.
+          Bump to 32, retrain. <strong>(2)</strong> Switch to <em>tanh</em> on the spike:
+          tanh is bad at sharp corners and you'll see residual wiggle.
+          <strong>(3)</strong> Click <em>Show neurons</em> to see each bump
+          the network learned &mdash; notice how it clusters bumps where the
+          target is wiggly.
+          <strong>(4)</strong> Click <em>vs. Hand-placed</em> to overlay the
+          uniform-spacing fit &mdash; gradient descent finds smarter placements.
+          <strong>(5)</strong> Draw your own wild shape and watch the network
+          attempt to fit it. The theorem guarantees a good fit <em>exists</em>,
+          but can gradient descent <em>find</em> it?
+        </div>
+
+        <div class="callout callout--warn" style="margin-top: 0.5rem;">
+          <strong>Learning rate experiments.</strong>
+          Drag $\eta$ up to 0.2 and watch the loss explode. Drag it to 0.005
+          and watch it crawl. The sweet spot depends on both the target and the
+          width &mdash; one more thing the theorem says nothing about.
+          Press <kbd>Space</kbd> to start/stop training.
         </div>
       </section>
 
