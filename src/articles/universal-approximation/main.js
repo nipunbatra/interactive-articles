@@ -111,12 +111,13 @@ function getTouchPos(canvas, touch) {
 // ---------- Canvas helper ----------
 function setupCanvas(canvas, logicalWidth, logicalHeight) {
   const dpr = window.devicePixelRatio || 1;
-  canvas.width = logicalWidth * dpr;
-  canvas.height = logicalHeight * dpr;
-  canvas.style.width = logicalWidth + 'px';
-  canvas.style.height = logicalHeight + 'px';
+  if (canvas.width !== logicalWidth * dpr) {
+    canvas.width = logicalWidth * dpr;
+    canvas.height = logicalHeight * dpr;
+  }
   const ctx = canvas.getContext('2d');
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.resetTransform();
+  ctx.scale(dpr, dpr);
   return { ctx, w: logicalWidth, h: logicalHeight };
 }
 
@@ -1270,18 +1271,47 @@ function renderMath() {
       katex.render(blocks[id], el, { displayMode: true, throwOnError: false });
     } catch (_) { /* no-op */ }
   });
+
+  // Auto-render inline $...$ and $$...$$ math across the whole article
+  if (window.renderMathInElement) {
+    try {
+      renderMathInElement(document.querySelector('.article'), {
+        delimiters: [
+          { left: '$$', right: '$$', display: true },
+          { left: '$', right: '$', display: false },
+          { left: '\\(', right: '\\)', display: false },
+          { left: '\\[', right: '\\]', display: true }
+        ],
+        throwOnError: false,
+        ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code', 'option']
+      });
+    } catch (_) { /* no-op */ }
+  }
 }
 
 // ============================================================
 // Boot
 // ============================================================
-function init() {
-  if (window.katex) {
-    renderMath();
-  } else {
-    const s = document.querySelector('script[src*="katex"]');
-    if (s) s.addEventListener('load', renderMath);
+function waitForKatexAndRender() {
+  let tries = 0;
+  function tick() {
+    if (window.katex && window.renderMathInElement) {
+      renderMath();
+      return;
+    }
+    if (window.katex && tries > 20) {
+      // auto-render didn't show up; render at least the block math
+      renderMath();
+      return;
+    }
+    tries++;
+    setTimeout(tick, 50);
   }
+  tick();
+}
+
+function init() {
+  waitForKatexAndRender();
   initSingleNeuron();
   initBump();
   initManual();
