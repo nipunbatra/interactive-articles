@@ -34,6 +34,28 @@ const TARGETS = {
     label: 'windowed oscillation',
     yRange: [-0.8, 0.8]
   },
+  chirp: {
+    // Sine whose frequency grows linearly with x — smooth on the left,
+    // increasingly wiggly on the right.
+    fn: (x) => Math.sin(2 * Math.PI * x * (1 + 4 * x)),
+    label: 'frequency chirp',
+    yRange: [-1.2, 1.2]
+  },
+  stairs: {
+    // Four-step staircase (sharp discontinuities at every quarter).
+    fn: (x) => {
+      const k = Math.min(3, Math.floor(x * 4));
+      return (k - 1.5) * 0.45;
+    },
+    label: '4-step staircase',
+    yRange: [-1.0, 1.0]
+  },
+  wavepacket: {
+    // High-frequency oscillation under a Gaussian envelope.
+    fn: (x) => Math.sin(20 * Math.PI * x) * Math.exp(-30 * Math.pow(x - 0.5, 2)),
+    label: 'wave packet',
+    yRange: [-1.1, 1.1]
+  },
   custom: {
     fn: null,
     label: 'Your drawing',
@@ -579,7 +601,7 @@ function initManual() {
       html += `
         <tr>
           <td><strong>N = ${N}</strong></td>
-          <td>${descriptions[N]}</td>
+          <td class="col-desc-cell">${descriptions[N]}</td>
           <td><code>${isFinite(mse) ? mse.toExponential(2) : '\u2014'}</code></td>
         </tr>
       `;
@@ -1296,6 +1318,505 @@ function initTrainer() {
 }
 
 // ============================================================
+// STEP 6: Classification (2D) — same theorem, different loss
+// ============================================================
+function createMLP2D(width) {
+  // 2D input → N hidden ReLU → 1 output (logit, sigmoid applied externally)
+  const W1 = new Array(width);
+  const b1 = new Array(width);
+  for (let i = 0; i < width; i++) {
+    W1[i] = [(Math.random() * 2 - 1) * 3, (Math.random() * 2 - 1) * 3];
+    b1[i] = (Math.random() * 2 - 1) * 1.5;
+  }
+  const W2 = new Array(width);
+  for (let i = 0; i < width; i++) {
+    W2[i] = (Math.random() * 2 - 1) * (1 / Math.sqrt(width));
+  }
+  let b2 = 0;
+
+  function forward(x, y) {
+    const z1 = new Array(width);
+    const h = new Array(width);
+    for (let i = 0; i < width; i++) {
+      z1[i] = W1[i][0] * x + W1[i][1] * y + b1[i];
+      h[i] = z1[i] > 0 ? z1[i] : 0;
+    }
+    let logit = b2;
+    for (let i = 0; i < width; i++) logit += W2[i] * h[i];
+    return { logit, z1, h };
+  }
+
+  function predictProb(x, y) {
+    const { logit } = forward(x, y);
+    // Numerically stable sigmoid
+    if (logit >= 0) {
+      const e = Math.exp(-logit);
+      return 1 / (1 + e);
+    } else {
+      const e = Math.exp(logit);
+      return e / (1 + e);
+    }
+  }
+
+  function trainStep(batchXY, batchLabels, lr) {
+    const B = batchXY.length;
+    const dW1 = new Array(width);
+    const db1 = new Array(width).fill(0);
+    const dW2 = new Array(width).fill(0);
+    for (let i = 0; i < width; i++) dW1[i] = [0, 0];
+    let db2 = 0;
+    let loss = 0;
+
+    for (let k = 0; k < B; k++) {
+      const x = batchXY[k][0];
+      const y = batchXY[k][1];
+      const target = batchLabels[k];
+      const { logit, z1, h } = forward(x, y);
+
+      // Numerically stable BCE: max(z, 0) - z*t + log(1 + exp(-|z|))
+      const z = logit;
+      const absZ = Math.abs(z);
+      const ll = (z > 0 ? z : 0) - z * target + Math.log(1 + Math.exp(-absZ));
+      loss += ll;
+
+      // dL/dlogit = sigmoid(logit) - target
+      const sig = z >= 0 ? 1 / (1 + Math.exp(-z)) : Math.exp(z) / (1 + Math.exp(z));
+      const dLogit = sig - target;
+      db2 += dLogit;
+      for (let i = 0; i < width; i++) {
+        dW2[i] += dLogit * h[i];
+        const dh = dLogit * W2[i];
+        const dz = dh * (z1[i] > 0 ? 1 : 0);
+        dW1[i][0] += dz * x;
+        dW1[i][1] += dz * y;
+        db1[i] += dz;
+      }
+    }
+
+    const inv = 1 / B;
+    for (let i = 0; i < width; i++) {
+      W1[i][0] -= lr * dW1[i][0] * inv;
+      W1[i][1] -= lr * dW1[i][1] * inv;
+      b1[i] -= lr * db1[i] * inv;
+      W2[i] -= lr * dW2[i] * inv;
+    }
+    b2 -= lr * db2 * inv;
+    return loss / B;
+  }
+
+  return {
+    get width() { return width; },
+    get W1() { return W1; },
+    get b1() { return b1; },
+    get W2() { return W2; },
+    get b2() { return b2; },
+    forward,
+    predictProb,
+    trainStep
+  };
+}
+
+// Deterministic-ish PRNG so the same dataset key always generates the same points
+function makeRng(seed) {
+  let s = seed >>> 0;
+  return function () {
+    s = (s * 1664525 + 1013904223) >>> 0;
+    return s / 4294967296;
+  };
+}
+
+const DATASETS_2D = {
+  moons: {
+    label: 'Two moons',
+    generate: () => {
+      const rng = makeRng(7);
+      const data = [];
+      const n = 90;
+      for (let i = 0; i < n; i++) {
+        const t = (i / (n - 1)) * Math.PI;
+        const noise = () => (rng() - 0.5) * 0.18;
+        // Upper moon (class 0)
+        data.push({ x: Math.cos(t) - 0.5 + noise(), y: Math.sin(t) - 0.25 + noise(), c: 0 });
+        // Lower moon (class 1) — flipped + offset
+        data.push({ x: 1 - Math.cos(t) - 0.5 + noise(), y: 0.25 - Math.sin(t) + noise(), c: 1 });
+      }
+      return data;
+    }
+  },
+  circles: {
+    label: 'Concentric circles',
+    generate: () => {
+      const rng = makeRng(11);
+      const data = [];
+      const n = 90;
+      for (let i = 0; i < n; i++) {
+        // Inner disc (class 0)
+        const r0 = 0.35 * Math.sqrt(rng());
+        const a0 = rng() * 2 * Math.PI;
+        data.push({ x: r0 * Math.cos(a0), y: r0 * Math.sin(a0), c: 0 });
+        // Outer ring (class 1)
+        const r1 = 0.75 + (rng() - 0.5) * 0.18;
+        const a1 = rng() * 2 * Math.PI;
+        data.push({ x: r1 * Math.cos(a1), y: r1 * Math.sin(a1), c: 1 });
+      }
+      return data;
+    }
+  },
+  xor: {
+    label: 'XOR quadrants',
+    generate: () => {
+      const rng = makeRng(13);
+      const data = [];
+      const n = 200;
+      for (let i = 0; i < n; i++) {
+        const x = (rng() - 0.5) * 1.8;
+        const y = (rng() - 0.5) * 1.8;
+        const c = (x * y > 0) ? 1 : 0;
+        data.push({ x, y, c });
+      }
+      return data;
+    }
+  },
+  spirals: {
+    label: 'Two spirals',
+    generate: () => {
+      const rng = makeRng(17);
+      const data = [];
+      const n = 90;
+      for (let i = 0; i < n; i++) {
+        const t = (i / (n - 1)) * 3.5 * Math.PI;
+        const r = 0.15 + (t / (3.5 * Math.PI)) * 0.85;
+        const noise = () => (rng() - 0.5) * 0.06;
+        data.push({ x: r * Math.cos(t) + noise(), y: r * Math.sin(t) + noise(), c: 0 });
+        data.push({ x: r * Math.cos(t + Math.PI) + noise(), y: r * Math.sin(t + Math.PI) + noise(), c: 1 });
+      }
+      return data;
+    }
+  }
+};
+
+let classifyState = {
+  dataset: 'moons',
+  width: 12,
+  lr: 0.1,
+  model: null,
+  data: null,
+  epoch: 0,
+  losses: [],
+  running: false
+};
+
+function initClassify() {
+  const canvas = document.getElementById('classifyCanvas');
+  if (!canvas) return; // section not present
+  const lossCanvas = document.getElementById('classifyLossCanvas');
+  const widthSlider = document.getElementById('classify-width');
+  const widthVal = document.getElementById('val-classify-width');
+  const lrSlider = document.getElementById('classify-lr');
+  const lrVal = document.getElementById('val-classify-lr');
+  const datasetButtons = document.querySelectorAll('#classify-dataset-buttons [data-dataset]');
+  const btnTrain = document.getElementById('btn-classify-train');
+  const btnStep = document.getElementById('btn-classify-step');
+  const btnReset = document.getElementById('btn-classify-reset');
+  const epochStat = document.getElementById('stat-classify-epoch');
+  const lossStat = document.getElementById('stat-classify-loss');
+  const accStat = document.getElementById('stat-classify-acc');
+
+  const logicalW = 920, logicalH = 500;
+  const margin = { top: 20, right: 30, bottom: 35, left: 50 };
+  const xRange = [-1.5, 1.5];
+  const yRange = [-1.5, 1.5];
+
+  function resetModel() {
+    classifyState.model = createMLP2D(classifyState.width);
+    classifyState.epoch = 0;
+    classifyState.losses = [];
+    classifyState.data = DATASETS_2D[classifyState.dataset].generate();
+    drawAll();
+  }
+
+  function plotToPixel(px, py, cw, ch) {
+    const plotW = cw - margin.left - margin.right;
+    const plotH = ch - margin.top - margin.bottom;
+    return [
+      margin.left + ((px - xRange[0]) / (xRange[1] - xRange[0])) * plotW,
+      margin.top + plotH - ((py - yRange[0]) / (yRange[1] - yRange[0])) * plotH
+    ];
+  }
+
+  function drawDecisionBoundary(ctx, cw, ch) {
+    const plotW = cw - margin.left - margin.right;
+    const plotH = ch - margin.top - margin.bottom;
+    const grid = 60; // resolution
+    const cellW = plotW / grid;
+    const cellH = plotH / grid;
+
+    for (let i = 0; i < grid; i++) {
+      for (let j = 0; j < grid; j++) {
+        const xData = xRange[0] + ((i + 0.5) / grid) * (xRange[1] - xRange[0]);
+        const yData = yRange[1] - ((j + 0.5) / grid) * (yRange[1] - yRange[0]);
+        const p = classifyState.model.predictProb(xData, yData);
+        // Mix between class-0 (cool blue) and class-1 (warm orange)
+        // p=0 → blue, p=1 → orange
+        const t = p; // 0..1
+        const r = Math.round(44 * (1 - t) + 217 * t);
+        const g = Math.round(111 * (1 - t) + 98 * t);
+        const b = Math.round(183 * (1 - t) + 43 * t);
+        ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.32)`;
+        ctx.fillRect(margin.left + i * cellW, margin.top + j * cellH, cellW + 0.6, cellH + 0.6);
+      }
+    }
+
+    // Boundary contour at p = 0.5 (using marching squares lite — sample lines)
+    ctx.strokeStyle = 'rgba(20, 18, 14, 0.8)';
+    ctx.lineWidth = 2;
+    const linePts = [];
+    for (let i = 0; i < grid; i++) {
+      for (let j = 0; j < grid; j++) {
+        const x0 = xRange[0] + (i / grid) * (xRange[1] - xRange[0]);
+        const x1 = xRange[0] + ((i + 1) / grid) * (xRange[1] - xRange[0]);
+        const y0 = yRange[1] - (j / grid) * (yRange[1] - yRange[0]);
+        const y1 = yRange[1] - ((j + 1) / grid) * (yRange[1] - yRange[0]);
+        const p00 = classifyState.model.predictProb(x0, y0);
+        const p10 = classifyState.model.predictProb(x1, y0);
+        const p01 = classifyState.model.predictProb(x0, y1);
+        const p11 = classifyState.model.predictProb(x1, y1);
+        // Find sign changes across cell edges (p = 0.5)
+        const checks = [
+          [p00, p10, x0, y0, x1, y0],
+          [p10, p11, x1, y0, x1, y1],
+          [p11, p01, x1, y1, x0, y1],
+          [p01, p00, x0, y1, x0, y0]
+        ];
+        const crossings = [];
+        for (const [a, b, ax, ay, bx, by] of checks) {
+          if ((a - 0.5) * (b - 0.5) < 0) {
+            const t = (0.5 - a) / (b - a);
+            crossings.push([ax + t * (bx - ax), ay + t * (by - ay)]);
+          }
+        }
+        if (crossings.length === 2) {
+          const [a, b] = crossings.map(([x, y]) => plotToPixel(x, y, cw, ch));
+          linePts.push([a, b]);
+        }
+      }
+    }
+    ctx.beginPath();
+    for (const [a, b] of linePts) {
+      ctx.moveTo(a[0], a[1]);
+      ctx.lineTo(b[0], b[1]);
+    }
+    ctx.stroke();
+  }
+
+  function computeAccuracy() {
+    if (!classifyState.model || !classifyState.data) return null;
+    let correct = 0;
+    for (const pt of classifyState.data) {
+      const p = classifyState.model.predictProb(pt.x, pt.y);
+      const pred = p > 0.5 ? 1 : 0;
+      if (pred === pt.c) correct++;
+    }
+    return correct / classifyState.data.length;
+  }
+
+  function drawAll() {
+    widthVal.textContent = classifyState.width;
+    if (lrVal) lrVal.textContent = classifyState.lr.toFixed(2);
+    epochStat.textContent = classifyState.epoch;
+
+    const { ctx, w: cw, h: ch } = setupCanvas(canvas, logicalW, logicalH);
+    ctx.clearRect(0, 0, cw, ch);
+    drawAxes(ctx, margin, cw, ch, xRange, yRange);
+
+    if (classifyState.model) {
+      drawDecisionBoundary(ctx, cw, ch);
+    }
+
+    // Data points on top
+    if (classifyState.data) {
+      for (const pt of classifyState.data) {
+        const [px, py] = plotToPixel(pt.x, pt.y, cw, ch);
+        // Halo
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+        ctx.beginPath();
+        ctx.arc(px, py, 5.5, 0, Math.PI * 2);
+        ctx.fill();
+        // Core
+        ctx.fillStyle = pt.c === 0 ? '#2c6fb7' : '#d9622b';
+        ctx.beginPath();
+        ctx.arc(px, py, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // Stats
+    if (classifyState.losses.length > 0) {
+      lossStat.textContent = classifyState.losses[classifyState.losses.length - 1].toFixed(3);
+    } else {
+      lossStat.textContent = '\u2014';
+    }
+    const acc = computeAccuracy();
+    accStat.textContent = acc !== null ? (acc * 100).toFixed(1) + '%' : '\u2014';
+
+    drawLossCurve();
+  }
+
+  function drawLossCurve() {
+    const { ctx, w: cw, h: ch } = setupCanvas(lossCanvas, 920, 180);
+    ctx.clearRect(0, 0, cw, ch);
+    const m = { top: 20, right: 30, bottom: 30, left: 50 };
+    const plotW = cw - m.left - m.right;
+    const plotH = ch - m.top - m.bottom;
+
+    ctx.strokeStyle = '#f0ebe1';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let i = 0; i <= 4; i++) {
+      const y = m.top + (plotH / 4) * i;
+      ctx.moveTo(m.left, y);
+      ctx.lineTo(m.left + plotW, y);
+    }
+    ctx.stroke();
+
+    ctx.strokeStyle = '#c4beb1';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(m.left, m.top);
+    ctx.lineTo(m.left, m.top + plotH);
+    ctx.lineTo(m.left + plotW, m.top + plotH);
+    ctx.stroke();
+
+    ctx.fillStyle = '#9a917f';
+    ctx.font = '11px system-ui, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('BCE loss', m.left + 4, m.top + 12);
+
+    if (!classifyState.losses.length) {
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#9a917f';
+      ctx.font = '13px system-ui, sans-serif';
+      ctx.fillText('Click Train to start', m.left + plotW / 2, m.top + plotH / 2);
+      return;
+    }
+
+    let minL = classifyState.losses[0], maxL = classifyState.losses[0];
+    for (let i = 1; i < classifyState.losses.length; i++) {
+      if (classifyState.losses[i] < minL) minL = classifyState.losses[i];
+      if (classifyState.losses[i] > maxL) maxL = classifyState.losses[i];
+    }
+    const pad = (maxL - minL) * 0.1 + 0.01;
+    const lo = minL - pad, hi = maxL + pad;
+
+    ctx.strokeStyle = '#d9622b';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (let i = 0; i < classifyState.losses.length; i++) {
+      const t = i / Math.max(1, classifyState.losses.length - 1);
+      const px = m.left + t * plotW;
+      const py = m.top + plotH - ((classifyState.losses[i] - lo) / (hi - lo)) * plotH;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+
+    ctx.fillStyle = '#9a917f';
+    ctx.font = '11px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('0', m.left, m.top + plotH + 14);
+    ctx.fillText(String(classifyState.losses.length), m.left + plotW, m.top + plotH + 14);
+    ctx.fillText('Epoch', m.left + plotW / 2, ch - 4);
+    ctx.textAlign = 'right';
+    ctx.fillText(hi.toFixed(2), m.left - 6, m.top + 4);
+    ctx.fillText(lo.toFixed(2), m.left - 6, m.top + plotH + 4);
+  }
+
+  function shuffleIdx(n) {
+    const arr = Array.from({ length: n }, (_, i) => i);
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+
+  function oneEpoch() {
+    if (!classifyState.model || !classifyState.data) return;
+    const data = classifyState.data;
+    const n = data.length;
+    const idx = shuffleIdx(n);
+    const batchSize = 32;
+    let total = 0, batches = 0;
+    for (let s = 0; s < n; s += batchSize) {
+      const e = Math.min(s + batchSize, n);
+      const bx = [], by = [];
+      for (let k = s; k < e; k++) {
+        bx.push([data[idx[k]].x, data[idx[k]].y]);
+        by.push(data[idx[k]].c);
+      }
+      total += classifyState.model.trainStep(bx, by, classifyState.lr);
+      batches++;
+    }
+    classifyState.epoch++;
+    classifyState.losses.push(total / batches);
+  }
+
+  let rafId = null;
+  function trainLoop() {
+    if (!classifyState.running) return;
+    for (let k = 0; k < 2; k++) oneEpoch();
+    drawAll();
+    if (classifyState.running) rafId = requestAnimationFrame(trainLoop);
+  }
+
+  widthSlider.addEventListener('input', () => {
+    classifyState.width = parseInt(widthSlider.value, 10);
+    resetModel();
+  });
+  if (lrSlider) {
+    lrSlider.addEventListener('input', () => {
+      classifyState.lr = parseFloat(lrSlider.value);
+      if (lrVal) lrVal.textContent = classifyState.lr.toFixed(2);
+    });
+  }
+  datasetButtons.forEach((b) => {
+    b.addEventListener('click', () => {
+      datasetButtons.forEach((bb) => bb.classList.remove('is-active'));
+      b.classList.add('is-active');
+      classifyState.dataset = b.dataset.dataset;
+      classifyState.running = false;
+      btnTrain.textContent = 'Train';
+      if (rafId) cancelAnimationFrame(rafId);
+      resetModel();
+    });
+  });
+  btnTrain.addEventListener('click', () => {
+    if (classifyState.running) {
+      classifyState.running = false;
+      btnTrain.textContent = 'Train';
+      if (rafId) cancelAnimationFrame(rafId);
+    } else {
+      classifyState.running = true;
+      btnTrain.textContent = 'Stop';
+      trainLoop();
+    }
+  });
+  btnStep.addEventListener('click', () => {
+    if (!classifyState.model) resetModel();
+    oneEpoch();
+    drawAll();
+  });
+  btnReset.addEventListener('click', () => {
+    classifyState.running = false;
+    btnTrain.textContent = 'Train';
+    if (rafId) cancelAnimationFrame(rafId);
+    resetModel();
+  });
+
+  resetModel();
+}
+
+// ============================================================
 // KaTeX
 // ============================================================
 function renderMath() {
@@ -1357,6 +1878,7 @@ function init() {
   initBump();
   initManual();
   initTrainer();
+  initClassify();
 }
 
 if (document.readyState === 'loading') {

@@ -358,18 +358,24 @@ figcaption {
   margin-bottom: 0.5rem;
 }
 
-.examples-table-wrap { overflow-x: auto; margin: 1.5rem 0; }
+.examples-table-wrap { margin: 1.5rem 0; }
 .examples-table {
   width: 100%;
   border-collapse: collapse;
+  table-layout: fixed;
   font-family: var(--sans);
   font-size: 0.95rem;
 }
+.examples-table col.col-n { width: 18%; }
+.examples-table col.col-desc { width: 52%; }
+.examples-table col.col-mse { width: 30%; }
 .examples-table th,
 .examples-table td {
   padding: 0.8rem 1rem;
   text-align: left;
   border-bottom: 1px solid var(--border);
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 .examples-table th {
   background: rgba(0,0,0,0.02);
@@ -378,6 +384,19 @@ figcaption {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   font-size: 0.82rem;
+}
+.examples-table code { word-break: break-all; }
+@media (max-width: 640px) {
+  .examples-table { font-size: 0.85rem; }
+  .examples-table th, .examples-table td { padding: 0.6rem 0.5rem; }
+  .examples-table col.col-n { width: 22%; }
+  .examples-table col.col-desc { width: 42%; }
+  .examples-table col.col-mse { width: 36%; }
+}
+@media (max-width: 480px) {
+  .examples-table .col-desc-cell { display: none; }
+  .examples-table col.col-n { width: 35%; }
+  .examples-table col.col-mse { width: 65%; }
 }
 
 .reveal-card {

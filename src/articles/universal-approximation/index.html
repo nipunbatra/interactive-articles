@@ -181,6 +181,9 @@
           <button class="mode-button" data-target="spike">Spike</button>
           <button class="mode-button" data-target="zigzag">Zigzag</button>
           <button class="mode-button" data-target="bumpy">Bumpy</button>
+          <button class="mode-button" data-target="chirp">Chirp</button>
+          <button class="mode-button" data-target="stairs">Stairs</button>
+          <button class="mode-button" data-target="wavepacket">Wave packet</button>
           <button class="mode-button mode-button--draw" data-target="custom">Draw your own</button>
         </div>
         <button class="action-btn action-btn--ghost action-btn--small" id="btn-manual-clear-draw" style="display:none; margin-top: 0.5rem;">Clear drawing</button>
@@ -241,10 +244,15 @@
         </p>
         <div class="examples-table-wrap">
           <table class="examples-table">
+            <colgroup>
+              <col class="col-n" />
+              <col class="col-desc" />
+              <col class="col-mse" />
+            </colgroup>
             <thead>
               <tr>
                 <th>Hidden width $N$</th>
-                <th>What the network can express</th>
+                <th class="col-desc-cell">What the network can express</th>
                 <th>MSE vs <span id="manual-table-target">sine</span></th>
               </tr>
             </thead>
@@ -287,6 +295,9 @@
           <button class="mode-button" data-target="spike">Spike</button>
           <button class="mode-button" data-target="zigzag">Zigzag</button>
           <button class="mode-button" data-target="bumpy">Bumpy</button>
+          <button class="mode-button" data-target="chirp">Chirp</button>
+          <button class="mode-button" data-target="stairs">Stairs</button>
+          <button class="mode-button" data-target="wavepacket">Wave packet</button>
           <button class="mode-button mode-button--draw" data-target="custom">Draw your own</button>
         </div>
         <button class="action-btn action-btn--ghost action-btn--small" id="btn-train-clear-draw" style="display:none; margin-top: 0.5rem;">Clear drawing</button>
@@ -374,9 +385,107 @@
         </div>
       </section>
 
-      <!-- ─── Step 6 ─── -->
+      <!-- ─── Step 6: Classification ─── -->
       <section class="step-section" id="step-6">
         <div class="step-badge">Step 6</div>
+        <h2>What about classification?</h2>
+        <p>
+          Everything so far has been <em>regression</em>: fit a curve to a
+          target value. But the same theorem covers
+          <em>classification</em>: change the output activation to a
+          <strong>sigmoid</strong> and the loss to <strong>binary
+          cross-entropy</strong>, and a one-hidden-layer MLP can carve out
+          <em>any</em> decision boundary in the plane.
+        </p>
+        <p>
+          The picture below shows a 2D version of universal approximation in
+          action. Pick a dataset, set a width, and click <strong>Train</strong>.
+          The shaded region is the network's predicted probability; the dark
+          line is the $p = 0.5$ decision boundary. Each ReLU neuron contributes
+          one straight cut to the plane, and gradient descent stitches them
+          together into the boundary.
+        </p>
+
+        <div class="button-row" id="classify-dataset-buttons" role="group" aria-label="Classification dataset">
+          <button class="mode-button is-active" data-dataset="moons">Two moons</button>
+          <button class="mode-button" data-dataset="circles">Concentric circles</button>
+          <button class="mode-button" data-dataset="xor">XOR quadrants</button>
+          <button class="mode-button" data-dataset="spirals">Two spirals</button>
+        </div>
+
+        <div class="control-row">
+          <div class="control-block">
+            <label>Hidden neurons <span>N = <span id="val-classify-width">12</span></span></label>
+            <input type="range" id="classify-width" min="2" max="64" step="1" value="12" />
+          </div>
+          <div class="control-block">
+            <label>Learning rate <span>&eta; = <span id="val-classify-lr">0.10</span></span></label>
+            <input type="range" id="classify-lr" min="0.01" max="0.5" step="0.01" value="0.1" />
+          </div>
+        </div>
+
+        <div class="train-row">
+          <button class="action-btn action-btn--primary" id="btn-classify-train">Train</button>
+          <button class="action-btn action-btn--ghost" id="btn-classify-step">Single step</button>
+          <button class="action-btn action-btn--ghost" id="btn-classify-reset">Reset weights</button>
+        </div>
+
+        <figure class="interactive-figure">
+          <canvas id="classifyCanvas" width="920" height="500" aria-label="2D classification with decision boundary"></canvas>
+          <figcaption>
+            <span style="color:var(--accent);font-weight:600">Blue dots</span>
+            = class 0,
+            <span style="color:var(--warm);font-weight:600">orange dots</span>
+            = class 1. Shading is the network's predicted probability; the dark
+            line is the $p=0.5$ decision boundary.
+          </figcaption>
+        </figure>
+        <figure class="interactive-figure">
+          <canvas id="classifyLossCanvas" width="920" height="180" aria-label="Classification loss curve"></canvas>
+          <figcaption>Binary cross-entropy loss across epochs.</figcaption>
+        </figure>
+
+        <div class="stat-strip">
+          <div class="stat-pill">
+            <span class="stat-label">Epoch</span>
+            <span class="stat-value" id="stat-classify-epoch">0</span>
+          </div>
+          <div class="stat-pill stat-pill--accent">
+            <span class="stat-label">BCE loss</span>
+            <span class="stat-value" id="stat-classify-loss">&mdash;</span>
+          </div>
+          <div class="stat-pill stat-pill--warm">
+            <span class="stat-label">Accuracy</span>
+            <span class="stat-value" id="stat-classify-acc">&mdash;</span>
+          </div>
+        </div>
+
+        <div class="callout callout--think">
+          <strong>Things to try.</strong>
+          <strong>(1)</strong> Train width-2 on <em>two moons</em> &mdash; one
+          straight cut almost works.
+          <strong>(2)</strong> Try width-2 on <em>XOR</em> &mdash; impossible,
+          since you need at least three lines to separate the four quadrants.
+          Bump it to 4 and watch it click.
+          <strong>(3)</strong> The <em>two spirals</em> dataset is the classic
+          stress test. Try width-8: stuck. Width-32: it gets close. Width-64:
+          almost perfect. Universal approximation works, but the price is
+          width.
+        </div>
+
+        <div class="callout callout--warn" style="margin-top: 0.5rem;">
+          <strong>Same theorem, two faces.</strong>
+          Regression and classification are the <em>same problem</em> for a
+          ReLU network: both are function approximation. The only difference
+          is what the function represents (a value vs. a probability) and how
+          we measure error (MSE vs. cross-entropy). Universal approximation
+          covers both with one statement.
+        </div>
+      </section>
+
+      <!-- ─── Step 7: The big number ─── -->
+      <section class="step-section" id="step-7">
+        <div class="step-badge">Step 7</div>
         <h2>The big number</h2>
         <p>
           At 16 neurons, a one-hidden-layer MLP already has only a few dozen
@@ -402,9 +511,9 @@
         </p>
       </section>
 
-      <!-- ─── Step 7 ─── -->
-      <section class="step-section" id="step-7">
-        <div class="step-badge">Step 7</div>
+      <!-- ─── Step 8: Myths ─── -->
+      <section class="step-section" id="step-8">
+        <div class="step-badge">Step 8</div>
         <h2>Three things the theorem does <em>not</em> say</h2>
         <p>
           Universal Approximation is often repeated as a slogan ("neural nets
