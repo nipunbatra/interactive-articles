@@ -363,23 +363,50 @@ let manualDrawState = {
 };
 
 function manualFit(targetKey, width) {
+  // Stack ReLU hinges to form a piecewise-linear interpolant that passes
+  // exactly through the target at N equally-spaced kink points on [0, 1].
+  //
+  // Each neuron is phi(x - k_i) with weight 1. The output weights encode the
+  // slope changes:
+  //   c_0        = slope_0
+  //   c_i        = slope_i - slope_{i-1}   (i = 1 .. N-2)
+  //   c_{N-1}    = -slope_{N-2}            (cancels the tail so x > 1 stays flat)
+  // The output bias equals the target at the first kink, so
+  //   f(k_j) = t(k_j) exactly at every kink, and the fit is piecewise-linear
+  //   between kinks.
   const t = TARGETS[targetKey];
   if (!t.fn) return null;
+
   const kinks = new Array(width);
   const targetVals = new Array(width);
-  for (let i = 0; i < width; i++) {
-    const k = (i + 0.5) / width;
-    kinks[i] = k;
-    targetVals[i] = t.fn(k);
-  }
-
-  const inputW = 30;
   const c = new Array(width);
-  c[0] = targetVals[0];
-  for (let i = 1; i < width; i++) {
-    c[i] = targetVals[i] - targetVals[i - 1];
+  const inputW = 1;
+  let b0;
+
+  if (width === 1) {
+    // One neuron: best we can do is a constant.
+    kinks[0] = 0.5;
+    targetVals[0] = t.fn(0.5);
+    c[0] = 0;
+    b0 = targetVals[0];
+  } else {
+    for (let i = 0; i < width; i++) {
+      kinks[i] = i / (width - 1);
+      targetVals[i] = t.fn(kinks[i]);
+    }
+
+    const slopes = new Array(width - 1);
+    for (let i = 0; i < width - 1; i++) {
+      slopes[i] = (targetVals[i + 1] - targetVals[i]) / (kinks[i + 1] - kinks[i]);
+    }
+
+    b0 = targetVals[0];
+    c[0] = slopes[0];
+    for (let i = 1; i < width - 1; i++) {
+      c[i] = slopes[i] - slopes[i - 1];
+    }
+    c[width - 1] = -slopes[width - 2];
   }
-  const b0 = 0;
 
   function predict(x) {
     let y = b0;
@@ -479,19 +506,6 @@ function initManual() {
     const mse = model ? manualMSE(model, target) : Infinity;
     mseStat.textContent = isFinite(mse) ? mse.toFixed(4) : '\u2014';
 
-    // Individual neurons (faint)
-    if (model && width <= 30) {
-      for (let i = 0; i < width; i++) {
-        const xs = [], ys = [];
-        for (let j = 0; j <= 200; j++) {
-          const x = j / 200;
-          xs.push(x);
-          ys.push(model.c[i] * ACT.relu.f(model.inputW * (x - model.kinks[i])));
-        }
-        plotCurve(ctx, xs, ys, manualMargin, cw, ch, manualXRange, yRange, 'rgba(140, 130, 110, 0.4)', 1.2);
-      }
-    }
-
     // Target
     const targetXs = [], targetYs = [];
     for (let i = 0; i <= 400; i++) {
@@ -503,6 +517,7 @@ function initManual() {
 
     // Network output
     if (model) {
+      // Sample the piecewise-linear fit densely so the kinks are visible.
       const netXs = [], netYs = [];
       for (let i = 0; i <= 400; i++) {
         const x = i / 400;
@@ -510,6 +525,28 @@ function initManual() {
         netYs.push(model.predict(x));
       }
       plotCurve(ctx, netXs, netYs, manualMargin, cw, ch, manualXRange, yRange, '#2c6fb7', 2.5);
+
+      // Mark kink positions where the fit meets the target exactly.
+      if (width <= 40) {
+        const plotW = cw - manualMargin.left - manualMargin.right;
+        const plotH = ch - manualMargin.top - manualMargin.bottom;
+        for (let i = 0; i < width; i++) {
+          const kx = model.kinks[i];
+          const ky = Math.max(yRange[0], Math.min(yRange[1], t.fn(kx)));
+          const px = manualMargin.left + ((kx - manualXRange[0]) / (manualXRange[1] - manualXRange[0])) * plotW;
+          const py = manualMargin.top + plotH - ((ky - yRange[0]) / (yRange[1] - yRange[0])) * plotH;
+          // Halo
+          ctx.fillStyle = 'rgba(44, 111, 183, 0.15)';
+          ctx.beginPath();
+          ctx.arc(px, py, 6, 0, Math.PI * 2);
+          ctx.fill();
+          // Core dot
+          ctx.fillStyle = '#2c6fb7';
+          ctx.beginPath();
+          ctx.arc(px, py, 3, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
     }
 
     renderManualTable(target);
@@ -524,13 +561,17 @@ function initManual() {
     if (!t.fn) return;
     const rows = [2, 4, 8, 16, 32, 60];
     const descriptions = {
-      2: 'A single bump + linear base \u2014 can barely match a sine',
-      4: 'Two bumps \u2014 roughly the positive and negative halves',
-      8: 'Coarse staircase \u2014 visible kinks at every sample',
-      16: 'Smooth-looking fit for most targets',
-      32: 'Near-perfect on sine; sharp transitions on step/spike',
-      60: 'Indistinguishable from the target on smooth functions'
+      2: 'Just the chord from x=0 to x=1 \u2014 one straight line',
+      4: '3 linear segments \u2014 rough outline',
+      8: '7 linear segments \u2014 recognizable shape',
+      16: '15 segments \u2014 smooth-looking on most targets',
+      32: '31 segments \u2014 nearly exact on sine and spike',
+      60: '59 segments \u2014 indistinguishable from smooth targets'
     };
+    // Update table header to reflect current target
+    const targetLabel = document.getElementById('manual-table-target');
+    if (targetLabel) targetLabel.textContent = t.label;
+
     let html = '';
     for (const N of rows) {
       const model = manualFit(target, N);

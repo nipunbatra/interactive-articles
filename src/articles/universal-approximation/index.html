@@ -157,20 +157,22 @@
       <!-- ─── Step 3 ─── -->
       <section class="step-section" id="step-3">
         <div class="step-badge">Step 3</div>
-        <h2>Stack bumps until the shape appears</h2>
+        <h2>Stack hinges into the shape</h2>
         <p>
-          Here is the whole theorem in plain English: if you can place a bump
-          anywhere, of any height and width, you can approximate any continuous
-          function as a sum of many little bumps. A wider hidden layer means
-          more bumps, means finer resolution.
+          Here's the whole theorem in plain English: a ReLU network with enough
+          hinges can match any smooth shape arbitrarily well. Every neuron adds
+          <em>one kink</em> to a piecewise-linear fit &mdash; so $N$ neurons give
+          $N-1$ straight segments joined at the kinks. Wide enough, and the
+          segments become dense enough that the fit is indistinguishable from
+          the target.
         </p>
         <p>
           Below, pick a target function &mdash; or <strong>draw your own</strong>
-          &mdash; and drag the width slider. The network uses
-          <strong>equally-spaced bias positions</strong> and sets each output
-          weight to the value of the target at that position&mdash;a crude,
-          hand-made approximation, but it already shows the shape snapping
-          into place as you add neurons.
+          &mdash; and drag the width slider. The network places $N$ kinks at
+          equally-spaced positions across $[0, 1]$ and picks output weights so
+          the fit passes <em>exactly</em> through the target at every kink; the
+          bits in between are straight lines. This is the classic
+          piecewise-linear interpolant, built entirely from ReLU hinges.
         </p>
 
         <div class="button-row" id="manual-scenario-buttons" role="group" aria-label="Target function">
@@ -194,8 +196,9 @@
           <canvas id="manualCanvas" width="920" height="360"></canvas>
           <figcaption>
             <span style="color:var(--target);font-weight:600">Orange</span> target.
-            <span style="color:var(--network);font-weight:600">Blue</span> network output.
-            Grey bumps: individual neurons (one per hidden unit).
+            <span style="color:var(--network);font-weight:600">Blue</span> piecewise-linear fit.
+            Blue dots mark the $N$ kinks where the fit passes exactly through
+            the target.
           </figcaption>
         </figure>
 
@@ -216,21 +219,25 @@
 
         <div class="callout callout--think">
           <strong>Watch the error drop.</strong>
-          Go from $N=1$ (one hinge, hopeless) to $N=60$ (sixty bumps, nearly
-          perfect). The curve literally <em>discretizes into a smoother and
-          smoother staircase</em> of little bumps. That staircase intuition is
-          exactly how Cybenko's original proof works: chop the x-axis into tiny
-          intervals and put a bump on each.
+          For <em>smooth</em> targets (sine, spike, bumpy), doubling $N$ shrinks
+          the MSE by roughly $16\times$ &mdash; the classic $1/N^2$ rate for
+          piecewise-linear interpolation of a smooth curve, squared. For
+          <em>sharp</em> features (step, zigzag corners), convergence is slower
+          because straight lines can't match corners. That gap between smooth
+          and sharp is one reason modern networks add <em>depth</em>: deep
+          layers can compose hinges into much sharper shapes than a single
+          layer of hinges ever can.
         </div>
       </section>
 
       <!-- ─── Step 4 ─── -->
       <section class="step-section" id="step-4">
         <div class="step-badge">Step 4</div>
-        <h2>Why can't one neuron just do it?</h2>
+        <h2>Why can't a few neurons just do it?</h2>
         <p>
-          The difficulty is geometric. Here's a table that makes the
-          bottleneck concrete for the <em>sine</em> target:
+          The difficulty is geometric. Here's a table of live MSE values for
+          the current target above &mdash; switch targets to see the numbers
+          update:
         </p>
         <div class="examples-table-wrap">
           <table class="examples-table">
@@ -238,7 +245,7 @@
               <tr>
                 <th>Hidden width $N$</th>
                 <th>What the network can express</th>
-                <th>Best achievable MSE on sine</th>
+                <th>MSE vs <span id="manual-table-target">sine</span></th>
               </tr>
             </thead>
             <tbody id="manual-table-body">
@@ -247,11 +254,12 @@
           </table>
         </div>
         <p>
-          Every row of this table is computed live from the current scenario.
-          Notice how the error falls roughly as $1/N^2$&mdash;doubling the
-          width quarters the error. Cybenko's theorem says this continues
-          forever: there's no wall you hit, only a trade-off between width
-          and accuracy.
+          Look at the scaling: for smooth targets (sine, spike, bumpy), doubling
+          $N$ cuts the MSE by roughly $16\times$ &mdash; error shrinks as
+          $1/N^2$, so MSE shrinks as $1/N^4$. For discontinuous targets (step)
+          the rate is much slower, around $1/N$. Cybenko's theorem says
+          convergence continues forever in either case: there's no wall you
+          hit, only a trade-off between width and accuracy.
         </p>
       </section>
 
