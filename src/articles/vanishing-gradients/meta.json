@@ -1,0 +1,20 @@
+{
+  "slug": "vanishing-gradients",
+  "title": "Vanishing Gradient Playground",
+  "date": "2026-04-25",
+  "tagline": "Watch gradients decay — or survive — through deep networks",
+  "summary": "Slide network depth from 1 to 50 layers. Toggle the activation between sigmoid, tanh, and ReLU. Watch gradient magnitudes at each layer on a log scale. Sigmoid collapses past 20 layers; ReLU stays alive. One slider, one visceral demo of why we abandoned sigmoid for deep networks.",
+  "readingTime": "6 min",
+  "difficulty": "Intermediate",
+  "collection": "Deep learning",
+  "order": 12,
+  "status": "published",
+  "tags": ["Vanishing Gradients", "Activation Functions", "Deep Learning", "Interactive"],
+  "highlights": [
+    "One slider for depth, three activation buttons — every combination is live.",
+    "Color-coded bars: green when gradients are healthy, yellow when they are shrinking, red when they are effectively zero.",
+    "Dramatic collapse for sigmoid past 20 layers: 0.25^20 ≈ 10^-12, literally below float precision.",
+    "See why ReLU changed deep learning: gradients stay at order 10^-1 even at 50 layers.",
+    "Live readout of the input-layer gradient in scientific notation."
+  ]
+}

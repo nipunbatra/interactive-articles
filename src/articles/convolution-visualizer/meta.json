@@ -1,0 +1,20 @@
+{
+  "slug": "convolution-visualizer",
+  "title": "Convolution, Step by Step",
+  "date": "2026-04-28",
+  "tagline": "Watch a kernel slide across an image, one dot product at a time",
+  "summary": "Pick a 3×3 kernel — edge detector, sharpen, blur, or your own — and step through a convolution one position at a time. See the input region highlighted, the element-wise products inside the kernel, and the output feature map building up. Adjust padding and stride live. This is the mechanics of every CNN, laid bare.",
+  "readingTime": "8 min",
+  "difficulty": "Intermediate",
+  "collection": "Deep learning",
+  "order": 13,
+  "status": "published",
+  "tags": ["Convolution", "CNN", "Computer Vision", "Deep Learning", "Interactive"],
+  "highlights": [
+    "Five preset kernels — horizontal edge, vertical edge, sharpen, blur, and a fully editable custom 3×3.",
+    "Step / Play / Reset controls let you walk through one dot product at a time or watch the kernel sweep the image in real time.",
+    "The middle panel shows the exact input × kernel products at the current position — the arithmetic of convolution, not an abstraction.",
+    "Padding slider (0–2) and stride selector (1–2) — watch the output grid resize live as you adjust them.",
+    "Live KaTeX rendering of the output dimension formula with actual numbers: O = ⌊(W − K + 2P)/S⌋ + 1."
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "slug": "softmax-temperature",
+  "title": "Softmax & Temperature",
+  "date": "2026-04-20",
+  "tagline": "How temperature reshapes a probability distribution — and samples from it",
+  "summary": "Edit logits live and watch softmax turn them into probabilities. Slide the temperature knob from 0.05 to 5 and see a peaky distribution morph into a uniform one. Draw one sample at a time or 10,000 at once — the same dial that powers ChatGPT creativity, knowledge distillation, and calibration.",
+  "readingTime": "12 min",
+  "difficulty": "Intermediate",
+  "collection": "Deep learning",
+  "order": 10,
+  "status": "published",
+  "tags": ["Softmax", "Sampling", "Temperature", "Deep Learning", "Interactive"],
+  "highlights": [
+    "Start with editable logits and see softmax preserve ordering while exponentiating differences.",
+    "Drag the temperature slider and watch the distribution morph from argmax to uniform with live entropy readout.",
+    "Draw individual samples and see the random draw u land on a cumulative bar — the exact mechanism LLMs use to pick the next token.",
+    "Run 10,000 samples and watch the empirical histogram converge onto the true softmax probabilities (Monte Carlo convergence live).",
+    "Five real-world settings where temperature shows up: LLM generation, distillation, diffusion guidance, RL exploration, and calibration."
+  ]
+}
