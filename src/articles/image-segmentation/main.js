@@ -27,36 +27,52 @@ function pascalColor(idx) {
   return [r, g, b];
 }
 
+// Samples use picsum.photos with specific deterministic IDs.
+// These CDN URLs are CORS-enabled and stable; each `/id/N` returns the
+// same photo every time. We include fallback Wikimedia URLs in case the
+// primary fails.
 const SAMPLES = [
   {
-    key: 'cat-couch',
-    label: 'Cat on couch',
-    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a3/June_odd-eyed-cat.jpg/640px-June_odd-eyed-cat.jpg'
+    key: 'puppy',
+    label: 'Puppy',
+    urls: [
+      'https://picsum.photos/id/237/640/400'
+    ]
   },
   {
     key: 'dog',
-    label: 'Dog outdoors',
-    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/18/Dog_Breeds.jpg/640px-Dog_Breeds.jpg'
-  },
-  {
-    key: 'bicycle',
-    label: 'Bicycle',
-    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7e/BrompProm.jpg/640px-BrompProm.jpg'
-  },
-  {
-    key: 'horse',
-    label: 'Horse in field',
-    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/de/Nokota_Horses_cropped.jpg/640px-Nokota_Horses_cropped.jpg'
+    label: 'Corgi',
+    urls: [
+      'https://picsum.photos/id/1025/640/400'
+    ]
   },
   {
     key: 'person',
-    label: 'Portrait',
-    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/Cindy_Crawford_1988.jpg/640px-Cindy_Crawford_1988.jpg'
+    label: 'Person in scene',
+    urls: [
+      'https://picsum.photos/id/64/640/400'
+    ]
   },
   {
-    key: 'sofa',
-    label: 'Sofa / living room',
-    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8d/Modern_Living_Room_with_Large_Windows.jpg/640px-Modern_Living_Room_with_Large_Windows.jpg'
+    key: 'bike',
+    label: 'Bicycle / urban',
+    urls: [
+      'https://picsum.photos/id/145/640/400'
+    ]
+  },
+  {
+    key: 'living-room',
+    label: 'Living room',
+    urls: [
+      'https://picsum.photos/id/116/640/400'
+    ]
+  },
+  {
+    key: 'horse',
+    label: 'Horse / field',
+    urls: [
+      'https://picsum.photos/id/173/640/400'
+    ]
   }
 ];
 
@@ -137,14 +153,25 @@ function loadImageFromElement(img) {
   else setModelStatus('is-loading', 'Waiting for segmenter&hellip;');
 }
 
-async function loadImageFromUrl(url) {
+function loadImageFromUrl(url) {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = () => resolve(img);
-    img.onerror = (e) => reject(e);
+    img.onerror = (e) => reject(new Error(`Failed to load ${url}`));
     img.src = url;
   });
+}
+
+async function loadImageWithFallback(urls) {
+  for (const url of urls) {
+    try {
+      return await loadImageFromUrl(url);
+    } catch (err) {
+      console.warn(err.message, '— trying next fallback');
+    }
+  }
+  throw new Error('All sample URLs failed');
 }
 
 async function pickSample(key) {
@@ -153,13 +180,14 @@ async function pickSample(key) {
   document.querySelectorAll('#sample-grid .sample-thumb').forEach((b) =>
     b.classList.toggle('is-active', b.dataset.sample === key));
   const cap = document.getElementById('prelude-caption');
-  if (cap) cap.textContent = `Loading “${s.label}”&hellip;`;
+  if (cap) cap.textContent = `Loading “${s.label}”\u2026`;
   try {
-    const img = await loadImageFromUrl(s.url);
+    const img = await loadImageWithFallback(s.urls);
     loadImageFromElement(img);
     if (cap) cap.textContent = `${s.label} — DeepLab output drawn over it.`;
   } catch (err) {
-    if (cap) cap.textContent = `Could not load “${s.label}”. Try uploading a photo.`;
+    console.error('Sample load failed:', err);
+    if (cap) cap.textContent = `Could not load “${s.label}”. Drop a photo into the upload area above.`;
   }
 }
 

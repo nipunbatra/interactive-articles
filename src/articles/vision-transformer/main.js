@@ -20,34 +20,34 @@ const DEFAULT_PATCH_IDX = 1;                    // 64 px → 7x7 patches → ali
 
 const SAMPLES = [
   {
-    key: 'cat',
-    label: 'Cat portrait',
-    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a3/June_odd-eyed-cat.jpg/640px-June_odd-eyed-cat.jpg'
-  },
-  {
     key: 'dog',
-    label: 'Dog outdoors',
-    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/18/Dog_Breeds.jpg/640px-Dog_Breeds.jpg'
+    label: 'Puppy',
+    urls: ['https://picsum.photos/id/237/640/640']
   },
   {
-    key: 'horse',
-    label: 'Horse',
-    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/de/Nokota_Horses_cropped.jpg/640px-Nokota_Horses_cropped.jpg'
+    key: 'corgi',
+    label: 'Corgi',
+    urls: ['https://picsum.photos/id/1025/640/640']
   },
   {
-    key: 'landscape',
-    label: 'Landscape',
-    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e8/Mount_Hood_reflected_in_Mirror_Lake%2C_Oregon.jpg/640px-Mount_Hood_reflected_in_Mirror_Lake%2C_Oregon.jpg'
+    key: 'mountain',
+    label: 'Mountain landscape',
+    urls: ['https://picsum.photos/id/29/640/640']
   },
   {
-    key: 'bird',
-    label: 'Bird',
-    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/45/Eopsaltria_australis_-_Mogo_Campground.jpg/640px-Eopsaltria_australis_-_Mogo_Campground.jpg'
+    key: 'person',
+    label: 'Person',
+    urls: ['https://picsum.photos/id/64/640/640']
+  },
+  {
+    key: 'bike',
+    label: 'Bike / urban',
+    urls: ['https://picsum.photos/id/145/640/640']
   },
   {
     key: 'fruit',
-    label: 'Fruit / objects',
-    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/01/Fruit_salad_with_strawberry_sauce.jpg/640px-Fruit_salad_with_strawberry_sauce.jpg'
+    label: 'Still life',
+    urls: ['https://picsum.photos/id/292/640/640']
   }
 ];
 
@@ -102,14 +102,25 @@ function loadImageFromElement(img) {
   else setModelStatus('is-loading', 'Waiting for model&hellip;');
 }
 
-async function loadImageFromUrl(url) {
+function loadImageFromUrl(url) {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = () => resolve(img);
-    img.onerror = (e) => reject(e);
+    img.onerror = () => reject(new Error(`Failed to load ${url}`));
     img.src = url;
   });
+}
+
+async function loadImageWithFallback(urls) {
+  for (const url of urls) {
+    try {
+      return await loadImageFromUrl(url);
+    } catch (err) {
+      console.warn(err.message, '— trying next fallback');
+    }
+  }
+  throw new Error('All sample URLs failed');
 }
 
 async function pickSample(key) {
@@ -118,10 +129,10 @@ async function pickSample(key) {
   document.querySelectorAll('#sample-grid .sample-thumb').forEach((b) =>
     b.classList.toggle('is-active', b.dataset.sample === key));
   try {
-    const img = await loadImageFromUrl(s.url);
+    const img = await loadImageWithFallback(s.urls);
     loadImageFromElement(img);
   } catch (err) {
-    console.error('Sample failed:', err);
+    console.error('Sample load failed:', err);
   }
 }
 

@@ -1,0 +1,19 @@
+{
+  "slug": "optical-flow",
+  "title": "Optical Flow, Frame by Frame",
+  "date": "2026-05-05",
+  "tagline": "Watch real Lucas-Kanade and dense flow compute live on a sports clip",
+  "summary": "Play a real video frame-by-frame and watch a real Lucas-Kanade solver compute the 2-D velocity of every pixel, then colour the result as an HSV heatmap. Upload your own clip, step through frames, and feel the brightness constancy assumption break on fast-moving sports action.",
+  "readingTime": "16 min",
+  "difficulty": "Intermediate",
+  "collection": "Computer vision",
+  "order": 17,
+  "status": "published",
+  "tags": ["Optical Flow", "Lucas-Kanade", "Dense Flow", "Video", "Computer Vision", "Interactive"],
+  "highlights": [
+    "A live video player with frame-by-frame step controls; pick a sports clip or upload your own.",
+    "Real per-block Lucas-Kanade runs in pure JS on the current pair of frames — arrows drawn where corners are strong.",
+    "Dense flow on a 80×60 grid rendered as an HSV heatmap: hue = direction, value = magnitude.",
+    "Slide a magnitude threshold to filter out noise and watch motion pop out of clutter."
+  ]
+}

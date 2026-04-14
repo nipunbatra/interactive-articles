@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Optical Flow, Frame by Frame</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../vendor/katex/katex.min.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <article class="article">
+      <header class="article-header">
+        <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+        <p class="kicker">Interactive Explainer</p>
+        <h1>Optical Flow, Frame by Frame</h1>
+        <p class="abstract">
+          Optical flow is the 2-D velocity field that says, for every pixel
+          in a video frame, where it moved in the next frame. This page runs
+          a real Lucas-Kanade solver and a real block-matching dense flow
+          estimator in your browser, on real video. Step through a sports
+          clip one frame at a time and watch the vectors fall out of the
+          brightness-constancy equations.
+        </p>
+        <div class="byline">
+          <span>~16 min</span>
+          <span>Computer Vision &middot; Video &middot; Classical CV</span>
+        </div>
+      </header>
+
+      <!-- ─── Prelude ─── -->
+      <section class="step-section" id="prelude">
+        <div class="step-badge">Prelude</div>
+        <h2>Motion is a 2-D vector field</h2>
+        <p>
+          Play a video for a few frames and every pixel has a story:
+          stationary background pixels don't move; a tennis ball travels a
+          huge distance; a runner's arms and legs move differently from
+          their torso. Collecting all those per-pixel displacements between
+          two consecutive frames gives you a <strong>flow field</strong>.
+          Each cell is a 2-D vector $(u, v)$ in pixels-per-frame. That's
+          it&mdash;that's optical flow.
+        </p>
+        <p>
+          Historically, motion estimation drove the compression behind every
+          video codec (MPEG, H.264, AV1), the tracking in camcorders, and
+          the slo-mo in modern smartphones. Modern SLAM, 3-D reconstruction,
+          and video diffusion models still lean on it.
+        </p>
+
+        <h3>Pick a clip</h3>
+        <div class="video-picker">
+          <label class="upload-zone" id="upload-zone" for="video-input">
+            <strong>Drop a video here, or click to upload.</strong>
+            <small>
+              MP4 / WebM work best. A short sports or action clip is ideal.
+              Playback and flow computation run locally&mdash;nothing is uploaded.
+            </small>
+            <input type="file" id="video-input" accept="video/*" />
+          </label>
+          <div>
+            <div class="sample-grid" id="sample-grid"></div>
+            <p style="font-family: var(--sans); color: var(--muted); font-size: 0.8rem; margin: 0.5rem 0 0;">
+              Four public-domain / CC-licensed sample clips.
+            </p>
+          </div>
+        </div>
+
+        <div class="interactive-figure">
+          <video id="video" crossorigin="anonymous" playsinline muted preload="auto" style="width: 100%; max-width: 720px; display: none;"></video>
+          <div class="image-stage-wrap">
+            <canvas id="preludeCanvas" class="video-canvas" width="640" height="360"></canvas>
+          </div>
+          <figcaption id="prelude-caption">Pick a sample or drop your own video.</figcaption>
+          <div class="player-controls" id="player-controls">
+            <button class="action-btn action-btn--primary" id="btn-play">Play</button>
+            <button class="action-btn action-btn--ghost" id="btn-step-back">&larr; Step</button>
+            <button class="action-btn action-btn--ghost" id="btn-step-fwd">Step &rarr;</button>
+            <button class="action-btn action-btn--ghost action-btn--small" id="btn-reset">Reset</button>
+            <span class="player-status" id="player-status">frame 0 / 0</span>
+          </div>
+        </div>
+
+        <div class="stat-strip">
+          <div class="stat-pill"><span class="stat-label">Video size</span><span class="stat-value" id="vid-size">—</span></div>
+          <div class="stat-pill stat-pill--accent"><span class="stat-label">Frame rate</span><span class="stat-value" id="vid-fps">—</span></div>
+          <div class="stat-pill stat-pill--warm"><span class="stat-label">Flow compute</span><span class="stat-value" id="flow-ms">—</span></div>
+        </div>
+      </section>
+
+      <!-- ─── Step 1 ─── -->
+      <section class="step-section" id="step-1">
+        <div class="step-badge">Step 1</div>
+        <h2>Two frames, one question</h2>
+        <p>
+          Every optical-flow algorithm starts with the same setup: the
+          current frame $I_t$ and the previous frame $I_{t-1}$. For each
+          pixel at position $(x, y)$ in frame $t$, we ask: <em>where was
+          this pixel in frame $t-1$</em>? Call the answer
+          $(x - u, y - v)$. The pair $(u, v)$ is the flow at $(x, y)$.
+        </p>
+        <p>
+          Step through the clip and look at the before/after below. The
+          stationary parts look almost identical; the moving parts are
+          ghosted or duplicated. That's exactly the signal flow algorithms
+          exploit.
+        </p>
+
+        <div class="split-grid">
+          <div class="interactive-figure">
+            <canvas id="prevCanvas" class="video-canvas" width="320" height="180"></canvas>
+            <figcaption>Previous frame $I_{t-1}$</figcaption>
+          </div>
+          <div class="interactive-figure">
+            <canvas id="currCanvas" class="video-canvas" width="320" height="180"></canvas>
+            <figcaption>Current frame $I_t$</figcaption>
+          </div>
+        </div>
+
+        <h3>The difference image $I_t - I_{t-1}$</h3>
+        <p>
+          Subtract frame $t-1$ from frame $t$ pixel-by-pixel. Static pixels
+          cancel out and go grey; moving pixels leave a bright residual
+          that traces out the motion.
+        </p>
+        <div class="interactive-figure">
+          <canvas id="diffCanvas" class="video-canvas" width="640" height="360"></canvas>
+          <figcaption>Frame difference — bright = pixel changed, grey = static.</figcaption>
+        </div>
+      </section>
+
+      <!-- ─── Step 2 ─── -->
+      <section class="step-section" id="step-2">
+        <div class="step-badge">Step 2</div>
+        <h2>The brightness constancy assumption</h2>
+        <p>
+          The foundation of (almost) every classical optical flow method is
+          a very simple claim:
+        </p>
+        <div class="math-block" id="math-bc"></div>
+        <p>
+          A pixel's brightness at $(x, y, t)$ equals its brightness at
+          $(x + u, y + v, t + 1)$. That's the brightness constancy
+          assumption. First-order Taylor-expand around $(x, y, t)$ and you
+          get the <strong>optical flow constraint equation</strong>:
+        </p>
+        <div class="math-block" id="math-ofce"></div>
+        <p>
+          Here $I_x$, $I_y$, $I_t$ are the spatial and temporal derivatives
+          of the image. This is <em>one equation in two unknowns</em>
+          ($u, v$). That's the <strong>aperture problem</strong>: locally,
+          you can only measure motion perpendicular to intensity gradients.
+        </p>
+        <div class="callout callout--warn">
+          <strong>When the assumption fails.</strong>
+          Dramatic lighting changes, exposure flicker, shadows, specular
+          highlights, occlusions (a pixel genuinely has no predecessor),
+          big displacements beyond the Taylor radius&mdash;all break
+          brightness constancy. Modern networks (RAFT, FlowFormer) use it
+          as a soft prior, not a hard constraint.
+        </div>
+      </section>
+
+      <!-- ─── Step 3 ─── -->
+      <section class="step-section" id="step-3">
+        <div class="step-badge">Step 3</div>
+        <h2>Lucas-Kanade: constrain the missing equation</h2>
+        <p>
+          Lucas and Kanade (1981) get around the aperture problem by
+          assuming the flow is <em>locally constant</em>: every pixel in a
+          small window $W$ around $(x, y)$ shares the same $(u, v)$. That
+          turns the single OFCE at one pixel into an over-determined system
+          of many OFCEs at neighbouring pixels, which you solve by least
+          squares:
+        </p>
+        <div class="math-block" id="math-lk"></div>
+        <p>
+          The $2 \times 2$ matrix $\sum \nabla I\, \nabla I^\top$ is the
+          classic <strong>structure tensor</strong>. Its eigenvalues tell you
+          whether the window has reliable flow: two big eigenvalues = a
+          corner (well-conditioned, unique answer); one big one = an edge
+          (aperture problem); zero eigenvalues = a textureless region
+          (flow is hopeless).
+        </p>
+
+        <h3>Real Lucas-Kanade, live</h3>
+        <p>
+          Below, we pick out the strongest corner points in the current
+          frame using a small Shi-Tomasi score (the min-eigenvalue of the
+          structure tensor), solve Lucas-Kanade at each corner, and draw
+          the flow vectors. The math is all in the browser: spatial gradients
+          by Sobel, temporal gradient by frame difference, window-local
+          least squares per corner.
+        </p>
+
+        <div class="control-row control-row--three">
+          <div class="control-block">
+            <label>Window size <span><span id="win-val">15</span> px</span></label>
+            <input type="range" id="win-slider" min="5" max="31" step="2" value="15" />
+          </div>
+          <div class="control-block">
+            <label>Max features <span><span id="nfeat-val">60</span></span></label>
+            <input type="range" id="nfeat-slider" min="10" max="200" step="5" value="60" />
+          </div>
+          <div class="control-block">
+            <label>Min corner quality <span><span id="quality-val">0.02</span></span></label>
+            <input type="range" id="quality-slider" min="0.001" max="0.2" step="0.001" value="0.02" />
+          </div>
+        </div>
+
+        <div class="interactive-figure">
+          <canvas id="lkCanvas" class="video-canvas" width="640" height="360"></canvas>
+          <figcaption>
+            <span style="color: #2c6fb7; font-weight: 700">Blue dots</span> = tracked corners.
+            <span style="color: #d9622b; font-weight: 700">Orange arrows</span> = estimated flow (magnified 4×).
+          </figcaption>
+        </div>
+
+        <div class="stat-strip">
+          <div class="stat-pill"><span class="stat-label">Corners found</span><span class="stat-value" id="lk-count">0</span></div>
+          <div class="stat-pill stat-pill--accent stat-pill--big"><span class="stat-label">Mean |flow|</span><span class="stat-value" id="lk-mean">—</span></div>
+          <div class="stat-pill stat-pill--warm"><span class="stat-label">Max |flow|</span><span class="stat-value" id="lk-max">—</span></div>
+        </div>
+      </section>
+
+      <!-- ─── Step 4 ─── -->
+      <section class="step-section" id="step-4">
+        <div class="step-badge">Step 4</div>
+        <h2>Dense flow: one vector per pixel</h2>
+        <p>
+          Sparse LK on a handful of corners is great for tracking but leaves
+          most of the image unexplained. Dense methods (Horn-Schunck 1981,
+          Farnebäck 2003, RAFT 2020) produce <em>one vector per pixel</em>.
+          Here we use a simple approach: run LK on a regular grid of
+          positions across the image, yielding a dense-enough flow field to
+          visualise.
+        </p>
+        <p>
+          The standard visualisation maps every flow vector to an HSV colour:
+          <strong>hue = direction</strong>, <strong>saturation = 1</strong>,
+          <strong>value = magnitude</strong> (clamped). Red for rightward
+          motion, green for up, cyan for left, magenta for down. A still
+          pixel is black.
+        </p>
+
+        <div class="control-row">
+          <div class="control-block">
+            <label>Grid spacing <span><span id="grid-val">8</span> px</span></label>
+            <input type="range" id="grid-slider" min="4" max="20" step="1" value="8" />
+          </div>
+          <div class="control-block">
+            <label>Magnitude threshold <span><span id="mag-val">0.5</span> px</span></label>
+            <input type="range" id="mag-slider" min="0" max="5" step="0.1" value="0.5" />
+          </div>
+        </div>
+
+        <div class="interactive-figure">
+          <canvas id="denseCanvas" class="video-canvas" width="640" height="360"></canvas>
+          <figcaption>
+            Dense flow HSV heatmap (overlaid on the current frame). Drag the
+            threshold slider to filter noise.
+          </figcaption>
+          <div style="display: flex; gap: 1.5rem; justify-content: center; margin-top: 1rem; align-items: center;">
+            <div class="color-wheel"></div>
+            <div style="font-family: var(--sans); font-size: 0.9rem; color: var(--muted); max-width: 24ch;">
+              Colour wheel: hue is the direction of motion (red = right,
+              green = up, cyan = left, magenta = down).
+            </div>
+          </div>
+        </div>
+
+        <div class="callout callout--think">
+          <strong>What to watch for.</strong>
+          On a panning shot, the whole image moves in one direction and the
+          heatmap becomes a uniform colour (e.g. all red when the camera
+          pans right). On a sports clip with a moving ball or player, the
+          background goes dark (tiny flow, clamped to black) while the fast
+          object lights up bright. That's optical flow doing its job as a
+          motion segmenter for free.
+        </div>
+      </section>
+
+      <!-- ─── Step 5 ─── -->
+      <section class="step-section" id="step-5">
+        <div class="step-badge">Step 5</div>
+        <h2>Why classical methods fail on big motion</h2>
+        <p>
+          Taylor expansion around the current pixel is only accurate for
+          small displacements&mdash;typically 1-2 pixels. On a 60 fps video
+          of slow-moving objects that's fine. On a 24 fps video of a pitched
+          baseball, the ball moves dozens of pixels per frame and LK's
+          Taylor-expansion breaks.
+        </p>
+        <p>
+          The classical fix is <strong>pyramidal Lucas-Kanade</strong>:
+          downsample the image into a Gaussian pyramid, estimate flow at
+          the coarse level (where motion is small in pixels), warp the
+          next-level frame using that coarse estimate, and refine. Run on
+          the same clip at 4&times; downscale and you can track the ball
+          again.
+        </p>
+
+        <div class="examples-table-wrap">
+          <table class="examples-table">
+            <thead>
+              <tr><th>Family</th><th>Key idea</th><th>Strength</th><th>Weakness</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Lucas-Kanade (this page)</strong></td>
+                <td>Local window least-squares under brightness constancy.</td>
+                <td>Fast, interpretable, no training.</td>
+                <td>Small motions only, aperture problem, brightness-dependent.</td>
+              </tr>
+              <tr>
+                <td><strong>Pyramidal LK</strong></td>
+                <td>LK at coarse scale then iterative refinement.</td>
+                <td>Handles large motions, real-time.</td>
+                <td>Still brightness-dependent; no occlusion handling.</td>
+              </tr>
+              <tr>
+                <td><strong>Horn-Schunck</strong></td>
+                <td>Global energy: brightness constancy + smoothness prior.</td>
+                <td>Dense output, smooth fields.</td>
+                <td>Over-smooths motion boundaries; slow.</td>
+              </tr>
+              <tr>
+                <td><strong>Farnebäck</strong></td>
+                <td>Fit local polynomial to image; solve for affine displacement.</td>
+                <td>Sub-pixel accurate, dense, real-time on CPU.</td>
+                <td>Still locally affine assumption; tuned hyperparameters.</td>
+              </tr>
+              <tr>
+                <td><strong>Deep flow (FlowNet, PWC, RAFT)</strong></td>
+                <td>Learned matching on feature pyramids, iterative refinement with GRUs.</td>
+                <td>State-of-the-art; handles occlusion &amp; lighting.</td>
+                <td>Needs GPU; expensive training; can hallucinate.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ─── Step 6 ─── -->
+      <section class="step-section" id="step-6">
+        <div class="step-badge">Step 6</div>
+        <h2>The big number</h2>
+        <p>
+          Flow is dense by definition. Every pixel, every frame, two numbers.
+          For one second of 720p video at 30 fps that's:
+        </p>
+        <div class="reveal-card">
+          <h3>Flow vectors in one second of 720p @ 30 fps</h3>
+          <div class="reveal-number">55,296,000</div>
+          <p>
+            1280 × 720 pixels × 30 frames × 2 components = 55.3&nbsp;million
+            numbers. That's why every flow algorithm you'll ever use is
+            designed to be fast per pixel&mdash;classical methods do one
+            matrix-vector solve; neural methods do one GPU sweep.
+          </p>
+        </div>
+      </section>
+
+      <!-- ─── Step 7 ─── -->
+      <section class="step-section" id="step-7">
+        <div class="step-badge">Step 7</div>
+        <h2>Four ways optical flow trips people up</h2>
+        <div class="misconception-grid">
+          <div class="misconception-card">
+            <span class="misconception-icon">Myth</span>
+            <p><strong>"Optical flow = motion in 3-D."</strong><br />
+              Optical flow is 2-D displacement in the image plane. A camera
+              zooming in produces large flow without any object moving. Flow
+              from rotating camera looks like translation. Recovering 3-D
+              requires stereo, depth sensors, or structure-from-motion.</p>
+          </div>
+          <div class="misconception-card">
+            <span class="misconception-icon">Myth</span>
+            <p><strong>"Brightness constancy holds for modern cameras."</strong><br />
+              Auto-exposure, auto-white-balance, HDR merging, and rolling
+              shutters routinely violate it. A fluorescent light flickering
+              at 50/60 Hz is a classic trap. Real pipelines photometrically
+              correct or learn to ignore these.</p>
+          </div>
+          <div class="misconception-card">
+            <span class="misconception-icon">Myth</span>
+            <p><strong>"The flow is well-defined at occlusions."</strong><br />
+              Pixels that appear for the first time (newly disoccluded) or
+              disappear (newly occluded) have no meaningful predecessor or
+              successor. Classical methods produce garbage there; modern
+              methods explicitly predict an occlusion mask alongside flow.</p>
+          </div>
+          <div class="misconception-card">
+            <span class="misconception-icon">Myth</span>
+            <p><strong>"More pixels = better flow."</strong><br />
+              A textureless wall has zero spatial gradient, which means the
+              structure-tensor is singular and LK fails no matter how many
+              pixels you feed it. Flow quality depends on image content,
+              not resolution.</p>
+          </div>
+        </div>
+
+        <div class="callout callout--think" style="margin-top: 2rem;">
+          <strong>Final takeaway.</strong>
+          Optical flow is the oldest motion primitive in computer vision,
+          built on one equation per pixel and one assumption (brightness
+          constancy). You've now seen that equation fail on big motion,
+          seen Lucas-Kanade solve it at corners, and seen a dense flow
+          field light up the moving parts of a real clip. Every modern
+          tracking / stabilisation / video codec / SLAM pipeline still
+          starts from this same pixel-sized question: where did you come
+          from?
+        </div>
+      </section>
+    </article>
+
+    <script src="../vendor/katex/katex.min.js"></script>
+    <script type="module" src="main.js"></script>
+  </body>
+</html>

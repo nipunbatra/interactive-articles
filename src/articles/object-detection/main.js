@@ -5,40 +5,39 @@
 // real output — no synthetic boxes anywhere.
 // ============================================================
 
-// ---------- Sample photos (CC0 / public domain sources) ----------
-// We use Wikimedia Commons thumbnails which serve with CORS headers so the
-// canvas can read pixel data for TF.js. If any fail, the upload fallback
-// still works.
+// ---------- Sample photos ----------
+// Use picsum.photos with specific IDs — stable URLs, always CORS-enabled.
+// Upload is the primary path; samples just save a click for first-time viewers.
 const SAMPLES = [
+  {
+    key: 'dog',
+    label: 'Puppy',
+    urls: ['https://picsum.photos/id/237/640/400']
+  },
+  {
+    key: 'corgi',
+    label: 'Corgi',
+    urls: ['https://picsum.photos/id/1025/640/400']
+  },
+  {
+    key: 'person',
+    label: 'Person in scene',
+    urls: ['https://picsum.photos/id/64/640/400']
+  },
   {
     key: 'street',
     label: 'Street scene',
-    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/13/Times_Square%2C_New_York_City_%28HDR%29.jpg/640px-Times_Square%2C_New_York_City_%28HDR%29.jpg'
+    urls: ['https://picsum.photos/id/145/640/400']
   },
   {
-    key: 'dog',
-    label: 'Dog close-up',
-    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a3/June_odd-eyed-cat.jpg/640px-June_odd-eyed-cat.jpg'
+    key: 'room',
+    label: 'Living room',
+    urls: ['https://picsum.photos/id/116/640/400']
   },
   {
     key: 'kitchen',
-    label: 'Kitchen table',
-    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/01/Fruit_salad_with_strawberry_sauce.jpg/640px-Fruit_salad_with_strawberry_sauce.jpg'
-  },
-  {
-    key: 'traffic',
-    label: 'Traffic & people',
-    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/cf/Pedestrians_and_cars_%2811024436814%29.jpg/640px-Pedestrians_and_cars_%2811024436814%29.jpg'
-  },
-  {
-    key: 'living',
-    label: 'Living room',
-    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8d/Modern_Living_Room_with_Large_Windows.jpg/640px-Modern_Living_Room_with_Large_Windows.jpg'
-  },
-  {
-    key: 'crowd',
-    label: 'Crowd',
-    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9a/Crowd_of_pedestrians_-_Oxford_Circus_-_London_2015.jpg/640px-Crowd_of_pedestrians_-_Oxford_Circus_-_London_2015.jpg'
+    label: 'Still life',
+    urls: ['https://picsum.photos/id/292/640/400']
   }
 ];
 
@@ -112,14 +111,25 @@ function loadImageFromElement(img) {
   else setModelStatus('is-loading', 'Waiting for detector&hellip;');
 }
 
-async function loadImageFromUrl(url) {
+function loadImageFromUrl(url) {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = () => resolve(img);
-    img.onerror = (e) => reject(e);
+    img.onerror = () => reject(new Error(`Failed to load ${url}`));
     img.src = url;
   });
+}
+
+async function loadImageWithFallback(urls) {
+  for (const url of urls) {
+    try {
+      return await loadImageFromUrl(url);
+    } catch (err) {
+      console.warn(err.message, '— trying next fallback');
+    }
+  }
+  throw new Error('All sample URLs failed');
 }
 
 async function pickSample(key) {
@@ -129,13 +139,14 @@ async function pickSample(key) {
     b.classList.toggle('is-active', b.dataset.sample === key);
   });
   const cap = document.getElementById('prelude-caption');
-  if (cap) cap.textContent = `Loading “${s.label}”&hellip;`;
+  if (cap) cap.textContent = `Loading “${s.label}”\u2026`;
   try {
-    const img = await loadImageFromUrl(s.url);
+    const img = await loadImageWithFallback(s.urls);
     loadImageFromElement(img);
     if (cap) cap.textContent = `${s.label} — detector predictions will be drawn over it.`;
   } catch (err) {
-    if (cap) cap.textContent = `Could not load “${s.label}”. Try uploading a photo instead.`;
+    console.error('Sample load failed:', err);
+    if (cap) cap.textContent = `Could not load “${s.label}”. Drop a photo into the upload area.`;
   }
 }
 
