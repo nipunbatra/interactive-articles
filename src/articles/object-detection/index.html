@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Object Detection, from Boxes Up</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../vendor/katex/katex.min.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <article class="article">
+      <header class="article-header">
+        <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+        <p class="kicker">Interactive Explainer</p>
+        <h1>Object Detection, from Boxes Up</h1>
+        <p class="abstract">
+          Classification asks "what is in this image?" Object detection asks
+          "what <em>and where</em>?"&mdash;and answers with bounding boxes.
+          This page strips detection down to its plumbing: boxes, Intersection
+          over Union, confidence thresholds, precision/recall trade-offs, and
+          non-max suppression&mdash;each one computed live on a scene you pick.
+        </p>
+        <div class="byline">
+          <span>~14 min</span>
+          <span>Computer Vision &middot; Object Detection</span>
+        </div>
+      </header>
+
+      <!-- ─── Prelude ─── -->
+      <section class="step-section" id="prelude">
+        <div class="step-badge">Prelude</div>
+        <h2>What does a detector actually output?</h2>
+        <p>
+          A modern object detector ingests an image and emits a list of
+          rows. Each row looks like this:
+        </p>
+        <div class="math-block" id="math-row"></div>
+        <p>
+          Four numbers for the bounding box, a class label (cat, car, person…),
+          and a confidence score in $[0, 1]$. That's it. Everything clever in
+          object detection&mdash;anchors, feature pyramids, DETR's set
+          loss&mdash;is just about <em>producing</em> that list well. Before
+          worrying about how the list is produced, you need a crisp
+          understanding of how it's <em>scored</em>. That's the job of this
+          page.
+        </p>
+
+        <h3>Pick a scene</h3>
+        <p>
+          Every step below follows whichever scene you pick here. Some are
+          easy (one cat, wide margins), some are deliberately nasty
+          (overlapping fruit, crowded pedestrians).
+        </p>
+        <div class="button-row" id="scene-buttons" role="group" aria-label="Choose scene">
+          <button class="mode-button is-active" data-scene="cat">Single cat</button>
+          <button class="mode-button" data-scene="pedestrians">Crowded pedestrians</button>
+          <button class="mode-button" data-scene="cars">Cars on a road</button>
+          <button class="mode-button" data-scene="fruit">Overlapping fruit</button>
+          <button class="mode-button" data-scene="dogs">Two dogs, one leash</button>
+        </div>
+      </section>
+
+      <!-- ─── Step 1 ─── -->
+      <section class="step-section" id="step-1">
+        <div class="step-badge">Step 1</div>
+        <h2>A bounding box is four numbers</h2>
+        <p>
+          A bounding box is just $(x_1, y_1, x_2, y_2)$: the top-left and
+          bottom-right corners. People also write it as $(x, y, w, h)$
+          (center + size) or $(c_x, c_y, w, h)$. All three are equivalent and
+          trivially convertible. Area is width × height. Two boxes overlap if
+          and only if both their x-ranges and y-ranges overlap.
+        </p>
+        <p>
+          Below, drag the corners of the <span style="color:var(--truth);font-weight:700">green
+          ground-truth box</span> and the <span style="color:var(--pred);font-weight:700">orange
+          predicted box</span>. The yellow-purple overlap region is drawn in
+          real time, and the numeric areas update beside it.
+        </p>
+
+        <div class="interactive-figure">
+          <canvas id="iouCanvas" class="scene-canvas" width="640" height="400"></canvas>
+          <figcaption>Drag either box by its centre; drag a corner to resize.</figcaption>
+        </div>
+
+        <div class="stat-strip">
+          <div class="stat-pill stat-pill--truth">
+            <span class="stat-label">Area (truth)</span>
+            <span class="stat-value" id="area-truth">—</span>
+          </div>
+          <div class="stat-pill stat-pill--pred">
+            <span class="stat-label">Area (pred)</span>
+            <span class="stat-value" id="area-pred">—</span>
+          </div>
+          <div class="stat-pill stat-pill--iou stat-pill--big">
+            <span class="stat-label">Intersection</span>
+            <span class="stat-value" id="area-inter">—</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── Step 2 ─── -->
+      <section class="step-section" id="step-2">
+        <div class="step-badge">Step 2</div>
+        <h2>Intersection over Union (IoU)</h2>
+        <p>
+          The single most important measurement in detection. IoU asks:
+          <em>what fraction of the combined area do the two boxes agree on?</em>
+        </p>
+        <div class="math-block" id="math-iou"></div>
+        <p>
+          IoU is always between 0 (no overlap) and 1 (exact match). Two boxes
+          that cover nearly the same region score near 1. Two boxes that
+          barely touch score near 0. A common convention: a prediction is a
+          "true positive" if its IoU with some ground-truth box exceeds a
+          threshold (typically 0.5).
+        </p>
+
+        <div class="split-grid">
+          <div>
+            <div class="stat-strip" style="grid-template-columns: 1fr;">
+              <div class="stat-pill stat-pill--iou stat-pill--big">
+                <span class="stat-label">IoU</span>
+                <span class="stat-value" id="iou-value">—</span>
+              </div>
+            </div>
+            <div class="metric-explain" id="iouExplain">Drag the boxes.</div>
+          </div>
+          <div>
+            <h3 style="margin-top: 0;">What a human would say</h3>
+            <div class="metric-explain" id="iouVerdict"
+                 style="background:white;border-color:var(--border)">
+              Move the boxes to see.
+            </div>
+            <div class="callout callout--warn">
+              <strong>The 0.5 threshold is a convention, not a law.</strong>
+              COCO averages AP over IoU thresholds from 0.5 to 0.95 in steps
+              of 0.05 precisely because a single threshold rewards lazy, slightly-off
+              boxes as much as pixel-perfect ones.
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── Step 3 ─── -->
+      <section class="step-section" id="step-3">
+        <div class="step-badge">Step 3</div>
+        <h2>Detectors output dozens of candidates per object</h2>
+        <p>
+          A raw detector hasn't decided yet. For every object, it typically
+          generates <em>many</em> candidate boxes&mdash;one from each sliding
+          window, anchor, or decoder query&mdash;each with its own
+          confidence. Below is what the raw output of a two-stage detector
+          looks like on your chosen scene (the boxes are simulated, but
+          representative).
+        </p>
+
+        <div class="interactive-figure">
+          <canvas id="rawCanvas" class="scene-canvas" width="640" height="400"></canvas>
+          <figcaption>
+            Every coloured rectangle is a raw detection candidate with its
+            own confidence score (opacity = score).
+          </figcaption>
+        </div>
+
+        <div class="control-row">
+          <div class="control-block">
+            <label>Confidence threshold <span>c &ge; <span id="conf-val">0.30</span></span></label>
+            <input type="range" id="conf-slider" min="0" max="1" step="0.01" value="0.3" />
+          </div>
+          <div class="control-block">
+            <label>Showing <span><span id="showing-count">—</span> / <span id="total-count">—</span> boxes</span></label>
+            <div class="legend-row" style="margin: 0.5rem 0 0;">
+              <div class="legend-item"><span class="legend-swatch" style="background:var(--truth)"></span>ground-truth</div>
+              <div class="legend-item"><span class="legend-swatch" style="background:var(--pred)"></span>above threshold</div>
+              <div class="legend-item"><span class="legend-swatch" style="background:#c4beb1"></span>below threshold</div>
+            </div>
+          </div>
+        </div>
+
+        <h3>Precision, Recall, F1</h3>
+        <p>
+          Given the threshold above, which predictions are "keeps"? We count
+          each retained prediction as a true positive if its IoU with an
+          un-matched ground-truth box is at or above 0.5. Everything else
+          that's kept is a false positive; every ground-truth box nobody
+          matched is a false negative. Then:
+        </p>
+        <div class="math-block" id="math-prf"></div>
+
+        <div class="stat-strip">
+          <div class="stat-pill"><span class="stat-label">True positives</span><span class="stat-value" id="tp">0</span></div>
+          <div class="stat-pill"><span class="stat-label">False positives</span><span class="stat-value" id="fp">0</span></div>
+          <div class="stat-pill"><span class="stat-label">False negatives</span><span class="stat-value" id="fn">0</span></div>
+        </div>
+        <div class="stat-strip">
+          <div class="stat-pill stat-pill--truth stat-pill--big"><span class="stat-label">Precision</span><span class="stat-value" id="precision">—</span></div>
+          <div class="stat-pill stat-pill--pred stat-pill--big"><span class="stat-label">Recall</span><span class="stat-value" id="recall">—</span></div>
+          <div class="stat-pill stat-pill--iou stat-pill--big"><span class="stat-label">F1</span><span class="stat-value" id="f1">—</span></div>
+        </div>
+
+        <div class="callout callout--think">
+          <strong>Slide the threshold to see the trade-off.</strong>
+          Threshold = 0: every box is kept. Recall climbs to 1 because any
+          real object is probably covered, but precision collapses because most
+          boxes are garbage. Threshold = 1: keep nothing. Precision is
+          vacuously 1 but recall is 0. The "sweet spot" is where F1 peaks,
+          and that point is completely scene-dependent.
+        </div>
+      </section>
+
+      <!-- ─── Step 4 ─── -->
+      <section class="step-section" id="step-4">
+        <div class="step-badge">Step 4</div>
+        <h2>Non-Max Suppression (NMS)</h2>
+        <p>
+          Even with a sane confidence threshold, you end up with clusters of
+          near-duplicate boxes all firing on the same object. Non-Max
+          Suppression is the classic deduplication rule:
+        </p>
+        <ol class="explanation-list">
+          <li>Sort all surviving detections by confidence, highest first.</li>
+          <li>Take the top box and "keep" it.</li>
+          <li>Discard every other box whose IoU with the kept box is above
+            the NMS threshold.</li>
+          <li>Go back to step 2 with the remaining candidates.</li>
+        </ol>
+
+        <div class="control-row">
+          <div class="control-block">
+            <label>NMS IoU threshold <span>IoU &ge; <span id="nms-val">0.50</span></span></label>
+            <input type="range" id="nms-slider" min="0.1" max="0.95" step="0.01" value="0.5" />
+          </div>
+          <div class="control-block">
+            <label>Show suppressed <span id="nms-mode">overlay</span></label>
+            <div class="button-row" style="margin:0.4rem 0 0;">
+              <button class="toggle-btn is-active" id="nms-overlay">Overlay faint</button>
+              <button class="toggle-btn" id="nms-hide">Hide entirely</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="interactive-figure">
+          <canvas id="nmsCanvas" class="scene-canvas" width="640" height="400"></canvas>
+          <figcaption>After NMS: only the highest-confidence non-overlapping boxes remain.</figcaption>
+        </div>
+
+        <div class="stat-strip">
+          <div class="stat-pill"><span class="stat-label">Input boxes</span><span class="stat-value" id="nms-in">—</span></div>
+          <div class="stat-pill stat-pill--pred"><span class="stat-label">After NMS</span><span class="stat-value" id="nms-out">—</span></div>
+          <div class="stat-pill stat-pill--iou"><span class="stat-label">Suppressed</span><span class="stat-value" id="nms-sup">—</span></div>
+        </div>
+
+        <h3>NMS trace</h3>
+        <div class="detection-list" id="nms-trace">(run NMS to see the step-by-step trace)</div>
+
+        <div class="callout callout--warn">
+          <strong>NMS gets it wrong on crowded scenes.</strong>
+          Switch to the <em>Crowded pedestrians</em> scene. Two people close
+          together have boxes with genuine high IoU&mdash;but those are
+          <em>different people</em>, not duplicates. Classic NMS will kill
+          one of them. This is why modern detectors use Soft-NMS, matching
+          costs (DETR), or NMS-free designs.
+        </div>
+      </section>
+
+      <!-- ─── Step 5 ─── -->
+      <section class="step-section" id="step-5">
+        <div class="step-badge">Step 5</div>
+        <h2>Where do the boxes actually come from?</h2>
+        <p>
+          We've been evaluating detections. Let's zoom out on how a model
+          <em>proposes</em> them. Three families dominate:
+        </p>
+
+        <div class="examples-table-wrap">
+          <table class="examples-table">
+            <thead>
+              <tr>
+                <th>Family</th>
+                <th>How it proposes boxes</th>
+                <th>Representatives</th>
+                <th>Gotcha</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Anchor-based</strong></td>
+                <td>Place a dense grid of "anchor" boxes of many sizes/aspect ratios across the image; for each, predict a class and a $(\Delta x, \Delta y, \Delta w, \Delta h)$ offset.</td>
+                <td>Faster R-CNN, SSD, RetinaNet, YOLOv3/v4/v5</td>
+                <td>Anchor hyperparameters matter a lot. Needs NMS.</td>
+              </tr>
+              <tr>
+                <td><strong>Anchor-free / point-based</strong></td>
+                <td>For each pixel (or each cell of a reduced feature map), predict "am I the centre of an object?" plus a box relative to that point.</td>
+                <td>FCOS, CenterNet, YOLOX, YOLOv8</td>
+                <td>Needs clever loss weighting to avoid trivial "no object" predictions everywhere.</td>
+              </tr>
+              <tr>
+                <td><strong>Set-based / DETR</strong></td>
+                <td>Fixed-size set of learned object queries (usually 100). Each query attends to image features and outputs (class, box). Matched to ground truth by Hungarian algorithm.</td>
+                <td>DETR, Deformable DETR, DINO</td>
+                <td>No NMS needed. Trains slowly; small-object performance originally weak.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>Anchor sketch</h3>
+        <p>
+          Below is a tiny illustration of an anchor grid. Toggle to see
+          what a detector sees as its input "question". Every circle is the
+          centre of a candidate anchor.
+        </p>
+
+        <div class="interactive-figure">
+          <canvas id="anchorCanvas" class="scene-canvas" width="640" height="400"></canvas>
+          <figcaption>Anchor grid: 8×5 centres × 3 aspect ratios = 120 proposals before any learning.</figcaption>
+        </div>
+      </section>
+
+      <!-- ─── Step 6 ─── -->
+      <section class="step-section" id="step-6">
+        <div class="step-badge">Step 6</div>
+        <h2>The final reveal: mean Average Precision</h2>
+        <p>
+          Benchmarks like COCO don't care about a single threshold. They
+          sweep the confidence threshold from 1 down to 0, plot precision
+          against recall, and integrate the area under that curve. That's
+          Average Precision (AP). Average across classes → mean AP (mAP).
+          COCO additionally averages AP across IoU thresholds from 0.5 to
+          0.95.
+        </p>
+
+        <div class="interactive-figure">
+          <canvas id="prCanvas" width="640" height="320"></canvas>
+          <figcaption>
+            Precision-recall curve for the current scene (computed live by
+            sweeping the confidence threshold across all raw detections).
+          </figcaption>
+        </div>
+
+        <div class="reveal-card">
+          <h3>Average Precision on this scene</h3>
+          <div class="reveal-number" id="apValue">—</div>
+          <p>
+            Area under the precision-recall curve above. 1.0 is a perfect
+            detector; a random detector on this number of objects would score
+            near the baseline of (objects / boxes). Switch scenes and watch
+            the number move.
+          </p>
+        </div>
+      </section>
+
+      <!-- ─── Step 7 ─── -->
+      <section class="step-section" id="step-7">
+        <div class="step-badge">Step 7</div>
+        <h2>Four gotchas beginners run into</h2>
+        <div class="misconception-grid">
+          <div class="misconception-card">
+            <span class="misconception-icon">Myth</span>
+            <p><strong>"A 99% confidence prediction must be right."</strong><br />
+              Modern detectors are miscalibrated. High confidence correlates
+              with rightness, but two detectors with the same average accuracy
+              can have wildly different calibration. Always evaluate with a
+              real metric, not by eyeballing confidences.</p>
+          </div>
+          <div class="misconception-card">
+            <span class="misconception-icon">Myth</span>
+            <p><strong>"mAP is all I need to compare detectors."</strong><br />
+              mAP averages away the thing you might care about most: maybe
+              you want 100% recall even at ugly precision (medical screening),
+              or 100% precision at any recall (autopilot). Plot the full PR
+              curve before picking a model.</p>
+          </div>
+          <div class="misconception-card">
+            <span class="misconception-icon">Myth</span>
+            <p><strong>"NMS is just cleanup; it doesn't matter much."</strong><br />
+              NMS thresholds can swing mAP by 2–3 points on hard benchmarks.
+              Worse: NMS deletes real duplicate objects (crowds!). For crowded
+              data, Soft-NMS or NMS-free designs routinely beat classic NMS.</p>
+          </div>
+          <div class="misconception-card">
+            <span class="misconception-icon">Myth</span>
+            <p><strong>"Bigger boxes always win at IoU."</strong><br />
+              A prediction that is a strict superset of the truth has IoU =
+              truth / pred, which drops as pred grows. One common failure:
+              predictor emits a huge box "to be safe"&mdash;IoU plummets.
+              Tighter is better, as long as you still cover the object.</p>
+          </div>
+        </div>
+
+        <div class="callout callout--think" style="margin-top:2rem;">
+          <strong>Final takeaway.</strong>
+          Object detection is classification + localization + list
+          deduplication. IoU is the scissors that cuts overlapping boxes
+          down to one; precision and recall tell you whether you cut too
+          little or too much; mAP compresses everything into one number to
+          watch rise during training. Every modern detector&mdash;YOLO,
+          DETR, Faster R-CNN&mdash;is one of these primitives plus a bigger
+          backbone and a smarter decoder.
+        </div>
+      </section>
+    </article>
+
+    <script src="../vendor/katex/katex.min.js"></script>
+    <script type="module" src="main.js"></script>
+  </body>
+</html>

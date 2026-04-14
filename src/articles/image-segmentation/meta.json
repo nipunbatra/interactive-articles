@@ -1,0 +1,19 @@
+{
+  "slug": "image-segmentation",
+  "title": "Image Segmentation, Pixel by Pixel",
+  "date": "2026-05-03",
+  "tagline": "From classification to per-pixel labels — masks, IoU, and region growing",
+  "summary": "Paint a mask on a real image and watch a live mask-IoU score against ground truth. Step through region-growing from any seed pixel. Compare semantic, instance, and panoptic segmentation across five scenes — with every per-pixel number computed in the browser.",
+  "readingTime": "15 min",
+  "difficulty": "Intermediate",
+  "collection": "Computer vision",
+  "order": 16,
+  "status": "published",
+  "tags": ["Segmentation", "Semantic Segmentation", "Computer Vision", "Masks", "Interactive"],
+  "highlights": [
+    "Paint your own segmentation mask and watch mask-IoU + pixel accuracy update every brushstroke.",
+    "Run flood-fill region growing live: click any seed pixel and step through the algorithm.",
+    "Compare semantic, instance, and panoptic targets on the same scene to see how the problem changes.",
+    "Adjust a color-similarity threshold and watch the segmentation tighten or spill into the background."
+  ]
+}

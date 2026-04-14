@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Image Segmentation, Pixel by Pixel</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../vendor/katex/katex.min.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <article class="article">
+      <header class="article-header">
+        <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+        <p class="kicker">Interactive Explainer</p>
+        <h1>Image Segmentation, Pixel by Pixel</h1>
+        <p class="abstract">
+          Classification labels the image. Detection labels boxes. Segmentation
+          labels every <em>pixel</em>. That last step forces every idea to
+          get more precise: what's a correct answer, how do you measure
+          overlap, and how do you even draw the output? This page builds the
+          mental model from first principles&mdash;with a paintable canvas,
+          a live flood-fill, and real per-pixel metrics.
+        </p>
+        <div class="byline">
+          <span>~15 min</span>
+          <span>Computer Vision &middot; Segmentation</span>
+        </div>
+      </header>
+
+      <!-- ─── Prelude ─── -->
+      <section class="step-section" id="prelude">
+        <div class="step-badge">Prelude</div>
+        <h2>Three flavors of "segmentation"</h2>
+        <p>
+          The word means different things depending on who says it:
+        </p>
+        <ul class="explanation-list">
+          <li><strong>Semantic segmentation</strong>&mdash;every pixel gets a
+            class label (sky, road, person). Two adjacent people share a
+            label: we don't care that they are separate.</li>
+          <li><strong>Instance segmentation</strong>&mdash;every pixel gets
+            a label <em>and</em> an instance ID. We do care that there are
+            three separate people: they get three separate masks.</li>
+          <li><strong>Panoptic segmentation</strong>&mdash;the union of the
+            two. "Things" (countable: person, car) get instance IDs, "stuff"
+            (uncountable: sky, road) just gets a class label. Every pixel
+            is labeled exactly once.</li>
+        </ul>
+
+        <h3>Pick a scene</h3>
+        <div class="button-row" id="scene-buttons" role="group" aria-label="Choose scene">
+          <button class="mode-button is-active" data-scene="roadScene">Road scene</button>
+          <button class="mode-button" data-scene="twoCats">Two cats on grass</button>
+          <button class="mode-button" data-scene="kitchen">Kitchen counter</button>
+          <button class="mode-button" data-scene="sky">Sky & horizon</button>
+          <button class="mode-button" data-scene="fruitBowl">Fruit bowl</button>
+        </div>
+        <p id="scene-caption" style="font-family:var(--sans);color:var(--muted);font-style:italic;margin-top:0.5rem;"></p>
+      </section>
+
+      <!-- ─── Step 1 ─── -->
+      <section class="step-section" id="step-1">
+        <div class="step-badge">Step 1</div>
+        <h2>Three views of the same scene</h2>
+        <p>
+          Here's the scene, alongside its semantic, instance, and panoptic
+          segmentations. Hover or click the tabs below to see each one.
+          Notice how the same pixels are labeled differently depending on
+          the task.
+        </p>
+
+        <div class="button-row" role="group" aria-label="Segmentation view">
+          <button class="toggle-btn is-active" data-view="image">Image</button>
+          <button class="toggle-btn" data-view="semantic">Semantic</button>
+          <button class="toggle-btn" data-view="instance">Instance</button>
+          <button class="toggle-btn" data-view="panoptic">Panoptic</button>
+        </div>
+
+        <div class="interactive-figure">
+          <canvas id="viewCanvas" class="seg-canvas" width="640" height="400"></canvas>
+          <figcaption id="view-caption">Original RGB image.</figcaption>
+        </div>
+
+        <h3>Class palette</h3>
+        <div id="palette-row" style="margin-top:0.5rem;"></div>
+      </section>
+
+      <!-- ─── Step 2 ─── -->
+      <section class="step-section" id="step-2">
+        <div class="step-badge">Step 2</div>
+        <h2>A segmentation is a function from pixels to labels</h2>
+        <div class="math-block" id="math-function"></div>
+        <p>
+          For an image of width $W$ and height $H$ with $C$ classes, the
+          ground truth is a $W \times H$ array of integers from 0 to $C-1$.
+          A model's output is a $W \times H \times C$ tensor of class
+          probabilities; taking the argmax per pixel collapses it back to a
+          label map.
+        </p>
+
+        <h3>Paint your own mask</h3>
+        <p>
+          Below is the image on the left and a blank canvas on the right.
+          Pick a label and paint. The IoU and pixel accuracy against the
+          <em>semantic</em> ground truth update as you brush.
+        </p>
+
+        <div class="split-grid">
+          <div class="interactive-figure">
+            <canvas id="referenceCanvas" class="seg-canvas" width="420" height="280"></canvas>
+            <figcaption>The image (with the ground-truth mask faintly overlaid).</figcaption>
+          </div>
+          <div class="interactive-figure">
+            <canvas id="paintCanvas" class="seg-canvas" width="420" height="280"></canvas>
+            <figcaption>Your mask. Brush with the palette below.</figcaption>
+          </div>
+        </div>
+
+        <div class="brush-toolbar" id="paint-toolbar"></div>
+        <div class="brush-toolbar">
+          <div class="control-block" style="padding: 0.5rem 1rem; margin:0;">
+            <label style="margin:0;">Brush size <span><span id="brush-size-val">10</span> px</span></label>
+            <input type="range" id="brush-size" min="2" max="40" step="1" value="10" />
+          </div>
+          <button class="action-btn action-btn--ghost action-btn--small" id="btn-clear-mask">Clear mask</button>
+          <button class="action-btn action-btn--ghost action-btn--small" id="btn-show-gt">Fill with ground truth</button>
+        </div>
+
+        <h3>Per-pixel metrics</h3>
+        <div class="math-block" id="math-metrics"></div>
+
+        <div class="stat-strip">
+          <div class="stat-pill stat-pill--big">
+            <span class="stat-label">Pixel accuracy</span>
+            <span class="stat-value" id="pixel-acc">—</span>
+          </div>
+          <div class="stat-pill stat-pill--pred stat-pill--big">
+            <span class="stat-label">Mean IoU</span>
+            <span class="stat-value" id="mean-iou">—</span>
+          </div>
+          <div class="stat-pill stat-pill--big">
+            <span class="stat-label">Pixels painted</span>
+            <span class="stat-value" id="pix-painted">0</span>
+          </div>
+        </div>
+
+        <h3>Per-class IoU</h3>
+        <div id="per-class-iou" class="examples-table-wrap"></div>
+      </section>
+
+      <!-- ─── Step 3 ─── -->
+      <section class="step-section" id="step-3">
+        <div class="step-badge">Step 3</div>
+        <h2>Region growing: a pre-neural primitive</h2>
+        <p>
+          Before deep learning, most segmentation started from a seed pixel
+          and "grew" outward until pixels stopped being similar enough. The
+          rule is simple: include a neighbor if its color is close to the
+          seed's (or the running average of the region). Ignore it
+          otherwise.
+        </p>
+
+        <div class="control-row">
+          <div class="control-block">
+            <label>Color similarity threshold <span>&tau; = <span id="tau-val">30</span></span></label>
+            <input type="range" id="tau-slider" min="1" max="150" step="1" value="30" />
+          </div>
+          <div class="control-block">
+            <label>Compare to <span id="rg-mode-label">nearest seed</span></label>
+            <div class="button-row" style="margin:0.4rem 0 0;">
+              <button class="toggle-btn is-active" id="mode-seed">Seed pixel</button>
+              <button class="toggle-btn" id="mode-running">Running mean</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="interactive-figure">
+          <canvas id="rgCanvas" class="seg-canvas" width="640" height="400"></canvas>
+          <figcaption>Click any pixel to drop a seed. Orange fill = included in the region.</figcaption>
+        </div>
+
+        <div class="stat-strip">
+          <div class="stat-pill"><span class="stat-label">Seed colour</span><span class="stat-value" id="seed-color">—</span></div>
+          <div class="stat-pill stat-pill--pred stat-pill--big"><span class="stat-label">Region pixels</span><span class="stat-value" id="region-size">0</span></div>
+          <div class="stat-pill"><span class="stat-label">Steps run</span><span class="stat-value" id="steps-run">0</span></div>
+        </div>
+
+        <div class="callout callout--think">
+          <strong>Where it breaks.</strong>
+          Drop a seed on the sky and raise $\tau$ slowly. At low $\tau$ you
+          get a clean sky mask; at high $\tau$, the region leaks into
+          adjacent buildings. That's the core weakness of classical
+          segmentation: it has no <em>semantics</em>. "Close in colour" is
+          a fragile proxy for "same object".
+        </div>
+      </section>
+
+      <!-- ─── Step 4 ─── -->
+      <section class="step-section" id="step-4">
+        <div class="step-badge">Step 4</div>
+        <h2>How neural networks cheat better</h2>
+        <p>
+          A modern segmenter is essentially a function that maps
+          $H \times W \times 3$ pixels to $H \times W \times C$ class logits.
+          Three architectural ideas dominate:
+        </p>
+
+        <div class="examples-table-wrap">
+          <table class="examples-table">
+            <thead>
+              <tr>
+                <th>Family</th>
+                <th>Key move</th>
+                <th>Representatives</th>
+                <th>Strength</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Encoder-decoder</strong></td>
+                <td>CNN downsamples to a small feature map, then upsamples back to full resolution.</td>
+                <td>FCN, U-Net, SegNet</td>
+                <td>Combines coarse semantics and fine detail via skip connections.</td>
+              </tr>
+              <tr>
+                <td><strong>Dilated / multi-scale</strong></td>
+                <td>Keep resolution high; expand receptive field with dilated convolutions and pyramid pooling.</td>
+                <td>DeepLab v1–v3+, PSPNet</td>
+                <td>Sees both the tree and the forest without losing pixel precision.</td>
+              </tr>
+              <tr>
+                <td><strong>Mask-prediction / Transformer</strong></td>
+                <td>Predict a set of (class, binary mask) pairs via decoder queries; no per-pixel argmax.</td>
+                <td>Mask R-CNN, MaskFormer, SAM</td>
+                <td>Natively does instance &amp; panoptic — each mask is one object.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout callout--warn">
+          <strong>Why "combine semantic info and fine detail" is hard.</strong>
+          To recognise that a pixel belongs to a <em>car</em>, a network needs
+          a big receptive field (looks at many neighbouring pixels, many
+          layers deep). To place the <em>boundary</em> of the car on the
+          right pixel, it needs high spatial resolution. These two goals
+          fight each other; every architecture above is one particular truce.
+        </div>
+      </section>
+
+      <!-- ─── Step 5 ─── -->
+      <section class="step-section" id="step-5">
+        <div class="step-badge">Step 5</div>
+        <h2>Pick the right loss</h2>
+        <p>
+          Per-pixel cross-entropy is the obvious starting point, but it fails
+          spectacularly on imbalanced classes (most images are 80% background).
+          Three losses fix that:
+        </p>
+
+        <div class="math-block" id="math-losses"></div>
+
+        <ul class="explanation-list">
+          <li><strong>Dice loss</strong> (Milletari et al., 2016): maximize
+            the soft Dice coefficient between predicted and target masks. It
+            penalizes class imbalance naturally because both numerator and
+            denominator shrink together.</li>
+          <li><strong>IoU loss</strong>: directly optimize the very metric
+            that benchmarks score you on. Numerically trickier than Dice but
+            mathematically closer to what you want.</li>
+          <li><strong>Focal loss</strong> (Lin et al., 2017): cross-entropy
+            reweighted to focus on hard pixels; mostly a detection trick but
+            often used for heavily imbalanced segmentation too.</li>
+        </ul>
+      </section>
+
+      <!-- ─── Step 6 ─── -->
+      <section class="step-section" id="step-6">
+        <div class="step-badge">Step 6</div>
+        <h2>The big number</h2>
+        <p>
+          An image of 640×400 pixels is 256,000 individual per-pixel
+          predictions. A ViT patch classifier has a few hundred outputs per
+          image. A YOLO detector has maybe a few thousand anchor decisions.
+          Segmentation is roughly three orders of magnitude denser.
+        </p>
+
+        <div class="reveal-card">
+          <h3>Per-pixel predictions in this scene</h3>
+          <div class="reveal-number" id="num-pixels">256,000</div>
+          <p>
+            Every single one has to get a class. A model that's 99% accurate
+            still gets 2,560 pixels wrong — which often shows up as jagged
+            edges and missed thin structures.
+          </p>
+        </div>
+      </section>
+
+      <!-- ─── Step 7 ─── -->
+      <section class="step-section" id="step-7">
+        <div class="step-badge">Step 7</div>
+        <h2>Four things to get wrong</h2>
+        <div class="misconception-grid">
+          <div class="misconception-card">
+            <span class="misconception-icon">Myth</span>
+            <p><strong>"Pixel accuracy tells you if the model is good."</strong><br />
+              On a scene that's 95% sky, labeling everything as "sky" gives
+              95% pixel accuracy and zero useful output. Always report
+              per-class or mean IoU next to pixel accuracy.</p>
+          </div>
+          <div class="misconception-card">
+            <span class="misconception-icon">Myth</span>
+            <p><strong>"Bigger masks are always better."</strong><br />
+              Just like in detection, a mask that's a strict superset of the
+              truth has huge union and loses IoU fast. Tight is right;
+              over-shooting the boundary is penalised as much as missing it.</p>
+          </div>
+          <div class="misconception-card">
+            <span class="misconception-icon">Myth</span>
+            <p><strong>"Segmentation is just classification, done more."</strong><br />
+              It is in the "per-pixel argmax" framing. But a pure
+              per-pixel classifier produces flickery, isolated mislabeled
+              pixels. All modern architectures inject <em>structural</em>
+              priors (skip connections, CRFs, attention) to enforce coherent
+              regions.</p>
+          </div>
+          <div class="misconception-card">
+            <span class="misconception-icon">Myth</span>
+            <p><strong>"IoU 0.9 looks perfect."</strong><br />
+              It can still miss a 10px-wide telephone wire threading across
+              the whole image&mdash;and that wire might be the only thing
+              your autopilot needs to notice. Always look at qualitative
+              failures beside the mean-IoU headline.</p>
+          </div>
+        </div>
+
+        <div class="callout callout--think" style="margin-top:2rem;">
+          <strong>Final takeaway.</strong>
+          Segmentation pushes the same ML primitives (classification,
+          thresholding, losses) down to every pixel. You've now painted a
+          mask yourself, measured it against ground truth, and watched a
+          pre-neural region-grower succeed and fail&mdash;exactly the two
+          modes modern CNNs and Transformers are designed to fix. The
+          "magic" of Mask R-CNN and SAM is just these ideas, with bigger
+          receptive fields and better features.
+        </div>
+      </section>
+    </article>
+
+    <script src="../vendor/katex/katex.min.js"></script>
+    <script type="module" src="main.js"></script>
+  </body>
+</html>

@@ -1,0 +1,19 @@
+{
+  "slug": "object-detection",
+  "title": "Object Detection, from Boxes Up",
+  "date": "2026-05-01",
+  "tagline": "IoU, anchors, NMS, and confidence — all the pieces you draw yourself",
+  "summary": "Drag ground-truth and predicted boxes on a real scene and watch IoU recompute. Tune a confidence threshold and see precision and recall swap places. Run non-max suppression by hand. Every number is computed live on whichever scene you pick.",
+  "readingTime": "14 min",
+  "difficulty": "Intermediate",
+  "collection": "Computer vision",
+  "order": 15,
+  "status": "published",
+  "tags": ["Object Detection", "IoU", "NMS", "Computer Vision", "Interactive"],
+  "highlights": [
+    "Drag two boxes and watch Intersection-over-Union recompute from area formulas.",
+    "Tune a confidence threshold and see precision, recall, and F1 shift in lockstep.",
+    "Run non-max suppression yourself: watch redundant boxes vanish as IoU thresholds bite.",
+    "Click across five scenes (single cat, crowded pedestrians, cars, overlapping fruit, a drawn scene) and compare detection difficulty."
+  ]
+}
