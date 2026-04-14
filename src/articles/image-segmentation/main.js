@@ -1,469 +1,412 @@
 // ============================================================
-// Image Segmentation, Pixel by Pixel
-// - Procedural RGB scenes + procedurally-aligned ground-truth masks
-// - Paintable user mask with live mean-IoU and pixel accuracy
-// - BFS region growing from a user-clicked seed
-// All per-pixel computations run in plain JS over Uint8 arrays.
+// Image Segmentation with a Real Segmenter
+// Loads TF.js DeepLab v3+ (Pascal VOC) and runs it on the user's photo.
+// All metrics (mean IoU, per-class IoU, pixel accuracy) compare the
+// user's painted mask to the model's real output.
 // ============================================================
 
-const IMG_W = 160;  // internal resolution
-const IMG_H = 100;
-const DISPLAY_W = 640;
-const DISPLAY_H = 400;
-const HALF_W = 420;
-const HALF_H = 280;
+// Pascal VOC 21 classes
+const PASCAL_CLASSES = [
+  'background', 'aeroplane', 'bicycle', 'bird', 'boat', 'bottle',
+  'bus', 'car', 'cat', 'chair', 'cow', 'diningtable',
+  'dog', 'horse', 'motorbike', 'person', 'pottedplant',
+  'sheep', 'sofa', 'train', 'tvmonitor'
+];
 
-// Class IDs are shared across scenes (but each scene uses a subset)
-const CLASSES = {
-  0: { name: 'background', color: '#2a2418' },
-  1: { name: 'sky',        color: '#6aa0d8' },
-  2: { name: 'road',       color: '#4a4a55' },
-  3: { name: 'grass',      color: '#7fa85a' },
-  4: { name: 'person',     color: '#d9622b' },
-  5: { name: 'car',        color: '#2c6fb7' },
-  6: { name: 'cat',        color: '#c49a2e' },
-  7: { name: 'building',   color: '#8a5eb6' },
-  8: { name: 'counter',    color: '#a98559' },
-  9: { name: 'apple',      color: '#c53a2b' },
- 10: { name: 'orange',     color: '#e89234' },
- 11: { name: 'bowl',       color: '#8b6a3c' },
- 12: { name: 'cup',        color: '#1e7770' },
- 13: { name: 'cloud',      color: '#f0ebe1' }
-};
-
-// Convert hex → rgb
-function hexToRgb(hex) {
-  const h = hex.replace('#', '');
-  return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+// Pascal VOC colormap (standard)
+function pascalColor(idx) {
+  // Deterministic colormap generator from the official VOC devkit
+  let r = 0, g = 0, b = 0;
+  let id = idx;
+  for (let i = 0; i < 8; i++) {
+    r = r | (((id >> 0) & 1) << (7 - i));
+    g = g | (((id >> 1) & 1) << (7 - i));
+    b = b | (((id >> 2) & 1) << (7 - i));
+    id = id >> 3;
+  }
+  return [r, g, b];
 }
 
-// ---------- Scenes ----------
-// Each scene defines a pure function (x, y) → { rgb, classId, instanceId }.
-// We then rasterize both the RGB image and the label maps.
-
-const SCENES = {
-  roadScene: {
-    label: 'Road scene',
-    caption: 'Sky above, road below, two cars ahead, a pedestrian on the side.',
-    classes: [1, 2, 4, 5, 7, 0],
-    pixelFn: (x, y) => {
-      // Normalized coords
-      const nx = x / IMG_W, ny = y / IMG_H;
-      // Sky
-      if (ny < 0.4) {
-        return { rgb: [106 + (ny * 80) | 0, 160 + (ny * 60) | 0, 216 + (ny * 30) | 0], cls: 1, inst: 0 };
-      }
-      // Building (right side horizon)
-      if (nx > 0.75 && ny < 0.6) {
-        return { rgb: [138, 94, 182], cls: 7, inst: 0 };
-      }
-      // Pedestrian (left)
-      const pxN = 0.15, pyN = 0.55;
-      const dxp = (nx - pxN) * 5, dyp = (ny - pyN) * 3;
-      if (dxp * dxp + dyp * dyp < 0.35 && ny > 0.45 && ny < 0.78) {
-        return { rgb: [217, 98, 43], cls: 4, inst: 1 };
-      }
-      // Cars (two)
-      const c1 = { cx: 0.4, cy: 0.7, wx: 0.14, hy: 0.08, col: [44, 111, 183], inst: 2 };
-      const c2 = { cx: 0.65, cy: 0.66, wx: 0.12, hy: 0.07, col: [176, 48, 48], inst: 3 };
-      for (const car of [c1, c2]) {
-        if (Math.abs(nx - car.cx) < car.wx && Math.abs(ny - car.cy) < car.hy) {
-          return { rgb: car.col, cls: 5, inst: car.inst };
-        }
-      }
-      // Road
-      const roadGray = 74 - (ny - 0.6) * 20;
-      return { rgb: [roadGray, roadGray, roadGray + 5], cls: 2, inst: 0 };
-    }
+const SAMPLES = [
+  {
+    key: 'cat-couch',
+    label: 'Cat on couch',
+    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a3/June_odd-eyed-cat.jpg/640px-June_odd-eyed-cat.jpg'
   },
-
-  twoCats: {
-    label: 'Two cats on grass',
-    caption: 'A grass field with two cats (different individuals, same class).',
-    classes: [3, 6, 1],
-    pixelFn: (x, y) => {
-      const nx = x / IMG_W, ny = y / IMG_H;
-      // Sky at top
-      if (ny < 0.25) return { rgb: [150, 180, 210], cls: 1, inst: 0 };
-      // Cat 1 (left)
-      const dx1 = (nx - 0.3) * 4, dy1 = (ny - 0.65) * 3;
-      if (dx1 * dx1 + dy1 * dy1 < 0.45) {
-        return { rgb: [196, 154, 46], cls: 6, inst: 1 };
-      }
-      // Cat 2 (right)
-      const dx2 = (nx - 0.72) * 4, dy2 = (ny - 0.68) * 3;
-      if (dx2 * dx2 + dy2 * dy2 < 0.45) {
-        return { rgb: [210, 175, 70], cls: 6, inst: 2 };
-      }
-      // Grass
-      const jitter = (Math.sin(x * 0.9 + y * 1.2) + Math.cos(x * 1.7 - y * 0.8)) * 8;
-      return { rgb: [127 + jitter, 168 + jitter, 90], cls: 3, inst: 0 };
-    }
+  {
+    key: 'dog',
+    label: 'Dog outdoors',
+    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/18/Dog_Breeds.jpg/640px-Dog_Breeds.jpg'
   },
-
-  kitchen: {
-    label: 'Kitchen counter',
-    caption: 'A counter with a bowl, two apples, and a cup.',
-    classes: [8, 11, 9, 12, 0],
-    pixelFn: (x, y) => {
-      const nx = x / IMG_W, ny = y / IMG_H;
-      // Counter
-      if (ny > 0.55) return { rgb: [169, 133, 89], cls: 8, inst: 0 };
-      // Bowl (big, back)
-      const dxb = (nx - 0.4) * 3.3, dyb = (ny - 0.48) * 3;
-      if (dxb * dxb + dyb * dyb < 0.45) {
-        // Apples inside bowl
-        const da1 = (nx - 0.34) * 10, da1y = (ny - 0.48) * 10;
-        if (da1 * da1 + da1y * da1y < 1.5) {
-          return { rgb: [197, 58, 43], cls: 9, inst: 2 };
-        }
-        const da2 = (nx - 0.45) * 10, da2y = (ny - 0.49) * 10;
-        if (da2 * da2 + da2y * da2y < 1.5) {
-          return { rgb: [168, 45, 32], cls: 9, inst: 3 };
-        }
-        return { rgb: [139, 106, 60], cls: 11, inst: 1 };
-      }
-      // Cup (right)
-      const dxc = (nx - 0.72) * 7, dyc = (ny - 0.42) * 4;
-      if (Math.abs(dxc) < 1 && Math.abs(dyc) < 1) {
-        return { rgb: [30, 119, 112], cls: 12, inst: 4 };
-      }
-      // Wall / background
-      return { rgb: [42, 36, 24], cls: 0, inst: 0 };
-    }
+  {
+    key: 'bicycle',
+    label: 'Bicycle',
+    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7e/BrompProm.jpg/640px-BrompProm.jpg'
   },
-
-  sky: {
-    label: 'Sky & horizon',
-    caption: 'Wide sky with clouds, thin horizon of ground.',
-    classes: [1, 13, 3],
-    pixelFn: (x, y) => {
-      const nx = x / IMG_W, ny = y / IMG_H;
-      // Ground band
-      if (ny > 0.85) return { rgb: [127, 168, 90], cls: 3, inst: 0 };
-      // Clouds
-      const c1 = (nx - 0.3) ** 2 * 7 + (ny - 0.35) ** 2 * 20;
-      const c2 = (nx - 0.7) ** 2 * 10 + (ny - 0.25) ** 2 * 25;
-      const c3 = (nx - 0.5) ** 2 * 14 + (ny - 0.55) ** 2 * 16;
-      if (c1 < 1 || c2 < 1 || c3 < 1) {
-        return { rgb: [240, 235, 225], cls: 13, inst: 0 };
-      }
-      // Sky gradient
-      const r = 106 + ny * 80;
-      const g = 160 + ny * 50;
-      const b = 216;
-      return { rgb: [r | 0, g | 0, b], cls: 1, inst: 0 };
-    }
+  {
+    key: 'horse',
+    label: 'Horse in field',
+    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/de/Nokota_Horses_cropped.jpg/640px-Nokota_Horses_cropped.jpg'
   },
-
-  fruitBowl: {
-    label: 'Fruit bowl',
-    caption: 'Four fruits (two apples, two oranges) on a bowl, on a counter.',
-    classes: [8, 11, 9, 10, 0],
-    pixelFn: (x, y) => {
-      const nx = x / IMG_W, ny = y / IMG_H;
-      if (ny > 0.7) return { rgb: [169, 133, 89], cls: 8, inst: 0 };
-      // Bowl: big ellipse
-      const dxb = (nx - 0.5) * 2.6, dyb = (ny - 0.55) * 3.5;
-      if (dxb * dxb + dyb * dyb < 0.8) {
-        // Fruits arranged
-        const fruits = [
-          { cx: 0.36, cy: 0.45, r: 0.1, col: [197, 58, 43], cls: 9, inst: 2 },
-          { cx: 0.55, cy: 0.42, r: 0.1, col: [232, 146, 52], cls: 10, inst: 3 },
-          { cx: 0.72, cy: 0.47, r: 0.1, col: [168, 45, 32], cls: 9, inst: 4 },
-          { cx: 0.46, cy: 0.55, r: 0.09, col: [237, 165, 74], cls: 10, inst: 5 }
-        ];
-        for (const f of fruits) {
-          const dd = Math.hypot((nx - f.cx) * IMG_W / IMG_H, ny - f.cy);
-          if (dd < f.r) return { rgb: f.col, cls: f.cls, inst: f.inst };
-        }
-        return { rgb: [139, 106, 60], cls: 11, inst: 1 };
-      }
-      return { rgb: [232, 220, 196], cls: 0, inst: 0 };
-    }
+  {
+    key: 'person',
+    label: 'Portrait',
+    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/Cindy_Crawford_1988.jpg/640px-Cindy_Crawford_1988.jpg'
+  },
+  {
+    key: 'sofa',
+    label: 'Sofa / living room',
+    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8d/Modern_Living_Room_with_Large_Windows.jpg/640px-Modern_Living_Room_with_Large_Windows.jpg'
   }
-};
+];
 
-// ---------- Rasterize ----------
-function buildScene(key) {
-  const sc = SCENES[key];
-  const rgb = new Uint8ClampedArray(IMG_W * IMG_H * 4);
-  const cls = new Uint8Array(IMG_W * IMG_H);
-  const inst = new Uint8Array(IMG_W * IMG_H);
-  for (let y = 0; y < IMG_H; y++) {
-    for (let x = 0; x < IMG_W; x++) {
-      const { rgb: pix, cls: c, inst: i } = sc.pixelFn(x, y);
-      const idx = (y * IMG_W + x) * 4;
-      rgb[idx] = pix[0];
-      rgb[idx + 1] = pix[1];
-      rgb[idx + 2] = pix[2];
-      rgb[idx + 3] = 255;
-      cls[y * IMG_W + x] = c;
-      inst[y * IMG_W + x] = i;
-    }
-  }
-  return { rgb, cls, inst };
-}
-
-// ---------- State ----------
-let state = {
-  sceneKey: 'roadScene',
-  scene: null,
+const state = {
+  model: null,
+  modelLoading: true,
+  // Working resolution (model runs in "pascal" native size internally).
+  // We display the image scaled to a canvas of at most displayW x displayH.
+  displayW: 640,
+  displayH: 400,
+  image: null,         // HTMLImageElement or Canvas
+  imageW: 0,
+  imageH: 0,
+  // Segmentation output: Uint8Array of length W*H of class IDs (native resolution)
+  segMap: null,
+  segW: 0,
+  segH: 0,
+  // User mask painted on a canvas at the display resolution; stored as
+  // Uint8Array of length displayW * displayH.
+  userMask: null,
+  currentLabel: 0,
+  brushSize: 14,
+  alpha: 0.55,
   view: 'image',
-  currentLabel: 1,
-  brushSize: 10,
-  userMask: null,    // Uint8Array, 0 = unlabeled, else class id
+  // Region growing
+  rgRegion: null,
+  rgCount: 0,
+  rgSeed: null,
   tau: 30,
-  rgMode: 'seed',     // 'seed' | 'running'
-  seed: null,
-  region: null,
-  regionCount: 0,
-  steps: 0
+  rgMode: 'seed',
+  inferenceMs: 0,
+  classesInImage: []  // sorted list of class IDs present
 };
 
-function loadScene(key) {
-  state.sceneKey = key;
-  state.scene = buildScene(key);
-  state.userMask = new Uint8Array(IMG_W * IMG_H); // all 0 = unlabeled
-  state.seed = null;
-  state.region = null;
-  state.regionCount = 0;
-  state.steps = 0;
-  const sc = SCENES[key];
-  document.getElementById('scene-caption').textContent = sc.caption;
+// ---------- Model loading ----------
+async function loadModel() {
+  try {
+    state.model = await deeplab.load({ base: 'pascal', quantizationBytes: 2 });
+    state.modelLoading = false;
+    setModelStatus('is-ready', 'Segmenter ready');
+    if (state.image) await runSegmentation();
+  } catch (err) {
+    console.error('DeepLab load failed:', err);
+    state.modelLoading = false;
+    setModelStatus('is-error', 'Model failed to load — check network');
+  }
+}
+
+function setModelStatus(cls, text) {
+  const el = document.getElementById('model-status');
+  const txt = document.getElementById('model-status-text');
+  if (!el) return;
+  el.classList.remove('is-loading', 'is-ready', 'is-error');
+  el.classList.add(cls);
+  txt.textContent = text;
+}
+
+// ---------- Image loading ----------
+function loadImageFromElement(img) {
+  state.image = img;
+  state.imageW = img.naturalWidth || img.width;
+  state.imageH = img.naturalHeight || img.height;
+  const maxW = 640;
+  if (state.imageW > maxW) {
+    state.displayW = maxW;
+    state.displayH = Math.round(state.imageH * maxW / state.imageW);
+  } else {
+    state.displayW = state.imageW;
+    state.displayH = state.imageH;
+  }
+  state.userMask = new Uint8Array(state.displayW * state.displayH);
+  state.segMap = null;
+  state.rgRegion = null;
+  state.rgSeed = null;
+  state.rgCount = 0;
   renderAll();
-  renderPalette();
-  renderPaintToolbar();
+  if (state.model) runSegmentation();
+  else setModelStatus('is-loading', 'Waiting for segmenter&hellip;');
+}
+
+async function loadImageFromUrl(url) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => resolve(img);
+    img.onerror = (e) => reject(e);
+    img.src = url;
+  });
+}
+
+async function pickSample(key) {
+  const s = SAMPLES.find((x) => x.key === key);
+  if (!s) return;
+  document.querySelectorAll('#sample-grid .sample-thumb').forEach((b) =>
+    b.classList.toggle('is-active', b.dataset.sample === key));
+  const cap = document.getElementById('prelude-caption');
+  if (cap) cap.textContent = `Loading “${s.label}”&hellip;`;
+  try {
+    const img = await loadImageFromUrl(s.url);
+    loadImageFromElement(img);
+    if (cap) cap.textContent = `${s.label} — DeepLab output drawn over it.`;
+  } catch (err) {
+    if (cap) cap.textContent = `Could not load “${s.label}”. Try uploading a photo.`;
+  }
+}
+
+function handleFile(file) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    const img = new Image();
+    img.onload = () => loadImageFromElement(img);
+    img.src = reader.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+// ---------- Run segmentation ----------
+async function runSegmentation() {
+  if (!state.model || !state.image) return;
+  const t0 = performance.now();
+  // Draw the image to a canvas at display resolution so segmentation aligns
+  const off = document.createElement('canvas');
+  off.width = state.displayW;
+  off.height = state.displayH;
+  off.getContext('2d').drawImage(state.image, 0, 0, state.displayW, state.displayH);
+
+  const result = await state.model.segment(off);
+  // result = { legend: {className: color}, height, width, segmentationMap: Uint8ClampedArray (RGB), ... }
+  // But we want class indices. The library also exposes rawSegmentationMap in newer versions.
+  // Instead, the cleanest way is to decode the RGB map back to class indices using PASCAL colormap.
+  const segMap = rgbMapToClassMap(result.segmentationMap, result.width, result.height);
+  state.segMap = segMap;
+  state.segW = result.width;
+  state.segH = result.height;
+  state.inferenceMs = performance.now() - t0;
+
+  // Upsample segMap to (displayW, displayH) for per-pixel metrics vs user mask
+  state.segMapDisplay = resizeLabelMap(segMap, state.segW, state.segH, state.displayW, state.displayH);
+
+  // Count classes in image
+  const classSet = new Set();
+  for (let i = 0; i < state.segMapDisplay.length; i++) {
+    classSet.add(state.segMapDisplay[i]);
+  }
+  state.classesInImage = [...classSet].sort((a, b) => a - b);
+
+  renderAll();
+}
+
+function rgbMapToClassMap(rgbArr, w, h) {
+  // Build reverse lookup: color_key -> class id
+  const colorToId = new Map();
+  for (let i = 0; i < 21; i++) {
+    const [r, g, b] = pascalColor(i);
+    colorToId.set((r << 16) | (g << 8) | b, i);
+  }
+  const out = new Uint8Array(w * h);
+  for (let i = 0; i < w * h; i++) {
+    const r = rgbArr[i * 4];
+    const g = rgbArr[i * 4 + 1];
+    const b = rgbArr[i * 4 + 2];
+    const key = (r << 16) | (g << 8) | b;
+    out[i] = colorToId.has(key) ? colorToId.get(key) : 0;
+  }
+  return out;
+}
+
+function resizeLabelMap(src, sw, sh, dw, dh) {
+  // Nearest-neighbour resize
+  const out = new Uint8Array(dw * dh);
+  for (let y = 0; y < dh; y++) {
+    const sy = Math.min(sh - 1, Math.floor(y * sh / dh));
+    for (let x = 0; x < dw; x++) {
+      const sx = Math.min(sw - 1, Math.floor(x * sw / dw));
+      out[y * dw + x] = src[sy * sw + sx];
+    }
+  }
+  return out;
 }
 
 // ---------- Canvas helpers ----------
-function getCtx(canvas, w, h) {
+function setupCanvas(canvas) {
   const dpr = window.devicePixelRatio || 1;
-  canvas.width = w * dpr;
-  canvas.height = h * dpr;
-  canvas.style.width = w + 'px';
-  canvas.style.height = h + 'px';
+  canvas.width = state.displayW * dpr;
+  canvas.height = state.displayH * dpr;
+  canvas.style.width = state.displayW + 'px';
+  canvas.style.height = state.displayH + 'px';
   const ctx = canvas.getContext('2d');
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.imageSmoothingEnabled = false;
   return ctx;
 }
 
-function blitRgb(ctx, w, h) {
-  const off = document.createElement('canvas');
-  off.width = IMG_W; off.height = IMG_H;
-  const octx = off.getContext('2d');
-  const imageData = new ImageData(state.scene.rgb.slice(), IMG_W, IMG_H);
-  octx.putImageData(imageData, 0, 0);
-  ctx.drawImage(off, 0, 0, w, h);
+function drawImage(ctx) {
+  if (!state.image) {
+    ctx.fillStyle = '#222';
+    ctx.fillRect(0, 0, state.displayW, state.displayH);
+    return;
+  }
+  ctx.drawImage(state.image, 0, 0, state.displayW, state.displayH);
 }
 
-function blitMask(ctx, w, h, maskArr, alpha = 0.55, instance = false) {
-  const buf = new Uint8ClampedArray(IMG_W * IMG_H * 4);
-  for (let i = 0; i < IMG_W * IMG_H; i++) {
-    const label = maskArr[i];
-    const idx = i * 4;
-    if (label === 0 && !instance) {
-      buf[idx + 3] = 0;
-    } else if (label === 0 && instance) {
-      buf[idx + 3] = 0;
+function drawMaskOverlay(ctx, labelMap, alpha, skipBackground = true) {
+  if (!labelMap) return;
+  const buf = new Uint8ClampedArray(state.displayW * state.displayH * 4);
+  for (let i = 0; i < labelMap.length; i++) {
+    const c = labelMap[i];
+    if (c === 0 && skipBackground) {
+      buf[i * 4 + 3] = 0;
     } else {
-      let color;
-      if (instance) {
-        // Pseudo-random color per instance id
-        const hue = (label * 67) % 360;
-        color = hslToRgb(hue / 360, 0.6, 0.55);
-      } else {
-        color = hexToRgb(CLASSES[label].color);
-      }
-      buf[idx] = color[0];
-      buf[idx + 1] = color[1];
-      buf[idx + 2] = color[2];
-      buf[idx + 3] = Math.round(alpha * 255);
+      const [r, g, b] = pascalColor(c);
+      buf[i * 4] = r; buf[i * 4 + 1] = g; buf[i * 4 + 2] = b;
+      buf[i * 4 + 3] = Math.round(alpha * 255);
     }
   }
   const off = document.createElement('canvas');
-  off.width = IMG_W; off.height = IMG_H;
-  const octx = off.getContext('2d');
-  octx.putImageData(new ImageData(buf, IMG_W, IMG_H), 0, 0);
-  ctx.drawImage(off, 0, 0, w, h);
+  off.width = state.displayW; off.height = state.displayH;
+  off.getContext('2d').putImageData(
+    new ImageData(buf, state.displayW, state.displayH), 0, 0);
+  ctx.drawImage(off, 0, 0);
 }
 
-function hslToRgb(h, s, l) {
-  let r, g, b;
-  if (s === 0) { r = g = b = l; }
-  else {
-    const hue2rgb = (p, q, t) => {
-      if (t < 0) t += 1;
-      if (t > 1) t -= 1;
-      if (t < 1 / 6) return p + (q - p) * 6 * t;
-      if (t < 1 / 2) return q;
-      if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
-      return p;
-    };
-    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-    const p = 2 * l - q;
-    r = hue2rgb(p, q, h + 1 / 3);
-    g = hue2rgb(p, q, h);
-    b = hue2rgb(p, q, h - 1 / 3);
-  }
-  return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
-}
-
-// ---------- Step 1 view canvas ----------
-function renderViewCanvas() {
-  const canvas = document.getElementById('viewCanvas');
+// ---------- Prelude & Step 1 ----------
+function renderPrelude() {
+  const canvas = document.getElementById('preludeCanvas');
   if (!canvas) return;
-  const ctx = getCtx(canvas, DISPLAY_W, DISPLAY_H);
-  if (state.view === 'image') {
-    blitRgb(ctx, DISPLAY_W, DISPLAY_H);
-  } else if (state.view === 'semantic') {
-    blitMask(ctx, DISPLAY_W, DISPLAY_H, state.scene.cls, 1.0);
-  } else if (state.view === 'instance') {
-    blitRgb(ctx, DISPLAY_W, DISPLAY_H);
-    blitMask(ctx, DISPLAY_W, DISPLAY_H, state.scene.inst, 0.8, true);
-  } else if (state.view === 'panoptic') {
-    // Panoptic: semantic colors, but with a thin boundary between instances
-    blitMask(ctx, DISPLAY_W, DISPLAY_H, state.scene.cls, 1.0);
-    drawInstanceBoundaries(ctx, DISPLAY_W, DISPLAY_H);
-  }
-  const captionEl = document.getElementById('view-caption');
-  const capTexts = {
-    image: 'Original RGB image.',
-    semantic: 'Semantic: every pixel labeled by class. Same-class instances merge.',
-    instance: 'Instance: each object (car 1, car 2, cat 1, cat 2) gets a unique mask color.',
-    panoptic: 'Panoptic: semantic colors + instance boundaries (thin white lines separate instances of the same class).'
-  };
-  captionEl.textContent = capTexts[state.view];
-}
+  const ctx = setupCanvas(canvas);
+  drawImage(ctx);
+  if (state.segMapDisplay) drawMaskOverlay(ctx, state.segMapDisplay, 0.55);
 
-function drawInstanceBoundaries(ctx, w, h) {
-  // Compute 4-neighborhood differences and paint a 1-px line where instance changes but class is same
-  const off = document.createElement('canvas');
-  off.width = IMG_W; off.height = IMG_H;
-  const octx = off.getContext('2d');
-  const buf = new Uint8ClampedArray(IMG_W * IMG_H * 4);
-  for (let y = 0; y < IMG_H; y++) {
-    for (let x = 0; x < IMG_W; x++) {
-      const i = y * IMG_W + x;
-      let boundary = false;
-      const nbs = [
-        { dx: 1, dy: 0 }, { dx: -1, dy: 0 },
-        { dx: 0, dy: 1 }, { dx: 0, dy: -1 }
-      ];
-      for (const n of nbs) {
-        const xx = x + n.dx, yy = y + n.dy;
-        if (xx < 0 || xx >= IMG_W || yy < 0 || yy >= IMG_H) continue;
-        const j = yy * IMG_W + xx;
-        if (state.scene.inst[i] !== state.scene.inst[j] &&
-            state.scene.cls[i] === state.scene.cls[j] &&
-            state.scene.inst[i] !== 0 && state.scene.inst[j] !== 0) {
-          boundary = true;
-          break;
-        }
-      }
-      if (boundary) {
-        buf[i * 4] = 255; buf[i * 4 + 1] = 255; buf[i * 4 + 2] = 255; buf[i * 4 + 3] = 255;
-      }
+  document.getElementById('classes-found').textContent =
+    state.classesInImage.length ? state.classesInImage.length : '—';
+  document.getElementById('inference-ms').textContent =
+    state.inferenceMs > 0 ? `${state.inferenceMs.toFixed(0)} ms` : '—';
+  document.getElementById('num-pixels').textContent =
+    (state.displayW * state.displayH).toLocaleString();
+
+  const paletteRow = document.getElementById('palette-row');
+  if (paletteRow) {
+    if (state.classesInImage.length === 0) {
+      paletteRow.innerHTML = '<span style="font-family:var(--sans); color:var(--muted); font-style:italic;">No classes detected yet.</span>';
+    } else {
+      paletteRow.innerHTML = state.classesInImage.map((c) => {
+        const [r, g, b] = pascalColor(c);
+        return `<span class="label-chip"><span class="swatch" style="background:rgb(${r},${g},${b})"></span>${PASCAL_CLASSES[c]} (id ${c})</span>`;
+      }).join('');
     }
   }
-  octx.putImageData(new ImageData(buf, IMG_W, IMG_H), 0, 0);
-  ctx.drawImage(off, 0, 0, w, h);
 }
 
-function renderPalette() {
-  const row = document.getElementById('palette-row');
-  if (!row) return;
-  const classesInScene = [...new Set(Array.from(state.scene.cls))].filter((c) => c > 0).sort((a, b) => a - b);
-  row.innerHTML = classesInScene.map((c) => {
-    const cl = CLASSES[c];
-    return `<span class="label-chip"><span class="swatch" style="background:${cl.color}"></span>${cl.name} (id ${c})</span>`;
-  }).join('');
+function renderModelCanvas() {
+  const canvas = document.getElementById('modelCanvas');
+  if (!canvas) return;
+  const ctx = setupCanvas(canvas);
+  if (state.view === 'image') {
+    drawImage(ctx);
+  } else if (state.view === 'overlay') {
+    drawImage(ctx);
+    if (state.segMapDisplay) drawMaskOverlay(ctx, state.segMapDisplay, state.alpha);
+  } else {
+    ctx.fillStyle = '#222';
+    ctx.fillRect(0, 0, state.displayW, state.displayH);
+    if (state.segMapDisplay) drawMaskOverlay(ctx, state.segMapDisplay, 1, false);
+  }
 }
 
-// ---------- Step 2 painting ----------
+// ---------- Step 2 paint ----------
 function renderReferenceCanvas() {
   const canvas = document.getElementById('referenceCanvas');
   if (!canvas) return;
-  const ctx = getCtx(canvas, HALF_W, HALF_H);
-  blitRgb(ctx, HALF_W, HALF_H);
-  blitMask(ctx, HALF_W, HALF_H, state.scene.cls, 0.35);
+  const ctx = setupCanvas(canvas);
+  drawImage(ctx);
+  if (state.segMapDisplay) drawMaskOverlay(ctx, state.segMapDisplay, 0.3);
 }
 
 function renderPaintCanvas() {
   const canvas = document.getElementById('paintCanvas');
   if (!canvas) return;
-  const ctx = getCtx(canvas, HALF_W, HALF_H);
-  // Dim the underlying image so the mask is visible
-  blitRgb(ctx, HALF_W, HALF_H);
-  ctx.fillStyle = 'rgba(253,252,249,0.6)';
-  ctx.fillRect(0, 0, HALF_W, HALF_H);
-  blitMask(ctx, HALF_W, HALF_H, state.userMask, 0.85);
+  const ctx = setupCanvas(canvas);
+  drawImage(ctx);
+  ctx.fillStyle = 'rgba(253,252,249,0.5)';
+  ctx.fillRect(0, 0, state.displayW, state.displayH);
+  if (state.userMask) drawMaskOverlay(ctx, state.userMask, 0.85);
 }
 
 function renderPaintToolbar() {
   const bar = document.getElementById('paint-toolbar');
   if (!bar) return;
-  const classesInScene = [...new Set(Array.from(state.scene.cls))].filter((c) => c > 0).sort((a, b) => a - b);
-  bar.innerHTML =
-    `<button class="mode-button" data-label="0">Eraser</button>` +
-    classesInScene.map((c) => {
-      const cl = CLASSES[c];
-      const active = state.currentLabel === c ? ' is-active' : '';
-      return `<button class="mode-button${active}" data-label="${c}" style="border-color:${cl.color};color:${state.currentLabel === c ? 'white' : cl.color};background:${state.currentLabel === c ? cl.color : 'white'}">${cl.name}</button>`;
-    }).join('');
+  const classesHere = state.classesInImage.length ? state.classesInImage : [0];
+  bar.innerHTML = classesHere.map((c) => {
+    const [r, g, b] = pascalColor(c);
+    const active = state.currentLabel === c ? ' is-active' : '';
+    const bg = state.currentLabel === c ? `rgb(${r},${g},${b})` : 'white';
+    const col = state.currentLabel === c ? 'white' : `rgb(${r},${g},${b})`;
+    return `<button class="mode-button${active}" data-label="${c}" style="border-color:rgb(${r},${g},${b});color:${col};background:${bg}">${PASCAL_CLASSES[c]}</button>`;
+  }).join('') +
+  `<button class="mode-button" data-label="-1" style="border-color:var(--border);color:var(--muted)">Eraser</button>`;
   bar.querySelectorAll('[data-label]').forEach((b) => {
     b.addEventListener('click', () => {
-      state.currentLabel = parseInt(b.dataset.label, 10);
+      const v = parseInt(b.dataset.label, 10);
+      state.currentLabel = v === -1 ? 0 : v;
       renderPaintToolbar();
     });
   });
 }
 
 function paintAt(x, y) {
+  if (!state.userMask) return;
   const r = state.brushSize;
-  const xi = Math.round(x * IMG_W / HALF_W);
-  const yi = Math.round(y * IMG_H / HALF_H);
-  const rr = Math.max(1, Math.round(r * IMG_W / HALF_W));
-  for (let dy = -rr; dy <= rr; dy++) {
-    for (let dx = -rr; dx <= rr; dx++) {
-      if (dx * dx + dy * dy > rr * rr) continue;
+  const xi = Math.round(x);
+  const yi = Math.round(y);
+  for (let dy = -r; dy <= r; dy++) {
+    for (let dx = -r; dx <= r; dx++) {
+      if (dx * dx + dy * dy > r * r) continue;
       const nx = xi + dx, ny = yi + dy;
-      if (nx < 0 || nx >= IMG_W || ny < 0 || ny >= IMG_H) continue;
-      state.userMask[ny * IMG_W + nx] = state.currentLabel;
+      if (nx < 0 || nx >= state.displayW || ny < 0 || ny >= state.displayH) continue;
+      state.userMask[ny * state.displayW + nx] = state.currentLabel;
     }
   }
 }
 
 function updatePaintMetrics() {
-  // Pixel accuracy: fraction of painted pixels whose label matches GT
-  // (unlabeled pixels count against us for "painted" but we'll report both)
-  const gt = state.scene.cls;
+  if (!state.userMask || !state.segMapDisplay) {
+    document.getElementById('pix-painted').textContent = '0';
+    document.getElementById('pixel-acc').textContent = '—';
+    document.getElementById('mean-iou').textContent = '—';
+    document.getElementById('per-class-iou').innerHTML = '';
+    return;
+  }
+  const gt = state.segMapDisplay;
   const um = state.userMask;
   let painted = 0;
   let correct = 0;
-  let total = 0;
-  const perCls = {}; // cls -> { inter, union }
+  const perCls = {};
   for (let i = 0; i < um.length; i++) {
-    total++;
     const u = um[i];
     const g = gt[i];
     if (u !== 0) painted++;
     if (u === g) correct++;
-    // For IoU, we compare user's class to GT class per class
-    const classesToTrack = new Set([g, u].filter((x) => x > 0));
-    classesToTrack.forEach((c) => {
+    const toTrack = new Set([g, u].filter((x) => x > 0));
+    toTrack.forEach((c) => {
       if (!perCls[c]) perCls[c] = { inter: 0, union: 0 };
-      const uBool = u === c;
-      const gBool = g === c;
-      if (uBool && gBool) perCls[c].inter++;
-      if (uBool || gBool) perCls[c].union++;
+      if (u === c && g === c) perCls[c].inter++;
+      if (u === c || g === c) perCls[c].union++;
     });
   }
   document.getElementById('pix-painted').textContent = painted.toLocaleString();
-  document.getElementById('pixel-acc').textContent = (correct / total).toFixed(3);
-  // Mean IoU across tracked classes (ignore background)
-  const clsList = Object.keys(perCls).map(Number).filter((c) => c > 0);
+  document.getElementById('pixel-acc').textContent = (correct / um.length).toFixed(3);
+
+  const clsList = Object.keys(perCls).map(Number);
   let miou = 0;
   clsList.forEach((c) => {
     const r = perCls[c];
@@ -472,141 +415,156 @@ function updatePaintMetrics() {
   miou = clsList.length ? miou / clsList.length : 0;
   document.getElementById('mean-iou').textContent = miou.toFixed(3);
 
-  // Per-class IoU table
-  const tableWrap = document.getElementById('per-class-iou');
-  if (tableWrap) {
-    let html = '<table class="examples-table"><thead><tr><th>Class</th><th>Intersection</th><th>Union</th><th>IoU</th></tr></thead><tbody>';
-    clsList.forEach((c) => {
-      const r = perCls[c];
-      const iou = r.union > 0 ? r.inter / r.union : 0;
-      html += `<tr><td><span class="label-chip" style="margin:0;padding:0.1rem 0.5rem;"><span class="swatch" style="background:${CLASSES[c].color}"></span>${CLASSES[c].name}</span></td><td>${r.inter.toLocaleString()}</td><td>${r.union.toLocaleString()}</td><td><strong>${iou.toFixed(3)}</strong></td></tr>`;
-    });
-    html += '</tbody></table>';
-    tableWrap.innerHTML = html;
+  const wrap = document.getElementById('per-class-iou');
+  if (wrap) {
+    if (clsList.length === 0) {
+      wrap.innerHTML = '<p style="font-family:var(--sans); color:var(--muted); font-style:italic;">Start painting to see per-class IoU.</p>';
+    } else {
+      let html = '<table class="examples-table"><thead><tr><th>Class</th><th>Intersection</th><th>Union</th><th>IoU</th></tr></thead><tbody>';
+      clsList.forEach((c) => {
+        const r = perCls[c];
+        const iou = r.union > 0 ? r.inter / r.union : 0;
+        const [R, G, B] = pascalColor(c);
+        html += `<tr><td><span class="label-chip" style="margin:0;padding:0.1rem 0.5rem;"><span class="swatch" style="background:rgb(${R},${G},${B})"></span>${PASCAL_CLASSES[c]}</span></td><td>${r.inter.toLocaleString()}</td><td>${r.union.toLocaleString()}</td><td><strong>${iou.toFixed(3)}</strong></td></tr>`;
+      });
+      html += '</tbody></table>';
+      wrap.innerHTML = html;
+    }
   }
-
-  document.getElementById('num-pixels').textContent = (DISPLAY_W * DISPLAY_H).toLocaleString();
 }
 
 // ---------- Step 3 region growing ----------
-function runRegionGrow(seedX, seedY, tau, mode) {
-  const visited = new Uint8Array(IMG_W * IMG_H);
-  const region = new Uint8Array(IMG_W * IMG_H);
-  const queue = [[seedX, seedY]];
-  visited[seedY * IMG_W + seedX] = 1;
-  const idx0 = (seedY * IMG_W + seedX) * 4;
-  const seedColor = [state.scene.rgb[idx0], state.scene.rgb[idx0 + 1], state.scene.rgb[idx0 + 2]];
-  let rSum = seedColor[0], gSum = seedColor[1], bSum = seedColor[2];
-  let count = 1;
-  region[seedY * IMG_W + seedX] = 1;
+function runRegionGrow(sx, sy, tau, mode) {
+  if (!state.image) return null;
+  // Build an ImageData for the displayed image once, cache on state
+  if (!state.cachedRgb) {
+    const off = document.createElement('canvas');
+    off.width = state.displayW; off.height = state.displayH;
+    const oc = off.getContext('2d');
+    oc.drawImage(state.image, 0, 0, state.displayW, state.displayH);
+    state.cachedRgb = oc.getImageData(0, 0, state.displayW, state.displayH).data;
+  }
+  const rgb = state.cachedRgb;
+  const W = state.displayW, H = state.displayH;
+  const idx0 = (sy * W + sx) * 4;
+  const seed = [rgb[idx0], rgb[idx0 + 1], rgb[idx0 + 2]];
+  const visited = new Uint8Array(W * H);
+  const region = new Uint8Array(W * H);
+  const queue = [[sx, sy]];
+  visited[sy * W + sx] = 1; region[sy * W + sx] = 1;
+  let rSum = seed[0], gSum = seed[1], bSum = seed[2], cnt = 1;
   let steps = 0;
-  const MAX_STEPS = IMG_W * IMG_H;
-  while (queue.length && steps < MAX_STEPS) {
-    const [x, y] = queue.shift();
-    steps++;
-    const nbs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
-    for (const [dx, dy] of nbs) {
+  const MAX = W * H;
+  while (queue.length && steps < MAX) {
+    const [x, y] = queue.shift(); steps++;
+    const nb = [[1,0],[-1,0],[0,1],[0,-1]];
+    for (const [dx, dy] of nb) {
       const nx = x + dx, ny = y + dy;
-      if (nx < 0 || nx >= IMG_W || ny < 0 || ny >= IMG_H) continue;
-      const idx = ny * IMG_W + nx;
-      if (visited[idx]) continue;
-      visited[idx] = 1;
-      const pi = idx * 4;
-      const r = state.scene.rgb[pi], g = state.scene.rgb[pi + 1], b = state.scene.rgb[pi + 2];
-      let ref;
-      if (mode === 'seed') ref = seedColor;
-      else ref = [rSum / count, gSum / count, bSum / count];
-      const diff = Math.sqrt(
-        (r - ref[0]) ** 2 + (g - ref[1]) ** 2 + (b - ref[2]) ** 2
-      );
-      if (diff <= tau) {
-        region[idx] = 1;
+      if (nx < 0 || nx >= W || ny < 0 || ny >= H) continue;
+      const i = ny * W + nx;
+      if (visited[i]) continue;
+      visited[i] = 1;
+      const p = i * 4;
+      const r = rgb[p], g = rgb[p + 1], b = rgb[p + 2];
+      const ref = mode === 'seed' ? seed : [rSum / cnt, gSum / cnt, bSum / cnt];
+      const d = Math.hypot(r - ref[0], g - ref[1], b - ref[2]);
+      if (d <= tau) {
+        region[i] = 1;
         queue.push([nx, ny]);
-        if (mode === 'running') {
-          rSum += r; gSum += g; bSum += b; count++;
-        }
+        if (mode === 'running') { rSum += r; gSum += g; bSum += b; cnt++; }
       }
     }
   }
-  return { region, count, steps, seedColor };
+  return { region, count: cnt, seed };
 }
 
 function renderRgCanvas() {
   const canvas = document.getElementById('rgCanvas');
   if (!canvas) return;
-  const ctx = getCtx(canvas, DISPLAY_W, DISPLAY_H);
-  blitRgb(ctx, DISPLAY_W, DISPLAY_H);
-
-  if (state.region) {
-    // Dim image
-    ctx.fillStyle = 'rgba(253,252,249,0.35)';
-    ctx.fillRect(0, 0, DISPLAY_W, DISPLAY_H);
-    // Overlay region as orange
-    const buf = new Uint8ClampedArray(IMG_W * IMG_H * 4);
-    for (let i = 0; i < IMG_W * IMG_H; i++) {
-      if (state.region[i]) {
-        buf[i * 4] = 217; buf[i * 4 + 1] = 98; buf[i * 4 + 2] = 43; buf[i * 4 + 3] = 200;
+  const ctx = setupCanvas(canvas);
+  drawImage(ctx);
+  if (state.rgRegion) {
+    const buf = new Uint8ClampedArray(state.displayW * state.displayH * 4);
+    for (let i = 0; i < state.rgRegion.length; i++) {
+      if (state.rgRegion[i]) {
+        buf[i * 4] = 217; buf[i * 4 + 1] = 98; buf[i * 4 + 2] = 43; buf[i * 4 + 3] = 180;
       }
     }
     const off = document.createElement('canvas');
-    off.width = IMG_W; off.height = IMG_H;
-    const octx = off.getContext('2d');
-    octx.putImageData(new ImageData(buf, IMG_W, IMG_H), 0, 0);
-    ctx.drawImage(off, 0, 0, DISPLAY_W, DISPLAY_H);
-
-    // Draw seed
-    const scale = DISPLAY_W / IMG_W;
-    const sx = (state.seed.x + 0.5) * scale;
-    const sy = (state.seed.y + 0.5) * scale;
-    ctx.fillStyle = '#2c6fb7';
-    ctx.beginPath();
-    ctx.arc(sx, sy, 7, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = 'white';
-    ctx.lineWidth = 2;
-    ctx.stroke();
+    off.width = state.displayW; off.height = state.displayH;
+    off.getContext('2d').putImageData(new ImageData(buf, state.displayW, state.displayH), 0, 0);
+    ctx.drawImage(off, 0, 0);
+    if (state.rgSeed) {
+      ctx.fillStyle = '#2c6fb7';
+      ctx.strokeStyle = 'white'; ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(state.rgSeed.x + 0.5, state.rgSeed.y + 0.5, 6, 0, Math.PI * 2);
+      ctx.fill(); ctx.stroke();
+    }
   }
-}
-
-function updateRgStats() {
+  // Stats
   const colorEl = document.getElementById('seed-color');
   const countEl = document.getElementById('region-size');
-  const stepsEl = document.getElementById('steps-run');
-  if (state.region) {
-    const [r, g, b] = state.region && state.seed ? (() => {
-      const idx = (state.seed.y * IMG_W + state.seed.x) * 4;
-      return [state.scene.rgb[idx], state.scene.rgb[idx + 1], state.scene.rgb[idx + 2]];
-    })() : [0, 0, 0];
-    colorEl.textContent = `(${r},${g},${b})`;
-    countEl.textContent = state.regionCount.toLocaleString();
-    stepsEl.textContent = state.steps.toLocaleString();
+  const iouEl = document.getElementById('rg-iou');
+  if (state.rgRegion && state.rgSeed) {
+    const s = state.cachedRgb;
+    const idx = (state.rgSeed.y * state.displayW + state.rgSeed.x) * 4;
+    colorEl.textContent = `(${s[idx]},${s[idx+1]},${s[idx+2]})`;
+    countEl.textContent = state.rgCount.toLocaleString();
+    // IoU vs model output (for seed pixel's predicted class)
+    if (state.segMapDisplay) {
+      const seedClass = state.segMapDisplay[state.rgSeed.y * state.displayW + state.rgSeed.x];
+      let inter = 0, union = 0;
+      for (let i = 0; i < state.rgRegion.length; i++) {
+        const a = state.rgRegion[i] === 1;
+        const b = state.segMapDisplay[i] === seedClass && seedClass !== 0;
+        if (a && b) inter++;
+        if (a || b) union++;
+      }
+      iouEl.textContent = union > 0 ? (inter / union).toFixed(3) : '—';
+    } else {
+      iouEl.textContent = '—';
+    }
   } else {
     colorEl.textContent = '—';
     countEl.textContent = '0';
-    stepsEl.textContent = '0';
+    iouEl.textContent = '—';
   }
 }
 
 // ---------- Input wiring ----------
-function wireViewTabs() {
+function wireTabs() {
   document.querySelectorAll('[data-view]').forEach((b) => {
     b.addEventListener('click', () => {
       document.querySelectorAll('[data-view]').forEach((bb) => bb.classList.remove('is-active'));
       b.classList.add('is-active');
       state.view = b.dataset.view;
-      renderViewCanvas();
+      renderModelCanvas();
     });
+  });
+  const alphaSlider = document.getElementById('alpha-slider');
+  const alphaVal = document.getElementById('alpha-val');
+  alphaSlider.addEventListener('input', () => {
+    state.alpha = parseFloat(alphaSlider.value);
+    alphaVal.textContent = state.alpha.toFixed(2);
+    renderModelCanvas();
+    renderPrelude();
   });
 }
 
-function wireScenes() {
-  document.querySelectorAll('#scene-buttons [data-scene]').forEach((b) => {
-    b.addEventListener('click', () => {
-      document.querySelectorAll('#scene-buttons [data-scene]').forEach((bb) => bb.classList.remove('is-active'));
-      b.classList.add('is-active');
-      loadScene(b.dataset.scene);
-    });
+function wireHover() {
+  const canvas = document.getElementById('modelCanvas');
+  const info = document.getElementById('hover-info');
+  if (!canvas || !info) return;
+  canvas.addEventListener('mousemove', (e) => {
+    if (!state.segMapDisplay) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = Math.floor((e.clientX - rect.left) / rect.width * state.displayW);
+    const y = Math.floor((e.clientY - rect.top) / rect.height * state.displayH);
+    const c = state.segMapDisplay[y * state.displayW + x];
+    info.textContent = `(${x},${y}) → ${PASCAL_CLASSES[c]} (id ${c})`;
   });
+  canvas.addEventListener('mouseleave', () => { info.textContent = '—'; });
 }
 
 function wirePainting() {
@@ -617,10 +575,7 @@ function wirePainting() {
     const rect = canvas.getBoundingClientRect();
     const cx = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
     const cy = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
-    return {
-      x: cx / rect.width * HALF_W,
-      y: cy / rect.height * HALF_H
-    };
+    return { x: cx / rect.width * state.displayW, y: cy / rect.height * state.displayH };
   };
   const onDown = (e) => {
     painting = true;
@@ -639,7 +594,6 @@ function wirePainting() {
     if (e.touches) e.preventDefault();
   };
   const onUp = () => { painting = false; };
-
   canvas.addEventListener('mousedown', onDown);
   canvas.addEventListener('touchstart', onDown, { passive: false });
   window.addEventListener('mousemove', onMove);
@@ -648,14 +602,16 @@ function wirePainting() {
   window.addEventListener('touchend', onUp);
 
   document.getElementById('btn-clear-mask').addEventListener('click', () => {
-    state.userMask = new Uint8Array(IMG_W * IMG_H);
+    state.userMask = new Uint8Array(state.displayW * state.displayH);
     renderPaintCanvas();
     updatePaintMetrics();
   });
   document.getElementById('btn-show-gt').addEventListener('click', () => {
-    state.userMask = new Uint8Array(state.scene.cls);
-    renderPaintCanvas();
-    updatePaintMetrics();
+    if (state.segMapDisplay) {
+      state.userMask = new Uint8Array(state.segMapDisplay);
+      renderPaintCanvas();
+      updatePaintMetrics();
+    }
   });
 
   const brushSlider = document.getElementById('brush-size');
@@ -666,76 +622,105 @@ function wirePainting() {
   });
 }
 
-function wireRegionGrow() {
+function wireRG() {
   const canvas = document.getElementById('rgCanvas');
   if (!canvas) return;
   canvas.addEventListener('mousedown', (e) => {
     const rect = canvas.getBoundingClientRect();
-    const mx = (e.clientX - rect.left) / rect.width * IMG_W;
-    const my = (e.clientY - rect.top) / rect.height * IMG_H;
-    state.seed = { x: Math.max(0, Math.min(IMG_W - 1, Math.floor(mx))),
-                   y: Math.max(0, Math.min(IMG_H - 1, Math.floor(my))) };
-    const res = runRegionGrow(state.seed.x, state.seed.y, state.tau, state.rgMode);
-    state.region = res.region;
-    state.regionCount = res.count;
-    state.steps = res.steps;
-    renderRgCanvas();
-    updateRgStats();
+    const x = Math.floor((e.clientX - rect.left) / rect.width * state.displayW);
+    const y = Math.floor((e.clientY - rect.top) / rect.height * state.displayH);
+    const res = runRegionGrow(x, y, state.tau, state.rgMode);
+    if (res) {
+      state.rgSeed = { x, y };
+      state.rgRegion = res.region;
+      state.rgCount = res.count;
+      renderRgCanvas();
+    }
   });
-
   const tauSlider = document.getElementById('tau-slider');
   const tauVal = document.getElementById('tau-val');
   tauSlider.addEventListener('input', () => {
     state.tau = parseInt(tauSlider.value, 10);
     tauVal.textContent = state.tau;
-    if (state.seed) {
-      const res = runRegionGrow(state.seed.x, state.seed.y, state.tau, state.rgMode);
-      state.region = res.region;
-      state.regionCount = res.count;
-      state.steps = res.steps;
+    if (state.rgSeed) {
+      const res = runRegionGrow(state.rgSeed.x, state.rgSeed.y, state.tau, state.rgMode);
+      state.rgRegion = res.region; state.rgCount = res.count;
       renderRgCanvas();
-      updateRgStats();
     }
   });
-
   const seedBtn = document.getElementById('mode-seed');
-  const runningBtn = document.getElementById('mode-running');
-  const label = document.getElementById('rg-mode-label');
+  const runBtn = document.getElementById('mode-running');
+  const lbl = document.getElementById('rg-mode-label');
   seedBtn.addEventListener('click', () => {
     state.rgMode = 'seed';
-    seedBtn.classList.add('is-active');
-    runningBtn.classList.remove('is-active');
-    label.textContent = 'seed pixel colour';
-    if (state.seed) {
-      const res = runRegionGrow(state.seed.x, state.seed.y, state.tau, 'seed');
-      state.region = res.region; state.regionCount = res.count; state.steps = res.steps;
-      renderRgCanvas(); updateRgStats();
+    seedBtn.classList.add('is-active'); runBtn.classList.remove('is-active');
+    lbl.textContent = 'seed pixel colour';
+    if (state.rgSeed) {
+      const res = runRegionGrow(state.rgSeed.x, state.rgSeed.y, state.tau, 'seed');
+      state.rgRegion = res.region; state.rgCount = res.count;
+      renderRgCanvas();
     }
   });
-  runningBtn.addEventListener('click', () => {
+  runBtn.addEventListener('click', () => {
     state.rgMode = 'running';
-    runningBtn.classList.add('is-active');
-    seedBtn.classList.remove('is-active');
-    label.textContent = 'running mean colour';
-    if (state.seed) {
-      const res = runRegionGrow(state.seed.x, state.seed.y, state.tau, 'running');
-      state.region = res.region; state.regionCount = res.count; state.steps = res.steps;
-      renderRgCanvas(); updateRgStats();
+    runBtn.classList.add('is-active'); seedBtn.classList.remove('is-active');
+    lbl.textContent = 'running mean colour';
+    if (state.rgSeed) {
+      const res = runRegionGrow(state.rgSeed.x, state.rgSeed.y, state.tau, 'running');
+      state.rgRegion = res.region; state.rgCount = res.count;
+      renderRgCanvas();
     }
   });
 }
 
-// ---------- Full render ----------
+function wireUpload() {
+  const zone = document.getElementById('upload-zone');
+  const input = document.getElementById('photo-input');
+  input.addEventListener('change', (e) => {
+    const f = e.target.files && e.target.files[0];
+    if (f) handleFile(f);
+  });
+  ['dragenter', 'dragover'].forEach((ev) =>
+    zone.addEventListener(ev, (e) => { e.preventDefault(); zone.classList.add('drag-over'); }));
+  ['dragleave', 'drop'].forEach((ev) =>
+    zone.addEventListener(ev, (e) => { e.preventDefault(); zone.classList.remove('drag-over'); }));
+  zone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (f) handleFile(f);
+  });
+  const webBtn = document.getElementById('webcam-btn');
+  webBtn.addEventListener('click', async (e) => {
+    e.preventDefault(); e.stopPropagation();
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      const video = document.createElement('video');
+      video.srcObject = stream; video.playsInline = true;
+      await video.play();
+      setTimeout(() => {
+        const off = document.createElement('canvas');
+        off.width = video.videoWidth; off.height = video.videoHeight;
+        off.getContext('2d').drawImage(video, 0, 0);
+        stream.getTracks().forEach((t) => t.stop());
+        loadImageFromElement(off);
+      }, 300);
+    } catch (err) {
+      alert('Webcam access failed: ' + err.message);
+    }
+  });
+}
+
 function renderAll() {
-  renderViewCanvas();
+  state.cachedRgb = null; // invalidate; rebuilt on next RG run
+  renderPrelude();
+  renderModelCanvas();
   renderReferenceCanvas();
   renderPaintCanvas();
-  updatePaintMetrics();
+  renderPaintToolbar();
   renderRgCanvas();
-  updateRgStats();
+  updatePaintMetrics();
 }
 
-// ---------- Math ----------
 function renderMath() {
   if (!window.katex) return;
   const blocks = {
@@ -761,11 +746,20 @@ function init() {
     const s = document.querySelector('script[src*="katex"]');
     if (s) s.addEventListener('load', renderMath);
   }
-  wireScenes();
-  wireViewTabs();
+
+  const grid = document.getElementById('sample-grid');
+  if (grid) {
+    grid.innerHTML = SAMPLES.map((s) => `<button class="sample-thumb" data-sample="${s.key}">${s.label}</button>`).join('');
+    grid.querySelectorAll('[data-sample]').forEach((b) =>
+      b.addEventListener('click', () => pickSample(b.dataset.sample)));
+  }
+  wireUpload();
+  wireTabs();
+  wireHover();
   wirePainting();
-  wireRegionGrow();
-  loadScene('roadScene');
+  wireRG();
+  loadModel();
+  pickSample(SAMPLES[0].key);
 }
 
 if (document.readyState === 'loading') {

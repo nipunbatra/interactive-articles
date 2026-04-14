@@ -1,19 +1,19 @@
 {
   "slug": "vision-transformer",
-  "title": "Vision Transformers, Step by Step",
+  "title": "Vision Transformers, on Real Photos",
   "date": "2026-04-14",
-  "tagline": "How a Transformer sees an image, one patch at a time",
-  "summary": "Watch a 64×64 image get sliced into patches, projected into vectors, tagged with positions, and fed through self-attention — with a live attention heatmap that updates the moment you click a patch.",
-  "readingTime": "16 min",
+  "tagline": "Patches, positions, and self-attention computed over real pretrained features",
+  "summary": "A pretrained MobileNet runs live in your browser to turn every patch of your photo into a real 1024-dim feature vector. We then compute honest dot-product attention between those real features — not hand-crafted scalars — and paint the result as an overlay. Upload any photo, drag the patch slider, click a patch, and watch a genuine attention heatmap appear.",
+  "readingTime": "17 min",
   "difficulty": "Intermediate",
   "collection": "Deep learning",
   "order": 14,
   "status": "published",
-  "tags": ["Vision Transformer", "ViT", "Attention", "Computer Vision", "Deep Learning", "Interactive"],
+  "tags": ["Vision Transformer", "ViT", "Attention", "TensorFlow.js", "MobileNet", "Computer Vision", "Interactive"],
   "highlights": [
-    "Slide the patch-size slider from 4 to 32 and watch the same image turn into 256, 64, 16, or 4 patches.",
-    "Click any patch and see live dot-product attention against every other patch, rendered as a heatmap overlay.",
-    "Toggle position embeddings on and off to see how a patch bag without positions loses all spatial sense.",
-    "Draw your own image, switch among five preset pictures, and compare the CLS token's final attention across them."
+    "Runs real pretrained MobileNet v2 in-browser via TensorFlow.js to extract 1024-dim feature vectors per patch.",
+    "Computes real dot-product softmax attention between those real features — no toy scalars anywhere.",
+    "Upload any JPEG/PNG or pick a stock photo; patches, vectors, and attention all recompute.",
+    "Toggle position embeddings, change the patch size, click any patch and see its real attention heatmap."
   ]
 }

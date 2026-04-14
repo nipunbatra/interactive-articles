@@ -1,19 +1,19 @@
 {
   "slug": "image-segmentation",
-  "title": "Image Segmentation, Pixel by Pixel",
+  "title": "Image Segmentation, with a Real Segmenter",
   "date": "2026-05-03",
-  "tagline": "From classification to per-pixel labels — masks, IoU, and region growing",
-  "summary": "Paint a mask on a real image and watch a live mask-IoU score against ground truth. Step through region-growing from any seed pixel. Compare semantic, instance, and panoptic segmentation across five scenes — with every per-pixel number computed in the browser.",
+  "tagline": "Upload a photo, run a real DeepLab model, and grade your own mask against it",
+  "summary": "A pretrained DeepLab v3+ (Pascal VOC, 21 classes) runs live in your browser on whatever photo you give it. Paint your own mask and watch mean-IoU and per-class IoU update against the real model's output — or run classical region growing and see where it breaks.",
   "readingTime": "15 min",
   "difficulty": "Intermediate",
   "collection": "Computer vision",
   "order": 16,
   "status": "published",
-  "tags": ["Segmentation", "Semantic Segmentation", "Computer Vision", "Masks", "Interactive"],
+  "tags": ["Segmentation", "DeepLab", "Semantic Segmentation", "TensorFlow.js", "Computer Vision", "Interactive"],
   "highlights": [
-    "Paint your own segmentation mask and watch mask-IoU + pixel accuracy update every brushstroke.",
-    "Run flood-fill region growing live: click any seed pixel and step through the algorithm.",
-    "Compare semantic, instance, and panoptic targets on the same scene to see how the problem changes.",
-    "Adjust a color-similarity threshold and watch the segmentation tighten or spill into the background."
+    "Loads real DeepLab v3+ (Pascal VOC) in-browser via TensorFlow.js — actual semantic masks on actual photos.",
+    "Paint your own mask and see mean IoU, pixel accuracy, and per-class IoU tick up toward the real model's output.",
+    "BFS region-growing plays the pre-neural baseline you can compare against: tune the colour threshold and watch it succeed or leak.",
+    "Upload any JPEG/PNG, grab a webcam frame, or pick one of six stock photos."
   ]
 }

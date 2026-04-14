@@ -1,19 +1,19 @@
 {
   "slug": "object-detection",
-  "title": "Object Detection, from Boxes Up",
+  "title": "Object Detection, with a Real Detector",
   "date": "2026-05-01",
-  "tagline": "IoU, anchors, NMS, and confidence — all the pieces you draw yourself",
-  "summary": "Drag ground-truth and predicted boxes on a real scene and watch IoU recompute. Tune a confidence threshold and see precision and recall swap places. Run non-max suppression by hand. Every number is computed live on whichever scene you pick.",
-  "readingTime": "14 min",
+  "tagline": "Upload any photo, run a real COCO-SSD model live, and inspect every decision",
+  "summary": "A pretrained COCO-SSD model loads in your browser and runs on whatever photo you give it. Drag ground-truth boxes to compare against its predictions, sweep the confidence threshold, run NMS, and draw the precision-recall curve — all on the real detector output.",
+  "readingTime": "16 min",
   "difficulty": "Intermediate",
   "collection": "Computer vision",
   "order": 15,
   "status": "published",
-  "tags": ["Object Detection", "IoU", "NMS", "Computer Vision", "Interactive"],
+  "tags": ["Object Detection", "COCO-SSD", "IoU", "NMS", "TensorFlow.js", "Computer Vision", "Interactive"],
   "highlights": [
-    "Drag two boxes and watch Intersection-over-Union recompute from area formulas.",
-    "Tune a confidence threshold and see precision, recall, and F1 shift in lockstep.",
-    "Run non-max suppression yourself: watch redundant boxes vanish as IoU thresholds bite.",
-    "Click across five scenes (single cat, crowded pedestrians, cars, overlapping fruit, a drawn scene) and compare detection difficulty."
+    "Loads the real pretrained SSD-MobileNetV2 (COCO) model in-browser via TensorFlow.js — actual detections, actual confidences.",
+    "Upload any photo, try a webcam frame, or pick one of six stock samples; all downstream numbers update live.",
+    "Draw your own ground-truth boxes; Intersection-over-Union, precision, recall, F1, NMS, and AP are computed against real model output.",
+    "Slide the confidence and NMS-IoU thresholds and watch the precision-recall curve redraw."
   ]
 }

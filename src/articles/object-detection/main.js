@@ -1,441 +1,418 @@
 // ============================================================
-// Object Detection, from Boxes Up
-// Live IoU, confidence threshold sweep, NMS, and PR-curve AP,
-// all on synthetic scenes with real ground-truth boxes.
+// Object Detection with a Real Detector
+// Runs TF.js + COCO-SSD live on the user's photo.
+// All metrics (IoU, NMS, PR curve, AP) operate on the detector's
+// real output — no synthetic boxes anywhere.
 // ============================================================
 
-const CANVAS_W = 640;
-const CANVAS_H = 400;
-
-// ---------- Scenes ----------
-// Each scene has: background draw function, list of ground-truth boxes,
-// and a deterministic RNG seed for generating fake detections.
-const SCENES = {
-  cat: {
-    label: 'Single cat',
-    bg: drawCatBackground,
-    gts: [{ x: 230, y: 130, w: 180, h: 200, cls: 'cat' }],
-    seed: 11,
-    noise: 0.9
+// ---------- Sample photos (CC0 / public domain sources) ----------
+// We use Wikimedia Commons thumbnails which serve with CORS headers so the
+// canvas can read pixel data for TF.js. If any fail, the upload fallback
+// still works.
+const SAMPLES = [
+  {
+    key: 'street',
+    label: 'Street scene',
+    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/13/Times_Square%2C_New_York_City_%28HDR%29.jpg/640px-Times_Square%2C_New_York_City_%28HDR%29.jpg'
   },
-  pedestrians: {
-    label: 'Crowded pedestrians',
-    bg: drawPedestriansBackground,
-    gts: [
-      { x: 90,  y: 120, w: 80, h: 220, cls: 'person' },
-      { x: 170, y: 115, w: 78, h: 225, cls: 'person' },
-      { x: 250, y: 120, w: 80, h: 220, cls: 'person' },
-      { x: 330, y: 122, w: 78, h: 218, cls: 'person' },
-      { x: 420, y: 120, w: 82, h: 225, cls: 'person' }
-    ],
-    seed: 42,
-    noise: 1.2
+  {
+    key: 'dog',
+    label: 'Dog close-up',
+    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a3/June_odd-eyed-cat.jpg/640px-June_odd-eyed-cat.jpg'
   },
-  cars: {
-    label: 'Cars on a road',
-    bg: drawCarsBackground,
-    gts: [
-      { x: 60,  y: 200, w: 160, h: 90, cls: 'car' },
-      { x: 240, y: 210, w: 180, h: 100, cls: 'car' },
-      { x: 440, y: 220, w: 160, h: 90, cls: 'car' }
-    ],
-    seed: 7,
-    noise: 1.0
+  {
+    key: 'kitchen',
+    label: 'Kitchen table',
+    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/01/Fruit_salad_with_strawberry_sauce.jpg/640px-Fruit_salad_with_strawberry_sauce.jpg'
   },
-  fruit: {
-    label: 'Overlapping fruit',
-    bg: drawFruitBackground,
-    gts: [
-      { x: 120, y: 160, w: 130, h: 130, cls: 'apple' },
-      { x: 210, y: 120, w: 140, h: 140, cls: 'orange' },
-      { x: 320, y: 170, w: 130, h: 130, cls: 'apple' },
-      { x: 420, y: 140, w: 140, h: 140, cls: 'orange' }
-    ],
-    seed: 99,
-    noise: 1.3
+  {
+    key: 'traffic',
+    label: 'Traffic & people',
+    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/cf/Pedestrians_and_cars_%2811024436814%29.jpg/640px-Pedestrians_and_cars_%2811024436814%29.jpg'
   },
-  dogs: {
-    label: 'Two dogs, one leash',
-    bg: drawDogsBackground,
-    gts: [
-      { x: 110, y: 180, w: 180, h: 180, cls: 'dog' },
-      { x: 320, y: 170, w: 200, h: 190, cls: 'dog' }
-    ],
-    seed: 23,
-    noise: 1.0
+  {
+    key: 'living',
+    label: 'Living room',
+    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8d/Modern_Living_Room_with_Large_Windows.jpg/640px-Modern_Living_Room_with_Large_Windows.jpg'
+  },
+  {
+    key: 'crowd',
+    label: 'Crowd',
+    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9a/Crowd_of_pedestrians_-_Oxford_Circus_-_London_2015.jpg/640px-Crowd_of_pedestrians_-_Oxford_Circus_-_London_2015.jpg'
   }
+];
+
+// ---------- State ----------
+const state = {
+  model: null,              // loaded cocoSsd model
+  modelLoading: true,
+  image: null,              // HTMLImageElement / HTMLCanvasElement of current photo
+  imageBitmap: null,        // for re-drawing
+  imageW: 0,
+  imageH: 0,
+  displayW: 720,
+  displayH: 480,
+  rawDetections: [],        // full raw detections from model.detect()
+  confThreshold: 0.3,
+  nmsThreshold: 0.5,
+  nmsConfFloor: 0.2,
+  gtBoxes: [],              // user-drawn GT boxes: [{x, y, w, h}]
+  selectedDetIdx: -1,
+  selectedGtIdx: -1,
+  drawingGt: false,         // toggle: "draw GT" mode
+  liveDraw: null,           // in-progress drag: {x0, y0, x1, y1}
+  lastIoU: null,
+  inferenceMs: 0
 };
 
-// ---------- Simple seeded RNG ----------
-function mulberry32(seed) {
-  let t = seed >>> 0;
-  return function () {
-    t = (t + 0x6D2B79F5) >>> 0;
-    let r = Math.imul(t ^ (t >>> 15), 1 | t);
-    r = (r + Math.imul(r ^ (r >>> 7), 61 | r)) ^ r;
-    return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-function generateDetections(scene) {
-  // Produce 3–6 detections per ground-truth, each with jittered box and a
-  // confidence that reflects IoU with the truth. Also inject a few
-  // low-confidence false positives.
-  const rng = mulberry32(scene.seed);
-  const out = [];
-  scene.gts.forEach((g) => {
-    const nCand = 4 + Math.floor(rng() * 3);
-    for (let k = 0; k < nCand; k++) {
-      const jitter = (rng() - 0.5) * 2 * scene.noise;
-      const sx = (rng() - 0.5) * 0.25 * g.w * scene.noise;
-      const sy = (rng() - 0.5) * 0.25 * g.h * scene.noise;
-      const sw = g.w * (1 + (rng() - 0.5) * 0.35 * scene.noise);
-      const sh = g.h * (1 + (rng() - 0.5) * 0.35 * scene.noise);
-      const box = {
-        x: g.x + sx,
-        y: g.y + sy,
-        w: sw,
-        h: sh,
-        cls: g.cls
-      };
-      const iou = iouOf(box, g);
-      const conf = Math.max(0.02, Math.min(0.99, iou * 0.85 + rng() * 0.15));
-      out.push({ ...box, score: conf });
-    }
-  });
-  // Add some false positives
-  const nFp = 2 + Math.floor(rng() * 3);
-  for (let k = 0; k < nFp; k++) {
-    const w = 40 + rng() * 120;
-    const h = 40 + rng() * 120;
-    const x = 10 + rng() * (CANVAS_W - w - 20);
-    const y = 10 + rng() * (CANVAS_H - h - 20);
-    out.push({ x, y, w, h, cls: 'noise', score: 0.1 + rng() * 0.35 });
+// ---------- TF.js model loading ----------
+async function loadModel() {
+  try {
+    // cocoSsd global attached by the CDN script
+    state.model = await cocoSsd.load({ base: 'mobilenet_v2' });
+    state.modelLoading = false;
+    setModelStatus('is-ready', 'Detector ready');
+    if (state.image) await runDetection();
+  } catch (err) {
+    console.error('Model load failed:', err);
+    state.modelLoading = false;
+    setModelStatus('is-error', 'Model failed to load — check network');
   }
-  // Sort descending by score
-  out.sort((a, b) => b.score - a.score);
-  return out;
 }
 
-// ---------- Box math ----------
-function clip(b) {
-  return {
-    x1: Math.max(0, b.x),
-    y1: Math.max(0, b.y),
-    x2: Math.min(CANVAS_W, b.x + b.w),
-    y2: Math.min(CANVAS_H, b.y + b.h)
+function setModelStatus(cls, text) {
+  const el = document.getElementById('model-status');
+  const txt = document.getElementById('model-status-text');
+  if (!el) return;
+  el.classList.remove('is-loading', 'is-ready', 'is-error');
+  el.classList.add(cls);
+  txt.textContent = text;
+}
+
+// ---------- Image loading ----------
+function loadImageFromElement(img) {
+  state.imageBitmap = img;
+  state.imageW = img.naturalWidth || img.width;
+  state.imageH = img.naturalHeight || img.height;
+  // Display dimensions cap at 720 wide
+  const maxW = 720;
+  if (state.imageW > maxW) {
+    state.displayW = maxW;
+    state.displayH = Math.round(state.imageH * maxW / state.imageW);
+  } else {
+    state.displayW = state.imageW;
+    state.displayH = state.imageH;
+  }
+  // Reset selections / GT
+  state.gtBoxes = [];
+  state.selectedDetIdx = -1;
+  state.rawDetections = [];
+  renderAll();
+  if (state.model) runDetection();
+  else setModelStatus('is-loading', 'Waiting for detector&hellip;');
+}
+
+async function loadImageFromUrl(url) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => resolve(img);
+    img.onerror = (e) => reject(e);
+    img.src = url;
+  });
+}
+
+async function pickSample(key) {
+  const s = SAMPLES.find((x) => x.key === key);
+  if (!s) return;
+  document.querySelectorAll('#sample-grid .sample-thumb').forEach((b) => {
+    b.classList.toggle('is-active', b.dataset.sample === key);
+  });
+  const cap = document.getElementById('prelude-caption');
+  if (cap) cap.textContent = `Loading “${s.label}”&hellip;`;
+  try {
+    const img = await loadImageFromUrl(s.url);
+    loadImageFromElement(img);
+    if (cap) cap.textContent = `${s.label} — detector predictions will be drawn over it.`;
+  } catch (err) {
+    if (cap) cap.textContent = `Could not load “${s.label}”. Try uploading a photo instead.`;
+  }
+}
+
+function handleFile(file) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    const img = new Image();
+    img.onload = () => loadImageFromElement(img);
+    img.src = reader.result;
   };
+  reader.readAsDataURL(file);
 }
-function area(b) {
-  const c = clip(b);
-  return Math.max(0, c.x2 - c.x1) * Math.max(0, c.y2 - c.y1);
+
+// ---------- Detection ----------
+async function runDetection() {
+  if (!state.model || !state.imageBitmap) return;
+  const t0 = performance.now();
+  // Ask for many candidates and no internal filtering so we can show
+  // confidence sweep and user-driven NMS honestly.
+  const dets = await state.model.detect(state.imageBitmap, 40, 0.05);
+  state.rawDetections = dets.map((d, i) => ({
+    idx: i,
+    cls: d.class,
+    score: d.score,
+    x: d.bbox[0],
+    y: d.bbox[1],
+    w: d.bbox[2],
+    h: d.bbox[3]
+  }));
+  state.inferenceMs = performance.now() - t0;
+  renderAll();
 }
+
+// ---------- Geometry ----------
 function iouOf(a, b) {
-  const ca = clip(a), cb = clip(b);
-  const ix1 = Math.max(ca.x1, cb.x1);
-  const iy1 = Math.max(ca.y1, cb.y1);
-  const ix2 = Math.min(ca.x2, cb.x2);
-  const iy2 = Math.min(ca.y2, cb.y2);
+  const ix1 = Math.max(a.x, b.x);
+  const iy1 = Math.max(a.y, b.y);
+  const ix2 = Math.min(a.x + a.w, b.x + b.w);
+  const iy2 = Math.min(a.y + a.h, b.y + b.h);
   const iw = Math.max(0, ix2 - ix1);
   const ih = Math.max(0, iy2 - iy1);
   const inter = iw * ih;
-  const aa = (ca.x2 - ca.x1) * (ca.y2 - ca.y1);
-  const ab = (cb.x2 - cb.x1) * (cb.y2 - cb.y1);
-  const union = aa + ab - inter;
+  const union = a.w * a.h + b.w * b.h - inter;
   if (union <= 0) return 0;
   return inter / union;
 }
 
-// ---------- State ----------
-let state = {
-  sceneKey: 'cat',
-  conf: 0.3,
-  nmsIoU: 0.5,
-  nmsMode: 'overlay',
-  // Interactive boxes for Step 1
-  truthBox: { x: 180, y: 110, w: 220, h: 220 },
-  predBox:  { x: 260, y: 170, w: 200, h: 180 },
-  dragging: null, // { kind: 'truth'|'pred', mode: 'move'|'resize' }
-  dragStart: null
-};
-
-function loadScene(key) {
-  state.sceneKey = key;
-  const sc = SCENES[key];
-  // Position the interactive boxes to reasonable defaults based on the GT
-  const g = sc.gts[0];
-  state.truthBox = { x: g.x, y: g.y, w: g.w, h: g.h };
-  state.predBox = {
-    x: g.x + 40, y: g.y + 20,
-    w: Math.max(60, g.w * 0.85), h: Math.max(60, g.h * 0.85)
-  };
-  updateAll();
+function bestDetFor(gt, dets) {
+  let bestI = -1, bestIoU = 0;
+  for (let i = 0; i < dets.length; i++) {
+    const u = iouOf(gt, dets[i]);
+    if (u > bestIoU) { bestI = i; bestIoU = u; }
+  }
+  return { idx: bestI, iou: bestIoU };
 }
 
-// ---------- Canvas setup ----------
+// ---------- Canvas drawing primitives ----------
 function setupCanvas(canvas) {
   const dpr = window.devicePixelRatio || 1;
-  canvas.width = CANVAS_W * dpr;
-  canvas.height = CANVAS_H * dpr;
-  canvas.style.width = CANVAS_W + 'px';
-  canvas.style.height = CANVAS_H + 'px';
+  canvas.width = state.displayW * dpr;
+  canvas.height = state.displayH * dpr;
+  canvas.style.width = state.displayW + 'px';
+  canvas.style.height = state.displayH + 'px';
   const ctx = canvas.getContext('2d');
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   return ctx;
 }
 
-// ---------- Scene backgrounds ----------
-function fillBg(ctx, color) {
-  ctx.fillStyle = color;
-  ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+function drawImage(ctx) {
+  if (!state.imageBitmap) {
+    ctx.fillStyle = '#222';
+    ctx.fillRect(0, 0, state.displayW, state.displayH);
+    return;
+  }
+  ctx.drawImage(state.imageBitmap, 0, 0, state.displayW, state.displayH);
 }
 
-function drawCatBackground(ctx) {
-  fillBg(ctx, '#3a4560');
-  // Sun-like gradient
-  const grd = ctx.createRadialGradient(420, 100, 10, 420, 100, 200);
-  grd.addColorStop(0, 'rgba(255, 220, 150, 0.8)');
-  grd.addColorStop(1, 'rgba(255, 220, 150, 0)');
-  ctx.fillStyle = grd;
-  ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
-  // Floor
-  ctx.fillStyle = '#5a4b3b';
-  ctx.fillRect(0, 320, CANVAS_W, 80);
-  // Cat silhouette
-  ctx.fillStyle = '#1a1815';
-  ctx.beginPath();
-  ctx.ellipse(320, 240, 80, 80, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.beginPath();
-  ctx.ellipse(320, 170, 50, 50, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.beginPath();
-  ctx.moveTo(280, 140); ctx.lineTo(290, 110); ctx.lineTo(300, 135);
-  ctx.moveTo(350, 135); ctx.lineTo(345, 110); ctx.lineTo(360, 140);
-  ctx.fill();
-  // Tail
-  ctx.strokeStyle = '#1a1815';
-  ctx.lineWidth = 14;
-  ctx.beginPath();
-  ctx.moveTo(400, 260);
-  ctx.quadraticCurveTo(450, 200, 410, 160);
-  ctx.stroke();
+function imgToDisp(box) {
+  const sx = state.displayW / state.imageW;
+  const sy = state.displayH / state.imageH;
+  return { x: box.x * sx, y: box.y * sy, w: box.w * sx, h: box.h * sy };
+}
+function dispToImg(box) {
+  const sx = state.imageW / state.displayW;
+  const sy = state.imageH / state.displayH;
+  return { x: box.x * sx, y: box.y * sy, w: box.w * sx, h: box.h * sy };
 }
 
-function drawPedestriansBackground(ctx) {
-  fillBg(ctx, '#5c6b7a');
-  ctx.fillStyle = '#8fa3b8';
-  ctx.fillRect(0, 310, CANVAS_W, 90);
-  const cols = ['#d9622b', '#1e7770', '#2c6fb7', '#a3428a', '#c49a2e'];
-  const xs = [130, 210, 290, 370, 460];
-  xs.forEach((x, i) => {
-    ctx.fillStyle = cols[i];
-    ctx.beginPath();
-    ctx.ellipse(x, 155, 18, 22, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillRect(x - 22, 175, 44, 110);
-    ctx.fillStyle = '#2a2418';
-    ctx.fillRect(x - 14, 285, 10, 50);
-    ctx.fillRect(x + 4,  285, 10, 50);
-  });
-}
-
-function drawCarsBackground(ctx) {
-  fillBg(ctx, '#2a3a4a');
-  // Road
-  ctx.fillStyle = '#3a434c';
-  ctx.fillRect(0, 200, CANVAS_W, 200);
-  // Lane markings
-  ctx.strokeStyle = '#e0d8c6';
-  ctx.lineWidth = 3;
-  ctx.setLineDash([25, 25]);
-  ctx.beginPath(); ctx.moveTo(0, 300); ctx.lineTo(CANVAS_W, 300); ctx.stroke();
-  ctx.setLineDash([]);
-  // Cars
-  const carsData = [
-    { x: 140, y: 245, w: 160, col: '#d9622b' },
-    { x: 330, y: 260, w: 180, col: '#1e7770' },
-    { x: 520, y: 265, w: 160, col: '#8a5eb6' }
-  ];
-  carsData.forEach((c) => {
-    ctx.fillStyle = c.col;
-    ctx.fillRect(c.x - c.w / 2, c.y, c.w, 50);
-    ctx.fillRect(c.x - c.w / 2 + 20, c.y - 25, c.w - 40, 30);
-    ctx.fillStyle = '#1a1815';
-    ctx.beginPath(); ctx.arc(c.x - c.w / 2 + 30, c.y + 55, 12, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc(c.x + c.w / 2 - 30, c.y + 55, 12, 0, Math.PI * 2); ctx.fill();
-  });
-}
-
-function drawFruitBackground(ctx) {
-  fillBg(ctx, '#e8dcc4');
-  const fruits = [
-    { x: 185, y: 225, r: 60, col: '#c53a2b', type: 'apple' },
-    { x: 280, y: 190, r: 65, col: '#e89234', type: 'orange' },
-    { x: 385, y: 235, r: 60, col: '#a82d20', type: 'apple' },
-    { x: 490, y: 210, r: 65, col: '#eda54a', type: 'orange' }
-  ];
-  fruits.forEach((f) => {
-    ctx.fillStyle = f.col;
-    ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = 'rgba(0,0,0,0.25)';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-    if (f.type === 'apple') {
-      ctx.strokeStyle = '#3a2a1a';
-      ctx.lineWidth = 4;
-      ctx.beginPath(); ctx.moveTo(f.x, f.y - f.r); ctx.lineTo(f.x + 8, f.y - f.r - 14); ctx.stroke();
-    }
-  });
-}
-
-function drawDogsBackground(ctx) {
-  fillBg(ctx, '#a5c77a');
-  ctx.fillStyle = '#7fa85a';
-  ctx.fillRect(0, 300, CANVAS_W, 100);
-  // Two dog silhouettes
-  const dogs = [
-    { x: 200, y: 250, col: '#7c4a2a' },
-    { x: 420, y: 240, col: '#c49a2e' }
-  ];
-  dogs.forEach((d) => {
-    ctx.fillStyle = d.col;
-    ctx.beginPath(); ctx.ellipse(d.x, d.y, 75, 45, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(d.x + 60, d.y - 30, 30, 30, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillRect(d.x - 40, d.y + 30, 15, 60);
-    ctx.fillRect(d.x + 30, d.y + 30, 15, 60);
-  });
-  // Leash
-  ctx.strokeStyle = '#1a1815';
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.moveTo(260, 210); ctx.quadraticCurveTo(310, 300, 480, 220); ctx.stroke();
-}
-
-// ---------- Box drawing ----------
-function drawBox(ctx, b, color, label = null, opacity = 1, dash = []) {
+function drawBox(ctx, box, color, label = null, opacity = 1, dash = []) {
+  const b = imgToDisp(box);
+  ctx.save();
+  ctx.globalAlpha = opacity;
   ctx.strokeStyle = color;
   ctx.lineWidth = 2.5;
-  ctx.globalAlpha = opacity;
   ctx.setLineDash(dash);
   ctx.strokeRect(b.x, b.y, b.w, b.h);
   ctx.setLineDash([]);
-  ctx.globalAlpha = 1;
   if (label) {
     ctx.font = '600 12px system-ui, sans-serif';
-    const tw = ctx.measureText(label).width + 10;
+    const metrics = ctx.measureText(label);
+    const labelW = metrics.width + 10;
+    const labelH = 18;
+    const lx = b.x;
+    const ly = Math.max(labelH, b.y) - labelH;
     ctx.fillStyle = color;
-    ctx.globalAlpha = opacity;
-    ctx.fillRect(b.x, b.y - 18, tw, 18);
-    ctx.globalAlpha = 1;
+    ctx.fillRect(lx, ly, labelW, labelH);
     ctx.fillStyle = 'white';
-    ctx.fillText(label, b.x + 5, b.y - 5);
+    ctx.fillText(label, lx + 5, ly + 13);
   }
+  ctx.restore();
 }
 
-function drawHandles(ctx, b, color) {
-  const handles = [
+function drawIntersection(ctx, a, b) {
+  const ix1 = Math.max(a.x, b.x);
+  const iy1 = Math.max(a.y, b.y);
+  const ix2 = Math.min(a.x + a.w, b.x + b.w);
+  const iy2 = Math.min(a.y + a.h, b.y + b.h);
+  const iw = Math.max(0, ix2 - ix1);
+  const ih = Math.max(0, iy2 - iy1);
+  if (iw <= 0 || ih <= 0) return;
+  const d = imgToDisp({ x: ix1, y: iy1, w: iw, h: ih });
+  ctx.fillStyle = 'rgba(138, 94, 182, 0.4)';
+  ctx.fillRect(d.x, d.y, d.w, d.h);
+}
+
+function drawHandles(ctx, box, color) {
+  const b = imgToDisp(box);
+  const corners = [
     { x: b.x, y: b.y }, { x: b.x + b.w, y: b.y },
-    { x: b.x, y: b.y + b.h }, { x: b.x + b.w, y: b.y + b.h },
-    { x: b.x + b.w / 2, y: b.y + b.h / 2 }
+    { x: b.x, y: b.y + b.h }, { x: b.x + b.w, y: b.y + b.h }
   ];
-  handles.forEach((h, i) => {
-    ctx.fillStyle = i === 4 ? 'white' : color;
-    ctx.strokeStyle = color;
+  corners.forEach((c) => {
+    ctx.fillStyle = color;
+    ctx.strokeStyle = 'white';
     ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.arc(h.x, h.y, i === 4 ? 5 : 6, 0, Math.PI * 2);
+    ctx.arc(c.x, c.y, 5, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
   });
 }
 
-// ---------- Step 1 & 2: interactive IoU canvas ----------
-function renderIoUCanvas() {
+// ---------- Step 0 prelude canvas ----------
+function renderPrelude() {
+  const canvas = document.getElementById('preludeCanvas');
+  if (!canvas) return;
+  const ctx = setupCanvas(canvas);
+  drawImage(ctx);
+  // Draw the raw detections with COCO-SSD's "default" threshold of 0.5
+  const kept = state.rawDetections.filter((d) => d.score >= 0.5);
+  kept.forEach((d) => {
+    drawBox(ctx, d, '#d9622b',
+      `${d.cls} ${(d.score * 100).toFixed(0)}%`, Math.min(1, 0.4 + d.score));
+  });
+  document.getElementById('raw-count').textContent =
+    state.rawDetections.length > 0 ? state.rawDetections.length : '—';
+  document.getElementById('inference-ms').textContent =
+    state.inferenceMs > 0 ? `${state.inferenceMs.toFixed(0)} ms` : '—';
+}
+
+// ---------- Step 1 raw list canvas + table ----------
+function renderRawList() {
+  const canvas = document.getElementById('rawListCanvas');
+  if (!canvas) return;
+  const ctx = setupCanvas(canvas);
+  drawImage(ctx);
+  state.rawDetections.forEach((d, i) => {
+    const selected = i === state.selectedDetIdx;
+    drawBox(ctx, d, selected ? '#2c6fb7' : '#d9622b',
+      `${d.cls} ${(d.score * 100).toFixed(0)}%`, Math.min(1, 0.3 + d.score * 0.7));
+  });
+
+  const tbody = document.querySelector('#rawTable tbody');
+  if (!tbody) return;
+  if (state.rawDetections.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--muted);">No detections yet — load a photo.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = state.rawDetections
+    .slice()
+    .sort((a, b) => b.score - a.score)
+    .map((d) => {
+      const cls = d.idx === state.selectedDetIdx ? ' class="is-selected"' : '';
+      return `<tr${cls} data-idx="${d.idx}">
+        <td>${d.idx + 1}</td>
+        <td>${d.cls}</td>
+        <td>${(d.score * 100).toFixed(1)}%</td>
+        <td>${Math.round(d.x)},${Math.round(d.y)},${Math.round(d.w)},${Math.round(d.h)}</td>
+      </tr>`;
+    }).join('');
+  tbody.querySelectorAll('tr[data-idx]').forEach((row) => {
+    row.addEventListener('click', () => {
+      state.selectedDetIdx = parseInt(row.dataset.idx, 10);
+      renderRawList();
+    });
+  });
+}
+
+// ---------- Step 2 IoU canvas ----------
+function renderIoU() {
   const canvas = document.getElementById('iouCanvas');
   if (!canvas) return;
   const ctx = setupCanvas(canvas);
-  const sc = SCENES[state.sceneKey];
-  sc.bg(ctx);
+  drawImage(ctx);
 
-  const a = state.truthBox, b = state.predBox;
-  // Intersection shading
-  const ca = clip(a), cb = clip(b);
-  const ix1 = Math.max(ca.x1, cb.x1);
-  const iy1 = Math.max(ca.y1, cb.y1);
-  const ix2 = Math.min(ca.x2, cb.x2);
-  const iy2 = Math.min(ca.y2, cb.y2);
-  if (ix2 > ix1 && iy2 > iy1) {
-    ctx.fillStyle = 'rgba(138, 94, 182, 0.35)';
-    ctx.fillRect(ix1, iy1, ix2 - ix1, iy2 - iy1);
-  }
+  // Track IoUs for the stats
+  const perGt = state.gtBoxes.map((gt) => bestDetFor(gt, state.rawDetections));
+  state.lastIoU = perGt.length ? perGt[perGt.length - 1].iou : null;
 
-  drawBox(ctx, a, getComputedStyle(document.documentElement).getPropertyValue('--truth').trim() || '#1e7770', 'truth');
-  drawBox(ctx, b, getComputedStyle(document.documentElement).getPropertyValue('--pred').trim() || '#d9622b', 'pred');
-  drawHandles(ctx, a, '#1e7770');
-  drawHandles(ctx, b, '#d9622b');
-
-  // Update stats
-  const aA = area(a), aB = area(b);
-  const inter = Math.max(0, ix2 - ix1) * Math.max(0, iy2 - iy1);
-  const iou = iouOf(a, b);
-  const union = aA + aB - inter;
-  document.getElementById('area-truth').textContent = Math.round(aA).toLocaleString();
-  document.getElementById('area-pred').textContent = Math.round(aB).toLocaleString();
-  document.getElementById('area-inter').textContent = Math.round(inter).toLocaleString();
-  document.getElementById('iou-value').textContent = iou.toFixed(3);
-  document.getElementById('iouExplain').textContent =
-    `IoU = intersection / union = ${Math.round(inter)} / ${Math.round(union)} = ${iou.toFixed(3)}`;
-  const verdict = document.getElementById('iouVerdict');
-  let msg;
-  if (iou >= 0.9) msg = 'Near-perfect match. A detector with this IoU is essentially identifying the object exactly.';
-  else if (iou >= 0.7) msg = 'Good detection. This is the range strict benchmarks care about (AP@0.75).';
-  else if (iou >= 0.5) msg = 'Acceptable by the classic "is it a true positive?" threshold of 0.5 — but not great.';
-  else if (iou >= 0.3) msg = 'Partial overlap. Most benchmarks would call this a miss.';
-  else if (iou > 0) msg = 'Barely touching. Clearly a wrong box.';
-  else msg = 'No overlap at all. IoU = 0.';
-  verdict.textContent = msg;
-}
-
-// ---------- Step 3 raw detections ----------
-function renderRawCanvas() {
-  const canvas = document.getElementById('rawCanvas');
-  if (!canvas) return;
-  const ctx = setupCanvas(canvas);
-  const sc = SCENES[state.sceneKey];
-  sc.bg(ctx);
-
-  const dets = generateDetections(sc);
-  // Draw GTs
-  sc.gts.forEach((g) => drawBox(ctx, g, '#1e7770', null, 1, [8, 6]));
-
-  let showing = 0;
-  dets.forEach((d) => {
-    const above = d.score >= state.conf;
-    const color = above ? '#d9622b' : '#9a917f';
-    const alpha = above ? Math.max(0.35, d.score) : 0.35;
-    drawBox(ctx, d, color, above ? `${d.cls} ${(d.score * 100).toFixed(0)}%` : null, alpha);
-    if (above) showing++;
+  // Draw each GT with its best-match det + intersection
+  state.gtBoxes.forEach((gt, i) => {
+    drawBox(ctx, gt, '#1e7770', `GT ${i + 1}`, 1);
+    drawHandles(ctx, gt, '#1e7770');
+    const { idx, iou } = perGt[i];
+    if (idx >= 0 && iou > 0) {
+      const d = state.rawDetections[idx];
+      drawBox(ctx, d, '#d9622b',
+        `${d.cls} ${(d.score * 100).toFixed(0)}%  IoU ${iou.toFixed(2)}`, 0.95);
+      drawIntersection(ctx, gt, d);
+    }
   });
 
-  document.getElementById('showing-count').textContent = showing;
-  document.getElementById('total-count').textContent = dets.length;
+  // In-progress drawing
+  if (state.liveDraw) {
+    const { x0, y0, x1, y1 } = state.liveDraw;
+    const box = {
+      x: Math.min(x0, x1), y: Math.min(y0, y1),
+      w: Math.abs(x1 - x0), h: Math.abs(y1 - y0)
+    };
+    drawBox(ctx, box, '#1e7770', 'GT', 0.7, [6, 4]);
+  }
 
-  // Compute TP/FP/FN at the current threshold
-  const { tp, fp, fn } = countAtThreshold(dets, sc.gts, state.conf, 0.5);
+  document.getElementById('gt-count').textContent = state.gtBoxes.length;
+  if (perGt.length) {
+    const mean = perGt.reduce((acc, p) => acc + p.iou, 0) / perGt.length;
+    document.getElementById('mean-iou').textContent = mean.toFixed(3);
+  } else {
+    document.getElementById('mean-iou').textContent = '—';
+  }
+  document.getElementById('last-iou').textContent =
+    state.lastIoU != null ? state.lastIoU.toFixed(3) : '—';
+}
+
+// ---------- Step 3 threshold canvas + metrics ----------
+function renderThresh() {
+  const canvas = document.getElementById('threshCanvas');
+  if (!canvas) return;
+  const ctx = setupCanvas(canvas);
+  drawImage(ctx);
+
+  const total = state.rawDetections.length;
+  let showing = 0;
+  state.rawDetections.forEach((d) => {
+    const above = d.score >= state.confThreshold;
+    if (above) showing++;
+    drawBox(ctx, d, above ? '#d9622b' : '#9a917f',
+      above ? `${d.cls} ${(d.score * 100).toFixed(0)}%` : null,
+      above ? Math.min(1, 0.5 + d.score * 0.5) : 0.3);
+  });
+  state.gtBoxes.forEach((gt, i) => drawBox(ctx, gt, '#1e7770', `GT ${i + 1}`, 1, [6, 4]));
+
+  document.getElementById('showing-count').textContent = showing;
+  document.getElementById('total-count').textContent = total;
+
+  const { tp, fp, fn } = countAtThreshold(state.rawDetections, state.gtBoxes, state.confThreshold, 0.5);
   document.getElementById('tp').textContent = tp;
   document.getElementById('fp').textContent = fp;
   document.getElementById('fn').textContent = fn;
-  const P = tp + fp > 0 ? tp / (tp + fp) : 0;
-  const R = tp + fn > 0 ? tp / (tp + fn) : 0;
-  const F1 = (P + R > 0) ? 2 * P * R / (P + R) : 0;
-  document.getElementById('precision').textContent = P.toFixed(3);
-  document.getElementById('recall').textContent = R.toFixed(3);
-  document.getElementById('f1').textContent = F1.toFixed(3);
+  const P = tp + fp > 0 ? tp / (tp + fp) : null;
+  const R = tp + fn > 0 ? tp / (tp + fn) : null;
+  const F1 = (P != null && R != null && P + R > 0) ? 2 * P * R / (P + R) : null;
+  document.getElementById('precision').textContent = P == null ? '—' : P.toFixed(3);
+  document.getElementById('recall').textContent = R == null ? '—' : R.toFixed(3);
+  document.getElementById('f1').textContent = F1 == null ? '—' : F1.toFixed(3);
 }
 
 function countAtThreshold(dets, gts, conf, iouT) {
-  // Filter and sort by score desc, then greedily match to un-used GTs
   const kept = dets.filter((d) => d.score >= conf).slice().sort((a, b) => b.score - a.score);
   const gtUsed = new Array(gts.length).fill(false);
   let tp = 0, fp = 0;
@@ -443,13 +420,10 @@ function countAtThreshold(dets, gts, conf, iouT) {
     let bestI = -1, bestIoU = 0;
     for (let i = 0; i < gts.length; i++) {
       if (gtUsed[i]) continue;
-      if (gts[i].cls !== d.cls && d.cls !== 'noise' && gts[i].cls !== 'noise') {
-        // class mismatch — skip (but in our tiny demo class is largely same within scene)
-      }
-      const iou = iouOf(d, gts[i]);
-      if (iou > bestIoU) { bestIoU = iou; bestI = i; }
+      const u = iouOf(d, gts[i]);
+      if (u > bestIoU) { bestI = i; bestIoU = u; }
     }
-    if (bestI >= 0 && bestIoU >= iouT && d.cls !== 'noise') {
+    if (bestI >= 0 && bestIoU >= iouT) {
       tp++;
       gtUsed[bestI] = true;
     } else {
@@ -461,150 +435,106 @@ function countAtThreshold(dets, gts, conf, iouT) {
 }
 
 // ---------- Step 4 NMS ----------
-function runNMS(dets, iouT) {
-  const filtered = dets.filter((d) => d.score >= state.conf).slice().sort((a, b) => b.score - a.score);
+function runNMS(dets, iouT, confFloor) {
+  const filtered = dets.filter((d) => d.score >= confFloor)
+    .slice().sort((a, b) => b.score - a.score);
+  const alive = filtered.map((d) => ({ ...d, alive: true }));
   const kept = [];
   const suppressed = [];
   const trace = [];
-  const active = filtered.map((d, i) => ({ ...d, idx: i, alive: true }));
+  let step = 1;
   while (true) {
-    const head = active.find((a) => a.alive);
+    const head = alive.find((a) => a.alive);
     if (!head) break;
     kept.push(head);
-    trace.push(`keep #${head.idx + 1} (conf ${(head.score * 100).toFixed(0)}%)`);
+    trace.push({ step, action: 'keep', cls: head.cls, score: head.score, ref: null });
     head.alive = false;
-    for (const cand of active) {
+    for (const cand of alive) {
       if (!cand.alive) continue;
-      const iou = iouOf(head, cand);
-      if (iou >= iouT) {
+      const u = iouOf(head, cand);
+      if (u >= iouT) {
         cand.alive = false;
         suppressed.push(cand);
-        trace.push(`  suppress #${cand.idx + 1} (IoU ${iou.toFixed(2)} ≥ ${iouT.toFixed(2)})`);
+        trace.push({ step, action: `suppress (IoU ${u.toFixed(2)})`, cls: cand.cls, score: cand.score, ref: head });
       }
     }
+    step++;
   }
-  return { kept, suppressed, trace };
+  return { kept, suppressed, trace, pre: filtered.length };
 }
 
-function renderNMSCanvas() {
+function renderNMS() {
   const canvas = document.getElementById('nmsCanvas');
   if (!canvas) return;
   const ctx = setupCanvas(canvas);
-  const sc = SCENES[state.sceneKey];
-  sc.bg(ctx);
+  drawImage(ctx);
+  const { kept, suppressed, trace, pre } = runNMS(state.rawDetections, state.nmsThreshold, state.nmsConfFloor);
+  suppressed.forEach((d) => drawBox(ctx, d, '#9a917f', null, 0.3));
+  kept.forEach((d) => drawBox(ctx, d, '#d9622b',
+    `${d.cls} ${(d.score * 100).toFixed(0)}%`, 0.95));
 
-  const dets = generateDetections(sc);
-  sc.gts.forEach((g) => drawBox(ctx, g, '#1e7770', null, 1, [8, 6]));
-
-  const { kept, suppressed, trace } = runNMS(dets, state.nmsIoU);
-  if (state.nmsMode === 'overlay') {
-    suppressed.forEach((d) => drawBox(ctx, d, '#9a917f', null, 0.35));
-  }
-  kept.forEach((d) => drawBox(ctx, d, '#d9622b', `${d.cls} ${(d.score * 100).toFixed(0)}%`, 0.95));
-
-  document.getElementById('nms-in').textContent = dets.filter((d) => d.score >= state.conf).length;
+  document.getElementById('nms-in').textContent = pre;
   document.getElementById('nms-out').textContent = kept.length;
   document.getElementById('nms-sup').textContent = suppressed.length;
 
-  const traceEl = document.getElementById('nms-trace');
-  if (traceEl) traceEl.textContent = trace.join('\n') || '(no detections above confidence)';
-}
-
-// ---------- Step 5 anchor sketch ----------
-function renderAnchorCanvas() {
-  const canvas = document.getElementById('anchorCanvas');
-  if (!canvas) return;
-  const ctx = setupCanvas(canvas);
-  const sc = SCENES[state.sceneKey];
-  sc.bg(ctx);
-  sc.gts.forEach((g) => drawBox(ctx, g, '#1e7770', null, 1, [8, 6]));
-
-  const cols = 8, rows = 5;
-  const padX = 40, padY = 40;
-  const dx = (CANVAS_W - 2 * padX) / (cols - 1);
-  const dy = (CANVAS_H - 2 * padY) / (rows - 1);
-  ctx.globalAlpha = 0.9;
-  // Sample anchors at 3 aspect ratios
-  const aspects = [
-    { w: 60, h: 80 },
-    { w: 100, h: 60 },
-    { w: 80, h: 80 }
-  ];
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      const cx = padX + c * dx;
-      const cy = padY + r * dy;
-      ctx.fillStyle = 'rgba(44, 111, 183, 0.6)';
-      ctx.beginPath(); ctx.arc(cx, cy, 3, 0, Math.PI * 2); ctx.fill();
-      if ((r + c) % 5 === 0) {
-        aspects.forEach((a, i) => {
-          ctx.strokeStyle = `rgba(44, 111, 183, ${0.35 - i * 0.08})`;
-          ctx.lineWidth = 1;
-          ctx.strokeRect(cx - a.w / 2, cy - a.h / 2, a.w, a.h);
-        });
-      }
+  const tbody = document.querySelector('#nms-trace-table tbody');
+  if (tbody) {
+    if (!trace.length) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--muted);">No detections above the floor.</td></tr>';
+    } else {
+      tbody.innerHTML = trace.map((t) => {
+        const refStr = t.ref ? `${t.ref.cls} ${(t.ref.score * 100).toFixed(0)}%` : '—';
+        return `<tr><td>${t.step}</td><td>${t.action}</td><td>${t.cls}</td><td>${(t.score * 100).toFixed(1)}%</td><td>${refStr}</td></tr>`;
+      }).join('');
     }
   }
-  ctx.globalAlpha = 1;
 }
 
-// ---------- Step 6 PR curve and AP ----------
-function computeAP(dets, gts, iouT = 0.5) {
-  // Sort by confidence desc
-  const sorted = dets.slice().sort((a, b) => b.score - a.score);
-  const gtUsed = new Array(gts.length).fill(false);
+// ---------- Step 6 PR curve & AP ----------
+function computePRCurve() {
+  if (!state.gtBoxes.length || !state.rawDetections.length) return { pts: [], ap: 0 };
+  const sorted = state.rawDetections.slice().sort((a, b) => b.score - a.score);
+  const gtUsed = new Array(state.gtBoxes.length).fill(false);
   const pts = [];
   let tp = 0, fp = 0;
   sorted.forEach((d) => {
     let bestI = -1, bestIoU = 0;
-    for (let i = 0; i < gts.length; i++) {
+    for (let i = 0; i < state.gtBoxes.length; i++) {
       if (gtUsed[i]) continue;
-      const iou = iouOf(d, gts[i]);
-      if (iou > bestIoU) { bestIoU = iou; bestI = i; }
+      const u = iouOf(d, state.gtBoxes[i]);
+      if (u > bestIoU) { bestI = i; bestIoU = u; }
     }
-    if (bestI >= 0 && bestIoU >= iouT && d.cls !== 'noise') {
-      tp++;
-      gtUsed[bestI] = true;
-    } else {
-      fp++;
-    }
+    if (bestI >= 0 && bestIoU >= 0.5) { tp++; gtUsed[bestI] = true; }
+    else fp++;
     const P = tp / (tp + fp);
-    const R = tp / gts.length;
-    pts.push({ P, R });
+    const R = tp / state.gtBoxes.length;
+    pts.push({ P, R, s: d.score });
   });
-  // 11-point interpolation AP
+  // 11-point interpolated AP
   let ap = 0;
   for (let r = 0; r <= 1.0001; r += 0.1) {
     let maxP = 0;
-    for (const p of pts) {
-      if (p.R >= r - 1e-9 && p.P > maxP) maxP = p.P;
-    }
+    for (const p of pts) if (p.R >= r - 1e-9 && p.P > maxP) maxP = p.P;
     ap += maxP / 11;
   }
-  return { ap, pts };
+  return { pts, ap };
 }
 
-function renderPRCanvas() {
+function renderPR() {
   const canvas = document.getElementById('prCanvas');
   if (!canvas) return;
-  const ctx = setupCanvas(canvas);
-  ctx.clearRect(0, 0, CANVAS_W, 320);
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = 640 * dpr; canvas.height = 320 * dpr;
+  canvas.style.width = '640px'; canvas.style.height = '320px';
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, 640, 320);
 
   const margin = { top: 30, right: 30, bottom: 40, left: 60 };
-  const pw = CANVAS_W - margin.left - margin.right;
+  const pw = 640 - margin.left - margin.right;
   const ph = 320 - margin.top - margin.bottom;
 
-  // Axes
-  ctx.strokeStyle = '#c4beb1';
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.moveTo(margin.left, margin.top);
-  ctx.lineTo(margin.left, margin.top + ph);
-  ctx.lineTo(margin.left + pw, margin.top + ph);
-  ctx.stroke();
-
-  ctx.strokeStyle = '#f0ebe1';
-  ctx.lineWidth = 1;
+  ctx.strokeStyle = '#f0ebe1'; ctx.lineWidth = 1;
   ctx.beginPath();
   for (let i = 1; i <= 5; i++) {
     const x = margin.left + (pw / 5) * i;
@@ -613,16 +543,18 @@ function renderPRCanvas() {
     ctx.moveTo(margin.left, y); ctx.lineTo(margin.left + pw, y);
   }
   ctx.stroke();
+  ctx.strokeStyle = '#c4beb1'; ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(margin.left, margin.top);
+  ctx.lineTo(margin.left, margin.top + ph);
+  ctx.lineTo(margin.left + pw, margin.top + ph);
+  ctx.stroke();
 
-  ctx.fillStyle = '#9a917f';
-  ctx.font = '11px system-ui, sans-serif';
+  ctx.fillStyle = '#9a917f'; ctx.font = '11px system-ui, sans-serif';
   ctx.textAlign = 'center';
   ctx.fillText('Recall', margin.left + pw / 2, margin.top + ph + 24);
-  ctx.save();
-  ctx.translate(margin.left - 42, margin.top + ph / 2);
-  ctx.rotate(-Math.PI / 2);
-  ctx.fillText('Precision', 0, 0);
-  ctx.restore();
+  ctx.save(); ctx.translate(margin.left - 42, margin.top + ph / 2); ctx.rotate(-Math.PI / 2);
+  ctx.fillText('Precision', 0, 0); ctx.restore();
   ctx.textAlign = 'right';
   ctx.fillText('1', margin.left - 6, margin.top + 4);
   ctx.fillText('0', margin.left - 6, margin.top + ph + 4);
@@ -630,119 +562,149 @@ function renderPRCanvas() {
   ctx.fillText('0', margin.left, margin.top + ph + 14);
   ctx.fillText('1', margin.left + pw, margin.top + ph + 14);
 
-  const sc = SCENES[state.sceneKey];
-  const dets = generateDetections(sc);
-  const { ap, pts } = computeAP(dets, sc.gts);
+  const { pts, ap } = computePRCurve();
+  if (pts.length) {
+    ctx.fillStyle = 'rgba(44, 111, 183, 0.15)';
+    ctx.beginPath();
+    pts.forEach((p, i) => {
+      const x = margin.left + p.R * pw;
+      const y = margin.top + (1 - p.P) * ph;
+      if (i === 0) ctx.moveTo(x, margin.top + ph);
+      ctx.lineTo(x, y);
+    });
+    ctx.lineTo(margin.left + pts[pts.length - 1].R * pw, margin.top + ph);
+    ctx.closePath(); ctx.fill();
 
-  // Curve
-  ctx.strokeStyle = '#2c6fb7';
-  ctx.lineWidth = 2.5;
-  ctx.beginPath();
-  pts.forEach((p, i) => {
-    const x = margin.left + p.R * pw;
-    const y = margin.top + (1 - p.P) * ph;
-    if (i === 0) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
-  });
-  ctx.stroke();
+    ctx.strokeStyle = '#2c6fb7'; ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    pts.forEach((p, i) => {
+      const x = margin.left + p.R * pw;
+      const y = margin.top + (1 - p.P) * ph;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
 
-  // Fill under
-  ctx.fillStyle = 'rgba(44, 111, 183, 0.15)';
-  ctx.beginPath();
-  pts.forEach((p, i) => {
-    const x = margin.left + p.R * pw;
-    const y = margin.top + (1 - p.P) * ph;
-    if (i === 0) ctx.moveTo(x, margin.top + ph);
-    ctx.lineTo(x, y);
-  });
-  ctx.lineTo(margin.left + (pts.length ? pts[pts.length - 1].R : 0) * pw, margin.top + ph);
-  ctx.closePath();
-  ctx.fill();
-
-  // Points
-  ctx.fillStyle = '#d9622b';
-  pts.forEach((p) => {
-    const x = margin.left + p.R * pw;
-    const y = margin.top + (1 - p.P) * ph;
-    ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2); ctx.fill();
-  });
-
-  document.getElementById('apValue').textContent = ap.toFixed(3);
+    ctx.fillStyle = '#d9622b';
+    pts.forEach((p) => {
+      const x = margin.left + p.R * pw;
+      const y = margin.top + (1 - p.P) * ph;
+      ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2); ctx.fill();
+    });
+    document.getElementById('apValue').textContent = ap.toFixed(3);
+  } else {
+    ctx.fillStyle = '#9a917f'; ctx.font = '13px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Draw ground-truth boxes in Step 2 to populate this curve.',
+                 margin.left + pw / 2, margin.top + ph / 2);
+    document.getElementById('apValue').textContent = '—';
+  }
 }
 
-// ---------- Interactive box dragging ----------
-function wireIoUDrag() {
+// ---------- Input: IoU canvas drawing / dragging ----------
+function wireIoUInput() {
   const canvas = document.getElementById('iouCanvas');
   if (!canvas) return;
-  const getXY = (e) => {
+  let drawing = false;
+  let start = null;
+  let dragMode = null; // { kind: 'move'|'nw'|'ne'|'sw'|'se', idx }
+  let dragStart = null;
+
+  function getXYImg(e) {
     const rect = canvas.getBoundingClientRect();
     const cx = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
     const cy = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
-    return {
-      x: cx / rect.width * CANVAS_W,
-      y: cy / rect.height * CANVAS_H
-    };
-  };
+    const disp = { x: cx / rect.width * state.displayW, y: cy / rect.height * state.displayH };
+    // Convert display to image coords
+    const sx = state.imageW / state.displayW;
+    const sy = state.imageH / state.displayH;
+    return { x: disp.x * sx, y: disp.y * sy, dispX: disp.x, dispY: disp.y };
+  }
 
-  function hitTest(x, y) {
-    // Return { kind, mode } where kind = 'truth'|'pred', mode = 'move'|corner
-    const boxes = [
-      { key: 'predBox', b: state.predBox },   // pred on top first
-      { key: 'truthBox', b: state.truthBox }
-    ];
-    for (const { key, b } of boxes) {
+  function hitGt(x, y) {
+    // Check corners then insides (in display coords for tolerance)
+    const tol = 10 * state.imageW / state.displayW;
+    for (let i = state.gtBoxes.length - 1; i >= 0; i--) {
+      const g = state.gtBoxes[i];
       const corners = [
-        { x: b.x, y: b.y, mode: 'nw' },
-        { x: b.x + b.w, y: b.y, mode: 'ne' },
-        { x: b.x, y: b.y + b.h, mode: 'sw' },
-        { x: b.x + b.w, y: b.y + b.h, mode: 'se' }
+        { kind: 'nw', x: g.x, y: g.y },
+        { kind: 'ne', x: g.x + g.w, y: g.y },
+        { kind: 'sw', x: g.x, y: g.y + g.h },
+        { kind: 'se', x: g.x + g.w, y: g.y + g.h }
       ];
       for (const c of corners) {
-        if (Math.hypot(x - c.x, y - c.y) < 12) return { key, mode: c.mode };
+        if (Math.abs(x - c.x) < tol && Math.abs(y - c.y) < tol) return { kind: c.kind, idx: i };
       }
-      if (x > b.x && x < b.x + b.w && y > b.y && y < b.y + b.h) {
-        return { key, mode: 'move' };
+      if (x > g.x && x < g.x + g.w && y > g.y && y < g.y + g.h) {
+        return { kind: 'move', idx: i };
       }
     }
     return null;
   }
 
-  function onDown(e) {
-    const { x, y } = getXY(e);
-    const hit = hitTest(x, y);
+  const onDown = (e) => {
+    if (!state.imageBitmap) return;
+    const p = getXYImg(e);
+    if (state.drawingGt) {
+      drawing = true;
+      start = p;
+      state.liveDraw = { x0: p.x, y0: p.y, x1: p.x, y1: p.y };
+      if (e.touches) e.preventDefault();
+      return;
+    }
+    const hit = hitGt(p.x, p.y);
     if (hit) {
-      state.dragging = hit;
-      state.dragStart = { x, y, box: { ...state[hit.key] } };
+      dragMode = hit;
+      dragStart = { p, box: { ...state.gtBoxes[hit.idx] } };
       if (e.touches) e.preventDefault();
     }
-  }
-  function onMove(e) {
-    if (!state.dragging) return;
-    const { x, y } = getXY(e);
-    const d = state.dragging;
-    const s = state.dragStart;
-    const b = { ...s.box };
-    if (d.mode === 'move') {
-      b.x = s.box.x + (x - s.x);
-      b.y = s.box.y + (y - s.y);
-    } else {
-      // Corner resize
-      let x1 = b.x, y1 = b.y, x2 = b.x + b.w, y2 = b.y + b.h;
-      if (d.mode === 'nw') { x1 = x; y1 = y; }
-      if (d.mode === 'ne') { x2 = x; y1 = y; }
-      if (d.mode === 'sw') { x1 = x; y2 = y; }
-      if (d.mode === 'se') { x2 = x; y2 = y; }
-      const bx = Math.min(x1, x2);
-      const by = Math.min(y1, y2);
-      const bw = Math.max(20, Math.abs(x2 - x1));
-      const bh = Math.max(20, Math.abs(y2 - y1));
-      b.x = bx; b.y = by; b.w = bw; b.h = bh;
+  };
+  const onMove = (e) => {
+    if (!state.imageBitmap) return;
+    const p = getXYImg(e);
+    if (drawing) {
+      state.liveDraw = { x0: start.x, y0: start.y, x1: p.x, y1: p.y };
+      renderIoU();
+      if (e.touches) e.preventDefault();
+      return;
     }
-    state[d.key] = b;
-    renderIoUCanvas();
-    if (e.touches) e.preventDefault();
-  }
-  function onUp() { state.dragging = null; }
+    if (dragMode) {
+      const g = state.gtBoxes[dragMode.idx];
+      if (dragMode.kind === 'move') {
+        g.x = dragStart.box.x + (p.x - dragStart.p.x);
+        g.y = dragStart.box.y + (p.y - dragStart.p.y);
+      } else {
+        let x1 = dragStart.box.x, y1 = dragStart.box.y;
+        let x2 = x1 + dragStart.box.w, y2 = y1 + dragStart.box.h;
+        if (dragMode.kind === 'nw') { x1 = p.x; y1 = p.y; }
+        if (dragMode.kind === 'ne') { x2 = p.x; y1 = p.y; }
+        if (dragMode.kind === 'sw') { x1 = p.x; y2 = p.y; }
+        if (dragMode.kind === 'se') { x2 = p.x; y2 = p.y; }
+        g.x = Math.min(x1, x2);
+        g.y = Math.min(y1, y2);
+        g.w = Math.max(10, Math.abs(x2 - x1));
+        g.h = Math.max(10, Math.abs(y2 - y1));
+      }
+      renderAll();
+      if (e.touches) e.preventDefault();
+    }
+  };
+  const onUp = () => {
+    if (drawing && state.liveDraw) {
+      const { x0, y0, x1, y1 } = state.liveDraw;
+      const w = Math.abs(x1 - x0), h = Math.abs(y1 - y0);
+      if (w > 10 && h > 10) {
+        state.gtBoxes.push({ x: Math.min(x0, x1), y: Math.min(y0, y1), w, h });
+      }
+      state.liveDraw = null;
+      state.drawingGt = false;
+      const btn = document.getElementById('btn-draw-gt');
+      if (btn) btn.textContent = 'Draw ground-truth box';
+      renderAll();
+    }
+    drawing = false;
+    dragMode = null;
+  };
 
   canvas.addEventListener('mousedown', onDown);
   canvas.addEventListener('touchstart', onDown, { passive: false });
@@ -752,13 +714,14 @@ function wireIoUDrag() {
   window.addEventListener('touchend', onUp);
 }
 
-// ---------- Top-level update ----------
-function updateAll() {
-  renderIoUCanvas();
-  renderRawCanvas();
-  renderNMSCanvas();
-  renderAnchorCanvas();
-  renderPRCanvas();
+// ---------- Render orchestrator ----------
+function renderAll() {
+  renderPrelude();
+  renderRawList();
+  renderIoU();
+  renderThresh();
+  renderNMS();
+  renderPR();
 }
 
 // ---------- Math ----------
@@ -785,51 +748,96 @@ function init() {
     if (s) s.addEventListener('load', renderMath);
   }
 
-  document.querySelectorAll('#scene-buttons [data-scene]').forEach((b) => {
-    b.addEventListener('click', () => {
-      document.querySelectorAll('#scene-buttons [data-scene]').forEach((bb) => bb.classList.remove('is-active'));
-      b.classList.add('is-active');
-      loadScene(b.dataset.scene);
+  // Sample grid
+  const grid = document.getElementById('sample-grid');
+  if (grid) {
+    grid.innerHTML = SAMPLES.map((s) => `<button class="sample-thumb" data-sample="${s.key}">${s.label}</button>`).join('');
+    grid.querySelectorAll('[data-sample]').forEach((b) => {
+      b.addEventListener('click', () => pickSample(b.dataset.sample));
     });
+  }
+
+  // Upload
+  const uploadZone = document.getElementById('upload-zone');
+  const photoInput = document.getElementById('photo-input');
+  photoInput.addEventListener('change', (e) => {
+    const f = e.target.files && e.target.files[0];
+    if (f) handleFile(f);
+  });
+  ['dragenter', 'dragover'].forEach((ev) =>
+    uploadZone.addEventListener(ev, (e) => {
+      e.preventDefault(); uploadZone.classList.add('drag-over');
+    }));
+  ['dragleave', 'drop'].forEach((ev) =>
+    uploadZone.addEventListener(ev, (e) => {
+      e.preventDefault(); uploadZone.classList.remove('drag-over');
+    }));
+  uploadZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (f) handleFile(f);
   });
 
+  // Webcam
+  const webcamBtn = document.getElementById('webcam-btn');
+  webcamBtn.addEventListener('click', async (e) => {
+    e.preventDefault(); e.stopPropagation();
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      const video = document.createElement('video');
+      video.srcObject = stream; video.playsInline = true;
+      await video.play();
+      // Capture a single frame after 300ms
+      setTimeout(() => {
+        const off = document.createElement('canvas');
+        off.width = video.videoWidth; off.height = video.videoHeight;
+        off.getContext('2d').drawImage(video, 0, 0);
+        stream.getTracks().forEach((t) => t.stop());
+        loadImageFromElement(off);
+      }, 300);
+    } catch (err) {
+      alert('Webcam access failed: ' + err.message);
+    }
+  });
+
+  // Draw GT button
+  const drawBtn = document.getElementById('btn-draw-gt');
+  drawBtn.addEventListener('click', () => {
+    state.drawingGt = !state.drawingGt;
+    drawBtn.textContent = state.drawingGt ? 'Click-drag on the image &hellip; (click to cancel)' : 'Draw ground-truth box';
+  });
+  document.getElementById('btn-clear-gt').addEventListener('click', () => {
+    state.gtBoxes = [];
+    renderAll();
+  });
+
+  // Sliders
   const confSlider = document.getElementById('conf-slider');
   const confVal = document.getElementById('conf-val');
   confSlider.addEventListener('input', () => {
-    state.conf = parseFloat(confSlider.value);
-    confVal.textContent = state.conf.toFixed(2);
-    renderRawCanvas();
-    renderNMSCanvas();
+    state.confThreshold = parseFloat(confSlider.value);
+    confVal.textContent = state.confThreshold.toFixed(2);
+    renderThresh();
   });
-
   const nmsSlider = document.getElementById('nms-slider');
   const nmsVal = document.getElementById('nms-val');
   nmsSlider.addEventListener('input', () => {
-    state.nmsIoU = parseFloat(nmsSlider.value);
-    nmsVal.textContent = state.nmsIoU.toFixed(2);
-    renderNMSCanvas();
+    state.nmsThreshold = parseFloat(nmsSlider.value);
+    nmsVal.textContent = state.nmsThreshold.toFixed(2);
+    renderNMS();
+  });
+  const nmsConfSlider = document.getElementById('nms-conf-slider');
+  const nmsConfVal = document.getElementById('nms-conf-val');
+  nmsConfSlider.addEventListener('input', () => {
+    state.nmsConfFloor = parseFloat(nmsConfSlider.value);
+    nmsConfVal.textContent = state.nmsConfFloor.toFixed(2);
+    renderNMS();
   });
 
-  const overlayBtn = document.getElementById('nms-overlay');
-  const hideBtn = document.getElementById('nms-hide');
-  const modeLbl = document.getElementById('nms-mode');
-  overlayBtn.addEventListener('click', () => {
-    state.nmsMode = 'overlay';
-    overlayBtn.classList.add('is-active');
-    hideBtn.classList.remove('is-active');
-    modeLbl.textContent = 'overlay';
-    renderNMSCanvas();
-  });
-  hideBtn.addEventListener('click', () => {
-    state.nmsMode = 'hide';
-    hideBtn.classList.add('is-active');
-    overlayBtn.classList.remove('is-active');
-    modeLbl.textContent = 'hide';
-    renderNMSCanvas();
-  });
-
-  wireIoUDrag();
-  loadScene('cat');
+  wireIoUInput();
+  loadModel();
+  // Start with the first sample
+  pickSample(SAMPLES[0].key);
 }
 
 if (document.readyState === 'loading') {

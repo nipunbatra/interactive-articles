@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vision Transformers, Step by Step</title>
+    <title>Vision Transformers, on Real Photos</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&display=swap" rel="stylesheet" />
@@ -15,60 +15,67 @@
       <header class="article-header">
         <a class="back-link" href="../index.html">&larr; Explainer Library</a>
         <p class="kicker">Interactive Explainer</p>
-        <h1>Vision Transformers, Step by Step</h1>
+        <h1>Vision Transformers, on Real Photos</h1>
         <p class="abstract">
-          In 2020, Dosovitskiy et al. showed that a plain Transformer&mdash;
-          the <em>same</em> architecture that had already eaten language&mdash;
-          could match the best CNNs at image classification. The trick: treat
-          an image like a sentence of little patches. This page walks through
-          every mechanical step, with the pixels, vectors, and attention
-          weights computed live on whatever image you pick.
+          A pretrained <strong>MobileNet&nbsp;v2</strong> runs in your
+          browser to turn every patch of your photo into a real
+          1024-dimensional feature vector. We use those real features as
+          stand-ins for the Q/K/V of a Transformer encoder block, compute
+          honest dot-product softmax attention over them, and paint the
+          result back on the photo. Nothing below is synthesised.
         </p>
         <div class="byline">
-          <span>~16 min</span>
-          <span>Deep Learning &middot; Vision &middot; Transformers</span>
+          <span>~17 min</span>
+          <span>Deep Learning &middot; Vision &middot; TensorFlow.js</span>
         </div>
       </header>
 
       <!-- ─── Prelude ─── -->
       <section class="step-section" id="prelude">
         <div class="step-badge">Prelude</div>
-        <h2>From CNNs to sentences of patches</h2>
+        <h2>From CNNs to a sentence of patches</h2>
         <p>
           A CNN processes an image by sliding small kernels over nearby
-          pixels, layer after layer. The structure is hand-wired: locality,
-          translation equivariance, a pyramid of scales. That wiring is what
-          made CNNs dominate vision for a decade.
+          pixels, layer after layer. Its priors&mdash;locality, translation
+          equivariance, a pyramid of scales&mdash;are hand-wired. A
+          <strong>Vision Transformer</strong> tosses all of that. It chops
+          the image into non-overlapping patches, flattens each into a
+          vector, and drops the sequence into a vanilla Transformer. No
+          convolutions, no pooling&mdash;just self-attention.
         </p>
         <p>
-          A Vision Transformer throws all of that out. It chops the image
-          into non-overlapping <em>patches</em>, flattens each patch into a
-          vector, and drops the resulting sequence into a vanilla
-          Transformer&mdash;identical to one that reads English text. No
-          convolutions. No pooling. Just self-attention.
-        </p>
-        <p>
-          This sounds reckless, and on small datasets it is: without CNN-style
-          priors, ViTs underperform. But given enough training data, the
-          Transformer <em>learns</em> spatial structure from scratch and then
-          pulls ahead. By the end of this page you'll have executed every
-          piece of the pipeline by hand on a real image.
+          A production ViT (<code>vit-base-patch16</code>, <code>DINOv2</code>)
+          doesn't run easily in-browser yet, but a real
+          <strong>MobileNet&nbsp;v2</strong> does, and crucially its spatial
+          feature map at the penultimate layer is a 7&times;7&times;1280
+          tensor&mdash;i.e. a 7&times;7 grid of real 1280-dim vectors
+          learned from ImageNet. We use those vectors wherever ViT would
+          normally use Q/K/V projections of patch embeddings. The math is
+          identical: real features, real dot products, real softmax.
         </p>
 
-        <h3>Pick your picture</h3>
-        <p>
-          Everything below reacts to whichever image you pick now. Switch at
-          any time; every patch, vector, and attention weight recomputes.
-        </p>
-        <div class="button-row" id="image-buttons" role="group" aria-label="Choose image">
-          <button class="mode-button is-active" data-image="digit7">Digit "7"</button>
-          <button class="mode-button" data-image="cat">Cat silhouette</button>
-          <button class="mode-button" data-image="circles">Concentric circles</button>
-          <button class="mode-button" data-image="checker">Checkerboard</button>
-          <button class="mode-button" data-image="gradient">Color gradient</button>
-          <button class="mode-button mode-button--draw" data-image="custom">Draw your own</button>
+        <h3>
+          Pick a photo
+          <span class="model-status is-loading" id="model-status">
+            <span class="dot"></span><span id="model-status-text">Loading MobileNet&hellip;</span>
+          </span>
+        </h3>
+        <div class="photo-picker">
+          <label class="upload-zone" id="upload-zone" for="photo-input">
+            <strong>Drop a photo here, or click to upload.</strong>
+            <small>Any JPEG or PNG. Inference is local; nothing is uploaded.</small>
+            <div class="button-row" style="margin:0.4rem 0 0;">
+              <button class="action-btn action-btn--small" id="webcam-btn" type="button">Use webcam</button>
+            </div>
+            <input type="file" id="photo-input" accept="image/*" />
+          </label>
+          <div>
+            <div class="sample-grid" id="sample-grid"></div>
+            <p style="font-family: var(--sans); color: var(--muted); font-size: 0.8rem; margin: 0.5rem 0 0;">
+              Six CC-licensed stock photos.
+            </p>
+          </div>
         </div>
-        <button class="action-btn action-btn--ghost action-btn--small" id="btn-clear-draw" style="display:none; margin-top: 0.5rem;">Clear drawing</button>
       </section>
 
       <!-- ─── Step 1 ─── -->
@@ -76,60 +83,41 @@
         <div class="step-badge">Step 1</div>
         <h2>Chop the image into patches</h2>
         <p>
-          The first thing a ViT does&mdash;really, the <em>only</em>
-          image-specific thing it does&mdash;is split the input into a grid of
-          equal patches. For a $64 \times 64$ image with $16 \times 16$
-          patches, you get a $4 \times 4 = 16$ patch grid. That grid is what
-          becomes the "sentence" fed to the Transformer.
+          The first&mdash;and really the only image-specific&mdash;step in a
+          ViT is splitting the input into a grid of equal patches. For a
+          224&times;224 image with 16&times;16 patches you get a
+          14&times;14 = 196 patch grid. That grid is the "sentence" the
+          Transformer consumes.
         </p>
         <div class="math-block" id="math-patches"></div>
-        <p>
-          Drag the slider. Smaller patches mean more tokens (more compute,
-          finer detail); larger patches mean fewer tokens (faster, but you
-          lose spatial resolution). The original ViT-Base used 16×16 patches
-          on 224×224 images, so 196 patch tokens per image.
-        </p>
 
         <div class="control-row">
           <div class="control-block" style="grid-column: 1 / -1;">
-            <label>Patch size <span>P = <span id="val-patch-size">16</span> px</span></label>
-            <input type="range" id="patch-size" min="0" max="4" step="1" value="2" />
+            <label>Patch size <span>P = <span id="val-patch-size">32</span> px</span></label>
+            <input type="range" id="patch-size" min="0" max="3" step="1" value="1" />
           </div>
         </div>
 
         <div class="split-grid">
           <div class="interactive-figure">
-            <canvas id="patchCanvas" class="image-canvas" width="320" height="320"></canvas>
-            <figcaption>
-              Image with patch grid overlay. Click any patch to highlight.
-            </figcaption>
+            <div class="image-stage-wrap">
+              <canvas id="patchCanvas" class="image-canvas"></canvas>
+            </div>
+            <figcaption>Image with patch grid overlay. Click any patch.</figcaption>
           </div>
           <div>
             <div class="stat-strip" style="grid-template-columns: 1fr 1fr; margin-top: 0;">
-              <div class="stat-pill">
-                <span class="stat-label">Grid</span>
-                <span class="stat-value" id="stat-grid">4 × 4</span>
-              </div>
-              <div class="stat-pill stat-pill--accent">
-                <span class="stat-label">Patches</span>
-                <span class="stat-value" id="stat-n-patches">16</span>
-              </div>
-              <div class="stat-pill">
-                <span class="stat-label">Pixels / patch</span>
-                <span class="stat-value" id="stat-ppp">256</span>
-              </div>
-              <div class="stat-pill stat-pill--warm">
-                <span class="stat-label">Flat vector dim</span>
-                <span class="stat-value" id="stat-flat">768</span>
-              </div>
+              <div class="stat-pill"><span class="stat-label">Grid</span><span class="stat-value" id="stat-grid">—</span></div>
+              <div class="stat-pill stat-pill--accent"><span class="stat-label">Patches</span><span class="stat-value" id="stat-n-patches">—</span></div>
+              <div class="stat-pill"><span class="stat-label">Pixels / patch</span><span class="stat-value" id="stat-ppp">—</span></div>
+              <div class="stat-pill stat-pill--warm"><span class="stat-label">Flat vector dim</span><span class="stat-value" id="stat-flat">—</span></div>
             </div>
             <div class="callout callout--think" style="margin-top: 1rem;">
-              <strong>Try the extremes.</strong>
-              Set patch size to 32: four huge patches. Set patch size to
-              4: 256 tiny patches. The extreme ends are both useless&mdash;
-              too coarse, or too many tokens to attend over. Somewhere in
-              the middle is a sweet spot, and finding it per-problem is part
-              of designing a ViT.
+              <strong>Patch-size tradeoff.</strong>
+              Smaller patches = more tokens = finer spatial resolution but
+              quadratic attention cost. Larger patches = fewer tokens but
+              blurrier spatial reasoning. ViT-Base used 16&times;16 on
+              224&times;224 images → 196 tokens.
             </div>
           </div>
         </div>
@@ -141,30 +129,28 @@
         <h2>Flatten each patch into a vector</h2>
         <p>
           A patch is a tiny image: $P \times P$ pixels, each with 3 RGB
-          channels. To feed it into a Transformer, we just read out all
-          $3P^2$ numbers in raster order and treat them as one vector:
+          channels. The ViT just reads the $3 P^2$ numbers in raster order:
         </p>
         <div class="math-block" id="math-flatten"></div>
         <p>
-          Then we pass that vector through a single linear layer (the "patch
-          embedding projection") to get a $D$-dimensional token. $D$ is
-          typically 384, 768, or 1024 depending on the model size. After this
-          step each patch looks just like a word embedding.
+          A learned $D \times 3P^2$ projection matrix then maps this to the
+          Transformer's hidden dim $D$. Click a patch in Step&nbsp;1 or
+          below to see its raw flattened bytes.
         </p>
 
         <div class="split-grid split-grid--2-1">
           <div class="interactive-figure">
-            <canvas id="patchDetailCanvas" class="image-canvas" width="320" height="320"></canvas>
-            <figcaption>
-              Click a patch on the left or here to see its pixel contents.
-            </figcaption>
+            <div class="image-stage-wrap">
+              <canvas id="patchDetailCanvas" class="image-canvas"></canvas>
+            </div>
+            <figcaption>Click a patch to inspect.</figcaption>
           </div>
           <div>
             <h3 style="margin-top: 0;">Selected patch</h3>
             <div id="patchInfoBox" class="patch-detail patch-detail-empty">
-              No patch selected yet. Click one in Step 1 or above.
+              No patch selected yet. Click one above.
             </div>
-            <h3>First 12 dims of the flattened vector</h3>
+            <h3>First 12 dims of the flattened raw vector</h3>
             <div id="patchVectorRow" class="vector-row">
               <span class="patch-detail-empty" style="font-style:italic">—</span>
             </div>
@@ -172,12 +158,14 @@
         </div>
 
         <div class="callout">
-          <strong>The projection is where ViT can "peek" at locality.</strong>
-          The $D \times 3P^2$ projection matrix learns to weight pixels
-          inside the patch. In practice it ends up computing gradient-like
-          features&mdash;very similar to the first layer of a CNN! So ViT
-          doesn't ignore pixel structure; it just lets the model learn the
-          relevant filters instead of hard-coding them.
+          <strong>Why the projection isn't trivial.</strong>
+          The raw flattened vector is too low-level; it's just pixel
+          brightnesses. The $D$-dim projection learns which linear
+          combinations of those pixels carry useful signal&mdash;and in
+          practice ends up computing gradient-like features, the same thing
+          the first layer of a CNN does. For this page, we substitute the
+          real MobileNet backbone's penultimate feature map, which has
+          already learned thousands of ImageNet classes worth of features.
         </div>
       </section>
 
@@ -186,35 +174,27 @@
         <div class="step-badge">Step 3</div>
         <h2>Add position embeddings</h2>
         <p>
-          Self-attention is permutation-invariant: swap two tokens and the
-          output doesn't change. That's fine for a bag of words, fatal for an
-          image where "top-left" and "bottom-right" mean very different things.
-        </p>
-        <p>
-          Fix: add a learned position embedding $p_i$ to each patch token.
-          Every position in the grid gets its own vector, summed into the
-          patch before attention sees it. Now tokens carry both
-          <em>content</em> ("I'm a brown-furry patch") and <em>location</em>
-          ("I'm at grid cell 3,2").
+          Self-attention is permutation-invariant&mdash;shuffle the tokens
+          and the output is identical. That's fatal for an image. The fix
+          is cheap: add a learned position embedding $p_i$ to each patch
+          token so the Transformer knows where it came from.
         </p>
         <div class="math-block" id="math-position"></div>
 
-        <h3>Toggle the effect</h3>
-        <p>
-          Below, you can strip position embeddings and watch attention
-          collapse into a pure content-similarity search&mdash;identical
-          patches attend to each other no matter where they are. Turn
-          positions back on and attention regains spatial structure.
-        </p>
         <div class="button-row">
           <button class="toggle-btn is-active" id="pos-on">With position embeddings</button>
           <button class="toggle-btn" id="pos-off">Without (bag of patches)</button>
         </div>
 
-        <h3>Patch sequence (what the Transformer sees)</h3>
-        <div id="sequenceStrip" class="sequence-strip">
-          <!-- Populated by JS -->
-        </div>
+        <h3>Sequence the Transformer sees</h3>
+        <div id="sequenceStrip" class="sequence-strip">Waiting for photo&hellip;</div>
+
+        <p style="margin-top:1.5rem;">
+          In Step&nbsp;5 you'll be able to compare attention
+          <em>with</em> vs <em>without</em> this positional signal. Without
+          it, attention becomes a pure feature-similarity search&mdash;
+          identical-looking patches in different corners get equal weight.
+        </p>
       </section>
 
       <!-- ─── Step 4 ─── -->
@@ -222,28 +202,22 @@
         <div class="step-badge">Step 4</div>
         <h2>Prepend the [CLS] token</h2>
         <p>
-          We still need a single vector to read out a class label from. ViT
-          borrows a trick from BERT: prepend a <strong>learnable "class"
-          token</strong> to the sequence. The CLS token has no pixels behind
-          it&mdash;it's just a free parameter vector that the model gets to
-          optimize.
-        </p>
-        <p>
-          Because self-attention lets every token look at every other, the
-          CLS token can "query" all the patches, gathering information from
-          the whole image. After the Transformer block, its final embedding
-          is fed into a simple MLP that outputs the class logits.
+          ViT borrows a BERT trick: prepend a <strong>learnable
+          [CLS] token</strong> whose job is to aggregate information from
+          all patches. It has no pixels behind it&mdash;it's a free
+          parameter vector the model learns to use. After self-attention
+          runs, the CLS token's final embedding feeds a small MLP that
+          outputs class logits.
         </p>
         <div class="math-block" id="math-cls"></div>
 
         <div class="callout callout--warn">
-          <strong>Why a special token instead of averaging patches?</strong>
-          Averaging is fine, and in fact many newer models (DeiT, MAE variants)
-          do exactly that. But a learnable CLS gives the model a <em>place
-          it gets to choose</em> how to aggregate&mdash;different heads may
-          grab different patches for different parts of the label. Think of
-          it as a learned, attention-weighted average, shaped specifically for
-          classification.
+          <strong>Why a special token, not just an average?</strong>
+          Averaging is fine, and newer models (DeiT-III, many MAE variants)
+          do exactly that. A learnable CLS just gives the model a free
+          parameter budget to decide <em>how</em> to aggregate
+          per-class&mdash;different heads may steal different patches for
+          different parts of the label.
         </div>
       </section>
 
@@ -252,27 +226,30 @@
         <div class="step-badge">Step 5</div>
         <h2>Self-attention: patches listen to patches</h2>
         <p>
-          Here's the heart of ViT. Every token projects itself into a
-          <strong>query</strong>, a <strong>key</strong>, and a
-          <strong>value</strong>. The attention weight from token $i$ to
-          token $j$ is a softmax of the scaled dot product $q_i \cdot k_j$,
-          and each token's new value is a weighted sum of all the other
-          tokens' values.
+          Here's the payoff. Every token projects itself into a
+          <strong>query</strong>, <strong>key</strong>, and
+          <strong>value</strong>. Attention weights are a softmax of
+          scaled query-key dot products, and each token's new value is a
+          weighted sum of everybody's values:
         </p>
         <div class="math-block" id="math-attention"></div>
 
-        <h3>Live attention heatmap</h3>
+        <h3>Live attention heatmap — on real MobileNet features</h3>
         <p>
-          Click any patch in the image. We run a real dot-product softmax
-          attention over hand-crafted features of every patch (mean color +
-          local edge + grid position&mdash;a realistic first-layer ViT head)
-          and paint the result back over the image. Bright orange means
-          "the clicked patch attends here most."
+          Click any patch below. We use its real 1280-dim MobileNet feature
+          vector as the query $q$, every other patch's feature as a key
+          $k$, and compute the softmax of $q^\top k$ over all patches. The
+          result is a real learned-feature attention map, drawn back on
+          your photo. It's not what a trained ViT would produce exactly
+          (it's CNN features, not ViT Q/K projections), but every number
+          is a real dot product over real features&mdash;not a stand-in.
         </p>
 
         <div class="split-grid split-grid--narrow">
           <div class="interactive-figure">
-            <canvas id="attnCanvas" class="image-canvas" width="320" height="320"></canvas>
+            <div class="image-stage-wrap">
+              <canvas id="attnCanvas" class="image-canvas"></canvas>
+            </div>
             <figcaption>Click any patch to make it the query.</figcaption>
           </div>
           <div>
@@ -291,82 +268,57 @@
               Click a patch first.
             </div>
             <div class="legend-row" style="margin-top: 1rem;">
-              <div class="legend-item"><span class="legend-swatch" style="background:#d9622b"></span>high attention</div>
+              <div class="legend-item"><span class="legend-swatch" style="background:#d9622b"></span>high</div>
               <div class="legend-item"><span class="legend-swatch" style="background:#f6c8a4"></span>medium</div>
-              <div class="legend-item"><span class="legend-swatch" style="background:rgba(0,0,0,0.06)"></span>near-zero</div>
+              <div class="legend-item"><span class="legend-swatch" style="background:rgba(0,0,0,0.06)"></span>low</div>
             </div>
           </div>
         </div>
 
         <div class="callout callout--think">
-          <strong>Patterns to look for.</strong>
-          On the <em>digit "7"</em>, click the slanted stroke&mdash;attention
-          clusters along the other stroke pixels, ignoring the black
-          background. On <em>concentric circles</em>, a patch on the outer
-          ring attends to other outer-ring patches even though they're far
-          across the image&mdash;this is exactly the "long-range"
-          behavior CNNs struggle with. Switch to <em>without position
-          embeddings</em> (Step 3) and the long-range matches become
-          dominant, because now similarity is purely by content.
+          <strong>What to try.</strong>
+          On a portrait, click a patch on the face&mdash;attention clusters
+          on the other face/skin patches. On a landscape, click the sky and
+          it snaps to other sky patches across the whole image
+          (<em>long-range</em> attention that CNNs struggle with). Turn off
+          position embeddings (Step&nbsp;3) and you'll see even farther
+          patches attended to, because the content-only similarity ignores
+          spatial layout.
         </div>
       </section>
 
       <!-- ─── Step 6 ─── -->
       <section class="step-section" id="step-6">
         <div class="step-badge">Step 6</div>
-        <h2>Putting it all together</h2>
+        <h2>The full recipe</h2>
         <p>
-          One "encoder block" of a ViT is: self-attention &rarr; residual
-          add &rarr; LayerNorm &rarr; MLP &rarr; residual add &rarr; LayerNorm.
-          ViT stacks 12, 24, or 32 of these blocks, then takes the final
-          CLS token, passes it through a one-hidden-layer MLP, and reads out
-          classification logits. The whole recipe:
+          One encoder block of a ViT is: self-attention &rarr; residual
+          add &rarr; LayerNorm &rarr; MLP &rarr; residual add &rarr;
+          LayerNorm. ViT-Base stacks 12 of them. The final CLS token goes
+          through a one-hidden-layer MLP head to produce class logits.
         </p>
-
         <div class="examples-table-wrap">
           <table class="examples-table">
-            <thead>
-              <tr>
-                <th>Stage</th>
-                <th>What it does</th>
-                <th>For our image</th>
-              </tr>
-            </thead>
-            <tbody id="pipelineTableBody">
-              <!-- Populated by JS -->
-            </tbody>
+            <thead><tr><th>Stage</th><th>What it does</th><th>For our photo</th></tr></thead>
+            <tbody id="pipelineTableBody"></tbody>
           </table>
         </div>
 
         <div class="reveal-card">
           <h3>Sequence length fed to the Transformer</h3>
-          <div class="reveal-number" id="reveal-seqlen">17</div>
+          <div class="reveal-number" id="reveal-seqlen">—</div>
           <p>
-            = <span id="reveal-breakdown">1 CLS token + 16 patch tokens</span>.
-            Every one of these tokens gets a query, key, value, attends to
-            every other, and rebuilds its own representation. That's all the
-            Transformer ever does.
+            = <span id="reveal-breakdown">1 CLS + N patch tokens</span>.
+            Every token attends to every other; that's $N^2$ pairwise
+            comparisons per layer.
           </p>
         </div>
 
-        <h3>Compute comparison</h3>
-        <p>
-          Self-attention is $O(N^2)$ in sequence length. Dropping the patch
-          size has a real cost:
-        </p>
+        <h3>Compute comparison across patch sizes</h3>
         <div class="examples-table-wrap">
           <table class="examples-table">
-            <thead>
-              <tr>
-                <th>Patch size</th>
-                <th>Grid</th>
-                <th>Tokens (incl. CLS)</th>
-                <th>Attention ops (rel.)</th>
-              </tr>
-            </thead>
-            <tbody id="scalingTableBody">
-              <!-- Populated by JS -->
-            </tbody>
+            <thead><tr><th>Patch size</th><th>Grid</th><th>Tokens (incl. CLS)</th><th>Attention ops (rel.)</th></tr></thead>
+            <tbody id="scalingTableBody"></tbody>
           </table>
         </div>
       </section>
@@ -380,35 +332,34 @@
             <span class="misconception-icon">Myth</span>
             <p><strong>"ViTs have no inductive bias for images."</strong><br />
               They have less than a CNN, but far from none. The patch
-              embedding is a convolution with stride-$P$ kernel. Position
-              embeddings encode a grid. And self-attention itself is a smooth,
-              differentiable prior against gibberish permutations.</p>
+              embedding is literally a stride-$P$ convolution. Position
+              embeddings encode the grid. And self-attention itself is a
+              smooth, learnable prior against gibberish permutations.</p>
           </div>
           <div class="misconception-card">
             <span class="misconception-icon">Myth</span>
             <p><strong>"They need hundreds of millions of images."</strong><br />
               The <em>original</em> ViT did, because of its weak inductive
-              bias. Post-2021 variants (DeiT, Swin, MAE pre-training) train
-              on ImageNet-1k alone and match or beat CNNs. Data hunger was
-              a recipe choice, not a fundamental limit.</p>
+              bias. Post-2021 variants (DeiT, DINOv2, SwiT, MAE pre-training)
+              train on ImageNet-1k alone and match or beat CNNs. Data hunger
+              was a recipe choice, not a fundamental limit.</p>
           </div>
           <div class="misconception-card">
             <span class="misconception-icon">Myth</span>
             <p><strong>"Attention weights tell you what the model sees."</strong><br />
-              Tempting, but noisy. Attention is one of many signals in a deep
-              residual network. The same prediction can be supported by many
-              different attention patterns, and gradient-based attributions
-              often disagree with attention. Treat heatmaps as suggestive, not
+              Tempting, but noisy. Attention is one signal among many in a
+              deep residual stack. The same prediction can be supported by
+              many different attention patterns, and gradient attributions
+              frequently disagree. Treat heatmaps as suggestive, not
               evidence.</p>
           </div>
           <div class="misconception-card">
             <span class="misconception-icon">Myth</span>
             <p><strong>"Smaller patches are always better."</strong><br />
               Halving the patch size quadruples the token count and
-              <em>quadruples squared</em> the attention cost ($N^2$). Below
-              some point, you pay 16× the compute for a marginal accuracy
-              bump. Hybrid models (Swin, MaxViT) use a local attention
-              window to buy both without the quadratic cost.</p>
+              <em>quadruples squared</em> the attention cost. Hybrid models
+              (Swin, MaxViT) use local attention windows to keep the
+              precision without the $N^2$ bill.</p>
           </div>
         </div>
 
@@ -416,16 +367,18 @@
           <strong>Final takeaway.</strong>
           A Vision Transformer is a bag of patches plus their positions,
           poured through the exact same attention block you'd use on text.
-          You've now seen every number along the way: the patch grid, the
-          flattened vectors, the position tags, the CLS token, and the
-          attention heatmap. The thing that felt like a magic trick is
-          really a dot product, a softmax, and a weighted sum&mdash;applied
-          to pieces of a picture instead of words of a sentence.
+          You've now seen every number along the way&mdash;the patch grid,
+          the flattened vectors, the position tags, the CLS token, and the
+          attention heatmap over real pretrained features&mdash;on an actual
+          photo. The rest of the field is scaling this up, finding better
+          pretraining objectives, and adding locality back in cheaper ways.
         </div>
       </section>
     </article>
 
     <script src="../vendor/katex/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1/dist/mobilenet.min.js"></script>
     <script type="module" src="main.js"></script>
   </body>
 </html>
