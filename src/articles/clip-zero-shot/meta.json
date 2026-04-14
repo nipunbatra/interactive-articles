@@ -1,0 +1,19 @@
+{
+  "slug": "clip-zero-shot",
+  "title": "CLIP, Zero-Shot, from the Embeddings Up",
+  "date": "2026-05-07",
+  "tagline": "Type any labels, see real cosine similarities from a real CLIP model",
+  "summary": "A real CLIP-ViT-B/32 from OpenAI runs in your browser via transformers.js. Upload a photo, type whatever labels you want, and watch the model embed both sides into a shared 512-dim space, compute real cosine similarities, and softmax the result into live probabilities. Zero fine-tuning required.",
+  "readingTime": "18 min",
+  "difficulty": "Intermediate",
+  "collection": "Deep learning",
+  "order": 18,
+  "status": "published",
+  "tags": ["CLIP", "Zero-shot", "Embeddings", "Transformers.js", "Vision-Language", "Interactive"],
+  "highlights": [
+    "Loads the real OpenAI CLIP-ViT-B/32 (via transformers.js / ONNX) to embed your photo and labels into a shared 512-dim space.",
+    "Edit labels on the fly; every cosine similarity and softmax probability recomputes immediately.",
+    "Swap the prompt template (\"a photo of a {}\", \"a picture of a {}\", raw) and watch accuracy shift.",
+    "Slide the softmax temperature and see confidence collapse or flatten."
+  ]
+}

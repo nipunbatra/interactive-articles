@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CLIP, Zero-Shot, from the Embeddings Up</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../vendor/katex/katex.min.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <article class="article">
+      <header class="article-header">
+        <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+        <p class="kicker">Interactive Explainer</p>
+        <h1>CLIP, Zero-Shot, from the Embeddings Up</h1>
+        <p class="abstract">
+          In 2021, OpenAI's CLIP model did something no image classifier had
+          done before: it could tell you whether a photo was "a photo of a
+          parrot" or "a photo of a skateboard" <em>without ever being
+          fine-tuned on those classes</em>. This page runs the real
+          CLIP-ViT-B/32 in your browser, embeds whatever labels you type
+          into a shared space with your photo, and shows every cosine
+          similarity and softmax on the way.
+        </p>
+        <div class="byline">
+          <span>~18 min</span>
+          <span>Deep Learning &middot; Vision-Language &middot; Real CLIP</span>
+        </div>
+      </header>
+
+      <!-- ─── Prelude ─── -->
+      <section class="step-section" id="prelude">
+        <div class="step-badge">Prelude</div>
+        <h2>The zero-shot idea</h2>
+        <p>
+          A regular image classifier has a fixed output head: 1,000
+          ImageNet classes, 80 COCO classes, whatever. You cannot ask it
+          about "a photo of a tarantula eating sushi" because it doesn't
+          have that output unit.
+        </p>
+        <p>
+          CLIP punts on output heads entirely. Instead, it trains two
+          encoders&mdash;one for images, one for text&mdash;so that
+          matching pairs end up close together in a shared 512-dim vector
+          space. At inference time, you encode the image once, encode any
+          set of candidate labels as text, and just pick whichever label
+          is closest in cosine similarity. The model has no idea which
+          labels you'll ask about; that's the zero-shot part.
+        </p>
+        <p>
+          OpenAI trained CLIP on 400 million image-text pairs scraped from
+          the web, with a simple contrastive loss: within a big batch,
+          the correct (image, caption) pair should have high similarity,
+          and every wrong pair should have low similarity. After training,
+          the embedding space is meaningful enough that <em>any</em>
+          caption can act as a class prototype.
+        </p>
+
+        <h3>
+          Pick a photo
+          <span class="model-status is-loading" id="model-status">
+            <span class="dot"></span><span id="model-status-text">Loading CLIP&hellip;</span>
+          </span>
+        </h3>
+        <p style="font-family: var(--sans); color: var(--muted); font-size: 0.9rem;">
+          The model (~150&nbsp;MB) downloads once and caches in your
+          browser's IndexedDB. First load takes ~20-40&nbsp;s on a
+          typical connection.
+        </p>
+
+        <div class="photo-picker">
+          <label class="upload-zone" id="upload-zone" for="photo-input">
+            <strong>Drop a photo here, or click to upload.</strong>
+            <small>Runs locally. Any JPEG or PNG.</small>
+            <div class="button-row" style="margin:0.4rem 0 0;">
+              <button class="action-btn action-btn--small" id="webcam-btn" type="button">Use webcam</button>
+            </div>
+            <input type="file" id="photo-input" accept="image/*" />
+          </label>
+          <div>
+            <div class="sample-grid" id="sample-grid"></div>
+            <p style="font-family: var(--sans); color: var(--muted); font-size: 0.8rem; margin: 0.5rem 0 0;">
+              Six CC-licensed stock photos.
+            </p>
+          </div>
+        </div>
+
+        <div class="progress-bar"><div class="progress-bar-fill" id="progress-bar-fill"></div></div>
+        <div class="progress-file" id="progress-file"></div>
+
+        <div class="interactive-figure">
+          <div class="image-stage-wrap">
+            <canvas id="preludeCanvas" class="image-canvas" width="480" height="480"></canvas>
+          </div>
+          <figcaption id="prelude-caption">Loading…</figcaption>
+        </div>
+
+        <div class="stat-strip">
+          <div class="stat-pill">
+            <span class="stat-label">Model</span>
+            <span class="stat-value" style="font-size: 0.92rem;">CLIP-ViT-B/32</span>
+          </div>
+          <div class="stat-pill stat-pill--image">
+            <span class="stat-label">Shared dim</span>
+            <span class="stat-value">512</span>
+          </div>
+          <div class="stat-pill stat-pill--warm">
+            <span class="stat-label">Inference time</span>
+            <span class="stat-value" id="inference-ms">—</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── Step 1 ─── -->
+      <section class="step-section" id="step-1">
+        <div class="step-badge">Step 1</div>
+        <h2>Two encoders, one shared space</h2>
+        <p>
+          CLIP is not one network. It's two. The vision encoder is a
+          Vision Transformer (or ResNet, depending on the variant); the
+          text encoder is a small Transformer. Each maps its input to
+          a single 512-dim vector. That shared 512-dim space is where all
+          the magic happens.
+        </p>
+        <div class="math-block" id="math-encoders"></div>
+        <p>
+          Both vectors are $\ell_2$-normalised after the final projection,
+          so they live on the unit hypersphere. Distance between them is
+          measured by cosine similarity&mdash;equivalently, their dot
+          product&mdash;and it ranges from $-1$ (opposite) to $+1$
+          (identical).
+        </p>
+
+        <h3>Your image, through the vision encoder</h3>
+        <p>
+          The 512 numbers below are the real output of CLIP's vision
+          encoder on your current photo. If you swap photos, the whole
+          vector changes.
+        </p>
+        <div class="embedding-display" id="image-embedding-preview">
+          Waiting for model&hellip;
+        </div>
+      </section>
+
+      <!-- ─── Step 2 ─── -->
+      <section class="step-section" id="step-2">
+        <div class="step-badge">Step 2</div>
+        <h2>Your labels, through the text encoder</h2>
+        <p>
+          Type whatever you want. CLIP will tokenize each label, push the
+          tokens through its text Transformer, and emit another 512-dim
+          vector. These become your <em>class prototypes</em>. Whichever
+          prototype is closest to your image in the shared space wins.
+        </p>
+
+        <h3>Prompt template</h3>
+        <p>
+          CLIP was trained on captions, not bare class names. Wrapping
+          your label in a natural-sounding template like "a photo of a
+          {label}" typically gives a much better text vector than the
+          label alone. Swap templates and compare:
+        </p>
+        <div class="template-row" id="template-row">
+          <button class="mode-button is-active" data-template="photo">a photo of a {}</button>
+          <button class="mode-button" data-template="picture">a picture of a {}</button>
+          <button class="mode-button" data-template="image">an image of a {}</button>
+          <button class="mode-button" data-template="bare">{} (bare label)</button>
+        </div>
+
+        <h3>Edit your candidate labels</h3>
+        <p>
+          Each row is a separate candidate. The live similarity and the
+          softmax probability are shown on the right.
+        </p>
+        <div class="label-editor" id="label-editor"></div>
+        <div class="button-row">
+          <button class="action-btn action-btn--small action-btn--ghost" id="btn-add-label">+ Add label</button>
+          <button class="action-btn action-btn--small action-btn--ghost" id="btn-reset-labels">Reset to defaults</button>
+        </div>
+
+        <h3>First text prototype (for reference)</h3>
+        <div class="embedding-display" id="text-embedding-preview">
+          Waiting for labels&hellip;
+        </div>
+      </section>
+
+      <!-- ─── Step 3 ─── -->
+      <section class="step-section" id="step-3">
+        <div class="step-badge">Step 3</div>
+        <h2>Cosine similarity: the one operation that matters</h2>
+        <p>
+          Because both vectors are unit-norm, the dot product <em>is</em>
+          the cosine similarity:
+        </p>
+        <div class="math-block" id="math-cosine"></div>
+        <p>
+          One dot product per label. 512 multiplications and 511
+          additions, times the number of labels. That's the entire cost
+          of zero-shot classification in CLIP.
+        </p>
+
+        <h3>Raw similarities (before softmax)</h3>
+        <div id="raw-sim-table" class="examples-table-wrap"></div>
+
+        <div class="callout">
+          <strong>Why unit-normalising matters.</strong>
+          The contrastive loss CLIP trained with rewards high dot product
+          for matching pairs and low for non-matching. Without
+          normalisation, the model could cheat by making all pairs'
+          similarities big in absolute terms. Normalising puts every
+          vector on the same scale; similarity is only about direction.
+        </div>
+      </section>
+
+      <!-- ─── Step 4 ─── -->
+      <section class="step-section" id="step-4">
+        <div class="step-badge">Step 4</div>
+        <h2>Softmax and temperature</h2>
+        <p>
+          To turn similarity scores into probabilities we apply a softmax.
+          CLIP scales the logits by a learned temperature
+          $\tau \approx 0.01$ (equivalently, scales by $1/\tau \approx 100$):
+        </p>
+        <div class="math-block" id="math-softmax"></div>
+        <p>
+          The scaling makes the softmax very sharp. A similarity
+          difference of just 0.05 can produce a 5&times; probability
+          gap. Slide the temperature below to see the effect: lower
+          $\tau$ = sharper predictions; higher $\tau$ = flatter.
+        </p>
+
+        <div class="control-row">
+          <div class="control-block">
+            <label>Softmax temperature <span>&tau; = <span id="tau-val">0.01</span></span></label>
+            <input type="range" id="tau-slider" min="0.005" max="0.2" step="0.001" value="0.01" />
+          </div>
+          <div class="control-block">
+            <label>Scale factor <span>1/&tau; = <span id="inv-tau-val">100</span></span></label>
+            <p style="font-family: var(--sans); color: var(--muted); font-size: 0.82rem; margin: 0.4rem 0 0;">
+              CLIP's pretrained temperature is ~0.01. Raise it to flatten
+              confidence, lower it to spike it.
+            </p>
+          </div>
+        </div>
+
+        <h3>Live predictions</h3>
+        <div class="bar-chart" id="bar-chart"></div>
+
+        <div class="stat-strip">
+          <div class="stat-pill stat-pill--big stat-pill--warm">
+            <span class="stat-label">Top label</span>
+            <span class="stat-value" id="top-label" style="font-size: 1.2rem;">—</span>
+          </div>
+          <div class="stat-pill stat-pill--big stat-pill--accent">
+            <span class="stat-label">Top probability</span>
+            <span class="stat-value" id="top-prob">—</span>
+          </div>
+          <div class="stat-pill stat-pill--big">
+            <span class="stat-label">Entropy (nats)</span>
+            <span class="stat-value" id="entropy">—</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── Step 5 ─── -->
+      <section class="step-section" id="step-5">
+        <div class="step-badge">Step 5</div>
+        <h2>Why this works at all</h2>
+        <p>
+          A model that's never seen your labels nonetheless gets them
+          right most of the time. The reason is the <em>scale and
+          diversity</em> of the contrastive pretraining data. CLIP saw
+          400 million (image, caption) pairs from the open web, which
+          means it saw:
+        </p>
+        <ul class="explanation-list">
+          <li>Dozens of ways to describe a cat ("cat", "kitten", "kitty",
+            "tabby cat", "a photo of a cat on a rug"…)</li>
+          <li>Thousands of different cats, from every angle and lighting.</li>
+          <li>Negatives: every caption paired with many images that
+            <em>aren't</em> the described one.</li>
+        </ul>
+        <p>
+          By the end, the image of <em>any</em> cat is close to the text
+          embedding of <em>any</em> plausible caption about cats. The
+          pretraining buys you a surprisingly general image-to-language
+          similarity function that transfers to unseen label sets.
+        </p>
+
+        <div class="reveal-card">
+          <h3>Why the 512-dim head is enough</h3>
+          <div class="reveal-number">512</div>
+          <p>
+            dimensions in the shared space. That's plenty of room for
+            millions of distinct concepts because the embeddings don't
+            need to be orthogonal&mdash;they just need to <em>cluster</em>
+            by semantic similarity. <code>cat</code>, <code>kitten</code>,
+            and <code>tabby</code> don't fight for axes; they pile on top
+            of each other.
+          </p>
+        </div>
+      </section>
+
+      <!-- ─── Step 6 ─── -->
+      <section class="step-section" id="step-6">
+        <div class="step-badge">Step 6</div>
+        <h2>Beyond classification</h2>
+        <p>
+          Zero-shot classification is the simplest use of CLIP. The same
+          embedding space powers:
+        </p>
+        <div class="examples-table-wrap">
+          <table class="examples-table">
+            <thead>
+              <tr><th>Task</th><th>Trick</th><th>Example</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Image retrieval</strong></td>
+                <td>Embed a text query; find images whose embeddings are closest.</td>
+                <td>Search "golden hour landscape" across your photo library.</td>
+              </tr>
+              <tr>
+                <td><strong>Image → text retrieval</strong></td>
+                <td>Embed an image; find captions whose embeddings are closest.</td>
+                <td>Suggest alt-text for an accessibility pass.</td>
+              </tr>
+              <tr>
+                <td><strong>Guidance for diffusion</strong></td>
+                <td>Use CLIP similarity as a loss to nudge image generators toward a prompt.</td>
+                <td>Classifier-free guidance in Stable Diffusion.</td>
+              </tr>
+              <tr>
+                <td><strong>Open-vocabulary detection / segmentation</strong></td>
+                <td>Replace the detector's class head with CLIP's text embeddings.</td>
+                <td>OWL-ViT, CLIPSeg, X-Decoder.</td>
+              </tr>
+              <tr>
+                <td><strong>OCR-free document understanding</strong></td>
+                <td>Embed receipts, slides, charts; search by semantic content.</td>
+                <td>Paper search, slide organization.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ─── Step 7 ─── -->
+      <section class="step-section" id="step-7">
+        <div class="step-badge">Step 7</div>
+        <h2>Four places CLIP will fool you</h2>
+        <div class="misconception-grid">
+          <div class="misconception-card">
+            <span class="misconception-icon">Myth</span>
+            <p><strong>"CLIP understands what it classifies."</strong><br />
+              CLIP learns a similarity function, not a truth function. It's
+              happy to call a typed sign "iPod" if someone tapes that word
+              to an apple (<em>typographic attack</em>, Goh et al. 2021).
+              It doesn't reason; it matches.</p>
+          </div>
+          <div class="misconception-card">
+            <span class="misconception-icon">Myth</span>
+            <p><strong>"Zero-shot means no training."</strong><br />
+              Someone spent 400 million pairs and a GPU cluster training
+              the encoders. What you get for free is <em>generalization to
+              new labels</em>, not a free lunch.</p>
+          </div>
+          <div class="misconception-card">
+            <span class="misconception-icon">Myth</span>
+            <p><strong>"Adding more labels can only help."</strong><br />
+              Extra near-synonym labels split probability mass, hurting
+              any single label's score. Extra garbage labels pull the
+              softmax and act as noise. More is not always better; pick a
+              focused, well-separated label set.</p>
+          </div>
+          <div class="misconception-card">
+            <span class="misconception-icon">Myth</span>
+            <p><strong>"CLIP is unbiased because it wasn't trained on labels."</strong><br />
+              It was trained on 400M captions scraped from the web. The
+              biases of the web&mdash;gendered professions, racial
+              stereotypes, cultural blind spots&mdash;are baked in. Many
+              papers have probed these; deploy with care.</p>
+          </div>
+        </div>
+
+        <div class="callout callout--think" style="margin-top: 2rem;">
+          <strong>Final takeaway.</strong>
+          Zero-shot classification with CLIP is two matrix multiplies
+          and a softmax. The magic isn't the math; it's the 400 million
+          captioned images whose structure got distilled into the shared
+          embedding space. You've now done the full pipeline yourself on
+          your own photo with your own labels&mdash;on a model that
+          genuinely does not know in advance what you were going to ask.
+        </div>
+      </section>
+    </article>
+
+    <script src="../vendor/katex/katex.min.js"></script>
+    <script type="module" src="main.js"></script>
+  </body>
+</html>
