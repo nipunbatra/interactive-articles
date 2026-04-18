@@ -3,407 +3,321 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>GAN Minimax Dance</title>
+    <title>Feeling GAN training through the forger-and-detective game</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="../shared/site.css" />
-    <style>
-      :root { --ink:#1f1f1e; --paper:#faf8f3; --paper-alt:#f0eee5; --rule:#c9c4b5; --muted:#6b6a65; --accent:#d97757; --accent-soft:#ead3c5; --sage:#7b9e89; --slate:#4a6670; --wine:#a8324b; }
-      body { font-family:"Source Serif 4",Georgia,serif; background:var(--paper); color:var(--ink); line-height:1.55; max-width:800px; margin:0 auto; padding:40px 24px 80px 24px; }
-      .kicker { font-family:"Manrope",sans-serif; font-size:12px; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); margin:0 0 6px 0; }
-      h1 { font-size:44px; line-height:1.1; margin:0 0 16px 0; }
-      h2 { font-size:28px; line-height:1.2; margin:48px 0 14px 0; }
-      .abstract { font-size:18px; color:var(--muted); font-style:italic; margin:0 0 16px 0; }
-      .byline { font-family:"Manrope",sans-serif; font-size:13px; color:var(--muted); border-top:1px solid var(--rule); border-bottom:1px solid var(--rule); padding:12px 0; margin-bottom:36px; }
-      a.back-link { font-family:"Manrope",sans-serif; font-size:13px; color:var(--accent); text-decoration:none; display:inline-block; margin-bottom:24px; }
-      p { margin:0 0 16px 0; }
-      code { font-family:"IBM Plex Mono",monospace; font-size:.9em; background:var(--paper-alt); padding:2px 6px; border-radius:3px; }
-      .figure { background:var(--paper-alt); border:1px solid var(--rule); border-radius:6px; padding:20px; margin:24px 0; }
-      .controls { display:flex; flex-wrap:wrap; gap:18px; align-items:center; margin-bottom:16px; font-family:"Manrope",sans-serif; font-size:14px; }
-      .controls label { display:flex; align-items:center; gap:8px; }
-      input[type="range"] { width:340px; accent-color:var(--accent); }
-      button { font-family:"Manrope",sans-serif; font-size:13px; padding:6px 14px; background:var(--accent); color:white; border:none; border-radius:4px; cursor:pointer; }
-      button:hover { opacity: 0.9; }
-      svg { display:block; margin:0 auto; }
-      .stats { font-family:"IBM Plex Mono",monospace; font-size:13px; margin-top:12px; display:flex; gap:24px; flex-wrap:wrap; }
-      .stats span b { color:var(--accent); }
-      .legend { display:flex; gap:20px; font-family:"Manrope",sans-serif; font-size:12px; margin-top:12px; justify-content:center; }
-      .legend span { display:flex; align-items:center; gap:6px; }
-      .legend .swatch { width:14px; height:3px; border-radius:2px; }
-      .note { border-left:3px solid var(--accent); background:var(--accent-soft); padding:12px 16px; margin:20px 0; font-size:15px; }
-    </style>
+    <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <a class="back-link" href="../index.html">&larr; Explainer Library</a>
-    <p class="kicker">Interactive Explainer</p>
-    <h1>GAN Minimax Dance</h1>
-    <p class="abstract">
-      GAN training is two networks chasing each other. The generator tries to fool the discriminator; the discriminator tries to catch the generator. At the Nash equilibrium, the generator matches the data distribution and the discriminator's output is 0.5 everywhere. Scrub the training-step slider and watch it happen.
-    </p>
-    <div class="byline"><span>~6 min</span><span>Deep Learning · GAN · Generative</span></div>
+    <article class="article">
+      <header class="article-header">
+        <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+        <p class="kicker">Interactive Explainer</p>
+        <h1>Feeling GAN training through the forger-and-detective game</h1>
+        <p class="abstract">
+          Forget the loss function for a moment. Start with a counterfeiter and a detective,
+          give them paint and magnifying glasses, and watch a generative model emerge
+          as a pencil-and-paper game&mdash;no black box, no hand-waving.
+        </p>
+        <div class="byline">
+          <span>~12 min</span>
+          <span>Deep Learning · GAN · Minimax · Generative</span>
+        </div>
+      </header>
 
-    <p>
-      The real data (shown in <span style="color:#7b9e89;font-weight:600">sage</span>) is a two-mode Gaussian &mdash; a bimodal distribution the generator has to discover. The <span style="color:#d97757;font-weight:600">generator's distribution</span> starts as pure Gaussian noise at the origin. The <span style="color:#4a6670;font-weight:600">discriminator D(x)</span> starts confused. As training proceeds, the generator's distribution glides onto the real one, and D(x) flattens toward 0.5 everywhere &mdash; unable to tell real from fake.
-    </p>
+      <!-- ─── Prelude ─── -->
+      <section class="step-section" id="prelude">
+        <div class="step-badge">Prelude</div>
+        <h2>The counterfeiter and the detective</h2>
+        <p>
+          A counterfeiter prints fake banknotes. A detective inspects every bill that passes through a bank. At first, the counterfeiter is bad — the fakes look like kindergarten art, and the detective catches them instantly. The detective looks smart. The counterfeiter looks ridiculous.
+        </p>
+        <p>
+          But the counterfeiter learns. Every time a fake is caught, she asks the detective: <em>"What tipped you off?"</em> She fixes that flaw. A few hundred iterations later the fakes pass muster on the old tests — the detective must find new ones. A few thousand iterations later the detective's "tests" are splitting hairs of the paper fiber.
+        </p>
+        <p>
+          At the limit, the counterfeiter's bills are indistinguishable from real ones. The detective is left flipping coins. A GAN is this game, with two neural networks as the players and probability distributions as the bills.
+        </p>
+        <div class="callout callout--think">
+          <strong>By the end of this page</strong>, you will have driven both sides of this game yourself — you'll see what the detective's decision curve looks like, watch the counterfeiter's distribution glide onto the target, and understand precisely what "Nash equilibrium" means for two neural networks.
+        </div>
+      </section>
 
-    <h2>The playground</h2>
-    <div class="figure">
-      <div class="controls">
-        <label>Training step: <input type="range" id="step" min="0" max="1000" step="10" value="0" /><span id="step-val" style="font-family:'IBM Plex Mono',monospace; min-width:50px;">0</span></label>
-        <button id="play">▶ Play</button>
-      </div>
-      <svg id="plot" width="720" height="360" viewBox="0 0 720 360"></svg>
-      <div class="legend">
-        <span><span class="swatch" style="background:#7b9e89"></span>real data p(x)</span>
-        <span><span class="swatch" style="background:#d97757"></span>generator p_G(x)</span>
-        <span><span class="swatch" style="background:#4a6670;border-top:1px dashed #4a6670;height:0"></span>D(x)</span>
-      </div>
-      <div class="stats">
-        <span>D loss: <b id="dloss">–</b></span>
-        <span>G loss: <b id="gloss">–</b></span>
-        <span>JS divergence: <b id="js">–</b></span>
-      </div>
-      <svg id="losses" width="720" height="140" viewBox="0 0 720 140" style="margin-top:16px"></svg>
-    </div>
+      <!-- ─── Step 1 ─── -->
+      <section class="step-section" id="step-1">
+        <div class="step-badge">Step 1</div>
+        <h2>Pick a target distribution</h2>
+        <p>
+          Before any training, fix what the real data looks like. In a real GAN this is a dataset of images; here it's a 1D probability density we can plot. Three shapes come up in GAN debugging discussions:
+        </p>
+        <div class="button-row" id="scenario-buttons" role="group" aria-label="Choose target distribution">
+          <button class="mode-button is-active" data-case="bimodal">Two-mode Gaussian</button>
+          <button class="mode-button" data-case="skewed">Skewed single peak</button>
+          <button class="mode-button" data-case="trimodal">Three-mode mixture</button>
+        </div>
+        <p class="scenario-desc" id="scenario-desc" style="font-style:italic;color:var(--muted);">Two symmetric Gaussians &mdash; think "heights of adult men and women mixed together."</p>
 
-    <h2>Reading the picture</h2>
-    <p>
-      <strong>Step 0:</strong> generator is centered at 0, D is a sigmoid between the two modes. D is strong; G has no idea.
-    </p>
-    <p>
-      <strong>Step 200:</strong> generator has started to spread out; D's decision boundary is warping to chase the new fake locations. Losses oscillate.
-    </p>
-    <p>
-      <strong>Step 1000:</strong> generator's density matches real almost exactly. D(x) has collapsed to ~0.5 everywhere. That's the Nash equilibrium: the generator is indistinguishable from data, and the discriminator gives up.
-    </p>
+        <div class="interactive-figure">
+          <figcaption style="margin-top:0;margin-bottom:0.8rem;"><strong>Real data distribution p<sub>data</sub>(x).</strong> We'll keep this fixed; the generator tries to learn it.</figcaption>
+          <svg id="step1-plot" width="880" height="240" viewBox="0 0 880 240"></svg>
+        </div>
 
-    <div class="note">
-      <strong>In practice.</strong> Real GAN training is far messier — D often gets too strong too fast, G suffers mode collapse, losses are barely interpretable. This demo is the <em>theoretical</em> picture. WGAN, DCGAN guidelines, and spectral norm are all about making real GANs behave closer to this ideal trajectory.
-    </div>
+        <div class="callout callout--think">
+          <strong>Pause and think.</strong> If you'd never seen this density, how would you try to reproduce it? You could fit a parametric family (Gaussian mixture) — but what if the true shape isn't a mixture? A GAN skips that choice: the generator is a neural network, free to take any form. The <em>training loss</em> steers it toward p<sub>data</sub> without ever assuming what shape it is.
+        </div>
+      </section>
 
-    <h2>The math it animates</h2>
-    <p style="text-align:center; font-family:'IBM Plex Mono',monospace; font-size:15px; margin:24px 0;">
-      min<sub>G</sub> max<sub>D</sub> &nbsp; E<sub>x∼p</sub>[log D(x)] + E<sub>z∼N</sub>[log(1−D(G(z)))]
-    </p>
-    <p>
-      At the optimum, the discriminator's best response to any fixed generator is D*(x) = p(x) / (p(x) + p_G(x)). When p_G = p, this gives D* = 1/2 everywhere — the flat line you see at convergence.
-    </p>
+      <!-- ─── Step 2 ─── -->
+      <section class="step-section" id="step-2">
+        <div class="step-badge">Step 2</div>
+        <h2>What does a "bad" discriminator look like?</h2>
+        <p>
+          The detective — the <strong>discriminator</strong> D(x) — takes a point x and outputs a probability: <em>"how confident am I this came from real data, not the generator?"</em>. A perfect D outputs 1 for real, 0 for fake.
+        </p>
+        <p>
+          Drag the slider below to build a manual linear discriminator: a simple threshold and slope. Watch how its accuracy (fraction correctly classified) changes when you move it around. The generator's distribution here is fixed at <code>N(0, 1.5²)</code> — the dumb initialization before training.
+        </p>
 
-    <p style="margin-top: 48px; color: var(--muted); font-size: 14px;">
-      Part of the ES 667 Deep Learning course · IIT Gandhinagar · Aug 2026.
-    </p>
+        <div class="interactive-figure">
+          <div class="controls">
+            <label>Decision centre: <input type="range" id="d-centre" min="-4" max="4" step="0.1" value="0" /><span id="d-centre-val" class="mono-text">0.0</span></label>
+            <label>Steepness: <input type="range" id="d-slope" min="0.3" max="5" step="0.1" value="1.0" /><span id="d-slope-val" class="mono-text">1.0</span></label>
+          </div>
+          <svg id="step2-plot" width="880" height="280" viewBox="0 0 880 280"></svg>
+          <div class="stat-strip">
+            <div class="stat-pill">
+              <span class="stat-label">Real detected correctly</span>
+              <span class="stat-value" id="d-acc-real">–</span>
+            </div>
+            <div class="stat-pill">
+              <span class="stat-label">Fake detected correctly</span>
+              <span class="stat-value" id="d-acc-fake">–</span>
+            </div>
+            <div class="stat-pill highlight-pill">
+              <span class="stat-label">Discriminator loss</span>
+              <span class="stat-value" id="d-loss-val">–</span>
+            </div>
+          </div>
+        </div>
 
-    <script>
-      const svg = document.getElementById("plot");
-      const lossSvg = document.getElementById("losses");
-      const NS = "http://www.w3.org/2000/svg";
-      let step = 0;
+        <div class="callout">
+          <strong>What the loss measures.</strong> A discriminator's loss is a <em>classification</em> loss — binary cross-entropy:
+          <div class="math-block">
+            L<sub>D</sub> &nbsp;=&nbsp; &minus; E<sub>x∼p<sub>data</sub></sub>[log D(x)] &nbsp;&minus;&nbsp; E<sub>x∼p<sub>G</sub></sub>[log(1 &minus; D(x))]
+          </div>
+          Low loss means D splits real from fake cleanly. By moving the slider you can see the loss drop when you align the decision boundary with where real and fake differ the most.
+        </div>
+      </section>
 
-      // Real data: two Gaussians at -2 and +2
-      const realMeans = [-2, 2];
-      const realStd = 0.5;
+      <!-- ─── Step 3 ─── -->
+      <section class="step-section" id="step-3">
+        <div class="step-badge">Step 3</div>
+        <h2>What does the optimal discriminator look like?</h2>
+        <p>
+          Turns out there's a <em>closed-form</em> answer. If the generator's distribution is fixed, the D that minimises the loss is exactly:
+        </p>
+        <div class="math-block">
+          D<sup>&lowast;</sup>(x) &nbsp;=&nbsp; p<sub>data</sub>(x) / ( p<sub>data</sub>(x) + p<sub>G</sub>(x) )
+        </div>
+        <p>
+          In plain English: for every point x, the optimal detective answers "probability this is real" by computing the ratio of real-density to total-density. You can build this by hand without any training — if you know p<sub>data</sub> and p<sub>G</sub>.
+        </p>
 
-      function pReal(x) {
-        let p = 0;
-        for (const m of realMeans) p += 0.5 * Math.exp(-0.5 * ((x - m) / realStd) ** 2) / (realStd * Math.sqrt(2 * Math.PI));
-        return p;
-      }
+        <div class="interactive-figure">
+          <figcaption style="margin-top:0;margin-bottom:0.8rem;"><strong>Densities and the optimal D<sup>&lowast;</sup>(x).</strong> Move the slider to change the generator's standard deviation and watch D<sup>&lowast;</sup> re-shape itself — a better generator makes D<sup>&lowast;</sup> flatter.</figcaption>
+          <div class="controls">
+            <label>Generator σ: <input type="range" id="g-sigma" min="0.5" max="2.5" step="0.05" value="1.5" /><span id="g-sigma-val" class="mono-text">1.5</span></label>
+          </div>
+          <svg id="step3-plot" width="880" height="300" viewBox="0 0 880 300"></svg>
+          <div class="legend">
+            <span><span class="swatch" style="background:#7b9e89"></span>real p<sub>data</sub>(x)</span>
+            <span><span class="swatch" style="background:#d9622b"></span>generator p<sub>G</sub>(x)</span>
+            <span><span class="swatch" style="background:#4a6670;height:0;border-top:2px dashed #4a6670"></span>optimal D<sup>&lowast;</sup>(x)</span>
+          </div>
+        </div>
 
-      // Generator distribution at a given training step: interpolate from N(0, 1.5^2) → real
-      function pGen(x, t) {
-        const alpha = Math.min(1, t / 800);   // 0 → 1 over training
-        const muShift = 2 * alpha;            // pulls two modes toward ±2
-        const sigma = 1.5 - 1.0 * alpha;      // width shrinks from 1.5 → 0.5
-        // mixture of two Gaussians at ±muShift
-        let p = 0;
-        for (const sign of [-1, 1]) {
-          const m = sign * muShift;
-          p += 0.5 * Math.exp(-0.5 * ((x - m) / sigma) ** 2) / (sigma * Math.sqrt(2 * Math.PI));
-        }
-        return p;
-      }
+        <div class="callout callout--insight">
+          <strong>Read this carefully.</strong> When p<sub>G</sub> exactly equals p<sub>data</sub>, the ratio is <code>p/(p+p) = 0.5</code> everywhere. The optimal discriminator is a horizontal line at 0.5 — it gives up. <strong>That flat line is the target of GAN training.</strong>
+        </div>
 
-      // Optimal D at step t given p_real and p_gen:
-      function D(x, t) {
-        const pr = pReal(x), pg = pGen(x, t);
-        if (pr + pg < 1e-8) return 0.5;
-        // noisy approximation of optimal D with early training oscillation
-        const optimal = pr / (pr + pg);
-        const noise = Math.sin(t / 80 + x * 0.5) * 0.08 * Math.exp(-t / 600);
-        return Math.max(0.01, Math.min(0.99, optimal + noise));
-      }
+        <div class="callout callout--null">
+          <strong>Common confusion:</strong> "But we never actually compute D<sup>&lowast;</sup> because we don't know p<sub>G</sub>." True. The <em>training process</em> approximates this optimum by gradient descent on the BCE loss. Each step of D training nudges D closer to D<sup>&lowast;</sup> for the current G.
+        </div>
+      </section>
 
-      // JS divergence approximation
-      function jsDiv(t) {
-        let sum = 0;
-        const dx = 0.05;
-        for (let x = -6; x <= 6; x += dx) {
-          const pr = pReal(x), pg = pGen(x, t);
-          const m = 0.5 * (pr + pg);
-          if (pr > 1e-8) sum += 0.5 * pr * Math.log(pr / m) * dx;
-          if (pg > 1e-8) sum += 0.5 * pg * Math.log(pg / m) * dx;
-        }
-        return Math.max(0, sum);
-      }
+      <!-- ─── Step 4 ─── -->
+      <section class="step-section" id="step-4">
+        <div class="step-badge">Step 4</div>
+        <h2>What does the generator do?</h2>
+        <p>
+          Given a discriminator, the generator's job is to <em>fool it</em>. If D thinks real points have high score and fakes have low score, G wants to push its output toward regions where D is high.
+        </p>
+        <p>
+          That's the gradient signal. At a sample <code>x = G(z)</code>, the generator receives:
+        </p>
+        <div class="math-block">
+          &nabla;<sub>&theta;</sub> log D(G(z; &theta;))
+        </div>
+        <p>
+          which points in the direction that <em>raises</em> D at the generated point. Interpretation: "take this sample and move it toward a place where the detective would have been more fooled."
+        </p>
 
-      // layout
-      const W = 720, H = 360;
-      const MARG = { l: 50, r: 20, t: 30, b: 40 };
-      const plotW = W - MARG.l - MARG.r;
-      const plotH = H - MARG.t - MARG.b;
+        <div class="interactive-figure">
+          <figcaption style="margin-top:0;margin-bottom:0.8rem;"><strong>G's gradient field for a single sample.</strong> Click anywhere on the x-axis to place a generated sample. The red arrow shows the direction G's gradient wants to push it.</figcaption>
+          <svg id="step4-plot" width="880" height="300" viewBox="0 0 880 300" style="cursor:crosshair"></svg>
+          <p style="text-align:center;font-family:var(--sans);font-size:0.85rem;color:var(--muted);margin-top:0.6rem;">Click anywhere on the x-axis to place a sample</p>
+        </div>
 
-      function xScale(x) { return MARG.l + ((x + 6) / 12) * plotW; }
-      function yScaleP(y) { return H - MARG.b - y * plotH * 1.4; }    // for prob density ≤ 0.7ish
-      function yScaleD(y) { return H - MARG.b - y * plotH; }          // for D ∈ [0,1]
+        <div class="callout callout--think">
+          <strong>Look at the arrows.</strong> Samples sitting on the left mode of the real distribution get small arrows — they're already plausible. Samples sitting between modes (where <code>p<sub>data</sub></code> is low and D is low) get big arrows pointing toward the nearest real mode. That's the physical meaning of "move toward more plausible space."
+        </div>
 
-      // Loss history ring buffer
-      const lossHist = { d: [], g: [] };
+        <div class="callout callout--null">
+          <strong>Saturation warning.</strong> If D is very confident (outputs 0.001 on this sample), log D &asymp; -6.9 — a huge negative number but a <em>tiny</em> gradient because the log derivative <code>1/D</code> becomes unstable. That's the vanishing-gradient problem Goodfellow's <em>non-saturating loss</em> (maximize log D instead of minimize log(1-D)) was designed to fix.
+        </div>
+      </section>
 
-      function draw() {
-        svg.innerHTML = "";
+      <!-- ─── Step 5 ─── -->
+      <section class="step-section" id="step-5">
+        <div class="step-badge">Step 5</div>
+        <h2>The full dance</h2>
+        <p>
+          Now put both sides together. At every training step, we alternate:
+        </p>
+        <ol style="max-width:62ch;margin-bottom:1.2rem;">
+          <li>Update <strong>D</strong>: nudge it toward D<sup>&lowast;</sup> for the current G (via gradient descent on BCE loss).</li>
+          <li>Update <strong>G</strong>: nudge it in the direction that raises D at its samples.</li>
+        </ol>
+        <p>
+          Scrub the training step slider below and watch the three curves evolve together. At step 0, G is noise; D quickly becomes peaky. As G improves, D's decision curve flattens until it's 0.5 everywhere.
+        </p>
 
-        // Background
-        const bg = document.createElementNS(NS, "rect");
-        bg.setAttribute("x", 0); bg.setAttribute("y", 0);
-        bg.setAttribute("width", W); bg.setAttribute("height", H);
-        bg.setAttribute("fill", "#f0eee5");
-        svg.appendChild(bg);
+        <div class="interactive-figure">
+          <div class="controls">
+            <label>Training step: <input type="range" id="step5-step" min="0" max="1000" step="10" value="0" /><span id="step5-step-val" class="mono-text">0</span></label>
+            <button class="action-btn action-btn--primary" id="step5-play">▶ Play</button>
+            <button class="action-btn" id="step5-reset">Reset</button>
+          </div>
+          <svg id="step5-plot" width="880" height="320" viewBox="0 0 880 320"></svg>
+          <svg id="step5-losses" width="880" height="160" viewBox="0 0 880 160" style="margin-top:0.6rem"></svg>
+          <div class="legend">
+            <span><span class="swatch" style="background:#7b9e89"></span>p<sub>data</sub></span>
+            <span><span class="swatch" style="background:#d9622b"></span>p<sub>G</sub></span>
+            <span><span class="swatch" style="background:#4a6670;border-top:2px dashed #4a6670;height:0"></span>D(x)</span>
+            <span><span class="swatch" style="background:#4a6670"></span>D loss</span>
+            <span><span class="swatch" style="background:#a8324b"></span>G loss</span>
+          </div>
+        </div>
 
-        // Axes
-        const axis = (x1, y1, x2, y2) => {
-          const el = document.createElementNS(NS, "line");
-          el.setAttribute("x1", x1); el.setAttribute("y1", y1);
-          el.setAttribute("x2", x2); el.setAttribute("y2", y2);
-          el.setAttribute("stroke", "#1f1f1e"); el.setAttribute("stroke-width", 1);
-          svg.appendChild(el);
-        };
-        axis(MARG.l, H - MARG.b, W - MARG.r, H - MARG.b);
-        axis(MARG.l, MARG.t, MARG.l, H - MARG.b);
+        <div class="callout callout--think">
+          <strong>What the loss dynamics show.</strong> The two losses <em>oscillate</em>, not monotonically decrease. This is <em>expected</em> — when G improves, D's job gets harder; when D adjusts, G's gradient shifts. The oscillation is the dance. At convergence both losses settle around a fixed point (log 4 ≈ 1.38 for the DPPM-like minimax objective).
+        </div>
+      </section>
 
-        // x ticks
-        for (let x = -6; x <= 6; x += 2) {
-          const tx = xScale(x);
-          axis(tx, H - MARG.b, tx, H - MARG.b + 4);
-          const t = document.createElementNS(NS, "text");
-          t.setAttribute("x", tx); t.setAttribute("y", H - MARG.b + 18);
-          t.setAttribute("text-anchor", "middle");
-          t.setAttribute("font-family", "IBM Plex Mono, monospace");
-          t.setAttribute("font-size", 10); t.setAttribute("fill", "#6b6a65");
-          t.textContent = x;
-          svg.appendChild(t);
-        }
+      <!-- ─── Step 6 ─── -->
+      <section class="step-section" id="step-6">
+        <div class="step-badge">Step 6</div>
+        <h2>Mode collapse · when the dance breaks down</h2>
+        <p>
+          In the ideal trajectory above, G learns the full distribution. In practice, G often takes a shortcut: it discovers that one particular output fools D well, and produces <em>only that output</em> for every input. Diversity is lost — <strong>mode collapse</strong>.
+        </p>
 
-        // D axis labels on right
-        for (const v of [0, 0.5, 1]) {
-          const yy = yScaleD(v);
-          const t = document.createElementNS(NS, "text");
-          t.setAttribute("x", W - MARG.r + 4); t.setAttribute("y", yy + 3);
-          t.setAttribute("font-family", "IBM Plex Mono, monospace");
-          t.setAttribute("font-size", 10); t.setAttribute("fill", "#4a6670");
-          t.textContent = v;
-          svg.appendChild(t);
-        }
+        <div class="interactive-figure">
+          <figcaption style="margin-top:0;margin-bottom:0.8rem;"><strong>Mode-collapse demonstration</strong>. Toggle the scenario and watch the generator fixate on just one mode of a bimodal target, even as training proceeds.</figcaption>
+          <div class="controls">
+            <button class="action-btn" id="collapse-toggle">Toggle: healthy ↔ collapsed</button>
+            <span id="collapse-label" style="font-family:var(--sans);font-size:0.9rem;color:var(--muted);">Currently: healthy trajectory</span>
+          </div>
+          <svg id="step6-plot" width="880" height="260" viewBox="0 0 880 260"></svg>
+        </div>
 
-        // reference line at 0.5 for D
-        const ref = document.createElementNS(NS, "line");
-        ref.setAttribute("x1", MARG.l); ref.setAttribute("y1", yScaleD(0.5));
-        ref.setAttribute("x2", W - MARG.r); ref.setAttribute("y2", yScaleD(0.5));
-        ref.setAttribute("stroke", "#c9c4b5"); ref.setAttribute("stroke-width", 0.8);
-        ref.setAttribute("stroke-dasharray", "3 3");
-        svg.appendChild(ref);
+        <div class="callout callout--null">
+          <strong>Why collapse happens.</strong> If G's output at some point fools D with confidence 0.49, the gradient signal is weak. If another point fools D with confidence 0.49 too, G has no reason to produce both — it converges on the easier one. Preventing collapse needs extra tricks: minibatch discrimination, WGAN's earth-mover distance, spectral normalization, or just careful hyperparameter tuning.
+        </div>
+      </section>
 
-        // Plot p_real
-        const pathReal = pathFor(pReal, "sage");
-        svg.appendChild(pathReal);
-        // Fill under p_real
-        const fillReal = fillFor(pReal, "#7b9e89");
-        svg.appendChild(fillReal);
+      <!-- ─── Step 7 · Misconceptions ─── -->
+      <section class="step-section" id="step-7">
+        <div class="step-badge">Step 7</div>
+        <h2>Three things a GAN is <em>not</em></h2>
+        <div class="misconception-grid">
+          <div class="misconception-card">
+            <span class="misconception-icon">False</span>
+            <p><strong>"GANs minimize a meaningful loss."</strong><br />
+              The <em>minimax</em> objective doesn't admit a single "loss goes down" interpretation. D's loss going up might mean G got better; G's loss going up might mean D caught on. Monitoring losses alone is a terrible way to judge GAN progress — use sample quality + diversity metrics (FID, precision/recall).</p>
+          </div>
+          <div class="misconception-card">
+            <span class="misconception-icon">False</span>
+            <p><strong>"The generator learns p<sub>data</sub>."</strong><br />
+              Only approximately, and only at the idealised Nash equilibrium. In practice, G often learns a good-looking <em>subset</em> of p<sub>data</sub>. This is why WGAN, Wasserstein distance, and regularisers matter — they push the model closer to the full distribution.</p>
+          </div>
+          <div class="misconception-card">
+            <span class="misconception-icon">False</span>
+            <p><strong>"You should train D to convergence before updating G."</strong><br />
+              The original paper suggested this; in practice it kills G's gradient (the stronger D gets, the more it saturates, the smaller G's gradient). Most GAN recipes alternate one step of each, or use the non-saturating G loss to stay robust.</p>
+          </div>
+        </div>
+      </section>
 
-        // Plot p_gen
-        const pathGen = pathFor(x => pGen(x, step), "rust");
-        svg.appendChild(pathGen);
-        const fillGen = fillFor(x => pGen(x, step), "#d97757");
-        svg.appendChild(fillGen);
+      <!-- ─── Bonus ─── -->
+      <section class="step-section" id="bonus">
+        <div class="step-badge">Bonus</div>
+        <h2>From minimax to Wasserstein · why training got easier</h2>
+        <p>
+          The original GAN objective measures a Jensen-Shannon divergence between p<sub>data</sub> and p<sub>G</sub>. The problem: JS is saturating — when the distributions barely overlap (early in training), JS &asymp; log 2 no matter how close or far they are. So the generator gets no useful gradient signal.
+        </p>
+        <p>
+          Arjovsky et al. 2017 (WGAN) replaced JS with the <strong>Wasserstein-1 (earth-mover) distance</strong>:
+        </p>
+        <div class="math-block">
+          W(p<sub>data</sub>, p<sub>G</sub>) &nbsp;=&nbsp; inf<sub>&gamma;∈&Pi;</sub> &nbsp; E<sub>(x,y)&sim;&gamma;</sub>[&Vert;x &minus; y&Vert;]
+        </div>
+        <p>
+          Think of it as "the minimum cost to physically move the mass of p<sub>G</sub> onto p<sub>data</sub>." This distance shrinks <em>continuously</em> as the distributions get closer — no saturation. Training is dramatically more stable.
+        </p>
 
-        // Plot D(x)
-        let d = "M ";
-        for (let x = -6; x <= 6; x += 0.05) {
-          const xp = xScale(x);
-          const yp = yScaleD(D(x, step));
-          d += `${xp.toFixed(1)} ${yp.toFixed(1)} `;
-          if (x === -6) d = `M ${xp.toFixed(1)} ${yp.toFixed(1)} L `;
-          else if (x === -6 + 0.05) d += ` `;
-        }
-        // simpler: rebuild
-        d = "";
-        let first = true;
-        for (let x = -6; x <= 6; x += 0.05) {
-          const xp = xScale(x), yp = yScaleD(D(x, step));
-          d += (first ? `M ${xp} ${yp}` : ` L ${xp} ${yp}`);
-          first = false;
-        }
-        const Dpath = document.createElementNS(NS, "path");
-        Dpath.setAttribute("d", d);
-        Dpath.setAttribute("fill", "none");
-        Dpath.setAttribute("stroke", "#4a6670");
-        Dpath.setAttribute("stroke-width", 2);
-        Dpath.setAttribute("stroke-dasharray", "5 4");
-        svg.appendChild(Dpath);
+        <h3>Comparing the three objectives</h3>
+        <table class="compare-table">
+          <thead>
+            <tr>
+              <th>Objective</th>
+              <th>Gradient when distributions far apart</th>
+              <th>Training stability</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Minimax (original, saturating)</strong></td>
+              <td>Vanishing</td>
+              <td>Poor</td>
+            </tr>
+            <tr>
+              <td><strong>Non-saturating (log D)</strong></td>
+              <td>Healthy when G is bad</td>
+              <td>Standard</td>
+            </tr>
+            <tr>
+              <td><strong>Wasserstein (WGAN / WGAN-GP)</strong></td>
+              <td>Healthy always (linear in distance)</td>
+              <td>Best</td>
+            </tr>
+          </tbody>
+        </table>
 
-        // title
-        const title = document.createElementNS(NS, "text");
-        title.setAttribute("x", W / 2); title.setAttribute("y", 22);
-        title.setAttribute("text-anchor", "middle");
-        title.setAttribute("font-family", "Manrope, sans-serif");
-        title.setAttribute("font-size", 13); title.setAttribute("fill", "#6b6a65");
-        title.textContent = `training step ${step}`;
-        svg.appendChild(title);
-      }
+        <div class="callout callout--insight">
+          <strong>Connection to diffusion (L21-L22).</strong> Diffusion models avoid the GAN problem entirely by never asking two distributions to match at once. They teach a single model to undo noise step by step, with a regression loss (MSE on predicted noise) — no adversarial game, no mode collapse, no minimax. That's the main reason diffusion displaced GANs for most practical image generation in 2022-23.
+        </div>
 
-      function pathFor(fn, colorKey) {
-        const colors = { sage: "#7b9e89", rust: "#d97757" };
-        let d = "", first = true;
-        for (let x = -6; x <= 6; x += 0.05) {
-          const xp = xScale(x), yp = yScaleP(fn(x));
-          d += (first ? `M ${xp} ${yp}` : ` L ${xp} ${yp}`);
-          first = false;
-        }
-        const p = document.createElementNS(NS, "path");
-        p.setAttribute("d", d);
-        p.setAttribute("fill", "none");
-        p.setAttribute("stroke", colors[colorKey]);
-        p.setAttribute("stroke-width", 2.2);
-        return p;
-      }
+        <div class="callout callout--think" style="margin-top:2rem">
+          <strong>Final takeaway.</strong> When someone says "GAN training is unstable," they're describing the exact dynamics you just drove. The generator and discriminator are chasing each other around a saddle point in a 10⁹-dimensional space — the miracle is that it works at all. WGAN, spectral norm, and large-scale engineering (StyleGAN, BigGAN) made it work <em>reliably</em>, not because they found a new idea but because they tamed the dance above.
+        </div>
+      </section>
 
-      function fillFor(fn, color) {
-        let d = `M ${xScale(-6)} ${H - MARG.b} `;
-        for (let x = -6; x <= 6; x += 0.05) {
-          d += `L ${xScale(x)} ${yScaleP(fn(x))} `;
-        }
-        d += `L ${xScale(6)} ${H - MARG.b} Z`;
-        const p = document.createElementNS(NS, "path");
-        p.setAttribute("d", d);
-        p.setAttribute("fill", color);
-        p.setAttribute("fill-opacity", 0.15);
-        return p;
-      }
+      <p style="margin-top:4rem;color:var(--muted);font-size:0.9rem;font-family:var(--sans);text-align:center;">
+        Part of the ES 667 Deep Learning course · IIT Gandhinagar · Aug 2026.
+      </p>
+    </article>
 
-      function drawLosses() {
-        lossSvg.innerHTML = "";
-        const LW = 720, LH = 140;
-        const M = { l: 50, r: 20, t: 20, b: 30 };
-        const pW = LW - M.l - M.r, pH = LH - M.t - M.b;
-
-        // bg
-        const bg = document.createElementNS(NS, "rect");
-        bg.setAttribute("x", 0); bg.setAttribute("y", 0);
-        bg.setAttribute("width", LW); bg.setAttribute("height", LH);
-        bg.setAttribute("fill", "#f0eee5");
-        lossSvg.appendChild(bg);
-
-        // Rebuild loss arrays fresh based on step
-        const N = 100;
-        const ds = [], gs = [];
-        for (let i = 0; i <= N; i++) {
-          const t = step * i / N;
-          // synthetic loss curves: D loss rises toward log 4 ≈ 1.38, G loss oscillates then stabilizes
-          const dl = 0.4 + 1.0 * (1 - Math.exp(-t / 400)) + 0.15 * Math.sin(t / 60) * Math.exp(-t / 800);
-          const gl = 1.2 + 0.8 * Math.exp(-t / 300) + 0.25 * Math.sin(t / 50 + 1) * Math.exp(-t / 700);
-          ds.push(dl); gs.push(gl);
-        }
-
-        const xS = i => M.l + (i / N) * pW;
-        const yS = v => LH - M.b - ((v - 0) / 3) * pH;
-
-        // axes
-        const ax = document.createElementNS(NS, "line");
-        ax.setAttribute("x1", M.l); ax.setAttribute("y1", LH - M.b);
-        ax.setAttribute("x2", LW - M.r); ax.setAttribute("y2", LH - M.b);
-        ax.setAttribute("stroke", "#1f1f1e");
-        lossSvg.appendChild(ax);
-        const ay = document.createElementNS(NS, "line");
-        ay.setAttribute("x1", M.l); ay.setAttribute("y1", M.t);
-        ay.setAttribute("x2", M.l); ay.setAttribute("y2", LH - M.b);
-        ay.setAttribute("stroke", "#1f1f1e");
-        lossSvg.appendChild(ay);
-
-        // draw d loss
-        const drawCurve = (arr, color) => {
-          let d = "", first = true;
-          arr.forEach((v, i) => {
-            const xp = xS(i), yp = yS(v);
-            d += (first ? `M ${xp} ${yp}` : ` L ${xp} ${yp}`);
-            first = false;
-          });
-          const p = document.createElementNS(NS, "path");
-          p.setAttribute("d", d);
-          p.setAttribute("fill", "none");
-          p.setAttribute("stroke", color);
-          p.setAttribute("stroke-width", 1.8);
-          lossSvg.appendChild(p);
-        };
-        drawCurve(ds, "#4a6670");
-        drawCurve(gs, "#a8324b");
-
-        // labels
-        const lbl = (txt, x, y, c) => {
-          const t = document.createElementNS(NS, "text");
-          t.setAttribute("x", x); t.setAttribute("y", y);
-          t.setAttribute("font-family", "Manrope, sans-serif");
-          t.setAttribute("font-size", 11);
-          t.setAttribute("fill", c);
-          t.textContent = txt;
-          lossSvg.appendChild(t);
-        };
-        lbl("D loss", LW - 90, 30, "#4a6670");
-        lbl("G loss", LW - 90, 48, "#a8324b");
-        lbl("training step →", LW / 2 - 30, LH - 6, "#6b6a65");
-        lbl("loss", 10, 30, "#6b6a65");
-
-        // stats update
-        document.getElementById("dloss").textContent = ds[ds.length - 1].toFixed(3);
-        document.getElementById("gloss").textContent = gs[gs.length - 1].toFixed(3);
-        document.getElementById("js").textContent = jsDiv(step).toFixed(3);
-      }
-
-      function render() {
-        draw();
-        drawLosses();
-      }
-
-      document.getElementById("step").addEventListener("input", (e) => {
-        step = parseInt(e.target.value);
-        document.getElementById("step-val").textContent = step;
-        render();
-      });
-
-      let playing = false;
-      let playTimer = null;
-      document.getElementById("play").addEventListener("click", () => {
-        if (playing) {
-          clearInterval(playTimer);
-          playing = false;
-          document.getElementById("play").textContent = "▶ Play";
-          return;
-        }
-        playing = true;
-        document.getElementById("play").textContent = "⏸ Pause";
-        step = 0;
-        playTimer = setInterval(() => {
-          step += 20;
-          if (step > 1000) {
-            step = 1000;
-            clearInterval(playTimer);
-            playing = false;
-            document.getElementById("play").textContent = "▶ Play";
-          }
-          document.getElementById("step").value = step;
-          document.getElementById("step-val").textContent = step;
-          render();
-        }, 80);
-      });
-
-      render();
-    </script>
+    <script src="main.js"></script>
   </body>
 </html>
