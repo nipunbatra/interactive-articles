@@ -1,0 +1,20 @@
+{
+  "slug": "dropout-playground",
+  "title": "Dropout Playground",
+  "date": "2026-04-18",
+  "tagline": "Feel why silencing neurons regularizes — live masks, p-slider, ensemble view",
+  "summary": "Slide the dropout probability p from 0 to 1 and watch a small network flicker. Every frame is a different sub-network. Over many frames you are training an exponential ensemble with shared weights — the core intuition behind the most influential regularizer of 2012.",
+  "readingTime": "8 min",
+  "difficulty": "Intermediate",
+  "collection": "Deep learning",
+  "order": 11,
+  "status": "published",
+  "tags": ["Dropout", "Regularization", "Deep Learning", "Interactive"],
+  "highlights": [
+    "Watch a live binary mask change every frame — different sub-network each batch.",
+    "Drag the dropout probability from 0.0 to 0.9 and see the connectivity thin out.",
+    "Toggle train vs eval mode — the second turns dropout off and re-scales nothing.",
+    "Count the kept-edge ratio live to verify 'inverted dropout' preserves expected activation.",
+    "Switch between three modes: masking a forward pass, ensembling 8 masks, and a thinned-network sketch."
+  ]
+}
