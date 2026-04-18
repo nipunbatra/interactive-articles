@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LoRA · Low-Rank Adapter Playground</title>
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../shared/site.css" />
+    <style>
+      :root { --ink:#1f1f1e; --paper:#faf8f3; --paper-alt:#f0eee5; --rule:#c9c4b5; --muted:#6b6a65; --accent:#d97757; --accent-soft:#ead3c5; --sage:#7b9e89; --slate:#4a6670; --wine:#a8324b; }
+      body { font-family:"Source Serif 4",Georgia,serif; background:var(--paper); color:var(--ink); line-height:1.55; max-width:800px; margin:0 auto; padding:40px 24px 80px 24px; }
+      .kicker { font-family:"Manrope",sans-serif; font-size:12px; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); margin:0 0 6px 0; }
+      h1 { font-size:44px; line-height:1.1; margin:0 0 16px 0; }
+      h2 { font-size:28px; line-height:1.2; margin:48px 0 14px 0; }
+      .abstract { font-size:18px; color:var(--muted); font-style:italic; margin:0 0 16px 0; }
+      .byline { font-family:"Manrope",sans-serif; font-size:13px; color:var(--muted); border-top:1px solid var(--rule); border-bottom:1px solid var(--rule); padding:12px 0; margin-bottom:36px; }
+      .byline span { margin-right:14px; }
+      a.back-link { font-family:"Manrope",sans-serif; font-size:13px; color:var(--accent); text-decoration:none; display:inline-block; margin-bottom:24px; }
+      p { margin:0 0 16px 0; }
+      code { font-family:"IBM Plex Mono",monospace; font-size:.9em; background:var(--paper-alt); padding:2px 6px; border-radius:3px; }
+      .figure { background:var(--paper-alt); border:1px solid var(--rule); border-radius:6px; padding:20px; margin:24px 0; }
+      .controls { display:flex; flex-wrap:wrap; gap:18px; align-items:center; margin-bottom:16px; font-family:"Manrope",sans-serif; font-size:14px; }
+      .controls label { display:flex; align-items:center; gap:8px; }
+      input[type="range"] { width:220px; accent-color:var(--accent); }
+      .mode-toggle { display:inline-flex; border:1px solid var(--rule); border-radius:4px; overflow:hidden; }
+      .mode-toggle button { font-family:"Manrope",sans-serif; font-size:13px; padding:6px 12px; background:var(--paper); color:var(--muted); border:none; border-right:1px solid var(--rule); cursor:pointer; }
+      .mode-toggle button:last-child { border-right:none; }
+      .mode-toggle button.active { background:var(--accent); color:var(--paper); }
+      table { width:100%; border-collapse:collapse; margin-top:12px; font-family:"IBM Plex Mono", monospace; font-size:13px; }
+      th, td { border-bottom:1px solid var(--rule); padding:8px 10px; text-align:left; }
+      th { color:var(--muted); font-family:"Manrope", sans-serif; font-size:12px; letter-spacing:0.1em; text-transform:uppercase; }
+      .hilite { color:var(--accent); font-weight:600; }
+      pre.code { font-family:"IBM Plex Mono",monospace; font-size:13px; background:var(--paper-alt); padding:14px; border-radius:4px; border:1px solid var(--rule); overflow-x:auto; }
+    </style>
+  </head>
+  <body>
+    <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+    <p class="kicker">Interactive Explainer</p>
+    <h1>LoRA · Low-Rank Adapter Playground</h1>
+    <p class="abstract">
+      Full fine-tuning of a 70B model touches 70 billion parameters. LoRA touches 200 million. The quality is often indistinguishable, and the checkpoint is 300× smaller. Slide the rank, and see the numbers move.
+    </p>
+    <div class="byline"><span>~7 min</span><span>Deep Learning · LoRA · Fine-tuning</span></div>
+
+    <p>
+      The LoRA insight (Hu et al. 2021): <strong>the <em>change</em> you want to apply to a pretrained weight is typically low-rank.</strong> You don't need 70B parameters of update budget — you need a tiny correction. So instead of fine-tuning W, fine-tune two small matrices B and A with W + BA, keeping W frozen.
+    </p>
+
+    <h2>The playground</h2>
+    <div class="figure">
+      <div class="controls">
+        <label>Base model:
+          <div class="mode-toggle">
+            <button class="m-btn" data-d="1B">1B</button>
+            <button class="m-btn active" data-d="7B">7B</button>
+            <button class="m-btn" data-d="70B">70B</button>
+          </div>
+        </label>
+        <label>LoRA rank r: <input type="range" id="r" min="1" max="64" step="1" value="8" /><span id="r-val" style="font-family:'IBM Plex Mono',monospace; min-width:30px;">8</span></label>
+      </div>
+
+      <table>
+        <thead>
+          <tr><th>Method</th><th>Trainable params</th><th>Ratio vs full</th><th>Adapter size on disk</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Full fine-tune</td><td id="full-p">–</td><td>1.00×</td><td id="full-d">–</td></tr>
+          <tr><td class="hilite" id="lora-name">LoRA · r=8</td><td class="hilite" id="lora-p">–</td><td class="hilite" id="lora-r">–</td><td class="hilite" id="lora-d">–</td></tr>
+          <tr><td>QLoRA (4-bit base + r=8)</td><td id="qlora-p">–</td><td id="qlora-r">–</td><td id="qlora-d">–</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>
+      The magic: LoRA adapters at r=8 for a 7B model are ~4M trainable parameters. You can fine-tune on a single consumer GPU (24 GB RAM), save the adapter as a ~16 MB file, and ship it alongside the base weights.
+    </p>
+
+    <h2>The math</h2>
+    <p style="text-align: center; font-family: 'IBM Plex Mono', monospace; font-size: 16px; margin: 24px 0;">
+      y = <span style="color:#4a6670;">W₀</span>x + <span style="color:#d97757;">B · A</span> · x&nbsp;&nbsp;&nbsp;&nbsp;rank(BA) ≤ r
+    </p>
+    <p>
+      W₀ is frozen. A ∈ ℝ^{d×r} initialized Gaussian; B ∈ ℝ^{r×d} initialized zero (so at t=0, the LoRA term is the identity modification — zero). Only A and B receive gradients.
+    </p>
+
+    <h2>PyTorch + peft</h2>
+    <pre class="code">from peft import LoraConfig, get_peft_model
+
+lora_cfg = LoraConfig(
+    r=8,                           # rank
+    lora_alpha=16,                 # scale
+    target_modules=["q_proj", "v_proj"],  # where to inject
+    lora_dropout=0.05,
+    bias="none",
+)
+model = get_peft_model(base_model, lora_cfg)
+model.print_trainable_parameters()
+# > trainable params: 4.2M   all params: 7B   trainable%: 0.06%</pre>
+
+    <h2>QLoRA · make it even smaller</h2>
+    <p>
+      QLoRA (Dettmers 2023) quantizes the frozen base to 4-bit (NF4), then trains LoRA adapters in fp16 on top. You can now fine-tune a 70B model on a single 48 GB GPU. Same quality as LoRA at a fraction of the memory.
+    </p>
+
+    <p style="margin-top: 48px; color: var(--muted); font-size: 14px;">
+      Part of the ES 667 Deep Learning course · IIT Gandhinagar · Aug 2026.
+    </p>
+
+    <script>
+      const sizes = { "1B": { P: 1e9, d_typ: 2048, n_layers: 24 },
+                      "7B": { P: 7e9, d_typ: 4096, n_layers: 32 },
+                      "70B": { P: 70e9, d_typ: 8192, n_layers: 80 } };
+      let size = "7B", r = 8;
+
+      function fmt(n) {
+        if (n >= 1e9) return (n / 1e9).toFixed(2) + " B";
+        if (n >= 1e6) return (n / 1e6).toFixed(2) + " M";
+        if (n >= 1e3) return (n / 1e3).toFixed(0) + " K";
+        return n.toFixed(0);
+      }
+      function fmtBytes(bytes) {
+        if (bytes >= 1e9) return (bytes / 1e9).toFixed(2) + " GB";
+        if (bytes >= 1e6) return (bytes / 1e6).toFixed(1) + " MB";
+        if (bytes >= 1e3) return (bytes / 1e3).toFixed(0) + " KB";
+        return bytes + " B";
+      }
+
+      function update() {
+        const s = sizes[size];
+        // For LoRA, we inject into Q and V projections per layer. Each is d×d.
+        // LoRA per injection: 2 * d * r params
+        // Injections per layer: 2 (q, v)
+        const lora_params = s.n_layers * 2 * (2 * s.d_typ * r);
+        const full_params = s.P;
+        const ratio = lora_params / full_params;
+
+        // Adapter disk size: 2 bytes per param (bf16) for LoRA; base stays separate
+        const lora_disk = lora_params * 2;
+        const full_disk = full_params * 2;
+
+        // QLoRA — adds 4-bit base footprint context but same number of trainable params
+        const qlora_base = full_params * 0.5;  // 4-bit
+        const qlora_params = lora_params;
+
+        document.getElementById("full-p").textContent = fmt(full_params);
+        document.getElementById("full-d").textContent = fmtBytes(full_disk);
+
+        document.getElementById("lora-name").textContent = `LoRA · r=${r}`;
+        document.getElementById("lora-p").textContent = fmt(lora_params);
+        document.getElementById("lora-r").textContent = (ratio * 100).toFixed(3) + "%";
+        document.getElementById("lora-d").textContent = fmtBytes(lora_disk);
+
+        document.getElementById("qlora-p").textContent = fmt(qlora_params);
+        document.getElementById("qlora-r").textContent = (ratio * 100).toFixed(3) + "%";
+        document.getElementById("qlora-d").textContent = fmtBytes(lora_disk) + " + " + fmtBytes(qlora_base) + " (base, 4-bit)";
+      }
+
+      document.getElementById("r").addEventListener("input", (e) => {
+        r = parseInt(e.target.value);
+        document.getElementById("r-val").textContent = r;
+        update();
+      });
+      document.querySelectorAll(".m-btn").forEach(b => b.addEventListener("click", () => {
+        document.querySelectorAll(".m-btn").forEach(x => x.classList.remove("active"));
+        b.classList.add("active");
+        size = b.dataset.d;
+        update();
+      }));
+
+      update();
+    </script>
+  </body>
+</html>

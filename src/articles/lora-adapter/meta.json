@@ -1,0 +1,20 @@
+{
+  "slug": "lora-adapter",
+  "title": "LoRA · Low-Rank Adapter Playground",
+  "date": "2026-04-18",
+  "tagline": "Slide the rank, watch trainable parameters shrink 500×",
+  "summary": "LoRA injects two small matrices A and B next to a frozen base weight. B·A is low-rank by construction — so fine-tuning a 70B model becomes fine-tuning two 32k-param matrices per layer. Slide the rank, see the trade-off between capacity and cost in real numbers.",
+  "readingTime": "7 min",
+  "difficulty": "Intermediate",
+  "collection": "Deep learning",
+  "order": 17,
+  "status": "published",
+  "tags": ["LoRA", "PEFT", "Fine-tuning", "LLM", "Interactive"],
+  "highlights": [
+    "Slide rank r from 1 to 64 — see trainable params drop from thousands to millions to billions.",
+    "Toggle model size (1B, 7B, 70B) and see storage savings.",
+    "Compare to full fine-tuning, Adam optimizer state, and LoRA savings.",
+    "One-line PyTorch using peft library.",
+    "QLoRA preview — what's different about 4-bit quantized base."
+  ]
+}

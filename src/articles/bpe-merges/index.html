@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BPE Tokenizer Step by Step</title>
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../shared/site.css" />
+    <style>
+      :root { --ink:#1f1f1e; --paper:#faf8f3; --paper-alt:#f0eee5; --rule:#c9c4b5; --muted:#6b6a65; --accent:#d97757; --accent-soft:#ead3c5; --sage:#7b9e89; --slate:#4a6670; --wine:#a8324b; }
+      body { font-family:"Source Serif 4",Georgia,serif; background:var(--paper); color:var(--ink); line-height:1.55; max-width:800px; margin:0 auto; padding:40px 24px 80px 24px; }
+      .kicker { font-family:"Manrope",sans-serif; font-size:12px; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); margin:0 0 6px 0; }
+      h1 { font-size:44px; line-height:1.1; margin:0 0 16px 0; }
+      h2 { font-size:28px; line-height:1.2; margin:48px 0 14px 0; }
+      .abstract { font-size:18px; color:var(--muted); font-style:italic; margin:0 0 16px 0; }
+      .byline { font-family:"Manrope",sans-serif; font-size:13px; color:var(--muted); border-top:1px solid var(--rule); border-bottom:1px solid var(--rule); padding:12px 0; margin-bottom:36px; }
+      .byline span { margin-right:14px; }
+      a.back-link { font-family:"Manrope",sans-serif; font-size:13px; color:var(--accent); text-decoration:none; display:inline-block; margin-bottom:24px; }
+      p { margin:0 0 16px 0; }
+      code { font-family:"IBM Plex Mono",monospace; font-size:.9em; background:var(--paper-alt); padding:2px 6px; border-radius:3px; }
+      .figure { background:var(--paper-alt); border:1px solid var(--rule); border-radius:6px; padding:20px; margin:24px 0; }
+      textarea { width:100%; min-height:70px; font-family:"IBM Plex Mono",monospace; font-size:13px; padding:10px; border:1px solid var(--rule); background:var(--paper); border-radius:4px; box-sizing:border-box; color:var(--ink); }
+      .btn-row { display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; }
+      button { font-family:"Manrope",sans-serif; font-size:13px; padding:7px 14px; background:var(--accent); color:var(--paper); border:none; border-radius:4px; cursor:pointer; }
+      button:hover { background:var(--wine); }
+      button.ghost { background:var(--paper); color:var(--ink); border:1px solid var(--rule); }
+      button.ghost:hover { background:var(--accent-soft); border-color:var(--accent); color:var(--accent); }
+      .grid { display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-top:14px; }
+      .grid-panel h4 { font-family:"Manrope",sans-serif; font-size:12px; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted); margin:0 0 8px 0; }
+      .grid-panel { border:1px solid var(--rule); background:var(--paper); padding:12px; min-height:240px; border-radius:4px; }
+      .tokens { font-family:"IBM Plex Mono",monospace; font-size:13px; line-height:1.9; }
+      .tok { background:var(--paper-alt); padding:2px 6px; margin:0 2px 4px 0; display:inline-block; border:1px solid var(--rule); border-radius:3px; }
+      .tok.new { background:var(--accent-soft); border-color:var(--accent); color:var(--accent); font-weight:600; }
+      .merges { font-family:"IBM Plex Mono",monospace; font-size:12px; color:var(--muted); max-height:280px; overflow-y:auto; }
+      .merges li { margin-bottom:4px; list-style:none; }
+      .merges li .idx { color:var(--muted); margin-right:8px; }
+      .merges li .pair { color:var(--muted); }
+      .merges li .arrow { color:var(--accent); margin:0 6px; }
+      .merges li .token { color:var(--ink); font-weight:600; }
+      .stats { font-family:"IBM Plex Mono",monospace; font-size:13px; margin-top:10px; color:var(--muted); }
+      .stats b { color:var(--accent); }
+      .note { border-left:3px solid var(--accent); background:var(--accent-soft); padding:12px 16px; margin:20px 0; font-size:15px; }
+    </style>
+  </head>
+  <body>
+    <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+    <p class="kicker">Interactive Explainer</p>
+    <h1>BPE Tokenizer Step by Step</h1>
+    <p class="abstract">
+      Tokenization is invisible until it breaks. LLMs don't see characters — they see whatever subwords BPE learned to carve out. This page grows a tokenizer merge by merge, so you can watch it glue common pairs and end up with tokens like "ization", "tion", or " the".
+    </p>
+    <div class="byline"><span>~10 min</span><span>Deep Learning · Tokenization · LLM</span></div>
+
+    <p>
+      Byte-Pair Encoding was invented in 1994 for data compression. It showed up in NLP in 2015 (Sennrich et al.), and became the standard tokenizer for GPT-2 (2019) and everything after. The algorithm is tiny: repeatedly merge the most frequent adjacent pair, stop at target vocab size.
+    </p>
+
+    <h2>The playground</h2>
+    <div class="figure">
+      <label style="font-family: 'Manrope', sans-serif; font-size: 13px; color: var(--muted); display: block; margin-bottom: 6px;">Corpus (paste any text):</label>
+      <textarea id="corpus">the quick brown fox jumps over the lazy dog. the running fox never stops running. the quick fox runs. dogs bark and foxes run.</textarea>
+      <div class="btn-row">
+        <button id="init">Initialize (chars)</button>
+        <button id="merge">Merge one step</button>
+        <button id="merge10" class="ghost">Merge 10</button>
+        <button id="reset" class="ghost">Reset</button>
+      </div>
+
+      <div class="grid">
+        <div class="grid-panel">
+          <h4>Current tokenization</h4>
+          <div id="tokens" class="tokens"></div>
+        </div>
+        <div class="grid-panel">
+          <h4>Merge history</h4>
+          <ul id="merges" class="merges"></ul>
+        </div>
+      </div>
+
+      <div class="stats">
+        Vocab size: <b id="vocab-size">0</b> &nbsp;·&nbsp;
+        Merges applied: <b id="n-merges">0</b> &nbsp;·&nbsp;
+        Total tokens: <b id="n-tokens">0</b>
+      </div>
+    </div>
+
+    <p>
+      <strong>Try this:</strong> Press "Initialize (chars)", then "Merge 10". Watch the vocabulary grow from letters into meaningful subwords. Notice how the tokenizer discovers suffixes ("ing", "ed") and common function words ("the") without any linguistic input — just counting.
+    </p>
+
+    <div class="note">
+      <strong>Why this matters.</strong> Every LLM's vocabulary is frozen at training time — GPT-2 has 50,257 tokens; Llama has 32k. When you type a rare word, it splits into whatever subwords were learned. This is why LLMs spell "strawberry" as "straw" + "berry" and sometimes miscount its letters.
+    </p>
+
+    <h2>Tokenization across models</h2>
+    <ul>
+      <li><strong>GPT-2, GPT-3</strong> — byte-level BPE, 50,257 tokens.</li>
+      <li><strong>BERT</strong> — WordPiece (a variant of BPE), 30,522 tokens.</li>
+      <li><strong>Llama, Mistral</strong> — SentencePiece + BPE, 32k tokens.</li>
+      <li><strong>Claude, GPT-4</strong> — proprietary, but ~100k tokens each.</li>
+    </ul>
+
+    <p style="margin-top: 48px; color: var(--muted); font-size: 14px;">
+      Part of the ES 667 Deep Learning course · IIT Gandhinagar · Aug 2026.
+    </p>
+
+    <script>
+      let tokens = [];           // current tokenization as array of arrays (word-level)
+      let mergeHistory = [];
+      let vocab = new Set();
+
+      function initFromCorpus() {
+        const corpus = document.getElementById("corpus").value.trim().toLowerCase();
+        const words = corpus.split(/\s+/);
+        tokens = words.map(w => w.split(""));
+        mergeHistory = [];
+        vocab = new Set(tokens.flat());
+        render();
+      }
+
+      function mostFrequentPair() {
+        const counts = {};
+        for (const word of tokens) {
+          for (let i = 0; i < word.length - 1; i++) {
+            const pair = word[i] + "|" + word[i + 1];
+            counts[pair] = (counts[pair] || 0) + 1;
+          }
+        }
+        let best = null, bestC = 0;
+        for (const p in counts) {
+          if (counts[p] > bestC) { bestC = counts[p]; best = p; }
+        }
+        return best ? { pair: best.split("|"), count: bestC } : null;
+      }
+
+      function applyMerge(pair) {
+        const [a, b] = pair;
+        const merged = a + b;
+        tokens = tokens.map(word => {
+          const out = [];
+          let i = 0;
+          while (i < word.length) {
+            if (i < word.length - 1 && word[i] === a && word[i + 1] === b) {
+              out.push(merged);
+              i += 2;
+            } else {
+              out.push(word[i]);
+              i += 1;
+            }
+          }
+          return out;
+        });
+        vocab.add(merged);
+        mergeHistory.push({ pair, merged, step: mergeHistory.length + 1 });
+      }
+
+      function mergeOne() {
+        const mp = mostFrequentPair();
+        if (!mp || mp.count < 2) return false;
+        applyMerge(mp.pair);
+        return true;
+      }
+
+      function render() {
+        // Tokens panel
+        const tokPanel = document.getElementById("tokens");
+        tokPanel.innerHTML = "";
+        tokens.slice(0, 14).forEach((word, wi) => {
+          const wordDiv = document.createElement("span");
+          word.forEach(t => {
+            const s = document.createElement("span");
+            s.className = "tok";
+            if (t.length > 1) s.classList.add("new");
+            s.textContent = t;
+            wordDiv.appendChild(s);
+          });
+          if (wi < 13) {
+            const sep = document.createElement("span");
+            sep.style.color = "#c9c4b5";
+            sep.textContent = " | ";
+            wordDiv.appendChild(sep);
+          }
+          tokPanel.appendChild(wordDiv);
+        });
+        if (tokens.length > 14) {
+          const more = document.createElement("span");
+          more.style.color = "var(--muted)";
+          more.style.fontStyle = "italic";
+          more.textContent = ` …+${tokens.length - 14} words`;
+          tokPanel.appendChild(more);
+        }
+
+        // Merge history
+        const mergesPanel = document.getElementById("merges");
+        mergesPanel.innerHTML = "";
+        mergeHistory.slice().reverse().forEach(m => {
+          const li = document.createElement("li");
+          li.innerHTML = `<span class="idx">#${m.step}</span><span class="pair">(${m.pair[0]}, ${m.pair[1]})</span><span class="arrow">→</span><span class="token">${m.merged}</span>`;
+          mergesPanel.appendChild(li);
+        });
+
+        // Stats
+        document.getElementById("vocab-size").textContent = vocab.size;
+        document.getElementById("n-merges").textContent = mergeHistory.length;
+        document.getElementById("n-tokens").textContent = tokens.reduce((s, w) => s + w.length, 0);
+      }
+
+      document.getElementById("init").addEventListener("click", initFromCorpus);
+      document.getElementById("merge").addEventListener("click", () => { if (tokens.length === 0) initFromCorpus(); mergeOne(); render(); });
+      document.getElementById("merge10").addEventListener("click", () => {
+        if (tokens.length === 0) initFromCorpus();
+        for (let i = 0; i < 10; i++) if (!mergeOne()) break;
+        render();
+      });
+      document.getElementById("reset").addEventListener("click", () => { tokens = []; mergeHistory = []; vocab = new Set(); render(); });
+
+      initFromCorpus();
+    </script>
+  </body>
+</html>

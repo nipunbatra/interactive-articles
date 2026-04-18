@@ -1,0 +1,20 @@
+{
+  "slug": "bpe-merges",
+  "title": "BPE Tokenizer Step by Step",
+  "date": "2026-04-18",
+  "tagline": "Watch a tokenizer grow its vocabulary, merge by merge",
+  "summary": "Type a small corpus, press 'merge', watch the most frequent adjacent pair get glued together. Repeat until the vocabulary reaches your target size. This is exactly how GPT-2, Llama, and Claude build their tokenizers — and how a model ends up with tokens like 'ization', 'tion', or ' the'.",
+  "readingTime": "10 min",
+  "difficulty": "Intermediate",
+  "collection": "Deep learning",
+  "order": 16,
+  "status": "published",
+  "tags": ["BPE", "Tokenization", "LLM", "NLP", "Interactive"],
+  "highlights": [
+    "Type any English corpus, hit 'merge' to see the most frequent pair glued live.",
+    "Vocabulary panel grows from letters → subwords → whole words.",
+    "Merge history is a log — every rule the tokenizer learned, in order.",
+    "Try corpora with morphological structure (running, runner, runs) — watch it find the suffix.",
+    "Sprawling caveat: why LLMs still hallucinate the spelling of long words."
+  ]
+}
