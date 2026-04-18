@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VAE Latent-Space Explorer</title>
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../shared/site.css" />
+    <style>
+      :root { --ink:#1f1f1e; --paper:#faf8f3; --paper-alt:#f0eee5; --rule:#c9c4b5; --muted:#6b6a65; --accent:#d97757; --accent-soft:#ead3c5; --sage:#7b9e89; --slate:#4a6670; --wine:#a8324b; }
+      body { font-family:"Source Serif 4",Georgia,serif; background:var(--paper); color:var(--ink); line-height:1.55; max-width:800px; margin:0 auto; padding:40px 24px 80px 24px; }
+      .kicker { font-family:"Manrope",sans-serif; font-size:12px; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); margin:0 0 6px 0; }
+      h1 { font-size:44px; line-height:1.1; margin:0 0 16px 0; }
+      h2 { font-size:28px; line-height:1.2; margin:48px 0 14px 0; }
+      .abstract { font-size:18px; color:var(--muted); font-style:italic; margin:0 0 16px 0; }
+      .byline { font-family:"Manrope",sans-serif; font-size:13px; color:var(--muted); border-top:1px solid var(--rule); border-bottom:1px solid var(--rule); padding:12px 0; margin-bottom:36px; }
+      .byline span { margin-right:14px; }
+      a.back-link { font-family:"Manrope",sans-serif; font-size:13px; color:var(--accent); text-decoration:none; display:inline-block; margin-bottom:24px; }
+      p { margin:0 0 16px 0; }
+      code { font-family:"IBM Plex Mono",monospace; font-size:.9em; background:var(--paper-alt); padding:2px 6px; border-radius:3px; }
+      .figure { background:var(--paper-alt); border:1px solid var(--rule); border-radius:6px; padding:20px; margin:24px 0; }
+      .controls { display:flex; flex-wrap:wrap; gap:18px; align-items:center; margin-bottom:16px; font-family:"Manrope",sans-serif; font-size:14px; }
+      .controls label { display:flex; align-items:center; gap:8px; }
+      input[type="range"] { width:240px; accent-color:var(--accent); }
+      svg { display:block; margin:0 auto; }
+      .stats { font-family:"IBM Plex Mono",monospace; font-size:13px; margin-top:12px; display:flex; gap:24px; flex-wrap:wrap; }
+      .stats span b { color:var(--accent); }
+      .note { border-left:3px solid var(--accent); background:var(--accent-soft); padding:12px 16px; margin:20px 0; font-size:15px; }
+    </style>
+  </head>
+  <body>
+    <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+    <p class="kicker">Interactive Explainer</p>
+    <h1>VAE Latent-Space Explorer</h1>
+    <p class="abstract">
+      The β knob in a VAE trades reconstruction for latent structure. At β=0 you have a vanilla autoencoder — great reconstruction, chaotic latent space. At β=10 you have a strong VAE — clean unit-Gaussian latent, but samples get blurry. Drag the slider and see it.
+    </p>
+    <div class="byline"><span>~8 min</span><span>Deep Learning · VAE · Generative</span></div>
+
+    <p>
+      A VAE's loss has two terms: reconstruction (how well can I decode this back?) and a KL divergence pulling the latent distribution q(z|x) toward the standard normal prior. The β-VAE (Higgins 2017) simply weights the KL term: <code>L = recon + β · KL</code>. Slide β to see what it does.
+    </p>
+
+    <h2>The playground</h2>
+    <div class="figure">
+      <div class="controls">
+        <label>β (KL weight): <input type="range" id="beta" min="0" max="10" step="0.1" value="1.0" /><span id="beta-val" style="font-family:'IBM Plex Mono',monospace; min-width:40px;">1.0</span></label>
+      </div>
+      <svg id="plot" width="720" height="340" viewBox="0 0 720 340"></svg>
+      <div class="stats">
+        <span>Avg latent norm ∥z∥: <b id="norm">–</b></span>
+        <span>Latent spread (std): <b id="spread">–</b></span>
+        <span>Recon error: <b id="recon">–</b></span>
+      </div>
+    </div>
+
+    <p>
+      <strong>What's happening:</strong> at β=0 the latent points cluster in a few tight clumps — one per class. At β=1 the clumps become blobs of width 1, roughly tiling a unit circle. At β=10 everything collapses to the origin (posterior collapse) — the model stops using the latent.
+    </p>
+
+    <div class="note">
+      <strong>Tradeoff rule.</strong> β=1 is the original VAE. β≈4 was found by Higgins 2017 to produce "disentangled" latents where each dimension controls one factor. β>6 usually collapses. Always look at samples, not just latent plots.
+    </div>
+
+    <h2>The reparameterization trick</h2>
+    <p style="text-align: center; font-family: 'IBM Plex Mono', monospace; font-size: 15px; margin: 24px 0;">
+      z = μ(x) + σ(x) ⊙ ε&nbsp;&nbsp;&nbsp;&nbsp;ε ~ N(0, I)
+    </p>
+    <p>
+      The encoder outputs μ and σ (per input). We sample ε from a fixed noise distribution and compute z deterministically. The noise is in ε, which has no parameters, so gradients flow through μ and σ fine. This is the trick that makes VAE training work.
+    </p>
+
+    <h2>The ELBO</h2>
+    <p style="text-align: center; font-family: 'IBM Plex Mono', monospace; font-size: 15px; margin: 24px 0;">
+      log p(x) ≥ E_{q(z|x)}[log p(x|z)] &nbsp;−&nbsp; KL(q(z|x) ∥ p(z))
+    </p>
+    <p>
+      The ELBO is a lower bound on the log-marginal likelihood. We can't compute log p(x) directly (intractable marginal), but we CAN compute and maximize its lower bound. That's what VAE training does.
+    </p>
+
+    <p style="margin-top: 48px; color: var(--muted); font-size: 14px;">
+      Part of the ES 667 Deep Learning course · IIT Gandhinagar · Aug 2026.
+    </p>
+
+    <script>
+      const svg = document.getElementById("plot");
+      const NS = "http://www.w3.org/2000/svg";
+      let beta = 1.0;
+
+      // Generate a toy dataset of latent points representing 3 classes
+      // At beta=0: tight clumps. At beta=1: moderate spread. At beta=10: collapse.
+      const CLASSES = 3;
+      const PER_CLASS = 40;
+      const classCenters = [
+        [-2.5, -1.5], [2.3, -0.8], [0.2, 2.2]
+      ];
+      const classColors = ["#d97757", "#7b9e89", "#4a6670"];
+
+      function simulate(beta) {
+        // Interpolation:
+        // - beta=0:  points clustered at class centers (tight)
+        // - beta=1:  centers still visible but blobs are Gaussian with spread=1
+        // - beta=10: all points collapse to origin (posterior collapse)
+        const collapseFactor = Math.min(1, beta / 10);   // at beta=10, fully collapsed
+        const clumpSpread = 0.1 + 0.9 * Math.min(1, beta / 3);  // clump width grows with beta
+
+        const pts = [];
+        for (let c = 0; c < CLASSES; c++) {
+          const [cx, cy] = classCenters[c];
+          // How far the cluster center is from origin is also reduced with beta
+          const centerShrink = 1 - 0.9 * collapseFactor;
+          for (let i = 0; i < PER_CLASS; i++) {
+            // random N(0,1) · Box-Muller
+            const u1 = Math.random(), u2 = Math.random();
+            const z1 = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+            const z2 = Math.sqrt(-2 * Math.log(u1)) * Math.sin(2 * Math.PI * u2);
+            pts.push({
+              x: cx * centerShrink + z1 * clumpSpread,
+              y: cy * centerShrink + z2 * clumpSpread,
+              c: c
+            });
+          }
+        }
+        return pts;
+      }
+
+      function draw() {
+        svg.innerHTML = "";
+        const pts = simulate(beta);
+
+        // Left panel: encoded latent
+        const LEFT_W = 340, LEFT_H = 320;
+        const cx = 170, cy = 160;
+        const scale = 35;
+
+        // Left panel background
+        const bg1 = document.createElementNS(NS, "rect");
+        bg1.setAttribute("x", 0); bg1.setAttribute("y", 0);
+        bg1.setAttribute("width", LEFT_W); bg1.setAttribute("height", LEFT_H);
+        bg1.setAttribute("fill", "#f0eee5");
+        bg1.setAttribute("stroke", "#c9c4b5");
+        svg.appendChild(bg1);
+
+        // Axes
+        const l = (x1, y1, x2, y2, col, w) => {
+          const el = document.createElementNS(NS, "line");
+          el.setAttribute("x1", x1); el.setAttribute("y1", y1);
+          el.setAttribute("x2", x2); el.setAttribute("y2", y2);
+          el.setAttribute("stroke", col);
+          el.setAttribute("stroke-width", w);
+          svg.appendChild(el);
+        };
+        l(20, cy, LEFT_W - 20, cy, "#c9c4b5", 0.6);
+        l(cx, 20, cx, LEFT_H - 20, "#c9c4b5", 0.6);
+
+        // Unit circle at origin (the prior)
+        const circ = document.createElementNS(NS, "circle");
+        circ.setAttribute("cx", cx); circ.setAttribute("cy", cy);
+        circ.setAttribute("r", scale); // unit radius
+        circ.setAttribute("fill", "none");
+        circ.setAttribute("stroke", "#d97757");
+        circ.setAttribute("stroke-width", "1.2");
+        circ.setAttribute("stroke-dasharray", "4 3");
+        svg.appendChild(circ);
+
+        // Label for unit circle
+        const lbl = document.createElementNS(NS, "text");
+        lbl.setAttribute("x", cx + scale + 6); lbl.setAttribute("y", cy - scale - 2);
+        lbl.setAttribute("fill", "#d97757");
+        lbl.setAttribute("font-family", "IBM Plex Mono, monospace");
+        lbl.setAttribute("font-size", "10");
+        lbl.textContent = "prior N(0,I)";
+        svg.appendChild(lbl);
+
+        // Draw each point
+        pts.forEach(p => {
+          const dot = document.createElementNS(NS, "circle");
+          dot.setAttribute("cx", cx + p.x * scale);
+          dot.setAttribute("cy", cy - p.y * scale);
+          dot.setAttribute("r", 3);
+          dot.setAttribute("fill", classColors[p.c]);
+          dot.setAttribute("fill-opacity", "0.75");
+          svg.appendChild(dot);
+        });
+
+        // Title
+        const t = document.createElementNS(NS, "text");
+        t.setAttribute("x", LEFT_W / 2); t.setAttribute("y", 18);
+        t.setAttribute("text-anchor", "middle");
+        t.setAttribute("fill", "#6b6a65");
+        t.setAttribute("font-family", "Manrope, sans-serif");
+        t.setAttribute("font-size", "11");
+        t.textContent = "encoded latents  q(z|x)";
+        svg.appendChild(t);
+
+        // Right panel: show samples quality vs beta
+        const RIGHT_X = 380;
+        const bg2 = document.createElementNS(NS, "rect");
+        bg2.setAttribute("x", RIGHT_X); bg2.setAttribute("y", 0);
+        bg2.setAttribute("width", 340); bg2.setAttribute("height", LEFT_H);
+        bg2.setAttribute("fill", "#f0eee5");
+        bg2.setAttribute("stroke", "#c9c4b5");
+        svg.appendChild(bg2);
+
+        const t2 = document.createElementNS(NS, "text");
+        t2.setAttribute("x", RIGHT_X + 170); t2.setAttribute("y", 18);
+        t2.setAttribute("text-anchor", "middle");
+        t2.setAttribute("fill", "#6b6a65");
+        t2.setAttribute("font-family", "Manrope, sans-serif");
+        t2.setAttribute("font-size", "11");
+        t2.textContent = "reconstructions · quality vs β";
+        svg.appendChild(t2);
+
+        // Simulate reconstruction quality: a 5x5 grid of faces that get blurrier with beta
+        const faceSize = 55;
+        const margin = 20;
+        const cols = 4, rows = 4;
+        const sharpness = Math.max(0.05, 1 - beta / 10);
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            const fx = RIGHT_X + margin + c * (faceSize + 8);
+            const fy = 40 + r * (faceSize + 8);
+
+            // Face background
+            const face = document.createElementNS(NS, "rect");
+            face.setAttribute("x", fx);
+            face.setAttribute("y", fy);
+            face.setAttribute("width", faceSize);
+            face.setAttribute("height", faceSize);
+            face.setAttribute("fill", "#ead3c5");
+            face.setAttribute("fill-opacity", 0.6 + 0.3 * sharpness);
+            face.setAttribute("stroke", "#d97757");
+            face.setAttribute("stroke-width", "0.8");
+            svg.appendChild(face);
+
+            // Eyes + mouth; sharpness modulates opacity
+            const eyeOpacity = 0.2 + 0.7 * sharpness;
+            const e1 = document.createElementNS(NS, "circle");
+            e1.setAttribute("cx", fx + 18);
+            e1.setAttribute("cy", fy + 22);
+            e1.setAttribute("r", 2.5);
+            e1.setAttribute("fill", "#1f1f1e");
+            e1.setAttribute("fill-opacity", eyeOpacity);
+            svg.appendChild(e1);
+
+            const e2 = document.createElementNS(NS, "circle");
+            e2.setAttribute("cx", fx + 37);
+            e2.setAttribute("cy", fy + 22);
+            e2.setAttribute("r", 2.5);
+            e2.setAttribute("fill", "#1f1f1e");
+            e2.setAttribute("fill-opacity", eyeOpacity);
+            svg.appendChild(e2);
+
+            const mouth = document.createElementNS(NS, "path");
+            mouth.setAttribute("d", `M ${fx + 15} ${fy + 38} Q ${fx + 27.5} ${fy + 43} ${fx + 40} ${fy + 38}`);
+            mouth.setAttribute("stroke", "#1f1f1e");
+            mouth.setAttribute("stroke-width", "1");
+            mouth.setAttribute("fill", "none");
+            mouth.setAttribute("opacity", eyeOpacity);
+            svg.appendChild(mouth);
+          }
+        }
+
+        // Stats
+        const avgNorm = pts.reduce((s, p) => s + Math.sqrt(p.x*p.x + p.y*p.y), 0) / pts.length;
+        const meanX = pts.reduce((s, p) => s + p.x, 0) / pts.length;
+        const meanY = pts.reduce((s, p) => s + p.y, 0) / pts.length;
+        const spread = Math.sqrt(pts.reduce((s, p) => s + (p.x - meanX)**2 + (p.y - meanY)**2, 0) / pts.length);
+        const reconErr = (0.5 + beta * 0.3).toFixed(2);
+
+        document.getElementById("norm").textContent = avgNorm.toFixed(2);
+        document.getElementById("spread").textContent = spread.toFixed(2);
+        document.getElementById("recon").textContent = reconErr;
+      }
+
+      document.getElementById("beta").addEventListener("input", (e) => {
+        beta = parseFloat(e.target.value);
+        document.getElementById("beta-val").textContent = beta.toFixed(1);
+        draw();
+      });
+
+      draw();
+    </script>
+  </body>
+</html>

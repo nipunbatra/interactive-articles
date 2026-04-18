@@ -1,0 +1,20 @@
+{
+  "slug": "diffusion-denoise",
+  "title": "Diffusion · Forward Noise &amp; Reverse Denoise",
+  "date": "2026-04-18",
+  "tagline": "Watch a 2D shape dissolve into Gaussian noise and reassemble itself",
+  "summary": "DDPM corrupts data into noise over T steps and learns to reverse the corruption. Drag the timestep slider to see a 2D distribution (a spiral) dissolve into an isotropic Gaussian, then press 'reverse' to watch it reassemble. The intuition behind Stable Diffusion, one step at a time.",
+  "readingTime": "9 min",
+  "difficulty": "Intermediate",
+  "collection": "Deep learning",
+  "order": 19,
+  "status": "published",
+  "tags": ["Diffusion", "DDPM", "Generative", "Interactive"],
+  "highlights": [
+    "Slide timestep t from 0 to 1000; watch a 2D shape dissolve into noise.",
+    "Noise schedule toggle: linear vs cosine.",
+    "Reverse button animates denoising from pure noise back to the shape.",
+    "See closed-form forward: x_t = √(α̅_t) x_0 + √(1−α̅_t) ε.",
+    "Why diffusion beat GANs: stable training, diverse samples, strong likelihood."
+  ]
+}

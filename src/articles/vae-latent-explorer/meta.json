@@ -1,0 +1,20 @@
+{
+  "slug": "vae-latent-explorer",
+  "title": "VAE Latent-Space Explorer",
+  "date": "2026-04-18",
+  "tagline": "See the KL penalty straighten out a noisy 2D latent space",
+  "summary": "Slide the KL weight β from 0 (plain autoencoder) to 10 (strong VAE). Watch the 2D latent space of a toy dataset collapse from scattered clumps into a clean unit-Gaussian disc — and watch the reconstruction quality trade off as the prior tightens. The exact knob from β-VAE, visible live.",
+  "readingTime": "8 min",
+  "difficulty": "Intermediate",
+  "collection": "Deep learning",
+  "order": 18,
+  "status": "published",
+  "tags": ["VAE", "Latent space", "Reparameterization", "Generative", "Interactive"],
+  "highlights": [
+    "β-slider from 0 (vanilla AE) through 1 (VAE) to 10 (β-VAE).",
+    "Left panel: encoded latent distribution; right: reconstructions.",
+    "Watch the latent scatter tighten into a unit-normal as β grows.",
+    "Trade-off visible: higher β → cleaner latent but blurrier samples.",
+    "Preview: β=4 is the sweet spot for 'disentangled' representations (Higgins 2017)."
+  ]
+}

@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Diffusion · Forward Noise &amp; Reverse Denoise</title>
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../shared/site.css" />
+    <style>
+      :root { --ink:#1f1f1e; --paper:#faf8f3; --paper-alt:#f0eee5; --rule:#c9c4b5; --muted:#6b6a65; --accent:#d97757; --accent-soft:#ead3c5; --sage:#7b9e89; --slate:#4a6670; --wine:#a8324b; }
+      body { font-family:"Source Serif 4",Georgia,serif; background:var(--paper); color:var(--ink); line-height:1.55; max-width:800px; margin:0 auto; padding:40px 24px 80px 24px; }
+      .kicker { font-family:"Manrope",sans-serif; font-size:12px; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); margin:0 0 6px 0; }
+      h1 { font-size:44px; line-height:1.1; margin:0 0 16px 0; }
+      h2 { font-size:28px; line-height:1.2; margin:48px 0 14px 0; }
+      .abstract { font-size:18px; color:var(--muted); font-style:italic; margin:0 0 16px 0; }
+      .byline { font-family:"Manrope",sans-serif; font-size:13px; color:var(--muted); border-top:1px solid var(--rule); border-bottom:1px solid var(--rule); padding:12px 0; margin-bottom:36px; }
+      .byline span { margin-right:14px; }
+      a.back-link { font-family:"Manrope",sans-serif; font-size:13px; color:var(--accent); text-decoration:none; display:inline-block; margin-bottom:24px; }
+      p { margin:0 0 16px 0; }
+      code { font-family:"IBM Plex Mono",monospace; font-size:.9em; background:var(--paper-alt); padding:2px 6px; border-radius:3px; }
+      .figure { background:var(--paper-alt); border:1px solid var(--rule); border-radius:6px; padding:20px; margin:24px 0; }
+      .controls { display:flex; flex-wrap:wrap; gap:18px; align-items:center; margin-bottom:16px; font-family:"Manrope",sans-serif; font-size:14px; }
+      .controls label { display:flex; align-items:center; gap:8px; }
+      input[type="range"] { width:280px; accent-color:var(--accent); }
+      .mode-toggle { display:inline-flex; border:1px solid var(--rule); border-radius:4px; overflow:hidden; }
+      .mode-toggle button { font-family:"Manrope",sans-serif; font-size:13px; padding:6px 12px; background:var(--paper); color:var(--muted); border:none; border-right:1px solid var(--rule); cursor:pointer; }
+      .mode-toggle button:last-child { border-right:none; }
+      .mode-toggle button.active { background:var(--accent); color:var(--paper); }
+      button.action { font-family:"Manrope",sans-serif; font-size:13px; padding:6px 14px; background:var(--accent); color:var(--paper); border:none; border-radius:4px; cursor:pointer; }
+      svg { display:block; margin:0 auto; }
+      .stats { font-family:"IBM Plex Mono",monospace; font-size:13px; margin-top:12px; display:flex; gap:24px; flex-wrap:wrap; }
+      .stats span b { color:var(--accent); }
+    </style>
+  </head>
+  <body>
+    <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+    <p class="kicker">Interactive Explainer</p>
+    <h1>Diffusion · Forward Noise &amp; Reverse Denoise</h1>
+    <p class="abstract">
+      A diffusion model learns to reverse a noising process. Drag the timestep slider — watch a 2D shape dissolve into Gaussian. Press "reverse" — watch noise reassemble back into the shape. Every modern image generator rides this idea.
+    </p>
+    <div class="byline"><span>~9 min</span><span>Deep Learning · Diffusion · DDPM</span></div>
+
+    <p>
+      The forward process is fixed: repeatedly add small Gaussian noise until the data becomes indistinguishable from N(0, I). The reverse process is learned: a neural network predicts how much noise was added at each step, so you can subtract it and work your way back.
+    </p>
+
+    <h2>The playground</h2>
+    <div class="figure">
+      <div class="controls">
+        <label>Timestep t: <input type="range" id="t" min="0" max="1000" step="10" value="0" /><span id="t-val" style="font-family:'IBM Plex Mono',monospace; min-width:40px;">0</span></label>
+        <label>Schedule:
+          <div class="mode-toggle">
+            <button class="sch-btn active" data-s="linear">linear</button>
+            <button class="sch-btn" data-s="cosine">cosine</button>
+          </div>
+        </label>
+        <button class="action" id="animate">▶ Reverse animate</button>
+      </div>
+      <svg id="plot" width="720" height="340" viewBox="0 0 720 340"></svg>
+      <div class="stats">
+        <span>α̅_t: <b id="alpha">1.000</b></span>
+        <span>Signal ratio √α̅_t: <b id="signal">1.00</b></span>
+        <span>Noise ratio √(1−α̅_t): <b id="noise">0.00</b></span>
+      </div>
+    </div>
+
+    <h2>The closed-form forward step</h2>
+    <p style="text-align: center; font-family: 'IBM Plex Mono', monospace; font-size: 15px; margin: 24px 0;">
+      x_t = √(α̅_t) · x_0 + √(1 − α̅_t) · ε&nbsp;&nbsp;&nbsp;&nbsp;ε ~ N(0, I)
+    </p>
+    <p>
+      Because Gaussians compose under noise-addition, you can sample x_t directly from x_0 without stepping through — huge training speedup. α̅_t is a cumulative product of noise-retention factors; it goes from ~1 at t=0 to ~0 at t=T.
+    </p>
+
+    <h2>The training objective · DDPM loss</h2>
+    <p style="text-align: center; font-family: 'IBM Plex Mono', monospace; font-size: 15px; margin: 24px 0;">
+      L = E_{t, x_0, ε} [ ∥ε − ε_θ(x_t, t)∥² ]
+    </p>
+    <p>
+      Sample a random clean image, a random timestep, and a random noise ε. Compute x_t. Ask the network to predict ε. That's the entire loss. Simple, stable, and works better than everything else.
+    </p>
+
+    <p style="margin-top: 48px; color: var(--muted); font-size: 14px;">
+      Part of the ES 667 Deep Learning course · IIT Gandhinagar · Aug 2026.
+    </p>
+
+    <script>
+      const svg = document.getElementById("plot");
+      const NS = "http://www.w3.org/2000/svg";
+      let t = 0, schedule = "linear", animating = false;
+
+      // Generate the initial "spiral" distribution
+      const N_POINTS = 300;
+      const originals = [];
+      for (let i = 0; i < N_POINTS; i++) {
+        const theta = (i / N_POINTS) * 4 * Math.PI;
+        const r = 0.1 + (i / N_POINTS) * 1.8;
+        originals.push({
+          x0: r * Math.cos(theta),
+          y0: r * Math.sin(theta),
+          eps_x: (Math.sqrt(-2 * Math.log(Math.random())) * Math.cos(2 * Math.PI * Math.random())),
+          eps_y: (Math.sqrt(-2 * Math.log(Math.random())) * Math.cos(2 * Math.PI * Math.random())),
+        });
+      }
+
+      function alphaBar(t) {
+        // Cumulative product of (1 - beta_s) with linear or cosine schedule
+        const T = 1000;
+        if (schedule === "linear") {
+          const beta_start = 1e-4, beta_end = 0.02;
+          // Approximation: α̅_t ≈ exp(-∫_0^t beta_s ds) with linear beta
+          const frac = t / T;
+          const mean_beta = beta_start + (beta_end - beta_start) * frac / 2;
+          return Math.exp(-t * mean_beta);
+        } else {
+          // Cosine schedule (Nichol & Dhariwal 2021)
+          const s = 0.008;
+          const f = (t) => Math.cos(((t / T + s) / (1 + s)) * Math.PI / 2) ** 2;
+          return f(t) / f(0);
+        }
+      }
+
+      function draw() {
+        svg.innerHTML = "";
+        const ab = alphaBar(t);
+        const sig = Math.sqrt(ab);
+        const noi = Math.sqrt(Math.max(0, 1 - ab));
+
+        const W = 680, H = 320, CX = W / 2, CY = H / 2, SCALE = 60;
+
+        // Background
+        const bg = document.createElementNS(NS, "rect");
+        bg.setAttribute("x", 0); bg.setAttribute("y", 0);
+        bg.setAttribute("width", W); bg.setAttribute("height", H);
+        bg.setAttribute("fill", "#f0eee5");
+        bg.setAttribute("stroke", "#c9c4b5");
+        svg.appendChild(bg);
+
+        // Axes
+        const l = (x1,y1,x2,y2,col,w) => {
+          const ln = document.createElementNS(NS, "line");
+          ln.setAttribute("x1", x1); ln.setAttribute("y1", y1);
+          ln.setAttribute("x2", x2); ln.setAttribute("y2", y2);
+          ln.setAttribute("stroke", col); ln.setAttribute("stroke-width", w);
+          svg.appendChild(ln);
+        };
+        l(20, CY, W - 20, CY, "#c9c4b5", 0.5);
+        l(CX, 20, CX, H - 20, "#c9c4b5", 0.5);
+
+        // Unit circle
+        const circ = document.createElementNS(NS, "circle");
+        circ.setAttribute("cx", CX); circ.setAttribute("cy", CY);
+        circ.setAttribute("r", SCALE);
+        circ.setAttribute("fill", "none");
+        circ.setAttribute("stroke", "#c9c4b5");
+        circ.setAttribute("stroke-width", "0.4");
+        circ.setAttribute("stroke-dasharray", "3 3");
+        svg.appendChild(circ);
+
+        // Current points
+        originals.forEach(p => {
+          const x = sig * p.x0 + noi * p.eps_x;
+          const y = sig * p.y0 + noi * p.eps_y;
+          const dot = document.createElementNS(NS, "circle");
+          dot.setAttribute("cx", CX + x * SCALE);
+          dot.setAttribute("cy", CY + y * SCALE);
+          dot.setAttribute("r", 2);
+          dot.setAttribute("fill", "#d97757");
+          dot.setAttribute("fill-opacity", 0.7 - 0.2 * (1 - ab));
+          svg.appendChild(dot);
+        });
+
+        // Title
+        const title = document.createElementNS(NS, "text");
+        title.setAttribute("x", W / 2); title.setAttribute("y", 22);
+        title.setAttribute("text-anchor", "middle");
+        title.setAttribute("fill", "#6b6a65");
+        title.setAttribute("font-family", "Manrope, sans-serif");
+        title.setAttribute("font-size", "12");
+        title.textContent = `q(x_t | x_0)  at t = ${t}  ·  α̅_t = ${ab.toFixed(3)}`;
+        svg.appendChild(title);
+
+        // Stats
+        document.getElementById("alpha").textContent = ab.toFixed(3);
+        document.getElementById("signal").textContent = sig.toFixed(2);
+        document.getElementById("noise").textContent = noi.toFixed(2);
+      }
+
+      // Event wiring
+      document.getElementById("t").addEventListener("input", (e) => {
+        t = parseInt(e.target.value);
+        document.getElementById("t-val").textContent = t;
+        draw();
+      });
+      document.querySelectorAll(".sch-btn").forEach(b => b.addEventListener("click", () => {
+        document.querySelectorAll(".sch-btn").forEach(x => x.classList.remove("active"));
+        b.classList.add("active");
+        schedule = b.dataset.s;
+        draw();
+      }));
+
+      document.getElementById("animate").addEventListener("click", () => {
+        if (animating) return;
+        animating = true;
+        // Start from t=1000, animate back to 0
+        let cur = 1000;
+        const step = () => {
+          t = cur;
+          document.getElementById("t").value = t;
+          document.getElementById("t-val").textContent = t;
+          draw();
+          cur -= 25;
+          if (cur >= 0) {
+            setTimeout(step, 40);
+          } else {
+            animating = false;
+          }
+        };
+        step();
+      });
+
+      draw();
+    </script>
+  </body>
+</html>
