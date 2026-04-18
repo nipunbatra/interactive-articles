@@ -1,0 +1,20 @@
+{
+  "slug": "cfg-scale-visualizer",
+  "title": "Classifier-Free Guidance Scale",
+  "date": "2026-04-18",
+  "tagline": "Slide the guidance weight w, watch the generated shape stretch toward the prompt",
+  "summary": "Classifier-free guidance extrapolates between unconditional and conditional predictions. Slide the weight w from 0 (no guidance, unconditional) through 7 (Stable Diffusion default) to 30 (over-guided ringing). See the generated shape literally stretch toward the target — and break at high w.",
+  "readingTime": "6 min",
+  "difficulty": "Intermediate",
+  "collection": "Deep learning",
+  "order": 20,
+  "status": "published",
+  "tags": ["Diffusion", "CFG", "Stable Diffusion", "Interactive"],
+  "highlights": [
+    "w = 0 · pure unconditional, prompt is ignored.",
+    "w = 1 · weakly conditional, fuzzy prompt adherence.",
+    "w = 7 · 2026 Stable Diffusion default.",
+    "w = 15+ · over-guided, saturation and ringing artifacts appear.",
+    "Extrapolation formula shown live; one line of code in the noise-prediction step."
+  ]
+}

@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CFG Scale Visualizer</title>
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../shared/site.css" />
+    <style>
+      :root { --ink:#1f1f1e; --paper:#faf8f3; --paper-alt:#f0eee5; --rule:#c9c4b5; --muted:#6b6a65; --accent:#d97757; --accent-soft:#ead3c5; --sage:#7b9e89; --slate:#4a6670; --wine:#a8324b; }
+      body { font-family:"Source Serif 4",Georgia,serif; background:var(--paper); color:var(--ink); line-height:1.55; max-width:800px; margin:0 auto; padding:40px 24px 80px 24px; }
+      .kicker { font-family:"Manrope",sans-serif; font-size:12px; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); margin:0 0 6px 0; }
+      h1 { font-size:44px; line-height:1.1; margin:0 0 16px 0; }
+      h2 { font-size:28px; line-height:1.2; margin:48px 0 14px 0; }
+      .abstract { font-size:18px; color:var(--muted); font-style:italic; margin:0 0 16px 0; }
+      .byline { font-family:"Manrope",sans-serif; font-size:13px; color:var(--muted); border-top:1px solid var(--rule); border-bottom:1px solid var(--rule); padding:12px 0; margin-bottom:36px; }
+      .byline span { margin-right:14px; }
+      a.back-link { font-family:"Manrope",sans-serif; font-size:13px; color:var(--accent); text-decoration:none; display:inline-block; margin-bottom:24px; }
+      p { margin:0 0 16px 0; }
+      code { font-family:"IBM Plex Mono",monospace; font-size:.9em; background:var(--paper-alt); padding:2px 6px; border-radius:3px; }
+      .figure { background:var(--paper-alt); border:1px solid var(--rule); border-radius:6px; padding:20px; margin:24px 0; }
+      .controls { display:flex; flex-wrap:wrap; gap:18px; align-items:center; margin-bottom:16px; font-family:"Manrope",sans-serif; font-size:14px; }
+      .controls label { display:flex; align-items:center; gap:8px; }
+      input[type="range"] { width:280px; accent-color:var(--accent); }
+      svg { display:block; margin:0 auto; }
+      .stats { font-family:"IBM Plex Mono",monospace; font-size:13px; margin-top:12px; display:flex; gap:24px; flex-wrap:wrap; color:var(--muted); }
+      .stats span b { color:var(--accent); }
+    </style>
+  </head>
+  <body>
+    <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+    <p class="kicker">Interactive Explainer</p>
+    <h1>Classifier-Free Guidance Scale</h1>
+    <p class="abstract">
+      CFG linearly extrapolates between what the model would draw without the prompt and what it would draw with the prompt. Slide the weight w from 0 to 30 to see the generation stretch toward — and past — the target shape.
+    </p>
+    <div class="byline"><span>~6 min</span><span>Deep Learning · Diffusion · CFG</span></div>
+
+    <p>
+      During training, the diffusion model sees conditional and unconditional examples (10% of prompts are dropped to ""). At inference, you can linearly extrapolate past the conditional direction: the further you go, the more aggressively the model commits to the prompt — until it overshoots and produces saturated, ringing artifacts.
+    </p>
+
+    <h2>The playground</h2>
+    <div class="figure">
+      <div class="controls">
+        <label>Guidance w: <input type="range" id="w" min="0" max="30" step="0.5" value="7" /><span id="w-val" style="font-family:'IBM Plex Mono',monospace; min-width:40px;">7.0</span></label>
+      </div>
+      <svg id="plot" width="720" height="340" viewBox="0 0 720 340"></svg>
+      <div class="stats">
+        <span>Prompt adherence: <b id="adh">–</b></span>
+        <span>Artifact level: <b id="art">–</b></span>
+        <span>Quality zone: <b id="zone">–</b></span>
+      </div>
+    </div>
+
+    <p>
+      The sweet spot for Stable Diffusion is roughly w ∈ [5, 10]. Below 3 the model drifts off-prompt; above 15 you start seeing saturation (everything becomes a vivid stereotype) and "ringing" (high-frequency artifacts around edges).
+    </p>
+
+    <h2>The formula</h2>
+    <p style="text-align: center; font-family: 'IBM Plex Mono', monospace; font-size: 16px; margin: 24px 0;">
+      ε_CFG = ε_θ(x_t, ∅) + w · (ε_θ(x_t, c) − ε_θ(x_t, ∅))
+    </p>
+    <p>
+      At w=0, you get pure unconditional noise prediction (prompt ignored). At w=1, you get the conditional prediction. Past w=1 you're <em>extrapolating</em> — pushing further in the prompt direction than the model ever saw during training. The model's generalization past its training extrapolation limits is why artifacts appear.
+    </p>
+
+    <h2>Training dropout</h2>
+    <p>
+      CFG requires a small trick during training: randomly drop the prompt 10% of the time (replace with null/empty conditioning). This teaches the same model to do <em>both</em> conditional and unconditional generation. At inference you run two forward passes per step — one with the prompt, one with the null — and extrapolate.
+    </p>
+    <p>
+      Cost · 2× inference. Benefit · you can dial any w you want at generation time without retraining. Every text-to-image system uses this (Stable Diffusion, Imagen, DALL-E 3, Midjourney).
+    </p>
+
+    <p style="margin-top: 48px; color: var(--muted); font-size: 14px;">
+      Part of the ES 667 Deep Learning course · IIT Gandhinagar · Aug 2026.
+    </p>
+
+    <script>
+      const svg = document.getElementById("plot");
+      const NS = "http://www.w3.org/2000/svg";
+      let w = 7;
+
+      function draw() {
+        svg.innerHTML = "";
+        const W = 680, H = 320, CX = 360, CY = 170;
+
+        // Background
+        const bg = document.createElementNS(NS, "rect");
+        bg.setAttribute("x", 0); bg.setAttribute("y", 0);
+        bg.setAttribute("width", W); bg.setAttribute("height", H);
+        bg.setAttribute("fill", "#f0eee5");
+        bg.setAttribute("stroke", "#c9c4b5");
+        svg.appendChild(bg);
+
+        // Factor based on w: how prompt-faithful / artifact-heavy
+        const adherence = Math.min(1, w / 5);   // peaks at w=5
+        const artifacts = Math.max(0, (w - 12) / 18);  // starts at w=12
+
+        // Draw a cat face that stretches toward "astronaut catness" with w
+        const catFillOpacity = 0.2 + 0.7 * adherence;
+        const detailOpacity = adherence;
+        const saturation = Math.min(1, 0.4 + w / 20);
+
+        // Cat body (warm color saturation)
+        const catColor = artifacts > 0.3 ? "#a8324b" : "#d97757";
+        const catEllipse = document.createElementNS(NS, "ellipse");
+        catEllipse.setAttribute("cx", CX);
+        catEllipse.setAttribute("cy", CY - 10);
+        catEllipse.setAttribute("rx", 90 + adherence * 10);
+        catEllipse.setAttribute("ry", 70 + adherence * 5);
+        catEllipse.setAttribute("fill", catColor);
+        catEllipse.setAttribute("fill-opacity", catFillOpacity);
+        svg.appendChild(catEllipse);
+
+        // Ears
+        if (adherence > 0.2) {
+          const earL = document.createElementNS(NS, "path");
+          earL.setAttribute("d", `M ${CX - 60} ${CY - 55} L ${CX - 70} ${CY - 90} L ${CX - 40} ${CY - 55} Z`);
+          earL.setAttribute("fill", "#a8324b");
+          earL.setAttribute("fill-opacity", detailOpacity);
+          svg.appendChild(earL);
+
+          const earR = document.createElementNS(NS, "path");
+          earR.setAttribute("d", `M ${CX + 60} ${CY - 55} L ${CX + 70} ${CY - 90} L ${CX + 40} ${CY - 55} Z`);
+          earR.setAttribute("fill", "#a8324b");
+          earR.setAttribute("fill-opacity", detailOpacity);
+          svg.appendChild(earR);
+        }
+
+        // Eyes
+        if (adherence > 0.3) {
+          [[-28, -18], [28, -18]].forEach(([dx, dy]) => {
+            const eye = document.createElementNS(NS, "circle");
+            eye.setAttribute("cx", CX + dx);
+            eye.setAttribute("cy", CY + dy);
+            eye.setAttribute("r", 5 + adherence * 2);
+            eye.setAttribute("fill", "#1f1f1e");
+            eye.setAttribute("fill-opacity", detailOpacity);
+            svg.appendChild(eye);
+          });
+        }
+
+        // Helmet (for astronaut vibe)
+        if (adherence > 0.5) {
+          const helmet = document.createElementNS(NS, "circle");
+          helmet.setAttribute("cx", CX);
+          helmet.setAttribute("cy", CY - 10);
+          helmet.setAttribute("r", 110);
+          helmet.setAttribute("fill", "none");
+          helmet.setAttribute("stroke", "#4a6670");
+          helmet.setAttribute("stroke-width", 1.5);
+          helmet.setAttribute("stroke-opacity", 0.3 + adherence * 0.4);
+          svg.appendChild(helmet);
+        }
+
+        // Ringing artifacts at high w
+        if (artifacts > 0) {
+          for (let r = 0; r < Math.floor(artifacts * 6); r++) {
+            const ring = document.createElementNS(NS, "ellipse");
+            ring.setAttribute("cx", CX);
+            ring.setAttribute("cy", CY - 10);
+            ring.setAttribute("rx", 110 + r * 12);
+            ring.setAttribute("ry", 85 + r * 8);
+            ring.setAttribute("fill", "none");
+            ring.setAttribute("stroke", "#a8324b");
+            ring.setAttribute("stroke-width", 1);
+            ring.setAttribute("stroke-opacity", 0.3 * artifacts);
+            svg.appendChild(ring);
+          }
+        }
+
+        // Label
+        const label = document.createElementNS(NS, "text");
+        label.setAttribute("x", CX); label.setAttribute("y", 30);
+        label.setAttribute("text-anchor", "middle");
+        label.setAttribute("fill", "#6b6a65");
+        label.setAttribute("font-family", "Manrope, sans-serif");
+        label.setAttribute("font-size", "12");
+        label.textContent = `prompt: "a cat astronaut"  ·  w = ${w.toFixed(1)}`;
+        svg.appendChild(label);
+
+        // Stats
+        const adhPct = Math.min(100, adherence * 100).toFixed(0);
+        const artPct = Math.min(100, artifacts * 100).toFixed(0);
+        let zone;
+        if (w < 2) zone = "too weak · ignore prompt";
+        else if (w < 12) zone = "sweet spot";
+        else if (w < 20) zone = "getting heavy";
+        else zone = "over-guided · artifacts";
+
+        document.getElementById("adh").textContent = adhPct + "%";
+        document.getElementById("art").textContent = artPct + "%";
+        document.getElementById("zone").textContent = zone;
+      }
+
+      document.getElementById("w").addEventListener("input", (e) => {
+        w = parseFloat(e.target.value);
+        document.getElementById("w-val").textContent = w.toFixed(1);
+        draw();
+      });
+
+      draw();
+    </script>
+  </body>
+</html>
