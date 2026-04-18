@@ -1,0 +1,20 @@
+{
+  "slug": "lstm-gates",
+  "title": "LSTM Gates Playground",
+  "date": "2026-04-18",
+  "tagline": "Drag the forget/input/output gates, watch the cell state flow",
+  "summary": "Three sigmoid gates protect an LSTM's cell state — the forget gate decides what to erase, the input gate what to write, the output gate what to read. Drag each slider, feed in a sequence, and watch the cell state change timestep by timestep. The 'conveyor belt' intuition becomes literal.",
+  "readingTime": "8 min",
+  "difficulty": "Intermediate",
+  "collection": "Deep learning",
+  "order": 14,
+  "status": "published",
+  "tags": ["LSTM", "RNN", "Gates", "Deep Learning", "Interactive"],
+  "highlights": [
+    "Drag f_t (forget), i_t (input), o_t (output) from 0 to 1.",
+    "Feed a 10-step input sequence; see the cell state evolve like a conveyor belt.",
+    "Saturate f = 1 and i = 0 — the cell state is frozen, memory preserved indefinitely.",
+    "Saturate f = 0 — every timestep erases; the network forgets everything.",
+    "Switch to the 'vanilla RNN' mode to see how gradients collapse without gating."
+  ]
+}

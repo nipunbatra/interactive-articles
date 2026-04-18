@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>The Seq2Seq Bottleneck</title>
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../shared/site.css" />
+    <style>
+      :root { --ink:#1f1f1e; --paper:#faf8f3; --paper-alt:#f0eee5; --rule:#c9c4b5; --muted:#6b6a65; --accent:#d97757; --accent-soft:#ead3c5; --sage:#7b9e89; --slate:#4a6670; --wine:#a8324b; }
+      body { font-family:"Source Serif 4",Georgia,serif; background:var(--paper); color:var(--ink); line-height:1.55; max-width:800px; margin:0 auto; padding:40px 24px 80px 24px; }
+      .kicker { font-family:"Manrope",sans-serif; font-size:12px; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); margin:0 0 6px 0; }
+      h1 { font-size:44px; line-height:1.1; margin:0 0 16px 0; }
+      h2 { font-size:28px; line-height:1.2; margin:48px 0 14px 0; }
+      .abstract { font-size:18px; color:var(--muted); font-style:italic; margin:0 0 16px 0; }
+      .byline { font-family:"Manrope",sans-serif; font-size:13px; color:var(--muted); border-top:1px solid var(--rule); border-bottom:1px solid var(--rule); padding:12px 0; margin-bottom:36px; }
+      .byline span { margin-right:14px; }
+      a.back-link { font-family:"Manrope",sans-serif; font-size:13px; color:var(--accent); text-decoration:none; display:inline-block; margin-bottom:24px; }
+      p { margin:0 0 16px 0; }
+      code { font-family:"IBM Plex Mono",monospace; font-size:.9em; background:var(--paper-alt); padding:2px 6px; border-radius:3px; }
+      .figure { background:var(--paper-alt); border:1px solid var(--rule); border-radius:6px; padding:20px; margin:24px 0; }
+      .controls { display:flex; flex-wrap:wrap; gap:18px; align-items:center; margin-bottom:16px; font-family:"Manrope",sans-serif; font-size:14px; }
+      .controls label { display:flex; align-items:center; gap:8px; }
+      input[type="range"] { width:220px; accent-color:var(--accent); }
+      .mode-toggle { display:inline-flex; border:1px solid var(--rule); border-radius:4px; overflow:hidden; }
+      .mode-toggle button { font-family:"Manrope",sans-serif; font-size:13px; padding:6px 12px; background:var(--paper); color:var(--muted); border:none; border-right:1px solid var(--rule); cursor:pointer; }
+      .mode-toggle button:last-child { border-right:none; }
+      .mode-toggle button.active { background:var(--accent); color:var(--paper); }
+      svg { display:block; margin:0 auto; }
+      .stats { font-family:"IBM Plex Mono",monospace; font-size:13px; margin-top:12px; display:flex; gap:24px; flex-wrap:wrap; }
+      .stats span b { color:var(--accent); }
+      .note { border-left:3px solid var(--accent); background:var(--accent-soft); padding:12px 16px; margin:20px 0; font-size:15px; }
+    </style>
+  </head>
+  <body>
+    <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+    <p class="kicker">Interactive Explainer</p>
+    <h1>The Seq2Seq Bottleneck</h1>
+    <p class="abstract">
+      Every source token squeezes into one fixed-size vector. Short sentences fit fine; long ones overflow. This is the pain point that made attention inevitable — and it's easy to see once you watch the compression happen live.
+    </p>
+    <div class="byline"><span>~7 min</span><span>Deep Learning · Seq2Seq · Attention Motivation</span></div>
+
+    <p>
+      In 2014, Sutskever, Vinyals, and Le built the first neural machine translation model: an LSTM encoder reads the source sentence, its final hidden state becomes a <em>context vector</em> <code>c</code>, and an LSTM decoder generates the target conditioned on <code>c</code>.
+    </p>
+    <p>
+      It worked well on short sentences. It collapsed on long ones. Why? Because every source token — every noun, every verb, every article — had to fit into one 512-dim vector. One year later, Bahdanau et al. would fix it with attention. This interactive shows the failure mode.
+    </p>
+
+    <h2>The playground</h2>
+    <div class="figure">
+      <div class="controls">
+        <label>Source length: <input type="range" id="len" min="3" max="60" step="1" value="15" /><span id="len-val" style="font-family:'IBM Plex Mono',monospace; min-width:30px;">15</span></label>
+        <label>Context dim:
+          <div class="mode-toggle">
+            <button class="d-btn active" data-d="64">64</button>
+            <button class="d-btn" data-d="256">256</button>
+            <button class="d-btn" data-d="512">512</button>
+          </div>
+        </label>
+      </div>
+      <svg id="plot" width="720" height="300" viewBox="0 0 720 300"></svg>
+      <div class="stats">
+        <span>Bits per token: <b id="bits">–</b></span>
+        <span>Context saturation: <b id="sat">–</b></span>
+        <span>Est. BLEU: <b id="bleu">–</b></span>
+      </div>
+    </div>
+
+    <p>
+      The grey line is the expected BLEU curve: as source length grows, fixed-context Seq2Seq's translation quality drops roughly linearly. With a larger context (256 or 512), the drop-off happens later, but it still happens.
+    </p>
+
+    <h2>Why this fails</h2>
+    <p>
+      Think of the context vector as a compressed zip file. A 512-dim float32 vector is ~16 kbit. To translate "The", you need maybe 10 bits. To translate "The quick brown fox jumps over the lazy dog", you need several hundred bits just to keep track of what each word was. At some length, the encoder has to start dropping information.
+    </p>
+
+    <div class="note">
+      <strong>The one-year fix.</strong> Bahdanau et al. 2014: instead of one context vector, keep <em>all</em> the encoder hidden states, and let the decoder <em>attend</em> to them — pick which ones to look at, at each target step. No more bottleneck, no more length penalty. This became attention, which became self-attention, which became the Transformer.
+    </p>
+
+    <h2>Run the numbers yourself</h2>
+    <p style="text-align: center; font-family: 'IBM Plex Mono', monospace; font-size: 14px; margin: 24px 0;">
+      info_to_pass &nbsp; = &nbsp; H(source) &nbsp;&nbsp;≈&nbsp;&nbsp; L · log(V)<br/>
+      capacity(c)   &nbsp; ≈ &nbsp; d · 8 bits
+    </p>
+    <p>
+      Source length L, vocabulary V. For a 50k-vocab translation task, each token carries ~16 bits. With L=30 and d=512, you're trying to stuff ~480 bits into 4096 bits of capacity — still fine. At L=300, it's 4800 bits into 4096 — impossible.
+    </p>
+
+    <p style="margin-top: 48px; color: var(--muted); font-size: 14px;">
+      Part of the ES 667 Deep Learning course · IIT Gandhinagar · Aug 2026.
+    </p>
+
+    <script>
+      const svg = document.getElementById("plot");
+      const NS = "http://www.w3.org/2000/svg";
+      let length = 15, dim = 64;
+
+      function estimateBleu(len, d) {
+        // Heuristic matching Sutskever 2014 pattern:
+        // BLEU roughly decays as length grows past capacity(d)
+        const capacity = d * 0.5;  // usable bits (rough)
+        const demand = len * 10;   // bits needed per token
+        if (demand < capacity * 0.6) return 0.34;
+        if (demand > capacity * 2) return Math.max(0.10, 0.34 - 0.03 * (demand / capacity));
+        return 0.34 - 0.20 * Math.max(0, (demand - capacity * 0.6) / capacity);
+      }
+
+      function draw() {
+        svg.innerHTML = "";
+        const W = 640, H = 220, L = 60, T = 30;
+
+        const line = (x1, y1, x2, y2, col, w, d) => {
+          const ln = document.createElementNS(NS, "line");
+          ln.setAttribute("x1", x1); ln.setAttribute("y1", y1);
+          ln.setAttribute("x2", x2); ln.setAttribute("y2", y2);
+          ln.setAttribute("stroke", col);
+          ln.setAttribute("stroke-width", w);
+          if (d) ln.setAttribute("stroke-dasharray", d);
+          svg.appendChild(ln);
+        };
+        const text = (x, y, t, col, size, anchor) => {
+          const el = document.createElementNS(NS, "text");
+          el.setAttribute("x", x); el.setAttribute("y", y);
+          el.setAttribute("fill", col);
+          el.setAttribute("font-family", "Manrope, sans-serif");
+          el.setAttribute("font-size", size);
+          el.setAttribute("text-anchor", anchor || "start");
+          el.textContent = t;
+          svg.appendChild(el);
+        };
+
+        // Axes
+        line(L, T + H, L + W, T + H, "#1f1f1e", 1.2);
+        line(L, T, L, T + H, "#1f1f1e", 1.2);
+        // grid
+        for (let i = 1; i < 5; i++) line(L, T + i * H / 5, L + W, T + i * H / 5, "#c9c4b5", 0.4);
+
+        // BLEU curves for three dims
+        const dims = [64, 256, 512];
+        const colors = { 64: "#a8324b", 256: "#d97757", 512: "#7b9e89" };
+        dims.forEach(d => {
+          const pts = [];
+          for (let len = 3; len <= 60; len++) {
+            const b = estimateBleu(len, d);
+            const x = L + (len - 3) / 57 * W;
+            const y = T + H - (b / 0.4) * H;
+            pts.push(`${len === 3 ? "M" : "L"} ${x} ${y}`);
+          }
+          const path = document.createElementNS(NS, "path");
+          path.setAttribute("d", pts.join(" "));
+          path.setAttribute("stroke", colors[d]);
+          path.setAttribute("stroke-width", d === dim ? "2.8" : "1.2");
+          path.setAttribute("opacity", d === dim ? 1.0 : 0.4);
+          path.setAttribute("fill", "none");
+          svg.appendChild(path);
+          text(L + W + 10, T + H - (estimateBleu(60, d) / 0.4) * H + 4, `d=${d}`, colors[d], 11);
+        });
+
+        // Vertical cursor at current length
+        const xCursor = L + (length - 3) / 57 * W;
+        line(xCursor, T, xCursor, T + H, "#d97757", 2, "3 2");
+
+        // Axis labels
+        text(L + W / 2, T + H + 40, "source length →", "#6b6a65", 11, "middle");
+        // Y axis label (rotated)
+        const yLbl = document.createElementNS(NS, "text");
+        yLbl.setAttribute("x", 15);
+        yLbl.setAttribute("y", T + H / 2);
+        yLbl.setAttribute("transform", `rotate(-90 15 ${T + H / 2})`);
+        yLbl.setAttribute("text-anchor", "middle");
+        yLbl.setAttribute("font-family", "Manrope, sans-serif");
+        yLbl.setAttribute("font-size", "11");
+        yLbl.setAttribute("fill", "#6b6a65");
+        yLbl.textContent = "BLEU →";
+        svg.appendChild(yLbl);
+
+        // Stats
+        const bits = (length * 10).toFixed(0);
+        const capacityBits = dim * 0.5;
+        const sat = Math.min(100, (length * 10 / capacityBits) * 100).toFixed(0);
+        const bleu = estimateBleu(length, dim).toFixed(2);
+        document.getElementById("bits").textContent = `${bits}`;
+        document.getElementById("sat").textContent = `${sat}%`;
+        document.getElementById("bleu").textContent = bleu;
+      }
+
+      document.getElementById("len").addEventListener("input", (e) => {
+        length = parseInt(e.target.value);
+        document.getElementById("len-val").textContent = length;
+        draw();
+      });
+      document.querySelectorAll(".d-btn").forEach(b => b.addEventListener("click", () => {
+        document.querySelectorAll(".d-btn").forEach(x => x.classList.remove("active"));
+        b.classList.add("active");
+        dim = parseInt(b.dataset.d);
+        draw();
+      }));
+
+      draw();
+    </script>
+  </body>
+</html>

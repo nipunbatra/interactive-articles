@@ -1,0 +1,20 @@
+{
+  "slug": "seq2seq-bottleneck",
+  "title": "The Seq2Seq Bottleneck",
+  "date": "2026-04-18",
+  "tagline": "Watch translation quality collapse as source sentences grow",
+  "summary": "Seq2Seq compresses every source token into a single context vector, then generates the target from it. Type a source sentence, slide its length, and watch the context vector's 'information density' fall off. This is the exact failure mode that made attention (1 year later) inevitable.",
+  "readingTime": "7 min",
+  "difficulty": "Intermediate",
+  "collection": "Deep learning",
+  "order": 15,
+  "status": "published",
+  "tags": ["Seq2Seq", "Attention motivation", "RNN", "NMT", "Interactive"],
+  "highlights": [
+    "Type a source sentence; see it encoded token by token into a fixed-size context.",
+    "Extend the source — watch the fixed context's 'saturation' rise.",
+    "Toggle context dimension (64 / 256 / 512) and see the bend-point in quality.",
+    "Read the 2014 performance curves — BLEU drops ~30% past 30 tokens on vanilla Seq2Seq.",
+    "Preview: attention lets the decoder peek at ALL encoder states, sidestepping the bottleneck entirely."
+  ]
+}

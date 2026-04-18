@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LSTM Gates Playground</title>
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../shared/site.css" />
+    <style>
+      :root { --ink:#1f1f1e; --paper:#faf8f3; --paper-alt:#f0eee5; --rule:#c9c4b5; --muted:#6b6a65; --accent:#d97757; --accent-soft:#ead3c5; --sage:#7b9e89; --slate:#4a6670; --wine:#a8324b; }
+      body { font-family:"Source Serif 4",Georgia,serif; background:var(--paper); color:var(--ink); line-height:1.55; max-width:800px; margin:0 auto; padding:40px 24px 80px 24px; }
+      .kicker { font-family:"Manrope",sans-serif; font-size:12px; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); margin:0 0 6px 0; }
+      h1 { font-size:44px; line-height:1.1; margin:0 0 16px 0; }
+      h2 { font-size:28px; line-height:1.2; margin:48px 0 14px 0; }
+      .abstract { font-size:18px; color:var(--muted); font-style:italic; margin:0 0 16px 0; }
+      .byline { font-family:"Manrope",sans-serif; font-size:13px; color:var(--muted); border-top:1px solid var(--rule); border-bottom:1px solid var(--rule); padding:12px 0; margin-bottom:36px; }
+      .byline span { margin-right:14px; }
+      a.back-link { font-family:"Manrope",sans-serif; font-size:13px; color:var(--accent); text-decoration:none; display:inline-block; margin-bottom:24px; }
+      p { margin:0 0 16px 0; }
+      code { font-family:"IBM Plex Mono",monospace; font-size:.9em; background:var(--paper-alt); padding:2px 6px; border-radius:3px; }
+      .figure { background:var(--paper-alt); border:1px solid var(--rule); border-radius:6px; padding:20px; margin:24px 0; }
+      .controls { display:grid; grid-template-columns:auto 1fr auto; gap:12px 18px; align-items:center; margin-bottom:16px; font-family:"Manrope",sans-serif; font-size:14px; }
+      .controls label { display:contents; }
+      .controls label span:first-child { font-weight:600; }
+      input[type="range"] { width:260px; accent-color:var(--accent); }
+      .readout { font-family:"IBM Plex Mono",monospace; font-size:13px; min-width:50px; text-align:right; }
+      .preset-row { display:flex; gap:8px; margin-top:8px; }
+      .preset-row button { font-family:"Manrope",sans-serif; font-size:12px; padding:5px 12px; background:var(--paper); color:var(--muted); border:1px solid var(--rule); border-radius:4px; cursor:pointer; }
+      .preset-row button:hover { background:var(--accent-soft); border-color:var(--accent); color:var(--accent); }
+      svg { display:block; margin:12px auto 0 auto; }
+      .note { border-left:3px solid var(--accent); background:var(--accent-soft); padding:12px 16px; margin:20px 0; font-size:15px; }
+    </style>
+  </head>
+  <body>
+    <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+    <p class="kicker">Interactive Explainer</p>
+    <h1>LSTM Gates Playground</h1>
+    <p class="abstract">
+      An LSTM cell has three gates: a forget gate decides what to erase from the cell state, an input gate decides what to write, and an output gate decides what to read. Drag each slider, feed an input sequence, and watch the cell state flow — or freeze in place.
+    </p>
+    <div class="byline"><span>~8 min</span><span>Deep Learning · RNN · LSTM</span></div>
+
+    <p>
+      Vanilla RNNs struggle with long-range dependencies. Gradients multiplied through a chain of W<sup>⊤</sup>·diag(tanh') either vanish or explode. Hochreiter &amp; Schmidhuber's 1997 insight: give the recurrence its own state that is updated by <em>gates</em> — sigmoid values in [0, 1] — instead of a matrix multiply.
+    </p>
+    <p>
+      The cell state becomes a conveyor belt. At each timestep, the forget gate multiplies, the input gate adds, and only the output gate decides how much to expose as the hidden state.
+    </p>
+
+    <h2>The playground</h2>
+    <div class="figure">
+      <div class="controls">
+        <label>
+          <span style="color: #a8324b;">forget (f)</span>
+          <input type="range" id="fg" min="0" max="1" step="0.05" value="0.9" />
+          <span class="readout" id="fg-val">0.90</span>
+        </label>
+        <label>
+          <span style="color: #7b9e89;">input (i)</span>
+          <input type="range" id="ig" min="0" max="1" step="0.05" value="0.3" />
+          <span class="readout" id="ig-val">0.30</span>
+        </label>
+        <label>
+          <span style="color: #4a6670;">output (o)</span>
+          <input type="range" id="og" min="0" max="1" step="0.05" value="1.0" />
+          <span class="readout" id="og-val">1.00</span>
+        </label>
+      </div>
+      <div class="preset-row">
+        <button data-preset="remember">Remember forever (f=1, i=0)</button>
+        <button data-preset="forget">Forget always (f=0)</button>
+        <button data-preset="overwrite">Overwrite always (f=0, i=1)</button>
+        <button data-preset="default">Default</button>
+      </div>
+      <svg id="plot" width="720" height="280" viewBox="0 0 720 280"></svg>
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #6b6a65; margin-top: 6px; text-align: center;">
+        Input spikes at t=3 and t=7 · solid line = cell state c_t · dashed = hidden state h_t
+      </div>
+    </div>
+
+    <h2>Try these presets</h2>
+    <ul>
+      <li><strong>Remember forever</strong> — f=1, i=0. The cell state freezes after the first input. This is how LSTMs hold long-range information.</li>
+      <li><strong>Forget always</strong> — f=0. Every timestep erases. Like vanilla RNN with tanh saturation.</li>
+      <li><strong>Overwrite always</strong> — f=0, i=1. Cell state tracks the latest input only.</li>
+    </ul>
+
+    <div class="note">
+      <strong>The key equation.</strong> c_t = f_t · c_{t-1} + i_t · c̃_t. The forget gate is a <em>multiplicative</em> path (no matrix multiply), so gradients through the cell state don't explode or vanish — they scale by f_t, which the network learns to keep near 1 when memory matters.
+    </div>
+
+    <h2>LSTM vs GRU</h2>
+    <p>
+      GRU (Cho 2014) merges the forget and input gates into one "update" gate, and merges c and h. Fewer parameters, often comparable accuracy. Picking between them in 2026 is mostly personal preference; both are dwarfed by Transformers on most tasks. But for tiny devices and streaming, they are still the workhorses.
+    </p>
+
+    <p style="margin-top: 48px; color: var(--muted); font-size: 14px;">
+      Part of the ES 667 Deep Learning course · IIT Gandhinagar · Aug 2026.
+    </p>
+
+    <script>
+      const svg = document.getElementById("plot");
+      const NS = "http://www.w3.org/2000/svg";
+      const T = 12;
+      const PLOT_W = 640, PLOT_H = 200, LEFT = 50, TOP = 30;
+
+      let f = 0.9, i = 0.3, o = 1.0;
+
+      // Input sequence — spikes at t=3 and t=7
+      function inputSeq() {
+        return Array.from({length: T}, (_, t) => {
+          if (t === 3) return 1.0;
+          if (t === 7) return -0.8;
+          return 0.1 * Math.sin(t);
+        });
+      }
+
+      function simulate() {
+        const xs = inputSeq();
+        const cs = [0], hs = [0];
+        for (let t = 1; t <= T; t++) {
+          const cTilde = Math.tanh(xs[t-1] * 2);  // candidate
+          const c = f * cs[t-1] + i * cTilde;
+          const h = o * Math.tanh(c);
+          cs.push(c);
+          hs.push(h);
+        }
+        return { xs, cs, hs };
+      }
+
+      function draw() {
+        svg.innerHTML = "";
+        const { xs, cs, hs } = simulate();
+
+        // Axes
+        const line = (x1,y1,x2,y2,col,w,d) => {
+          const ln = document.createElementNS(NS, "line");
+          ln.setAttribute("x1", x1); ln.setAttribute("y1", y1);
+          ln.setAttribute("x2", x2); ln.setAttribute("y2", y2);
+          ln.setAttribute("stroke", col || "#1f1f1e");
+          ln.setAttribute("stroke-width", w || 1);
+          if (d) ln.setAttribute("stroke-dasharray", d);
+          svg.appendChild(ln);
+        };
+        const text = (x,y,t,col,size,anchor) => {
+          const el = document.createElementNS(NS, "text");
+          el.setAttribute("x", x); el.setAttribute("y", y);
+          el.setAttribute("fill", col || "#1f1f1e");
+          el.setAttribute("font-family", "IBM Plex Mono, monospace");
+          el.setAttribute("font-size", size || 11);
+          el.setAttribute("text-anchor", anchor || "start");
+          el.textContent = t;
+          svg.appendChild(el);
+        };
+
+        // Zero line
+        const y0 = TOP + PLOT_H / 2;
+        line(LEFT, y0, LEFT + PLOT_W, y0, "#c9c4b5", 0.6);
+        line(LEFT, TOP, LEFT, TOP + PLOT_H, "#1f1f1e", 1);
+
+        // Find max magnitude for scaling
+        const maxMag = Math.max(1.2, ...cs.map(Math.abs), ...hs.map(Math.abs), ...xs.map(Math.abs));
+        const tx = (t) => LEFT + (t / T) * PLOT_W;
+        const vy = (v) => y0 - (v / maxMag) * (PLOT_H / 2);
+
+        // Input bars
+        xs.forEach((x, t) => {
+          const h = (x / maxMag) * (PLOT_H / 2);
+          const xPos = tx(t + 0.5) - 5;
+          const yPos = x >= 0 ? y0 - h : y0;
+          const rect = document.createElementNS(NS, "rect");
+          rect.setAttribute("x", xPos);
+          rect.setAttribute("y", yPos);
+          rect.setAttribute("width", 10);
+          rect.setAttribute("height", Math.abs(h));
+          rect.setAttribute("fill", "#c9c4b5");
+          rect.setAttribute("opacity", "0.6");
+          svg.appendChild(rect);
+        });
+
+        // Cell state c (solid rust)
+        const cPath = cs.map((c, t) => `${t === 0 ? "M" : "L"} ${tx(t)} ${vy(c)}`).join(" ");
+        const cEl = document.createElementNS(NS, "path");
+        cEl.setAttribute("d", cPath);
+        cEl.setAttribute("stroke", "#d97757");
+        cEl.setAttribute("stroke-width", "2.6");
+        cEl.setAttribute("fill", "none");
+        svg.appendChild(cEl);
+
+        // Hidden state h (dashed slate)
+        const hPath = hs.map((h, t) => `${t === 0 ? "M" : "L"} ${tx(t)} ${vy(h)}`).join(" ");
+        const hEl = document.createElementNS(NS, "path");
+        hEl.setAttribute("d", hPath);
+        hEl.setAttribute("stroke", "#4a6670");
+        hEl.setAttribute("stroke-width", "1.8");
+        hEl.setAttribute("fill", "none");
+        hEl.setAttribute("stroke-dasharray", "5 3");
+        svg.appendChild(hEl);
+
+        // Timestep labels
+        for (let t = 0; t <= T; t++) {
+          text(tx(t), y0 + PLOT_H / 2 + 20, `t=${t}`, "#6b6a65", 10, "middle");
+        }
+
+        // Legend
+        text(LEFT, TOP - 8, "cell state c_t", "#d97757", 12);
+        text(LEFT + 130, TOP - 8, "hidden state h_t", "#4a6670", 12);
+        text(LEFT + 280, TOP - 8, "input bars", "#6b6a65", 12);
+      }
+
+      // Wire controls
+      const bind = (id, key) => {
+        const el = document.getElementById(id);
+        const valEl = document.getElementById(id + "-val");
+        el.addEventListener("input", (e) => {
+          const v = parseFloat(e.target.value);
+          if (key === "f") f = v;
+          if (key === "i") i = v;
+          if (key === "o") o = v;
+          valEl.textContent = v.toFixed(2);
+          draw();
+        });
+      };
+      bind("fg", "f"); bind("ig", "i"); bind("og", "o");
+
+      document.querySelectorAll("[data-preset]").forEach(b => b.addEventListener("click", () => {
+        const preset = b.dataset.preset;
+        if (preset === "remember") { f=1; i=0; o=1; }
+        else if (preset === "forget") { f=0; i=0.5; o=1; }
+        else if (preset === "overwrite") { f=0; i=1; o=1; }
+        else { f=0.9; i=0.3; o=1; }
+        document.getElementById("fg").value = f;
+        document.getElementById("ig").value = i;
+        document.getElementById("og").value = o;
+        document.getElementById("fg-val").textContent = f.toFixed(2);
+        document.getElementById("ig-val").textContent = i.toFixed(2);
+        document.getElementById("og-val").textContent = o.toFixed(2);
+        draw();
+      }));
+
+      draw();
+    </script>
+  </body>
+</html>
