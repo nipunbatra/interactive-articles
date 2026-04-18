@@ -1,0 +1,20 @@
+{
+  "slug": "receptive-field-grower",
+  "title": "Receptive Field Grower",
+  "date": "2026-04-18",
+  "tagline": "Stack convolutions, watch the reach of a deep feature spread",
+  "summary": "Convolutions are local — a single 3×3 kernel only sees 9 pixels. But stack them, and the receptive field balloons. Drag the depth slider, flip between same-kernel and mixed-kernel stacks, and see exactly which input pixels influence a deep feature. The VGG 'stack 3×3 convs' insight becomes obvious.",
+  "readingTime": "7 min",
+  "difficulty": "Intermediate",
+  "collection": "Deep learning",
+  "order": 12,
+  "status": "published",
+  "tags": ["CNN", "Receptive Field", "VGG", "Deep Learning", "Interactive"],
+  "highlights": [
+    "Start with one 3×3 conv — RF = 3 pixels wide.",
+    "Stack three 3×3 convs — RF grows to 7×7, but with fewer params than a single 7×7.",
+    "Compare stride 1 vs stride 2 vs dilation — same depth, very different RF growth.",
+    "See parameter count computed live: 3×(3·3·C²) = 27C² vs 1×(7·7·C²) = 49C².",
+    "Preview the effective receptive field — the practical center-weighted Gaussian shape."
+  ]
+}

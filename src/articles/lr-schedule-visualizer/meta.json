@@ -1,0 +1,20 @@
+{
+  "slug": "lr-schedule-visualizer",
+  "title": "LR Schedule Visualizer",
+  "date": "2026-04-18",
+  "tagline": "Feel why Transformers need warmup — sliders for every schedule",
+  "summary": "Four schedules, one canvas. Flip between step decay, exponential, cosine annealing, and warmup+cosine. Drag peak LR, warmup fraction, and cycle length. See the training-time LR curve and overlaid loss curves for each schedule — and exactly why cold-starting at peak LR diverges modern architectures.",
+  "readingTime": "6 min",
+  "difficulty": "Intermediate",
+  "collection": "Deep learning",
+  "order": 13,
+  "status": "published",
+  "tags": ["LR Schedule", "Warmup", "Cosine", "Transformers", "Interactive"],
+  "highlights": [
+    "Switch between four schedule shapes; watch LR over training steps in real time.",
+    "Drag peak LR, warmup fraction, and total steps — each slider moves the curve live.",
+    "Overlay two schedules on one plot to compare.",
+    "See the effect on a toy loss surface — warmup+cosine converges; cold-start Adam on Transformer diverges.",
+    "Read the PyTorch one-liner for the currently configured schedule."
+  ]
+}
