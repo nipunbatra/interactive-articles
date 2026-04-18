@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GAN Minimax Dance</title>
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../shared/site.css" />
+    <style>
+      :root { --ink:#1f1f1e; --paper:#faf8f3; --paper-alt:#f0eee5; --rule:#c9c4b5; --muted:#6b6a65; --accent:#d97757; --accent-soft:#ead3c5; --sage:#7b9e89; --slate:#4a6670; --wine:#a8324b; }
+      body { font-family:"Source Serif 4",Georgia,serif; background:var(--paper); color:var(--ink); line-height:1.55; max-width:800px; margin:0 auto; padding:40px 24px 80px 24px; }
+      .kicker { font-family:"Manrope",sans-serif; font-size:12px; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); margin:0 0 6px 0; }
+      h1 { font-size:44px; line-height:1.1; margin:0 0 16px 0; }
+      h2 { font-size:28px; line-height:1.2; margin:48px 0 14px 0; }
+      .abstract { font-size:18px; color:var(--muted); font-style:italic; margin:0 0 16px 0; }
+      .byline { font-family:"Manrope",sans-serif; font-size:13px; color:var(--muted); border-top:1px solid var(--rule); border-bottom:1px solid var(--rule); padding:12px 0; margin-bottom:36px; }
+      a.back-link { font-family:"Manrope",sans-serif; font-size:13px; color:var(--accent); text-decoration:none; display:inline-block; margin-bottom:24px; }
+      p { margin:0 0 16px 0; }
+      code { font-family:"IBM Plex Mono",monospace; font-size:.9em; background:var(--paper-alt); padding:2px 6px; border-radius:3px; }
+      .figure { background:var(--paper-alt); border:1px solid var(--rule); border-radius:6px; padding:20px; margin:24px 0; }
+      .controls { display:flex; flex-wrap:wrap; gap:18px; align-items:center; margin-bottom:16px; font-family:"Manrope",sans-serif; font-size:14px; }
+      .controls label { display:flex; align-items:center; gap:8px; }
+      input[type="range"] { width:340px; accent-color:var(--accent); }
+      button { font-family:"Manrope",sans-serif; font-size:13px; padding:6px 14px; background:var(--accent); color:white; border:none; border-radius:4px; cursor:pointer; }
+      button:hover { opacity: 0.9; }
+      svg { display:block; margin:0 auto; }
+      .stats { font-family:"IBM Plex Mono",monospace; font-size:13px; margin-top:12px; display:flex; gap:24px; flex-wrap:wrap; }
+      .stats span b { color:var(--accent); }
+      .legend { display:flex; gap:20px; font-family:"Manrope",sans-serif; font-size:12px; margin-top:12px; justify-content:center; }
+      .legend span { display:flex; align-items:center; gap:6px; }
+      .legend .swatch { width:14px; height:3px; border-radius:2px; }
+      .note { border-left:3px solid var(--accent); background:var(--accent-soft); padding:12px 16px; margin:20px 0; font-size:15px; }
+    </style>
+  </head>
+  <body>
+    <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+    <p class="kicker">Interactive Explainer</p>
+    <h1>GAN Minimax Dance</h1>
+    <p class="abstract">
+      GAN training is two networks chasing each other. The generator tries to fool the discriminator; the discriminator tries to catch the generator. At the Nash equilibrium, the generator matches the data distribution and the discriminator's output is 0.5 everywhere. Scrub the training-step slider and watch it happen.
+    </p>
+    <div class="byline"><span>~6 min</span><span>Deep Learning · GAN · Generative</span></div>
+
+    <p>
+      The real data (shown in <span style="color:#7b9e89;font-weight:600">sage</span>) is a two-mode Gaussian &mdash; a bimodal distribution the generator has to discover. The <span style="color:#d97757;font-weight:600">generator's distribution</span> starts as pure Gaussian noise at the origin. The <span style="color:#4a6670;font-weight:600">discriminator D(x)</span> starts confused. As training proceeds, the generator's distribution glides onto the real one, and D(x) flattens toward 0.5 everywhere &mdash; unable to tell real from fake.
+    </p>
+
+    <h2>The playground</h2>
+    <div class="figure">
+      <div class="controls">
+        <label>Training step: <input type="range" id="step" min="0" max="1000" step="10" value="0" /><span id="step-val" style="font-family:'IBM Plex Mono',monospace; min-width:50px;">0</span></label>
+        <button id="play">▶ Play</button>
+      </div>
+      <svg id="plot" width="720" height="360" viewBox="0 0 720 360"></svg>
+      <div class="legend">
+        <span><span class="swatch" style="background:#7b9e89"></span>real data p(x)</span>
+        <span><span class="swatch" style="background:#d97757"></span>generator p_G(x)</span>
+        <span><span class="swatch" style="background:#4a6670;border-top:1px dashed #4a6670;height:0"></span>D(x)</span>
+      </div>
+      <div class="stats">
+        <span>D loss: <b id="dloss">–</b></span>
+        <span>G loss: <b id="gloss">–</b></span>
+        <span>JS divergence: <b id="js">–</b></span>
+      </div>
+      <svg id="losses" width="720" height="140" viewBox="0 0 720 140" style="margin-top:16px"></svg>
+    </div>
+
+    <h2>Reading the picture</h2>
+    <p>
+      <strong>Step 0:</strong> generator is centered at 0, D is a sigmoid between the two modes. D is strong; G has no idea.
+    </p>
+    <p>
+      <strong>Step 200:</strong> generator has started to spread out; D's decision boundary is warping to chase the new fake locations. Losses oscillate.
+    </p>
+    <p>
+      <strong>Step 1000:</strong> generator's density matches real almost exactly. D(x) has collapsed to ~0.5 everywhere. That's the Nash equilibrium: the generator is indistinguishable from data, and the discriminator gives up.
+    </p>
+
+    <div class="note">
+      <strong>In practice.</strong> Real GAN training is far messier — D often gets too strong too fast, G suffers mode collapse, losses are barely interpretable. This demo is the <em>theoretical</em> picture. WGAN, DCGAN guidelines, and spectral norm are all about making real GANs behave closer to this ideal trajectory.
+    </div>
+
+    <h2>The math it animates</h2>
+    <p style="text-align:center; font-family:'IBM Plex Mono',monospace; font-size:15px; margin:24px 0;">
+      min<sub>G</sub> max<sub>D</sub> &nbsp; E<sub>x∼p</sub>[log D(x)] + E<sub>z∼N</sub>[log(1−D(G(z)))]
+    </p>
+    <p>
+      At the optimum, the discriminator's best response to any fixed generator is D*(x) = p(x) / (p(x) + p_G(x)). When p_G = p, this gives D* = 1/2 everywhere — the flat line you see at convergence.
+    </p>
+
+    <p style="margin-top: 48px; color: var(--muted); font-size: 14px;">
+      Part of the ES 667 Deep Learning course · IIT Gandhinagar · Aug 2026.
+    </p>
+
+    <script>
+      const svg = document.getElementById("plot");
+      const lossSvg = document.getElementById("losses");
+      const NS = "http://www.w3.org/2000/svg";
+      let step = 0;
+
+      // Real data: two Gaussians at -2 and +2
+      const realMeans = [-2, 2];
+      const realStd = 0.5;
+
+      function pReal(x) {
+        let p = 0;
+        for (const m of realMeans) p += 0.5 * Math.exp(-0.5 * ((x - m) / realStd) ** 2) / (realStd * Math.sqrt(2 * Math.PI));
+        return p;
+      }
+
+      // Generator distribution at a given training step: interpolate from N(0, 1.5^2) → real
+      function pGen(x, t) {
+        const alpha = Math.min(1, t / 800);   // 0 → 1 over training
+        const muShift = 2 * alpha;            // pulls two modes toward ±2
+        const sigma = 1.5 - 1.0 * alpha;      // width shrinks from 1.5 → 0.5
+        // mixture of two Gaussians at ±muShift
+        let p = 0;
+        for (const sign of [-1, 1]) {
+          const m = sign * muShift;
+          p += 0.5 * Math.exp(-0.5 * ((x - m) / sigma) ** 2) / (sigma * Math.sqrt(2 * Math.PI));
+        }
+        return p;
+      }
+
+      // Optimal D at step t given p_real and p_gen:
+      function D(x, t) {
+        const pr = pReal(x), pg = pGen(x, t);
+        if (pr + pg < 1e-8) return 0.5;
+        // noisy approximation of optimal D with early training oscillation
+        const optimal = pr / (pr + pg);
+        const noise = Math.sin(t / 80 + x * 0.5) * 0.08 * Math.exp(-t / 600);
+        return Math.max(0.01, Math.min(0.99, optimal + noise));
+      }
+
+      // JS divergence approximation
+      function jsDiv(t) {
+        let sum = 0;
+        const dx = 0.05;
+        for (let x = -6; x <= 6; x += dx) {
+          const pr = pReal(x), pg = pGen(x, t);
+          const m = 0.5 * (pr + pg);
+          if (pr > 1e-8) sum += 0.5 * pr * Math.log(pr / m) * dx;
+          if (pg > 1e-8) sum += 0.5 * pg * Math.log(pg / m) * dx;
+        }
+        return Math.max(0, sum);
+      }
+
+      // layout
+      const W = 720, H = 360;
+      const MARG = { l: 50, r: 20, t: 30, b: 40 };
+      const plotW = W - MARG.l - MARG.r;
+      const plotH = H - MARG.t - MARG.b;
+
+      function xScale(x) { return MARG.l + ((x + 6) / 12) * plotW; }
+      function yScaleP(y) { return H - MARG.b - y * plotH * 1.4; }    // for prob density ≤ 0.7ish
+      function yScaleD(y) { return H - MARG.b - y * plotH; }          // for D ∈ [0,1]
+
+      // Loss history ring buffer
+      const lossHist = { d: [], g: [] };
+
+      function draw() {
+        svg.innerHTML = "";
+
+        // Background
+        const bg = document.createElementNS(NS, "rect");
+        bg.setAttribute("x", 0); bg.setAttribute("y", 0);
+        bg.setAttribute("width", W); bg.setAttribute("height", H);
+        bg.setAttribute("fill", "#f0eee5");
+        svg.appendChild(bg);
+
+        // Axes
+        const axis = (x1, y1, x2, y2) => {
+          const el = document.createElementNS(NS, "line");
+          el.setAttribute("x1", x1); el.setAttribute("y1", y1);
+          el.setAttribute("x2", x2); el.setAttribute("y2", y2);
+          el.setAttribute("stroke", "#1f1f1e"); el.setAttribute("stroke-width", 1);
+          svg.appendChild(el);
+        };
+        axis(MARG.l, H - MARG.b, W - MARG.r, H - MARG.b);
+        axis(MARG.l, MARG.t, MARG.l, H - MARG.b);
+
+        // x ticks
+        for (let x = -6; x <= 6; x += 2) {
+          const tx = xScale(x);
+          axis(tx, H - MARG.b, tx, H - MARG.b + 4);
+          const t = document.createElementNS(NS, "text");
+          t.setAttribute("x", tx); t.setAttribute("y", H - MARG.b + 18);
+          t.setAttribute("text-anchor", "middle");
+          t.setAttribute("font-family", "IBM Plex Mono, monospace");
+          t.setAttribute("font-size", 10); t.setAttribute("fill", "#6b6a65");
+          t.textContent = x;
+          svg.appendChild(t);
+        }
+
+        // D axis labels on right
+        for (const v of [0, 0.5, 1]) {
+          const yy = yScaleD(v);
+          const t = document.createElementNS(NS, "text");
+          t.setAttribute("x", W - MARG.r + 4); t.setAttribute("y", yy + 3);
+          t.setAttribute("font-family", "IBM Plex Mono, monospace");
+          t.setAttribute("font-size", 10); t.setAttribute("fill", "#4a6670");
+          t.textContent = v;
+          svg.appendChild(t);
+        }
+
+        // reference line at 0.5 for D
+        const ref = document.createElementNS(NS, "line");
+        ref.setAttribute("x1", MARG.l); ref.setAttribute("y1", yScaleD(0.5));
+        ref.setAttribute("x2", W - MARG.r); ref.setAttribute("y2", yScaleD(0.5));
+        ref.setAttribute("stroke", "#c9c4b5"); ref.setAttribute("stroke-width", 0.8);
+        ref.setAttribute("stroke-dasharray", "3 3");
+        svg.appendChild(ref);
+
+        // Plot p_real
+        const pathReal = pathFor(pReal, "sage");
+        svg.appendChild(pathReal);
+        // Fill under p_real
+        const fillReal = fillFor(pReal, "#7b9e89");
+        svg.appendChild(fillReal);
+
+        // Plot p_gen
+        const pathGen = pathFor(x => pGen(x, step), "rust");
+        svg.appendChild(pathGen);
+        const fillGen = fillFor(x => pGen(x, step), "#d97757");
+        svg.appendChild(fillGen);
+
+        // Plot D(x)
+        let d = "M ";
+        for (let x = -6; x <= 6; x += 0.05) {
+          const xp = xScale(x);
+          const yp = yScaleD(D(x, step));
+          d += `${xp.toFixed(1)} ${yp.toFixed(1)} `;
+          if (x === -6) d = `M ${xp.toFixed(1)} ${yp.toFixed(1)} L `;
+          else if (x === -6 + 0.05) d += ` `;
+        }
+        // simpler: rebuild
+        d = "";
+        let first = true;
+        for (let x = -6; x <= 6; x += 0.05) {
+          const xp = xScale(x), yp = yScaleD(D(x, step));
+          d += (first ? `M ${xp} ${yp}` : ` L ${xp} ${yp}`);
+          first = false;
+        }
+        const Dpath = document.createElementNS(NS, "path");
+        Dpath.setAttribute("d", d);
+        Dpath.setAttribute("fill", "none");
+        Dpath.setAttribute("stroke", "#4a6670");
+        Dpath.setAttribute("stroke-width", 2);
+        Dpath.setAttribute("stroke-dasharray", "5 4");
+        svg.appendChild(Dpath);
+
+        // title
+        const title = document.createElementNS(NS, "text");
+        title.setAttribute("x", W / 2); title.setAttribute("y", 22);
+        title.setAttribute("text-anchor", "middle");
+        title.setAttribute("font-family", "Manrope, sans-serif");
+        title.setAttribute("font-size", 13); title.setAttribute("fill", "#6b6a65");
+        title.textContent = `training step ${step}`;
+        svg.appendChild(title);
+      }
+
+      function pathFor(fn, colorKey) {
+        const colors = { sage: "#7b9e89", rust: "#d97757" };
+        let d = "", first = true;
+        for (let x = -6; x <= 6; x += 0.05) {
+          const xp = xScale(x), yp = yScaleP(fn(x));
+          d += (first ? `M ${xp} ${yp}` : ` L ${xp} ${yp}`);
+          first = false;
+        }
+        const p = document.createElementNS(NS, "path");
+        p.setAttribute("d", d);
+        p.setAttribute("fill", "none");
+        p.setAttribute("stroke", colors[colorKey]);
+        p.setAttribute("stroke-width", 2.2);
+        return p;
+      }
+
+      function fillFor(fn, color) {
+        let d = `M ${xScale(-6)} ${H - MARG.b} `;
+        for (let x = -6; x <= 6; x += 0.05) {
+          d += `L ${xScale(x)} ${yScaleP(fn(x))} `;
+        }
+        d += `L ${xScale(6)} ${H - MARG.b} Z`;
+        const p = document.createElementNS(NS, "path");
+        p.setAttribute("d", d);
+        p.setAttribute("fill", color);
+        p.setAttribute("fill-opacity", 0.15);
+        return p;
+      }
+
+      function drawLosses() {
+        lossSvg.innerHTML = "";
+        const LW = 720, LH = 140;
+        const M = { l: 50, r: 20, t: 20, b: 30 };
+        const pW = LW - M.l - M.r, pH = LH - M.t - M.b;
+
+        // bg
+        const bg = document.createElementNS(NS, "rect");
+        bg.setAttribute("x", 0); bg.setAttribute("y", 0);
+        bg.setAttribute("width", LW); bg.setAttribute("height", LH);
+        bg.setAttribute("fill", "#f0eee5");
+        lossSvg.appendChild(bg);
+
+        // Rebuild loss arrays fresh based on step
+        const N = 100;
+        const ds = [], gs = [];
+        for (let i = 0; i <= N; i++) {
+          const t = step * i / N;
+          // synthetic loss curves: D loss rises toward log 4 ≈ 1.38, G loss oscillates then stabilizes
+          const dl = 0.4 + 1.0 * (1 - Math.exp(-t / 400)) + 0.15 * Math.sin(t / 60) * Math.exp(-t / 800);
+          const gl = 1.2 + 0.8 * Math.exp(-t / 300) + 0.25 * Math.sin(t / 50 + 1) * Math.exp(-t / 700);
+          ds.push(dl); gs.push(gl);
+        }
+
+        const xS = i => M.l + (i / N) * pW;
+        const yS = v => LH - M.b - ((v - 0) / 3) * pH;
+
+        // axes
+        const ax = document.createElementNS(NS, "line");
+        ax.setAttribute("x1", M.l); ax.setAttribute("y1", LH - M.b);
+        ax.setAttribute("x2", LW - M.r); ax.setAttribute("y2", LH - M.b);
+        ax.setAttribute("stroke", "#1f1f1e");
+        lossSvg.appendChild(ax);
+        const ay = document.createElementNS(NS, "line");
+        ay.setAttribute("x1", M.l); ay.setAttribute("y1", M.t);
+        ay.setAttribute("x2", M.l); ay.setAttribute("y2", LH - M.b);
+        ay.setAttribute("stroke", "#1f1f1e");
+        lossSvg.appendChild(ay);
+
+        // draw d loss
+        const drawCurve = (arr, color) => {
+          let d = "", first = true;
+          arr.forEach((v, i) => {
+            const xp = xS(i), yp = yS(v);
+            d += (first ? `M ${xp} ${yp}` : ` L ${xp} ${yp}`);
+            first = false;
+          });
+          const p = document.createElementNS(NS, "path");
+          p.setAttribute("d", d);
+          p.setAttribute("fill", "none");
+          p.setAttribute("stroke", color);
+          p.setAttribute("stroke-width", 1.8);
+          lossSvg.appendChild(p);
+        };
+        drawCurve(ds, "#4a6670");
+        drawCurve(gs, "#a8324b");
+
+        // labels
+        const lbl = (txt, x, y, c) => {
+          const t = document.createElementNS(NS, "text");
+          t.setAttribute("x", x); t.setAttribute("y", y);
+          t.setAttribute("font-family", "Manrope, sans-serif");
+          t.setAttribute("font-size", 11);
+          t.setAttribute("fill", c);
+          t.textContent = txt;
+          lossSvg.appendChild(t);
+        };
+        lbl("D loss", LW - 90, 30, "#4a6670");
+        lbl("G loss", LW - 90, 48, "#a8324b");
+        lbl("training step →", LW / 2 - 30, LH - 6, "#6b6a65");
+        lbl("loss", 10, 30, "#6b6a65");
+
+        // stats update
+        document.getElementById("dloss").textContent = ds[ds.length - 1].toFixed(3);
+        document.getElementById("gloss").textContent = gs[gs.length - 1].toFixed(3);
+        document.getElementById("js").textContent = jsDiv(step).toFixed(3);
+      }
+
+      function render() {
+        draw();
+        drawLosses();
+      }
+
+      document.getElementById("step").addEventListener("input", (e) => {
+        step = parseInt(e.target.value);
+        document.getElementById("step-val").textContent = step;
+        render();
+      });
+
+      let playing = false;
+      let playTimer = null;
+      document.getElementById("play").addEventListener("click", () => {
+        if (playing) {
+          clearInterval(playTimer);
+          playing = false;
+          document.getElementById("play").textContent = "▶ Play";
+          return;
+        }
+        playing = true;
+        document.getElementById("play").textContent = "⏸ Pause";
+        step = 0;
+        playTimer = setInterval(() => {
+          step += 20;
+          if (step > 1000) {
+            step = 1000;
+            clearInterval(playTimer);
+            playing = false;
+            document.getElementById("play").textContent = "▶ Play";
+          }
+          document.getElementById("step").value = step;
+          document.getElementById("step-val").textContent = step;
+          render();
+        }, 80);
+      });
+
+      render();
+    </script>
+  </body>
+</html>

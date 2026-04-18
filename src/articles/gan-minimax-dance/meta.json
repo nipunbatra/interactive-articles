@@ -1,0 +1,19 @@
+{
+  "slug": "gan-minimax-dance",
+  "title": "GAN Minimax Dance",
+  "date": "2026-04-18",
+  "tagline": "Watch generator and discriminator chase each other toward a Nash equilibrium",
+  "summary": "Step through GAN training on a 1D toy problem. The real data is a two-mode Gaussian; the generator starts from noise and the discriminator starts confused. As you scrub training steps, watch the generator's distribution slide onto the real one and the discriminator's decision curve flatten to 0.5 everywhere — the Nash equilibrium.",
+  "readingTime": "6 min",
+  "difficulty": "Intermediate",
+  "collection": "Deep learning",
+  "order": 20,
+  "status": "published",
+  "tags": ["GAN", "Adversarial", "Generative", "Nash equilibrium", "Interactive"],
+  "highlights": [
+    "Scrub a training-step slider from 0 to 1000.",
+    "Real data, generated samples, and D(x) drawn on one axis.",
+    "Loss curves update live so you see the oscillation.",
+    "See the discriminator flatten to 0.5 at convergence — the theoretical optimum."
+  ]
+}
