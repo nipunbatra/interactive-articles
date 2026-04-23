@@ -3,204 +3,230 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>The Seq2Seq Bottleneck</title>
+    <title>Feeling the Seq2Seq bottleneck</title>
     <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="../shared/site.css" />
-    <style>
-      :root { --ink:#1f1f1e; --paper:#faf8f3; --paper-alt:#f0eee5; --rule:#c9c4b5; --muted:#6b6a65; --accent:#d97757; --accent-soft:#ead3c5; --sage:#7b9e89; --slate:#4a6670; --wine:#a8324b; }
-      body { font-family:"Source Serif 4",Georgia,serif; background:var(--paper); color:var(--ink); line-height:1.55; max-width:800px; margin:0 auto; padding:40px 24px 80px 24px; }
-      .kicker { font-family:"Manrope",sans-serif; font-size:12px; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); margin:0 0 6px 0; }
-      h1 { font-size:44px; line-height:1.1; margin:0 0 16px 0; }
-      h2 { font-size:28px; line-height:1.2; margin:48px 0 14px 0; }
-      .abstract { font-size:18px; color:var(--muted); font-style:italic; margin:0 0 16px 0; }
-      .byline { font-family:"Manrope",sans-serif; font-size:13px; color:var(--muted); border-top:1px solid var(--rule); border-bottom:1px solid var(--rule); padding:12px 0; margin-bottom:36px; }
-      .byline span { margin-right:14px; }
-      a.back-link { font-family:"Manrope",sans-serif; font-size:13px; color:var(--accent); text-decoration:none; display:inline-block; margin-bottom:24px; }
-      p { margin:0 0 16px 0; }
-      code { font-family:"IBM Plex Mono",monospace; font-size:.9em; background:var(--paper-alt); padding:2px 6px; border-radius:3px; }
-      .figure { background:var(--paper-alt); border:1px solid var(--rule); border-radius:6px; padding:20px; margin:24px 0; }
-      .controls { display:flex; flex-wrap:wrap; gap:18px; align-items:center; margin-bottom:16px; font-family:"Manrope",sans-serif; font-size:14px; }
-      .controls label { display:flex; align-items:center; gap:8px; }
-      input[type="range"] { width:220px; accent-color:var(--accent); }
-      .mode-toggle { display:inline-flex; border:1px solid var(--rule); border-radius:4px; overflow:hidden; }
-      .mode-toggle button { font-family:"Manrope",sans-serif; font-size:13px; padding:6px 12px; background:var(--paper); color:var(--muted); border:none; border-right:1px solid var(--rule); cursor:pointer; }
-      .mode-toggle button:last-child { border-right:none; }
-      .mode-toggle button.active { background:var(--accent); color:var(--paper); }
-      svg { display:block; margin:0 auto; }
-      .stats { font-family:"IBM Plex Mono",monospace; font-size:13px; margin-top:12px; display:flex; gap:24px; flex-wrap:wrap; }
-      .stats span b { color:var(--accent); }
-      .note { border-left:3px solid var(--accent); background:var(--accent-soft); padding:12px 16px; margin:20px 0; font-size:15px; }
-    </style>
+    <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <a class="back-link" href="../index.html">&larr; Explainer Library</a>
-    <p class="kicker">Interactive Explainer</p>
-    <h1>The Seq2Seq Bottleneck</h1>
-    <p class="abstract">
-      Every source token squeezes into one fixed-size vector. Short sentences fit fine; long ones overflow. This is the pain point that made attention inevitable — and it's easy to see once you watch the compression happen live.
-    </p>
-    <div class="byline"><span>~7 min</span><span>Deep Learning · Seq2Seq · Attention Motivation</span></div>
+    <article class="article">
+      <header class="article-header">
+        <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+        <p class="kicker">Interactive Explainer</p>
+        <h1>Feeling the Seq2Seq bottleneck</h1>
+        <p class="abstract">
+          Long sentences break short context vectors. Build a 1-vector encoder yourself, test it on sentences of growing length, and see precisely when information starts falling out &mdash; the failure that made attention inevitable.
+        </p>
+        <div class="byline">
+          <span>~10 min</span>
+          <span>Deep Learning · Seq2Seq · Attention motivation</span>
+        </div>
+      </header>
 
-    <p>
-      In 2014, Sutskever, Vinyals, and Le built the first neural machine translation model: an LSTM encoder reads the source sentence, its final hidden state becomes a <em>context vector</em> <code>c</code>, and an LSTM decoder generates the target conditioned on <code>c</code>.
-    </p>
-    <p>
-      It worked well on short sentences. It collapsed on long ones. Why? Because every source token — every noun, every verb, every article — had to fit into one 512-dim vector. One year later, Bahdanau et al. would fix it with attention. This interactive shows the failure mode.
-    </p>
+      <!-- Prelude -->
+      <section class="step-section" id="prelude">
+        <div class="step-badge">Prelude</div>
+        <h2>The suitcase problem</h2>
+        <p>
+          Imagine you're going on a one-week holiday and the airline restricts you to a single 7 kg carry-on. You can just manage. Now imagine the same suitcase for a <em>six-month expedition</em>. The suitcase hasn't changed — your needs have. Everything that doesn't fit has to be left behind.
+        </p>
+        <p>
+          The 2014 Seq2Seq model (Sutskever, Vinyals, Le) built a neural translator by packing the entire source sentence into a single fixed-size <strong>context vector</strong> — call it 512 floats. Short sentences packed fine. Long sentences overflowed. This page lets you run that compression live and watch translation quality crater as sentence length grows.
+        </p>
+        <div class="callout callout--think">
+          <strong>By the end of this page</strong>, you will have watched the context vector struggle, measured the BLEU drop, and understood exactly why Bahdanau et al. added attention a year later.
+        </div>
+      </section>
 
-    <h2>The playground</h2>
-    <div class="figure">
-      <div class="controls">
-        <label>Source length: <input type="range" id="len" min="3" max="60" step="1" value="15" /><span id="len-val" style="font-family:'IBM Plex Mono',monospace; min-width:30px;">15</span></label>
-        <label>Context dim:
-          <div class="mode-toggle">
-            <button class="d-btn active" data-d="64">64</button>
-            <button class="d-btn" data-d="256">256</button>
-            <button class="d-btn" data-d="512">512</button>
+      <!-- Step 1 -->
+      <section class="step-section" id="step-1">
+        <div class="step-badge">Step 1</div>
+        <h2>Pick a sentence pair</h2>
+        <p>
+          Three example translation tasks. Each has a short, medium, and long variant. Pick a scenario to begin.
+        </p>
+        <div class="button-row" id="scenario-buttons" role="group" aria-label="Choose scenario">
+          <button class="mode-button is-active" data-case="news">News sentence</button>
+          <button class="mode-button" data-case="story">Short story</button>
+          <button class="mode-button" data-case="academic">Academic prose</button>
+        </div>
+        <div class="interactive-figure">
+          <div class="controls">
+            <label>Source length: <input type="range" id="len" min="5" max="60" step="1" value="12" /><span id="len-val" class="mono-text">12</span></label>
           </div>
-        </label>
-      </div>
-      <svg id="plot" width="720" height="300" viewBox="0 0 720 300"></svg>
-      <div class="stats">
-        <span>Bits per token: <b id="bits">–</b></span>
-        <span>Context saturation: <b id="sat">–</b></span>
-        <span>Est. BLEU: <b id="bleu">–</b></span>
-      </div>
-    </div>
+          <svg id="step1-plot" width="880" height="220" viewBox="0 0 880 220"></svg>
+          <div class="stat-strip">
+            <div class="stat-pill">
+              <span class="stat-label">Source tokens</span>
+              <span class="stat-value" id="src-tokens">–</span>
+            </div>
+            <div class="stat-pill">
+              <span class="stat-label">Bits of info (approx.)</span>
+              <span class="stat-value" id="src-bits">–</span>
+            </div>
+          </div>
+        </div>
+        <div class="callout callout--think">
+          <strong>Pause.</strong> A 12-word sentence has roughly 120 bits of entropy (≈10 bits per word). A 512-dim float vector can in principle encode ~16000 bits. So for short sentences, there's *plenty* of room. The trouble starts at ~50 words.
+        </div>
+      </section>
 
-    <p>
-      The grey line is the expected BLEU curve: as source length grows, fixed-context Seq2Seq's translation quality drops roughly linearly. With a larger context (256 or 512), the drop-off happens later, but it still happens.
-    </p>
+      <!-- Step 2 -->
+      <section class="step-section" id="step-2">
+        <div class="step-badge">Step 2</div>
+        <h2>Compress into a context vector</h2>
+        <p>
+          Now simulate the encoder. Each token is read sequentially; the hidden state is a 2D sketch of the full <code>d</code>-dim context. Slide the context dim to see how much room the encoder has.
+        </p>
+        <div class="interactive-figure">
+          <div class="controls">
+            <label>Context dim d:
+              <select id="ctx-dim" style="padding:4px 8px;">
+                <option value="64">64</option>
+                <option value="256">256</option>
+                <option value="512" selected>512</option>
+                <option value="1024">1024</option>
+              </select>
+            </label>
+          </div>
+          <svg id="step2-plot" width="880" height="260" viewBox="0 0 880 260"></svg>
+          <div class="stat-strip">
+            <div class="stat-pill">
+              <span class="stat-label">Context capacity</span>
+              <span class="stat-value" id="ctx-cap">–</span>
+            </div>
+            <div class="stat-pill">
+              <span class="stat-label">Sentence entropy</span>
+              <span class="stat-value" id="sent-ent">–</span>
+            </div>
+            <div class="stat-pill highlight-pill">
+              <span class="stat-label">Compression loss</span>
+              <span class="stat-value" id="comp-loss">–</span>
+            </div>
+          </div>
+        </div>
+        <div class="callout">
+          <strong>Read the picture.</strong> Each encoder step compresses more source info into the same-size vector. Early tokens fade as later ones overwrite the representation. Sutskever's team observed exactly this and fixed it partly by <em>reversing</em> the source (so early tokens are written last, closer to where the decoder reads).
+        </div>
+      </section>
 
-    <h2>Why this fails</h2>
-    <p>
-      Think of the context vector as a compressed zip file. A 512-dim float32 vector is ~16 kbit. To translate "The", you need maybe 10 bits. To translate "The quick brown fox jumps over the lazy dog", you need several hundred bits just to keep track of what each word was. At some length, the encoder has to start dropping information.
-    </p>
+      <!-- Step 3 -->
+      <section class="step-section" id="step-3">
+        <div class="step-badge">Step 3</div>
+        <h2>Translation quality vs source length</h2>
+        <p>
+          The 2014 paper (Sutskever et al.) reported BLEU by source-sentence length. Here is their result, reproduced interactively: BLEU falls off a cliff past ~30 tokens.
+        </p>
+        <div class="interactive-figure">
+          <svg id="step3-plot" width="880" height="360" viewBox="0 0 880 360"></svg>
+          <div class="legend">
+            <span><span class="swatch" style="background:#d9622b"></span>Seq2Seq (no attention)</span>
+            <span><span class="swatch" style="background:#7b9e89"></span>Seq2Seq (reversed source)</span>
+            <span><span class="swatch" style="background:#4a6670"></span>Bahdanau attention (2015)</span>
+          </div>
+        </div>
+        <div class="callout callout--null">
+          <strong>The story.</strong> Reversing the source bought them 4-5 BLEU points — not because it fixed the bottleneck, but because it shifted *where* the leakage happens (last-read = closest-to-decoder). Attention replaced the fixed vector with a *flexible lookup* and leaped past both curves.
+        </div>
+      </section>
 
-    <div class="note">
-      <strong>The one-year fix.</strong> Bahdanau et al. 2014: instead of one context vector, keep <em>all</em> the encoder hidden states, and let the decoder <em>attend</em> to them — pick which ones to look at, at each target step. No more bottleneck, no more length penalty. This became attention, which became self-attention, which became the Transformer.
-    </p>
+      <!-- Step 4 -->
+      <section class="step-section" id="step-4">
+        <div class="step-badge">Step 4</div>
+        <h2>What information gets dropped first?</h2>
+        <p>
+          Here's a concrete example. Feed a sentence through the compressor, then ask it to recall specific parts. Watch which parts the decoder can still recover.
+        </p>
+        <div class="interactive-figure">
+          <div class="controls">
+            <label>Which token to recall: <input type="range" id="recall" min="0" max="20" step="1" value="0" /><span id="recall-val" class="mono-text">0</span></label>
+          </div>
+          <svg id="step4-plot" width="880" height="240" viewBox="0 0 880 240"></svg>
+          <div class="stat-strip">
+            <div class="stat-pill">
+              <span class="stat-label">Position</span>
+              <span class="stat-value" id="pos-val">–</span>
+            </div>
+            <div class="stat-pill highlight-pill">
+              <span class="stat-label">Recall accuracy</span>
+              <span class="stat-value" id="recall-acc">–</span>
+            </div>
+          </div>
+        </div>
+        <div class="callout callout--think">
+          <strong>Pattern.</strong> Middle tokens are lost first — they sit between the start (faded out) and end (most recent). This U-shape is why beam-search translations famously get "the middle" wrong for long sentences in pre-attention models.
+        </div>
+      </section>
 
-    <h2>Run the numbers yourself</h2>
-    <p style="text-align: center; font-family: 'IBM Plex Mono', monospace; font-size: 14px; margin: 24px 0;">
-      info_to_pass &nbsp; = &nbsp; H(source) &nbsp;&nbsp;≈&nbsp;&nbsp; L · log(V)<br/>
-      capacity(c)   &nbsp; ≈ &nbsp; d · 8 bits
-    </p>
-    <p>
-      Source length L, vocabulary V. For a 50k-vocab translation task, each token carries ~16 bits. With L=30 and d=512, you're trying to stuff ~480 bits into 4096 bits of capacity — still fine. At L=300, it's 4800 bits into 4096 — impossible.
-    </p>
+      <!-- Step 5 -->
+      <section class="step-section" id="step-5">
+        <div class="step-badge">Step 5</div>
+        <h2>Attention · remove the bottleneck</h2>
+        <p>
+          Rather than cramming everything into one vector, attention gives the decoder <em>access to every encoder hidden state</em>. At each decoding step, it weights them by relevance and averages.
+        </p>
+        <div class="interactive-figure">
+          <svg id="step5-plot" width="880" height="260" viewBox="0 0 880 260"></svg>
+          <div class="legend">
+            <span><span class="swatch" style="background:#d9622b"></span>attention weight α_t,i</span>
+          </div>
+        </div>
+        <div class="callout callout--insight">
+          <strong>Mechanism.</strong> Each target step t builds its context by sampling from <em>all</em> source states h_1…h_T with learned weights α_t,i. Long sentences don't hurt — every source token remains accessible. That's it: attention dissolves the bottleneck.
+        </div>
+        <div class="math-block">
+          c_t = Σ_i α_{t,i} · h_i &nbsp;&nbsp;&nbsp; where &nbsp;&nbsp; α_{t,i} = softmax(score(s_t, h_i))
+        </div>
+      </section>
 
-    <p style="margin-top: 48px; color: var(--muted); font-size: 14px;">
-      Part of the ES 667 Deep Learning course · IIT Gandhinagar · Aug 2026.
-    </p>
+      <!-- Misconceptions -->
+      <section class="step-section" id="misconceptions">
+        <div class="step-badge">Misconceptions</div>
+        <h2>Three common confusions</h2>
+        <div class="misconception-grid">
+          <div class="misconception-card">
+            <span class="misconception-icon">False</span>
+            <p><strong>"Just make the vector bigger."</strong><br />A 2048-dim vector delays the problem but doesn't solve it. The bottleneck is <em>structural</em>: one vector carries information from every position. You always run out eventually.</p>
+          </div>
+          <div class="misconception-card">
+            <span class="misconception-icon">False</span>
+            <p><strong>"Reversing source is a hack."</strong><br />It's a hack, but a pragmatic one that revealed which end of the sentence the bottleneck hurts most. The fix (attention) came directly from recognising this leak.</p>
+          </div>
+          <div class="misconception-card">
+            <span class="misconception-icon">False</span>
+            <p><strong>"Modern LLMs still use encoder-decoder."</strong><br />Most 2026 LLMs are <em>decoder-only</em> — they don't encode the source into a vector at all; the whole conversation is one long sequence. Encoder-decoder survives in translation-specific models like T5.</p>
+          </div>
+        </div>
+      </section>
 
-    <script>
-      const svg = document.getElementById("plot");
-      const NS = "http://www.w3.org/2000/svg";
-      let length = 15, dim = 64;
+      <!-- Bonus -->
+      <section class="step-section" id="bonus">
+        <div class="step-badge">Bonus</div>
+        <h2>Three lenses on the same fix</h2>
+        <table class="compare-table">
+          <thead>
+            <tr>
+              <th>Model (year)</th>
+              <th>What it added</th>
+              <th>BLEU on 50-token sentences</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>Seq2Seq (2014)</td><td>encoder+decoder LSTM, one context vector</td><td>22</td></tr>
+            <tr><td>Reversed Seq2Seq (2014)</td><td>flip source · same architecture</td><td>26</td></tr>
+            <tr><td>Bahdanau attention (2015)</td><td>decoder attends to all encoder states</td><td>30</td></tr>
+            <tr><td>Transformer (2017)</td><td>attention everywhere · no recurrence</td><td>35+</td></tr>
+          </tbody>
+        </table>
+        <div class="callout callout--think">
+          <strong>Final takeaway.</strong> The Seq2Seq bottleneck is the pedagogical motivation for attention. Every subsequent architecture is "attention, but with different routing" — cross-attention in Transformers, cross-attention in Stable Diffusion, cross-attention in LLaVA. Once you've felt where the bottleneck hurts, the fix is obvious.
+        </div>
+      </section>
 
-      function estimateBleu(len, d) {
-        // Heuristic matching Sutskever 2014 pattern:
-        // BLEU roughly decays as length grows past capacity(d)
-        const capacity = d * 0.5;  // usable bits (rough)
-        const demand = len * 10;   // bits needed per token
-        if (demand < capacity * 0.6) return 0.34;
-        if (demand > capacity * 2) return Math.max(0.10, 0.34 - 0.03 * (demand / capacity));
-        return 0.34 - 0.20 * Math.max(0, (demand - capacity * 0.6) / capacity);
-      }
+      <p style="margin-top:4rem;color:var(--muted);font-size:0.9rem;font-family:var(--sans);text-align:center;">
+        Part of the ES 667 Deep Learning course · IIT Gandhinagar · Aug 2026.
+      </p>
+    </article>
 
-      function draw() {
-        svg.innerHTML = "";
-        const W = 640, H = 220, L = 60, T = 30;
-
-        const line = (x1, y1, x2, y2, col, w, d) => {
-          const ln = document.createElementNS(NS, "line");
-          ln.setAttribute("x1", x1); ln.setAttribute("y1", y1);
-          ln.setAttribute("x2", x2); ln.setAttribute("y2", y2);
-          ln.setAttribute("stroke", col);
-          ln.setAttribute("stroke-width", w);
-          if (d) ln.setAttribute("stroke-dasharray", d);
-          svg.appendChild(ln);
-        };
-        const text = (x, y, t, col, size, anchor) => {
-          const el = document.createElementNS(NS, "text");
-          el.setAttribute("x", x); el.setAttribute("y", y);
-          el.setAttribute("fill", col);
-          el.setAttribute("font-family", "Manrope, sans-serif");
-          el.setAttribute("font-size", size);
-          el.setAttribute("text-anchor", anchor || "start");
-          el.textContent = t;
-          svg.appendChild(el);
-        };
-
-        // Axes
-        line(L, T + H, L + W, T + H, "#1f1f1e", 1.2);
-        line(L, T, L, T + H, "#1f1f1e", 1.2);
-        // grid
-        for (let i = 1; i < 5; i++) line(L, T + i * H / 5, L + W, T + i * H / 5, "#c9c4b5", 0.4);
-
-        // BLEU curves for three dims
-        const dims = [64, 256, 512];
-        const colors = { 64: "#a8324b", 256: "#d97757", 512: "#7b9e89" };
-        dims.forEach(d => {
-          const pts = [];
-          for (let len = 3; len <= 60; len++) {
-            const b = estimateBleu(len, d);
-            const x = L + (len - 3) / 57 * W;
-            const y = T + H - (b / 0.4) * H;
-            pts.push(`${len === 3 ? "M" : "L"} ${x} ${y}`);
-          }
-          const path = document.createElementNS(NS, "path");
-          path.setAttribute("d", pts.join(" "));
-          path.setAttribute("stroke", colors[d]);
-          path.setAttribute("stroke-width", d === dim ? "2.8" : "1.2");
-          path.setAttribute("opacity", d === dim ? 1.0 : 0.4);
-          path.setAttribute("fill", "none");
-          svg.appendChild(path);
-          text(L + W + 10, T + H - (estimateBleu(60, d) / 0.4) * H + 4, `d=${d}`, colors[d], 11);
-        });
-
-        // Vertical cursor at current length
-        const xCursor = L + (length - 3) / 57 * W;
-        line(xCursor, T, xCursor, T + H, "#d97757", 2, "3 2");
-
-        // Axis labels
-        text(L + W / 2, T + H + 40, "source length →", "#6b6a65", 11, "middle");
-        // Y axis label (rotated)
-        const yLbl = document.createElementNS(NS, "text");
-        yLbl.setAttribute("x", 15);
-        yLbl.setAttribute("y", T + H / 2);
-        yLbl.setAttribute("transform", `rotate(-90 15 ${T + H / 2})`);
-        yLbl.setAttribute("text-anchor", "middle");
-        yLbl.setAttribute("font-family", "Manrope, sans-serif");
-        yLbl.setAttribute("font-size", "11");
-        yLbl.setAttribute("fill", "#6b6a65");
-        yLbl.textContent = "BLEU →";
-        svg.appendChild(yLbl);
-
-        // Stats
-        const bits = (length * 10).toFixed(0);
-        const capacityBits = dim * 0.5;
-        const sat = Math.min(100, (length * 10 / capacityBits) * 100).toFixed(0);
-        const bleu = estimateBleu(length, dim).toFixed(2);
-        document.getElementById("bits").textContent = `${bits}`;
-        document.getElementById("sat").textContent = `${sat}%`;
-        document.getElementById("bleu").textContent = bleu;
-      }
-
-      document.getElementById("len").addEventListener("input", (e) => {
-        length = parseInt(e.target.value);
-        document.getElementById("len-val").textContent = length;
-        draw();
-      });
-      document.querySelectorAll(".d-btn").forEach(b => b.addEventListener("click", () => {
-        document.querySelectorAll(".d-btn").forEach(x => x.classList.remove("active"));
-        b.classList.add("active");
-        dim = parseInt(b.dataset.d);
-        draw();
-      }));
-
-      draw();
-    </script>
+    <script src="main.js"></script>
   </body>
 </html>
