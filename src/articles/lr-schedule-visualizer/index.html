@@ -45,16 +45,26 @@
 
     <h2>The playground</h2>
     <div class="figure">
+      <div class="controls" style="margin-bottom:12px">
+        <label>Scenario:
+          <div class="mode-toggle">
+            <button class="scen-btn active" data-scen="resnet">ResNet · CIFAR-10</button>
+            <button class="scen-btn" data-scen="bert">Transformer · BERT</button>
+            <button class="scen-btn" data-scen="lora">LoRA fine-tune</button>
+          </div>
+        </label>
+      </div>
       <div class="controls">
         <label>Schedule:
           <div class="mode-toggle">
+            <button class="sched-btn" data-s="const">constant</button>
             <button class="sched-btn active" data-s="step">step</button>
             <button class="sched-btn" data-s="exp">exp</button>
             <button class="sched-btn" data-s="cos">cosine</button>
             <button class="sched-btn" data-s="warm">warmup+cos</button>
           </div>
         </label>
-        <label>Peak LR: <input type="range" id="peak" min="0.0001" max="0.01" step="0.0001" value="0.003" /><span id="peak-val" style="font-family:'IBM Plex Mono',monospace; min-width:60px;">3e-3</span></label>
+        <label>Peak LR: <input type="range" id="peak" min="0.0001" max="0.5" step="0.0001" value="0.003" /><span id="peak-val" style="font-family:'IBM Plex Mono',monospace; min-width:60px;">3e-3</span></label>
         <label>Warmup %: <input type="range" id="warm" min="0" max="20" step="1" value="5" /><span id="warm-val" style="font-family:'IBM Plex Mono',monospace; min-width:30px;">5%</span></label>
       </div>
       <svg id="plot" width="720" height="280" viewBox="0 0 720 280"></svg>
@@ -85,7 +95,9 @@
 
       function lrAt(step) {
         const T = TOTAL;
-        if (schedule === "step") {
+        if (schedule === "const") {
+          return peak;
+        } else if (schedule === "step") {
           if (step < T * 0.5) return peak;
           if (step < T * 0.75) return peak * 0.1;
           return peak * 0.01;
@@ -208,6 +220,28 @@ sched = LambdaLR(opt, lr_lambda)`;
         box.textContent = c;
       }
 
+      const SCENARIOS = {
+        resnet: { schedule: 'step', peak: 0.1, warmup_pct: 0, note: 'CNN-from-scratch · big LR · step decay (drop 10× at 50%, 75%)' },
+        bert: { schedule: 'warm', peak: 0.0003, warmup_pct: 10, note: 'Transformer · cold-start diverges · warmup 10% then cosine' },
+        lora: { schedule: 'cos', peak: 0.0002, warmup_pct: 0, note: 'LoRA fine-tune · low LR · cosine decay' }
+      };
+      function applyScenario(key) {
+        const s = SCENARIOS[key];
+        schedule = s.schedule;
+        peak = s.peak;
+        warmup_pct = s.warmup_pct;
+        document.getElementById('peak').value = peak;
+        document.getElementById('peak-val').textContent = peak.toExponential(1);
+        document.getElementById('warm').value = warmup_pct;
+        document.getElementById('warm-val').textContent = warmup_pct + '%';
+        document.querySelectorAll('.sched-btn').forEach(x => x.classList.toggle('active', x.dataset.s === s.schedule));
+        draw();
+      }
+      document.querySelectorAll('.scen-btn').forEach(b => b.addEventListener('click', () => {
+        document.querySelectorAll('.scen-btn').forEach(x => x.classList.remove('active'));
+        b.classList.add('active');
+        applyScenario(b.dataset.scen);
+      }));
       document.querySelectorAll(".sched-btn").forEach(b => b.addEventListener("click", () => {
         document.querySelectorAll(".sched-btn").forEach(x => x.classList.remove("active"));
         b.classList.add("active");
