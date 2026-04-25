@@ -72,6 +72,23 @@ const LANDSCAPES = {
 LANDSCAPES.plateau.formula =
   'L(x, y) = \\tfrac{1}{8}\\,\\mathrm{softplus}(6x)^2 \\cdot \\tfrac{1}{20} + 0.6\\,y^2';
 
+// Sharp Trap · added per Gemini review
+// Wide true minimum at (2,2) but a sharp local minimum at (0,0).
+// Adam tends to fall into the sharp trap; SGD+momentum can escape due to inertia.
+LANDSCAPES.sharpTrap = {
+  label: 'Sharp Trap',
+  caption: 'A wide, shallow true minimum at (2, 2) and a much sharper local minimum at (0, 0). Adaptive optimizers can get stuck in the sharp trap.',
+  formula: 'L(x, y) = 1 - \\exp(-(100x^2 + y^2)) + 0.1\\,((x-2)^2 + (y-2)^2)',
+  f: (x, y) => 1 - Math.exp(-(100 * x * x + y * y)) + 0.1 * ((x - 2) ** 2 + (y - 2) ** 2),
+  grad: (x, y) => ({
+    dx: 200 * x * Math.exp(-(100 * x * x + y * y)) + 0.2 * (x - 2),
+    dy: 2 * y * Math.exp(-(100 * x * x + y * y)) + 0.2 * (y - 2)
+  }),
+  min: { x: 2, y: 2 },
+  viewport: { xMin: -1.5, xMax: 4, yMin: -1.5, yMax: 4 },
+  maxLoss: 5
+};
+
 // ---------- Optimizers ----------
 function makeSGD() { return {}; }
 function makeMomentum() { return { vx: 0, vy: 0 }; }
