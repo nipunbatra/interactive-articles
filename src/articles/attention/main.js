@@ -92,6 +92,23 @@ const SCENARIOS = {
       bass: { x: 0.15, y: 0.99 },
       lake: { x: 0.99, y: 0.14 }
     }
+  },
+  selfBank: {
+    sentence: '"The bank itself stood firm"',
+    focus: 'bank',
+    caption: 'When self-attention favors the focus token itself · "bank" carries its own meaning forward.',
+    words: ['The', 'bank', 'itself'],
+    Q: { bank: { x: 0.95, y: 0.31 } },
+    K: {
+      The: { x: -0.80, y: 0.60 },
+      bank: { x: 0.96, y: 0.28 },
+      itself: { x: 0.85, y: 0.53 }
+    },
+    V: {
+      The: { x: -0.50, y: -0.50 },
+      bank: { x: 0.99, y: 0.14 },
+      itself: { x: 0.10, y: 0.10 }
+    }
   }
 };
 
@@ -556,7 +573,8 @@ function interpretation(key, bestWord) {
     moneyBank: { money: 'financial bank', deposit: 'financial action', bank: 'self-reference' },
     appleFruit: { pie: 'apple the fruit', ate: 'eating context', apple: 'self-reference' },
     appleCorp: { phone: 'Apple the company', released: 'product launch', Apple: 'self-reference' },
-    bassFish: { lake: 'bass the fish', caught: 'fishing action', bass: 'self-reference' }
+    bassFish: { lake: 'bass the fish', caught: 'fishing action', bass: 'self-reference' },
+    selfBank: { bank: 'self-reference (carries own meaning)', itself: 'reflexive marker', The: 'no help' }
   };
   return (map[key] && map[key][bestWord]) || 'neighbor wins';
 }
