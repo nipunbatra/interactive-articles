@@ -66,6 +66,11 @@
           <span class="readout" id="og-val">1.00</span>
         </label>
       </div>
+      <div class="preset-row" style="margin-bottom:10px">
+        <button data-scenario="pulse">Scenario · two pulses</button>
+        <button data-scenario="sentiment">Scenario · sentiment flip ("brilliant ... bad")</button>
+        <button data-scenario="noisy">Scenario · sustained signal + noise</button>
+      </div>
       <div class="preset-row">
         <button data-preset="remember">Remember forever (f=1, i=0)</button>
         <button data-preset="forget">Forget always (f=0)</button>
@@ -105,9 +110,22 @@
       const PLOT_W = 640, PLOT_H = 200, LEFT = 50, TOP = 30;
 
       let f = 0.9, i = 0.3, o = 1.0;
+      let scenario = 'pulse';  // 'pulse' | 'sentiment' | 'noisy'
 
-      // Input sequence — spikes at t=3 and t=7
+      // Input sequences
       function inputSeq() {
+        if (scenario === 'sentiment') {
+          // "movie was brilliant ... but ultimately bad"
+          return Array.from({length: T}, (_, t) => {
+            if (t === 2) return 0.9;   // brilliant
+            if (t === 8) return -1.0;  // bad
+            return 0;
+          });
+        } else if (scenario === 'noisy') {
+          // strong sustained signal with noise
+          return Array.from({length: T}, (_, t) => 0.5 + 0.4 * Math.sin(t * 0.7) + 0.2 * Math.random());
+        }
+        // pulse · spikes at t=3 and t=7
         return Array.from({length: T}, (_, t) => {
           if (t === 3) return 1.0;
           if (t === 7) return -0.8;
@@ -222,6 +240,13 @@
         });
       };
       bind("fg", "f"); bind("ig", "i"); bind("og", "o");
+
+      document.querySelectorAll('[data-scenario]').forEach(b => b.addEventListener('click', () => {
+        scenario = b.dataset.scenario;
+        document.querySelectorAll('[data-scenario]').forEach(x => x.style.fontWeight = '');
+        b.style.fontWeight = '700';
+        draw();
+      }));
 
       document.querySelectorAll("[data-preset]").forEach(b => b.addEventListener("click", () => {
         const preset = b.dataset.preset;
