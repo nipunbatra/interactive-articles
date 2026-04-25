@@ -59,6 +59,11 @@
     <div class="figure">
       <label style="font-family: 'Manrope', sans-serif; font-size: 13px; color: var(--muted); display: block; margin-bottom: 6px;">Corpus (paste any text):</label>
       <textarea id="corpus">the quick brown fox jumps over the lazy dog. the running fox never stops running. the quick fox runs. dogs bark and foxes run.</textarea>
+      <div class="btn-row" style="margin-bottom:10px">
+        <button id="preset-default" class="ghost">Default corpus</button>
+        <button id="preset-morph" class="ghost">Morphology · hug/hugged/hugging</button>
+        <button id="preset-rare" class="ghost">Rare word · ZUGZUG</button>
+      </div>
       <div class="btn-row">
         <button id="init">Initialize (chars)</button>
         <button id="merge">Merge one step</button>
@@ -213,6 +218,20 @@
         render();
       });
       document.getElementById("reset").addEventListener("click", () => { tokens = []; mergeHistory = []; vocab = new Set(); render(); });
+
+      const PRESETS = {
+        default: 'the quick brown fox jumps over the lazy dog. the running fox never stops running. the quick fox runs. dogs bark and foxes run.',
+        morph: 'hug hug hug hugged hugged hugging hugging bug bugged bugging dog dogged dogging',
+        rare: 'a fluffy cat sat on the mat. a fluffy cat sat. another fluffy cat sat. a ZUGZUG cat sat on the mat.'
+      };
+      const setPreset = key => {
+        document.getElementById('corpus').value = PRESETS[key];
+        tokens = []; mergeHistory = []; vocab = new Set();
+        initFromCorpus();
+      };
+      document.getElementById('preset-default').addEventListener('click', () => setPreset('default'));
+      document.getElementById('preset-morph').addEventListener('click', () => setPreset('morph'));
+      document.getElementById('preset-rare').addEventListener('click', () => setPreset('rare'));
 
       initFromCorpus();
     </script>
