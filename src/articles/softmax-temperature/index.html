@@ -398,13 +398,47 @@ footer {
       differences&mdash;a logit gap of 2 becomes a probability ratio of $e^2 \approx 7.4$.
     </p>
 
-    <div class="logit-grid">
-      <div class="logit-cell"><div class="label">$z_1$</div><input type="number" id="step1-z0" step="0.1" value="2.0"></div>
-      <div class="logit-cell"><div class="label">$z_2$</div><input type="number" id="step1-z1" step="0.1" value="1.0"></div>
-      <div class="logit-cell"><div class="label">$z_3$</div><input type="number" id="step1-z2" step="0.1" value="0.5"></div>
-      <div class="logit-cell"><div class="label">$z_4$</div><input type="number" id="step1-z3" step="0.1" value="-0.5"></div>
-      <div class="logit-cell"><div class="label">$z_5$</div><input type="number" id="step1-z4" step="0.1" value="-1.0"></div>
+    <div class="button-row" id="scenario-selector" style="margin-bottom:1rem">
+      <button class="mode-button is-active" data-scenario="generic">Generic scores</button>
+      <button class="mode-button" data-scenario="llm">LLM next-token · "the sky is..."</button>
+      <button class="mode-button" data-scenario="ambig">Image · ambiguous (cat / fox / dog)</button>
+      <button class="mode-button" data-scenario="confident">Image · confident (one class)</button>
     </div>
+
+    <div class="logit-grid">
+      <div class="logit-cell"><div class="label" id="step1-l0">$z_1$</div><input type="number" id="step1-z0" step="0.1" value="2.0"></div>
+      <div class="logit-cell"><div class="label" id="step1-l1">$z_2$</div><input type="number" id="step1-z1" step="0.1" value="1.0"></div>
+      <div class="logit-cell"><div class="label" id="step1-l2">$z_3$</div><input type="number" id="step1-z2" step="0.1" value="0.5"></div>
+      <div class="logit-cell"><div class="label" id="step1-l3">$z_4$</div><input type="number" id="step1-z3" step="0.1" value="-0.5"></div>
+      <div class="logit-cell"><div class="label" id="step1-l4">$z_5$</div><input type="number" id="step1-z4" step="0.1" value="-1.0"></div>
+    </div>
+    <script>
+      (function() {
+        const SCENARIOS = {
+          generic: { labels: ['$z_1$', '$z_2$', '$z_3$', '$z_4$', '$z_5$'], logits: [2.0, 1.0, 0.5, -0.5, -1.0] },
+          llm:     { labels: ['blue', 'bright', 'falling', 'overcast', 'a'], logits: [3.2, 2.5, -1.0, 0.5, 1.8] },
+          ambig:   { labels: ['cat', 'fox', 'dog', 'rabbit', 'wolf'], logits: [1.4, 1.3, 1.0, -0.5, 0.3] },
+          confident: { labels: ['cat', 'fox', 'dog', 'rabbit', 'wolf'], logits: [5.0, 0.5, 0.2, -0.3, -0.8] }
+        };
+        function applyScenario(key) {
+          const s = SCENARIOS[key];
+          for (let i = 0; i < 5; i++) {
+            const inp = document.getElementById('step1-z' + i);
+            inp.value = s.logits[i];
+            inp.dispatchEvent(new Event('input', { bubbles: true }));
+            const lbl = document.getElementById('step1-l' + i);
+            if (lbl) lbl.textContent = s.labels[i];
+          }
+        }
+        document.querySelectorAll('#scenario-selector .mode-button').forEach(b =>
+          b.addEventListener('click', () => {
+            document.querySelectorAll('#scenario-selector .mode-button').forEach(x => x.classList.remove('is-active'));
+            b.classList.add('is-active');
+            applyScenario(b.dataset.scenario);
+          })
+        );
+      })();
+    </script>
 
     <figure class="interactive-figure">
       <canvas id="step1Canvas" width="900" height="320"></canvas>
