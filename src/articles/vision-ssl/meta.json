@@ -1,0 +1,19 @@
+{
+  "slug": "vision-ssl",
+  "title": "Vision Pretraining, Without Labels",
+  "date": "2026-05-09",
+  "tagline": "Mask 75% of an image, predict the rest — and four cousin recipes that all work",
+  "summary": "MAE, SimCLR, DINO, BEiT, JEPA — the recipes behind every modern vision backbone. Watch a live MAE-style mask-and-reconstruct on a synthetic image (drag the mask ratio), compare the four SSL families on the same diagram, and see why thermal and satellite imagery in your lab are calling out for SSL pretraining the loudest.",
+  "readingTime": "20 min",
+  "difficulty": "Intermediate",
+  "collection": "Computer Vision",
+  "order": 15,
+  "status": "published",
+  "tags": ["Self-Supervised Learning", "MAE", "Pretraining", "DINO", "SimCLR", "Interactive"],
+  "highlights": [
+    "Live MAE-style mask-and-reconstruct on a synthetic image with a draggable mask ratio.",
+    "Four SSL families (contrastive, distillation, generative, predictive) on one comparison diagram.",
+    "Linear-probe accuracy curve as labelled-data fraction grows — the actual reason SSL is worth doing.",
+    "Lab-aligned: thermal-pretraining and satellite-pretraining stories from real ThermEval / SentinelKilnDB experiences."
+  ]
+}
