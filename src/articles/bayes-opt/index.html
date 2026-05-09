@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bayesian Optimization, Step by Step</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../vendor/katex/katex.min.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <article class="article">
+      <header class="article-header">
+        <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+        <p class="kicker">Interactive Explainer</p>
+        <h1>Bayesian Optimization, Step by Step</h1>
+        <p class="abstract">
+          A live 1-D Gaussian-process surrogate plus an acquisition
+          function decides where to evaluate a hidden expensive
+          function next. Click to acquire, watch the band shrink, and
+          race four acquisition strategies on a convergence plot.
+        </p>
+        <div class="byline">
+          <span>~20 min</span>
+          <span>Probability &middot; Optimisation &middot; Experimental Design</span>
+        </div>
+      </header>
+
+      <section class="step-section" id="prelude">
+        <div class="step-badge">Prelude</div>
+        <h2>The expensive-function problem</h2>
+        <p>
+          Tuning hyperparameters of a model that takes 8 hours to
+          train. Picking the next concentration in a wet-lab
+          experiment. Choosing where to deploy the next air-quality
+          sensor. The function $f$ you're optimising is expensive,
+          black-box, and possibly noisy. Random search burns a lot of
+          calls; grid search burns even more. You want every
+          evaluation to <em>tell you the most</em>.
+        </p>
+        <div class="callout callout--key">
+          <strong>The slogan.</strong>
+          Fit a cheap surrogate to your observations; use it to
+          predict <em>with uncertainty</em>; query the next point
+          where the predicted-improvement is largest. Repeat.
+        </div>
+      </section>
+
+      <section class="step-section" id="step-1">
+        <div class="step-badge">Step 1</div>
+        <h2>The two ingredients</h2>
+        <ul class="explanation-list">
+          <li><strong>Surrogate.</strong> A Gaussian process gives, at
+            every point $x$, a posterior mean $\mu(x)$ and standard
+            deviation $\sigma(x)$. Where $\sigma$ is large, we don't
+            yet know $f$. Where $\sigma$ is small, the surrogate is
+            confident. This is the same posterior story as the
+            <a href="../bayesian-posterior/index.html#step-6">
+            Bayesian linear regression in the Bayes posterior
+            playground</a>, with an RBF kernel instead of an explicit
+            feature basis.</li>
+          <li><strong>Acquisition function.</strong> A scalar score
+            $a(x)$ on top of $(\mu, \sigma)$ that says "how worth
+            evaluating is this $x$ next?". Different acquisition
+            functions trade exploration vs exploitation differently.</li>
+        </ul>
+        <div class="math-block" id="math-bo"></div>
+        <p>
+          Where $\Phi$ and $\phi$ are the standard normal CDF and PDF,
+          and $z = (\mu(x) - f^* - \xi) / \sigma(x)$ for the current
+          best $f^*$. UCB picks the upper-confidence bound; PI picks
+          the probability of any improvement; EI picks the
+          expected improvement (often the default).
+        </p>
+      </section>
+
+      <section class="step-section" id="step-2">
+        <div class="step-badge">Step 2</div>
+        <h2>Run it</h2>
+        <p>
+          A hidden function (you'll see the true curve only after
+          acquiring points). Press <em>Acquire next</em> to evaluate
+          $f$ at $\arg\max a(x)$. The GP mean and 2σ band update;
+          the acquisition function below reshapes; the convergence
+          plot keeps score across all four acquisition strategies on
+          the same hidden function.
+        </p>
+        <div class="train-controls">
+          <button class="action-btn" id="bo-step">Acquire next</button>
+          <button class="action-btn" id="bo-step5">Acquire 5</button>
+          <button class="action-btn action-btn--ghost" id="bo-reset">Reset</button>
+          <label>active acquisition
+            <select id="bo-acq">
+              <option value="ei" selected>EI (expected improvement)</option>
+              <option value="ucb">UCB (upper-confidence bound)</option>
+              <option value="pi">PI (probability of improvement)</option>
+              <option value="ts">Thompson sampling</option>
+            </select>
+          </label>
+          <label>hidden function
+            <select id="bo-fn">
+              <option value="sine" selected>smooth (sine + bump)</option>
+              <option value="bimodal">bimodal (two peaks)</option>
+              <option value="sawtooth">non-smooth (sawtooth)</option>
+            </select>
+          </label>
+          <span class="train-stat">queries = <strong id="bo-n">3</strong></span>
+          <span class="train-stat">best-so-far = <strong id="bo-best">—</strong></span>
+        </div>
+        <div class="bo-grid">
+          <div class="bo-panel">
+            <div class="panel-label">GP surrogate (μ ± 2σ) over hidden f</div>
+            <canvas id="bo-surrogate" width="880" height="280"></canvas>
+          </div>
+          <div class="bo-panel">
+            <div class="panel-label">Acquisition function a(x)</div>
+            <canvas id="bo-acquisition" width="880" height="180"></canvas>
+          </div>
+          <div class="bo-panel">
+            <div class="panel-label">Best-so-far convergence (4 strategies)</div>
+            <canvas id="bo-convergence" width="880" height="200"></canvas>
+          </div>
+        </div>
+        <div class="callout callout--think">
+          <strong>What to watch for.</strong>
+          Early on, EI and UCB explore widely (the band is fat
+          everywhere). After ~5 acquisitions they zoom into the best
+          neighbourhood. PI gets stuck more often (it finds a
+          near-optimum and stops exploring). Thompson sampling is a
+          surprisingly strong baseline that's almost trivial to
+          implement: draw a sample from the posterior and pick its
+          arg-max.
+        </div>
+      </section>
+
+      <section class="step-section" id="step-3">
+        <div class="step-badge">Step 3</div>
+        <h2>Why Bayesian optimisation, not grid search</h2>
+        <ul class="explanation-list">
+          <li><strong>Sample efficiency.</strong> BO finds the optimum
+            of typical hyperparameter tasks in 20-50 evaluations
+            where grid search needs 200-1000. The breakeven point in
+            cost is around evaluation cost &gt; 30 seconds.</li>
+          <li><strong>Honest uncertainty.</strong> You get not just
+            the optimum, but a posterior over <em>all</em> values of
+            $f$. Useful when you want to know "would 5% better at
+            another point also be acceptable?".</li>
+          <li><strong>Constraints come for free.</strong> If
+            evaluations have a constraint that some are infeasible,
+            you can use a separate GP to model the constraint
+            probability and multiply the acquisition by it.</li>
+          <li><strong>Multi-fidelity extensions.</strong> When you
+            have cheap-but-noisy and expensive-but-accurate
+            evaluations (e.g., short vs full training run), BO can
+            mix them automatically.</li>
+        </ul>
+      </section>
+
+      <section class="step-section" id="step-4">
+        <div class="step-badge">Step 4</div>
+        <h2>The traps in real BO</h2>
+        <ul class="explanation-list">
+          <li><strong>Kernel choice matters.</strong> RBF is smooth;
+            Matérn is rougher; periodic captures cycles. Pick a
+            kernel that matches your function's actual structure
+            or BO will burn evaluations on artefacts of the wrong
+            kernel.</li>
+          <li><strong>High dimensions hurt.</strong> Pure GP-BO
+            becomes unreliable above ~20 dimensions. TuRBO,
+            BoTorch, and embedding-based BO push the ceiling, but
+            it's still hard.</li>
+          <li><strong>Categorical hyperparameters.</strong> Need a
+            kernel over categorical / integer dimensions; SMAC and
+            tree-structured Parzen estimators handle this better
+            than vanilla GPs.</li>
+          <li><strong>Noise modelling.</strong> Stochastic objectives
+            (training loss with random init) need a noise term in
+            the GP. Otherwise the surrogate over-fits to a noisy
+            point and BO chases it.</li>
+          <li><strong>Acquisition-function maximisation.</strong>
+            Inside BO you maximise $a(x)$. If $a$ is non-convex
+            (it usually is), use multi-start optimisation; otherwise
+            you'll land in a local optimum of the acquisition.</li>
+        </ul>
+      </section>
+
+      <section class="step-section" id="step-5">
+        <div class="step-badge">Step 5</div>
+        <h2>Where this lives in your lab</h2>
+        <ul class="explanation-list">
+          <li><strong>Hyperparameter tuning of expensive models.</strong>
+            Anything that takes &gt; 30 minutes to train per config.
+            Use BoTorch / Ax / Optuna's TPE.</li>
+          <li><strong>Sensor placement under uncertainty.</strong>
+            Maximise expected reduction in posterior variance over a
+            field model. Direct fit for AirDelhi / SentinelKilnDB
+            extensions.</li>
+          <li><strong>Wet-lab / hardware experimental design.</strong>
+            Each experiment is a real-time evaluation. BO chooses
+            the next concentration / temperature / dose.</li>
+          <li><strong>Active learning on a budget.</strong> Pick the
+            next batch of points that maximises expected information
+            gain &mdash; the BO-active-learning hybrid called BALD or
+            BOSS.</li>
+        </ul>
+        <div class="callout callout--think">
+          <strong>Final takeaway.</strong>
+          Bayesian optimisation is the go-to whenever a single
+          evaluation is expensive enough to make you think twice. It
+          asks a simple question every step &mdash; "what's the most
+          informative thing I could try next?" &mdash; and answers it
+          using the same posterior machinery from the Bayesian
+          playground article.
+        </div>
+      </section>
+    </article>
+
+    <script src="../vendor/katex/katex.min.js"></script>
+    <script type="module" src="main.js"></script>
+  </body>
+</html>

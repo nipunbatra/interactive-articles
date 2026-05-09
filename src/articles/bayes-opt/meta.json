@@ -1,0 +1,19 @@
+{
+  "slug": "bayes-opt",
+  "title": "Bayesian Optimization, Step by Step",
+  "date": "2026-05-09",
+  "tagline": "Optimise an expensive black-box function in 10 evaluations — and watch the surrogate update",
+  "summary": "A 1-D Gaussian process surrogate plus an acquisition function (EI / UCB / PI / Thompson) finds the optimum of a hidden expensive function. Click to add observations, watch the GP mean and uncertainty band shrink, and see why BO is the right tool for hyperparameter tuning, sensor placement, and any experiment that costs real time per evaluation.",
+  "readingTime": "20 min",
+  "difficulty": "Intermediate",
+  "collection": "Probability & inference",
+  "order": 13,
+  "status": "published",
+  "tags": ["Bayesian Optimization", "Gaussian Process", "Acquisition Function", "Hyperparameter", "Interactive"],
+  "highlights": [
+    "Live 1D GP surrogate with mean + 2σ band; click 'Acquire next' and watch it shrink at the chosen point.",
+    "Switch acquisition function: EI vs UCB vs PI vs Thompson sampling — see which one explores vs exploits.",
+    "Toggle the hidden true function (sine, double-well, sawtooth) to see BO succeed or struggle.",
+    "Convergence plot tracks best-so-far value across the four acquisition functions on the same hidden function."
+  ]
+}
