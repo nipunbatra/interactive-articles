@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Active Learning, Picked Live</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../vendor/katex/katex.min.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <article class="article">
+      <header class="article-header">
+        <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+        <p class="kicker">Interactive Explainer</p>
+        <h1>Active Learning, Picked Live</h1>
+        <p class="abstract">
+          Pool-based active learning on a 2-D classification problem.
+          Pick an acquisition function, step the loop, and watch the
+          decision boundary tighten where the queries land. Race four
+          strategies against each other on the same dataset and same
+          starting label budget.
+        </p>
+        <div class="byline">
+          <span>~16 min</span>
+          <span>Active Learning &middot; Acquisition &middot; Label Efficiency</span>
+        </div>
+      </header>
+
+      <section class="step-section" id="prelude">
+        <div class="step-badge">Prelude</div>
+        <h2>The labelling-budget problem</h2>
+        <p>
+          You can label 1000 satellite tiles, or 1000 thermal frames,
+          or 1000 sleep epochs &mdash; <em>but no more</em>. Which 1000
+          do you spend the budget on? Picking randomly is the
+          baseline; picking the points the current model finds most
+          confusing usually beats it by a lot. That's active learning.
+        </p>
+        <div class="callout callout--key">
+          <strong>The slogan.</strong> Don't show the model points it
+          already knows the answer to. Spend the labelling budget on
+          the boundary it's most uncertain about.
+        </div>
+      </section>
+
+      <section class="step-section" id="step-1">
+        <div class="step-badge">Step 1</div>
+        <h2>The four acquisition functions you'll meet</h2>
+        <ul class="explanation-list">
+          <li><strong>Random.</strong> Pick a pool point uniformly.
+            The honest baseline.</li>
+          <li><strong>Uncertainty (least-confidence).</strong> Pick
+            the point where $\max_c p(y=c\mid x)$ is smallest. The
+            model is "least sure" here.</li>
+          <li><strong>Margin.</strong> Pick the point where the gap
+            between top-1 and top-2 class probabilities is smallest.
+            Useful when uncertainty doesn't separate hard cases from
+            easy near-tie cases.</li>
+          <li><strong>BALD / committee disagreement.</strong> Train a
+            small ensemble (or use Monte-Carlo dropout); pick the
+            point where the committee disagrees the most.
+            Approximates Bayesian information gain.</li>
+        </ul>
+        <div class="math-block" id="math-aq"></div>
+      </section>
+
+      <section class="step-section" id="step-2">
+        <div class="step-badge">Step 2</div>
+        <h2>Run the loop on a real pool</h2>
+        <p>
+          We seeded a 2-D classification problem (3 colour-coded
+          classes, with overlap). 5 labels start the model; click
+          <em>Acquire</em> to add one more. Watch the decision boundary
+          tighten exactly where the chosen acquisition pulls a label
+          from. The legend keeps four scoreboards in sync &mdash; same
+          starting set, same logistic-regression-with-RBF-features
+          model, four strategies racing on accuracy.
+        </p>
+        <div class="train-controls">
+          <button class="action-btn" id="al-step">Acquire 1</button>
+          <button class="action-btn" id="al-step5">Acquire 5</button>
+          <button class="action-btn action-btn--ghost" id="al-reset">Reset all</button>
+          <label>active strategy
+            <select id="al-strategy">
+              <option value="random">Random</option>
+              <option value="uncertainty" selected>Uncertainty</option>
+              <option value="margin">Margin</option>
+              <option value="committee">Committee disagreement</option>
+            </select>
+          </label>
+          <span class="train-stat">labels = <strong id="al-budget">5</strong> / 200</span>
+          <span class="train-stat">test acc <strong id="al-acc">—</strong></span>
+        </div>
+        <div class="al-grid">
+          <div class="al-panel">
+            <div class="panel-label">Pool + chosen strategy boundary</div>
+            <canvas id="al-board" width="380" height="380"></canvas>
+          </div>
+          <div class="al-panel">
+            <div class="panel-label">Acquisition score map</div>
+            <canvas id="al-acq" width="380" height="380"></canvas>
+          </div>
+          <div class="al-panel">
+            <div class="panel-label">Accuracy vs labels (4 strategies)</div>
+            <canvas id="al-curve" width="380" height="380"></canvas>
+          </div>
+        </div>
+        <div class="callout callout--think">
+          <strong>What to watch for.</strong>
+          The acquisition score map (middle) is a heat-map of how
+          informative each pool point is right now. <em>Random</em>
+          ignores it; <em>uncertainty</em> picks the brightest spot;
+          <em>margin</em> picks where two classes nearly tie;
+          <em>committee</em> picks where ensemble members disagree
+          (this often catches the most useful boundary points first).
+          Run 25 acquisitions on each strategy and read off the gap on
+          the right.
+        </div>
+      </section>
+
+      <section class="step-section" id="step-3">
+        <div class="step-badge">Step 3</div>
+        <h2>The traps real labelling budgets fall into</h2>
+        <ul class="explanation-list">
+          <li><strong>Cold start.</strong> With $\le 5$ labels every
+            strategy is mostly random &mdash; the model is too
+            uninformed to identify "useful" points. Always begin with
+            a small random seed.</li>
+          <li><strong>Redundant queries.</strong> Pure uncertainty
+            sampling tends to repeatedly pick neighbours of the same
+            ambiguous region. Add a diversity term (k-medoids on the
+            top-$k$, or BatchBALD) to spread queries out.</li>
+          <li><strong>Bias against rare classes.</strong> If a class
+            has very few examples in the pool, uncertainty will
+            ignore it. Use class-balanced sampling or weight rare
+            classes in the acquisition.</li>
+          <li><strong>Acquisition mismatch.</strong> The model class
+            you use for active learning must be the model class you
+            train on the labels. Acquiring with logistic regression
+            then training a neural net is a fast way to leave
+            label-efficiency on the table.</li>
+          <li><strong>Reproducibility.</strong> Random seeds matter
+            enormously in AL; report results as a curve over multiple
+            seeds, not single runs. (See the lab-side recommendation
+            on multi-seed reporting.)</li>
+        </ul>
+      </section>
+
+      <section class="step-section" id="step-4">
+        <div class="step-badge">Step 4</div>
+        <h2>Where this hits your lab</h2>
+        <ul class="explanation-list">
+          <li><strong>Sensor placement.</strong> Choose where to put
+            the next air-quality sensor (or thermal camera, or PM2.5
+            buoy) by maximum predictive uncertainty under your current
+            field model.</li>
+          <li><strong>Labelling thermal frames for ApneaEye.</strong>
+            Frame-level annotation is expensive; AL targets the frames
+            where the current breathing-pattern model is least
+            confident.</li>
+          <li><strong>Satellite tile selection (SentinelKilnDB).</strong>
+            Out of millions of unlabeled tiles, AL surfaces the few
+            hundred that the kiln detector is least sure about,
+            multiplying labelling efficiency.</li>
+          <li><strong>Sleep-stage / activity recognition.</strong>
+            For SSL-pretrained models, AL on the labelled fine-tuning
+            set lets you pick which transitions and atypical events
+            to send to the human labeller.</li>
+        </ul>
+        <div class="callout callout--think">
+          <strong>Final takeaway.</strong>
+          Active learning is one of the cheapest ways to multiply
+          your labelling budget. It costs only a model retrain per
+          query and a small bit of book-keeping. For sensor and
+          satellite work in a lab with finite annotation budget, it
+          should be the default, not the optional add-on.
+        </div>
+      </section>
+    </article>
+
+    <script src="../vendor/katex/katex.min.js"></script>
+    <script type="module" src="main.js"></script>
+  </body>
+</html>

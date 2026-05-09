@@ -1,0 +1,19 @@
+{
+  "slug": "active-learning",
+  "title": "Active Learning, Picked Live",
+  "date": "2026-05-09",
+  "tagline": "Spend your labelling budget on the points the model already finds confusing",
+  "summary": "Click step-by-step through a pool-based active-learning loop on a 2-D classification problem. Watch random sampling, uncertainty sampling, margin sampling, and BALD-style query-by-committee race to higher accuracy with the same number of labels. The decision boundary updates after every query and the accuracy-vs-labels plot keeps score.",
+  "readingTime": "16 min",
+  "difficulty": "Intermediate",
+  "collection": "Probability & inference",
+  "order": 12,
+  "status": "published",
+  "tags": ["Active Learning", "Acquisition Functions", "Label Efficiency", "Interactive"],
+  "highlights": [
+    "Live pool-based AL loop on a 2D dataset; pick the acquisition function and step the loop one query at a time.",
+    "Four acquisition functions side-by-side (random / uncertainty / margin / committee disagreement).",
+    "Decision-boundary canvas updates after every query so you see the boundary tighten where queries land.",
+    "Accuracy-vs-labels chart tracks all four strategies on the same axes — instant intuition for label efficiency."
+  ]
+}
