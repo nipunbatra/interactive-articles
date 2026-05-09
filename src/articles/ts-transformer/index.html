@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Time-Series Transformers, Patched</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../vendor/katex/katex.min.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <article class="article">
+      <header class="article-header">
+        <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+        <p class="kicker">Interactive Explainer</p>
+        <h1>Time-Series Transformers, Patched</h1>
+        <p class="abstract">
+          Long-horizon forecasting on an air-quality-flavoured signal,
+          four ways: seasonal-naive baseline, ARIMA-flavour, LSTM,
+          PatchTST. Slide the patch length, watch the forecast and
+          RMSE change. Why PatchTST finally beat the LSTMs and where
+          Mamba is taking it next.
+        </p>
+        <div class="byline">
+          <span>~20 min</span>
+          <span>Time Series &middot; Forecasting &middot; Transformer</span>
+        </div>
+      </header>
+
+      <section class="step-section" id="prelude">
+        <div class="step-badge">Prelude</div>
+        <h2>What's hard about time-series forecasting?</h2>
+        <p>
+          Three things make time series harder than a regular ML
+          problem:
+        </p>
+        <ul class="explanation-list">
+          <li><strong>Multiple seasonalities.</strong> Daily,
+            weekly, yearly &mdash; sometimes all in one signal.</li>
+          <li><strong>Distribution drift.</strong> A sensor's mean and
+            variance shift over time. Yesterday's training distribution
+            isn't today's test distribution.</li>
+          <li><strong>Long horizons.</strong> Predicting the next
+            point is easy. Predicting 96 points ahead from a 96-point
+            context is where most methods fall apart.</li>
+        </ul>
+        <div class="callout callout--key">
+          <strong>The slogan.</strong> Almost every time-series result
+          you read in 2020-2022 was beaten by seasonal-naive. PatchTST
+          (2023) was the first deep model to comfortably win across
+          benchmarks &mdash; with a 50-line architecture: cut the
+          sequence into ViT-style patches and run a transformer on the
+          patch tokens.
+        </div>
+      </section>
+
+      <section class="step-section" id="step-1">
+        <div class="step-badge">Step 1</div>
+        <h2>The four baselines you owe yourself</h2>
+        <ul class="explanation-list">
+          <li><strong>Seasonal-naive.</strong> Predict $\hat y_{t+h} = y_{t + h - S}$
+            where $S$ is the seasonal period (24 hours, 7 days). It's
+            a one-line baseline and beats the deep models 30% of the
+            time.</li>
+          <li><strong>ARIMA / ETS.</strong> Classical statistical
+            models with explicit trend / seasonality / autoregressive
+            terms. Strong on smooth, well-behaved signals.</li>
+          <li><strong>LSTM / GRU.</strong> Recurrent networks. Decade
+            of dominance; finally outperformed on long horizons by
+            patched transformers.</li>
+          <li><strong>PatchTST.</strong> Treat the sequence the way
+            a Vision Transformer treats an image: split into
+            non-overlapping patches, embed each patch, run a vanilla
+            transformer over the patch tokens, project back to the
+            forecast horizon.</li>
+        </ul>
+      </section>
+
+      <section class="step-section" id="step-2">
+        <div class="step-badge">Step 2</div>
+        <h2>The patch trick</h2>
+        <p>
+          The earlier wave of time-series transformers (Informer,
+          Autoformer, FEDformer) treated each timestep as a token. At
+          long context lengths this drowns the model in tokens and the
+          $O(N^2)$ cost balloons. PatchTST groups every $P$
+          consecutive points into one token (just like ViT does with
+          $P \times P$ patches of an image), reducing token count by
+          $P\times$ and giving the model a slightly smoother view of
+          local structure.
+        </p>
+        <div class="math-block" id="math-patch"></div>
+        <p>
+          That's it. Patch length $P$ is the only real new
+          hyperparameter. Channel-independence (predict each channel
+          with the same shared transformer, so multivariate isn't
+          forced into a giant vocabulary) is the second trick. The
+          third &mdash; instance normalisation per series &mdash;
+          handles distribution drift.
+        </p>
+        <div class="bayes-figure">
+          <canvas id="patch-arch" width="880" height="240"></canvas>
+          <figcaption>The PatchTST tokenisation. Sequence → patches → embeddings → transformer → forecast head.</figcaption>
+        </div>
+      </section>
+
+      <section class="step-section" id="step-3">
+        <div class="step-badge">Step 3</div>
+        <h2>Race the four models live</h2>
+        <p>
+          Below: a synthetic AQ-flavour signal (daily + weekly +
+          noise + slow drift). Slide the horizon and patch length;
+          all four models forecast and the RMSE updates.
+        </p>
+        <div class="train-controls">
+          <button class="action-btn action-btn--ghost" id="ts-newseries">New series</button>
+          <label>horizon &nbsp;<span id="ts-h-val">96</span> <input type="range" id="ts-h" min="12" max="240" step="6" value="96"></label>
+          <label>patch length &nbsp;<span id="ts-p-val">16</span> <input type="range" id="ts-p" min="4" max="48" step="4" value="16"></label>
+        </div>
+        <div class="ts-figure">
+          <canvas id="ts-canvas" width="880" height="380"></canvas>
+          <figcaption>Context (left) | true (faint, right) | four overlaid forecasts. The vertical line marks the forecast start.</figcaption>
+        </div>
+        <div class="ts-stats" id="ts-stats">—</div>
+      </section>
+
+      <section class="step-section" id="step-4">
+        <div class="step-badge">Step 4</div>
+        <h2>What 2024-2026 has taught us</h2>
+        <ul class="explanation-list">
+          <li><strong>State-space models (Mamba, S5).</strong> Linear
+            attention with a structured state-space recursion. Much
+            faster on very long contexts; for forecasting they trade
+            blows with PatchTST and increasingly win on long horizons.</li>
+          <li><strong>iTransformer.</strong> Treats each <em>variate</em>
+            as a token rather than each timestep, so the transformer
+            attention learns cross-series structure (which other
+            sensors predict which). Strong on multivariate panels.</li>
+          <li><strong>Foundation models for time series.</strong>
+            TimesFM (Google), Chronos (Amazon), Lag-Llama, Moirai &mdash;
+            big pretrained models that zero-shot or one-shot a new
+            time-series task. Useful when you have many short series
+            with no per-series fine-tune budget.</li>
+          <li><strong>Forecast distributions.</strong> Quantile
+            regression heads, conformal calibration, deep AR with
+            normalising flows &mdash; the field has moved from "predict
+            a number" to "predict an interval". The
+            <a href="../bayes-opt/index.html">BO</a> and
+            <a href="../bayesian-posterior/index.html">Bayesian
+            playground</a> articles are useful here.</li>
+        </ul>
+        <div class="callout callout--think">
+          <strong>Final takeaway.</strong>
+          Time-series forecasting is no longer a "deep learning lost
+          to seasonal-naive" punchline. PatchTST and Mamba make
+          long-horizon forecasting practical with modest compute, and
+          foundation models change the data-budget equation entirely.
+          For sustainability work &mdash; air quality, energy,
+          breathing &mdash; this is the most practical 2026 update to
+          your forecasting stack.
+        </div>
+      </section>
+    </article>
+
+    <script src="../vendor/katex/katex.min.js"></script>
+    <script type="module" src="main.js"></script>
+  </body>
+</html>

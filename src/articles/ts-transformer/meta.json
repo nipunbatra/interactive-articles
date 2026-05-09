@@ -1,0 +1,19 @@
+{
+  "slug": "ts-transformer",
+  "title": "Time-Series Transformers, Patched",
+  "date": "2026-05-09",
+  "tagline": "Why PatchTST cuts a sequence into ViT-style patches and finally beats LSTMs",
+  "summary": "Long-horizon forecasting on an air-quality–style signal, side-by-side: seasonal-naive baseline, ARIMA, a small LSTM, and PatchTST. Slide the patch length, watch the forecast change. The article closes with where state-space models (Mamba) fit and what's next.",
+  "readingTime": "20 min",
+  "difficulty": "Intermediate",
+  "collection": "Time series",
+  "order": 17,
+  "status": "published",
+  "tags": ["Time Series", "Forecasting", "Transformer", "PatchTST", "Mamba", "Interactive"],
+  "highlights": [
+    "Synthetic AQ-style signal (daily + weekly + noise + drift) generated live; baseline, ARIMA-flavour, LSTM-flavour and PatchTST-flavour forecasts overlay.",
+    "Slide patch length and horizon and watch RMSE update across the four models.",
+    "Patch-tokenisation diagram with positional encoding so the transformer side is concrete.",
+    "Lab-aligned: AirDelhi mobile sensors, JoulesEye / ApneaEye breathing rate, energy disaggregation."
+  ]
+}
