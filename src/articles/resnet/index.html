@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Residual Connections, Why They Work</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../vendor/katex/katex.min.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <article class="article">
+      <header class="article-header">
+        <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+        <p class="kicker">Interactive Explainer</p>
+        <h1>Residual Connections, Why They Work</h1>
+        <p class="abstract">
+          The single line $y = x + F(x)$ unlocked networks 100× deeper.
+          Watch the failure mode of plain deep nets as a 64-layer
+          activation map collapses to noise, then add the skip and watch
+          the same network train cleanly. Three live experiments and one
+          loss-surface tour.
+        </p>
+        <div class="byline">
+          <span>~20 min</span>
+          <span>Deep Learning &middot; CNN &middot; Optimization</span>
+        </div>
+      </header>
+
+      <!-- ─── Prelude ─── -->
+      <section class="step-section" id="prelude">
+        <div class="step-badge">Prelude</div>
+        <h2>The depth degradation problem</h2>
+        <p>
+          Before December 2015, conventional wisdom said deeper networks
+          should generalise better &mdash; until you tried to train a
+          plain 50-layer CNN and watched it do worse than the 20-layer
+          version on the <em>training</em> set, never mind the test
+          set. That's not overfitting; it's a failure of the
+          optimiser. He et al. called it the <em>degradation problem</em>.
+        </p>
+        <p>
+          The fix was a single line of code: change every block from
+          $y = F(x)$ to $y = F(x) + x$. The output is now whatever the
+          block computes <em>plus</em> a copy of the input the block
+          could ignore. That tiny change made it possible to train
+          ResNet-152, ImageNet-class accuracy at 3× the depth of every
+          prior architecture, and started the modern deep-learning
+          rocket.
+        </p>
+        <div class="callout callout--key">
+          <strong>The slogan.</strong>
+          A residual block doesn't have to learn the right output. It
+          only has to learn the <em>residual</em> &mdash; the small
+          correction on top of the input. If a layer has nothing to add
+          it can output zeros, and the input passes through untouched.
+        </div>
+      </section>
+
+      <!-- ─── Step 1 ─── -->
+      <section class="step-section" id="step-1">
+        <div class="step-badge">Step 1</div>
+        <h2>Watch activations die without skips</h2>
+        <p>
+          Below: a tiny feed-forward stack at depth $L$. Each layer is
+          $h_{l+1} = \tanh(W_l h_l + b_l)$, randomly initialised. The
+          plain version is just that recursion. The residual version
+          replaces it with $h_{l+1} = h_l + \tanh(W_l h_l + b_l)$.
+          Slide $L$ and watch the activation magnitude at each depth.
+        </p>
+        <div class="control-row" style="grid-template-columns: 1fr 1fr;">
+          <div class="control-block">
+            <label>depth L &nbsp;<span id="act-L-val">32</span> <input type="range" id="act-L" min="2" max="100" step="2" value="32"></label>
+          </div>
+          <div class="control-block">
+            <label>init scale &nbsp;<span id="act-scale-val">0.6</span> <input type="range" id="act-scale" min="0.05" max="1.5" step="0.05" value="0.6"></label>
+          </div>
+        </div>
+        <div class="resnet-figure">
+          <canvas id="act-canvas" width="880" height="320"></canvas>
+          <figcaption>
+            Activation L₂-norm per layer. Solid teal: residual stack.
+            Dashed orange: plain stack. The plain trace decays to zero
+            (or blows up); the residual stack stays bounded.
+          </figcaption>
+        </div>
+      </section>
+
+      <!-- ─── Step 2 ─── -->
+      <section class="step-section" id="step-2">
+        <div class="step-badge">Step 2</div>
+        <h2>Gradient flow — the same story, backwards</h2>
+        <p>
+          Backpropagation computes
+          $\frac{\partial \mathcal{L}}{\partial h_l}$ as a chain of
+          matrix products. In a plain net every link in the chain is
+          some Jacobian close to a non-identity matrix; their product
+          collapses fast. In a residual net the Jacobian is
+          $I + \frac{\partial F}{\partial h_l}$ &mdash; identity plus
+          something small. Identity preserves; "plus something small"
+          adds gradient signal layer by layer instead of multiplying it
+          away.
+        </p>
+        <div class="math-block" id="math-jacobian"></div>
+        <p>
+          Below: gradient norm at each depth, traced from the loss back
+          to layer 0. The residual line is roughly flat. The plain
+          line falls off geometrically.
+        </p>
+        <div class="resnet-figure">
+          <canvas id="grad-canvas" width="880" height="320"></canvas>
+          <figcaption>‖∂ℒ/∂h_l‖ vs depth l, on a log scale.</figcaption>
+        </div>
+      </section>
+
+      <!-- ─── Step 3 ─── -->
+      <section class="step-section" id="step-3">
+        <div class="step-badge">Step 3</div>
+        <h2>Train both, side by side</h2>
+        <p>
+          Same dataset, same depth, same optimiser. Press <em>Start
+          training</em> below; one canvas trains the plain net, the
+          other trains the residual net. The plain version visibly
+          stalls at $L \ge 16$; the residual version trains cleanly to
+          much greater depth.
+        </p>
+        <div class="control-row" style="grid-template-columns: 1fr 1fr;">
+          <div class="control-block">
+            <label>depth L &nbsp;<span id="train-L-val">12</span> <input type="range" id="train-L" min="2" max="64" step="2" value="12"></label>
+          </div>
+          <div class="control-block">
+            <label>learning rate &nbsp;<span id="train-lr-val">0.05</span> <input type="range" id="train-lr" min="0.005" max="0.3" step="0.005" value="0.05"></label>
+          </div>
+        </div>
+        <div class="train-controls">
+          <button class="action-btn" id="train-toggle">Start training</button>
+          <button class="action-btn action-btn--ghost" id="train-reset">Reset both</button>
+          <span class="train-stat">step <strong id="train-step">0</strong></span>
+          <span class="train-stat">plain loss <strong id="plain-loss">—</strong></span>
+          <span class="train-stat">residual loss <strong id="resid-loss">—</strong></span>
+        </div>
+        <div class="resnet-figure">
+          <canvas id="loss-canvas" width="880" height="280"></canvas>
+          <figcaption>Training loss for the two architectures, same data, same lr. Crank L up to 64 and watch the gap blow open.</figcaption>
+        </div>
+      </section>
+
+      <!-- ─── Step 4 ─── -->
+      <section class="step-section" id="step-4">
+        <div class="step-badge">Step 4</div>
+        <h2>The loss surface, visualised</h2>
+        <p>
+          Li et al. (2018) showed that residual connections smooth the
+          loss landscape. We render a 2-D slice: pick two random
+          directions in parameter space, evaluate the loss on a grid,
+          and contour. The plain landscape is ridged and full of bad
+          minima; the residual landscape is a single shallow bowl.
+        </p>
+        <div class="resnet-figure-grid">
+          <div class="resnet-panel">
+            <div class="panel-label">Plain net (L = 24)</div>
+            <canvas id="surface-plain" width="380" height="320"></canvas>
+          </div>
+          <div class="resnet-panel">
+            <div class="panel-label">Residual net (L = 24)</div>
+            <canvas id="surface-resid" width="380" height="320"></canvas>
+          </div>
+        </div>
+        <p style="font-family: var(--sans); color: var(--muted); font-size: 0.95rem; max-width: 68ch;">
+          Lighter regions are lower loss. Notice the plain surface has
+          multiple basins separated by ridges; the residual surface has
+          a single broad basin around the origin. Same model class, one
+          line of code different.
+        </p>
+      </section>
+
+      <!-- ─── Step 5 ─── -->
+      <section class="step-section" id="step-5">
+        <div class="step-badge">Step 5</div>
+        <h2>Iterative refinement — what each block does</h2>
+        <p>
+          A useful mental model (Greff et al., Jastrzębski et al.,
+          Veit et al.): each residual block makes a small correction
+          to a running representation. The "residual stream" carries
+          the input forward unchanged; blocks are read-write
+          peripherals that nudge it.
+        </p>
+        <div class="math-block" id="math-stream"></div>
+        <p>
+          That's also exactly the picture of a Transformer's residual
+          stream &mdash; attention and MLP blocks read the stream,
+          add their contributions, and pass it on. Mechanistic
+          interpretability work (Elhage et al., 2021) treats the
+          stream as a literal communication channel between layers.
+        </p>
+        <div class="callout callout--think">
+          <strong>What the model can do that a plain stack cannot.</strong>
+          A residual stack can <em>choose</em> its own depth: any
+          unnecessary block just outputs $\approx 0$ and the input
+          passes through. A plain stack has to use every layer
+          fully &mdash; and the optimiser has to learn an identity
+          subnetwork from scratch to do so.
+        </div>
+      </section>
+
+      <!-- ─── Step 6 ─── -->
+      <section class="step-section" id="step-6">
+        <div class="step-badge">Step 6</div>
+        <h2>The variants and their lessons</h2>
+        <ul class="explanation-list">
+          <li><strong>ResNet-v1.</strong> $y = \mathrm{ReLU}(F(x) + x)$.
+            Original, still strong on ImageNet.</li>
+          <li><strong>Pre-activation ResNet.</strong>
+            $y = F(x) + x$ with the BN→ReLU <em>before</em> the conv.
+            Cleaner gradient flow; preferred for very deep stacks
+            (1000+ layers).</li>
+          <li><strong>DenseNet.</strong> Concatenate every previous
+            output instead of summing. More parameter-efficient,
+            slightly slower on hardware due to memory.</li>
+          <li><strong>Highway / gated residuals.</strong>
+            $y = T(x) \odot F(x) + (1 - T(x)) \odot x$ with a learned
+            gate $T$. ResNet is the special case $T = 1$. Recovers a
+            similar idea in LSTMs.</li>
+          <li><strong>Transformer residuals.</strong> Every attention
+            and MLP block reads-and-writes a residual stream. The
+            mathematical justification is identical to ResNet's.</li>
+        </ul>
+        <div class="callout callout--think">
+          <strong>Final takeaway.</strong>
+          One line of code &mdash; "and add the input back" &mdash; was
+          the deep-learning equivalent of the printing press. Without
+          residuals, no ResNet-152, no BERT, no GPT-anything. Every
+          time you stack more than ~10 layers and it just works,
+          you're using this trick.
+        </div>
+      </section>
+    </article>
+
+    <script src="../vendor/katex/katex.min.js"></script>
+    <script type="module" src="main.js"></script>
+  </body>
+</html>

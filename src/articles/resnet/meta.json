@@ -1,0 +1,19 @@
+{
+  "slug": "resnet",
+  "title": "Residual Connections, Why They Work",
+  "date": "2026-05-09",
+  "tagline": "Watch a 50-layer net die without skips, then heal in one click",
+  "summary": "Train tiny nets at L = 4, 16, 64 layers with the residual switch on or off. Watch activations explode or vanish with depth, watch the loss surface go from rugged to smooth, and see why a one-line architectural trick made networks 100× deeper without breaking. Then visit the residual stream view that makes Transformers tick.",
+  "readingTime": "20 min",
+  "difficulty": "Intermediate",
+  "collection": "Deep learning",
+  "order": 9,
+  "status": "published",
+  "tags": ["ResNet", "Residual Connections", "Skip Connections", "Optimization", "Interactive"],
+  "highlights": [
+    "Train identical L-layer nets in your browser with skip connections on vs off; watch the L=64 plain net stall while the residual one keeps going.",
+    "Live activation magnitudes per layer — see them collapse exponentially without skips and stabilise with them.",
+    "Loss-surface 2-D slice with vs without residuals: rugged plain landscape vs smooth residual landscape (Li et al., 2018, in interactive form).",
+    "Residual stream view connecting ResNet to Transformer encoders."
+  ]
+}
