@@ -1,0 +1,19 @@
+{
+  "slug": "conformal",
+  "title": "Conformal Prediction, by Hand",
+  "date": "2026-05-09",
+  "tagline": "Prediction intervals with a coverage guarantee — assumption-free, and one quantile away",
+  "summary": "Pick any model. Hold out a calibration set. Compute the residuals. Take their (1−α) quantile. The resulting interval contains the truth with probability at least (1−α) — distribution-free, model-free. Live regression and classification demos confirm the coverage on synthetic data, then we walk through adaptive (CQR) and time-series-friendly (ACI) variants.",
+  "readingTime": "18 min",
+  "difficulty": "Intermediate",
+  "collection": "Probability & inference",
+  "order": 18,
+  "status": "published",
+  "tags": ["Conformal Prediction", "Uncertainty Quantification", "Calibration", "Coverage", "Interactive"],
+  "highlights": [
+    "Live split-conformal regression on a synthetic 1-D dataset; toggle the calibration size and target coverage.",
+    "Coverage diagnostic: empirical-coverage bar that should hover at 1−α regardless of the underlying model.",
+    "CQR (conformalised quantile regression) — adaptive widths with the same coverage guarantee.",
+    "Time-series ACI (adaptive conformal inference) for non-exchangeable data."
+  ]
+}

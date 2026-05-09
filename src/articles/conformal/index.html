@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Conformal Prediction, by Hand</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../vendor/katex/katex.min.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <article class="article">
+      <header class="article-header">
+        <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+        <p class="kicker">Interactive Explainer</p>
+        <h1>Conformal Prediction, by Hand</h1>
+        <p class="abstract">
+          Pick any model. Hold out a calibration set. Compute the
+          residuals. Take their (1−α) quantile. The resulting
+          interval contains the truth with probability at least
+          (1−α). Distribution-free, model-free. Live regression
+          demo confirms coverage; CQR and ACI variants extend it
+          to heteroscedastic and non-exchangeable data.
+        </p>
+        <div class="byline">
+          <span>~18 min</span>
+          <span>Probability &middot; UQ &middot; Calibration</span>
+        </div>
+      </header>
+
+      <section class="step-section" id="prelude">
+        <div class="step-badge">Prelude</div>
+        <h2>The promise</h2>
+        <p>
+          Most uncertainty methods give you "a number that looks like
+          uncertainty" without any guarantee that it actually is.
+          Conformal prediction gives a finite-sample, distribution-free,
+          model-free <em>coverage guarantee</em>: the interval
+          contains the true value with probability at least
+          $1 - \alpha$ on exchangeable data. Pick $\alpha = 0.1$, get
+          90% intervals.
+        </p>
+        <div class="callout callout--key">
+          <strong>The slogan.</strong>
+          Trust your point predictor with whatever loss / training
+          recipe / hyperparameters you already use. Just hold out a
+          calibration set, take a quantile of residuals, and the
+          guarantee is yours. No retraining. No new model.
+        </div>
+      </section>
+
+      <section class="step-section" id="step-1">
+        <div class="step-badge">Step 1</div>
+        <h2>Split conformal regression</h2>
+        <p>
+          The simplest variant. Three sets: training, calibration,
+          test. Train your favourite model $\hat f$ on training. On
+          calibration, compute nonconformity scores
+          $s_i = |y_i - \hat f(x_i)|$. Sort them. Take the
+          $\lceil (1-\alpha)(n+1) \rceil / n$-th largest as $\hat q$.
+          For any new $x$, the interval is
+          $[\hat f(x) - \hat q,\, \hat f(x) + \hat q]$.
+        </p>
+        <div class="math-block" id="math-conf"></div>
+        <p>
+          Theorem (Vovk, Gammerman, Shafer; 2005): if calibration and
+          test data are exchangeable, this interval has marginal
+          coverage at least $1 - \alpha$. No model assumptions; no
+          distributional assumptions on $y$; nothing but a quantile.
+        </p>
+      </section>
+
+      <section class="step-section" id="step-2">
+        <div class="step-badge">Step 2</div>
+        <h2>See it work</h2>
+        <p>
+          Heteroscedastic 1-D regression: noise grows with $|x|$. We
+          fit a polynomial regressor on the training set, conformalise
+          on a calibration set, and report empirical coverage on a
+          large test set. Slide $\alpha$ and the calibration size and
+          watch the coverage bar track the target.
+        </p>
+        <div class="train-controls">
+          <button class="action-btn action-btn--ghost" id="cf-resample">Resample data</button>
+          <label>α (miscoverage) &nbsp;<span id="cf-alpha-val">0.10</span> <input type="range" id="cf-alpha" min="0.01" max="0.5" step="0.01" value="0.10"></label>
+          <label>calibration size &nbsp;<span id="cf-n-val">100</span> <input type="range" id="cf-n" min="20" max="400" step="10" value="100"></label>
+          <label>variant
+            <select id="cf-variant">
+              <option value="split" selected>Split conformal (constant width)</option>
+              <option value="cqr">CQR (adaptive width)</option>
+            </select>
+          </label>
+          <span class="train-stat">target coverage <strong id="cf-target">90.0%</strong></span>
+          <span class="train-stat">empirical coverage <strong id="cf-emp">—</strong></span>
+        </div>
+        <div class="cf-figure">
+          <canvas id="cf-canvas" width="880" height="380"></canvas>
+          <figcaption>Black points: data. Solid blue: predictor. Teal band: conformal interval. Red dots: test points outside the band (should be α fraction).</figcaption>
+        </div>
+        <div class="cf-figure">
+          <canvas id="cov-canvas" width="880" height="120"></canvas>
+          <figcaption>Empirical coverage across resamples (target dashed). Coverage should track 1−α with no model assumptions.</figcaption>
+        </div>
+      </section>
+
+      <section class="step-section" id="step-3">
+        <div class="step-badge">Step 3</div>
+        <h2>CQR — adaptive widths</h2>
+        <p>
+          Split conformal gives a constant-width interval everywhere
+          &mdash; wasteful when noise is heteroscedastic. The fix:
+          fit two quantile regressors $\hat q_{\alpha/2}, \hat
+          q_{1-\alpha/2}$ on training; let
+          $s_i = \max\{\hat q_{\alpha/2}(x_i) - y_i,\, y_i - \hat
+          q_{1-\alpha/2}(x_i)\}$ be the calibration score. Take the
+          $(1-\alpha)$ quantile $\hat q$. Interval at $x$ is
+          $[\hat q_{\alpha/2}(x) - \hat q,\, \hat q_{1-\alpha/2}(x)
+          + \hat q]$.
+        </p>
+        <p>
+          Coverage guarantee unchanged. Width adapts to local noise.
+          Toggle <em>CQR</em> in the demo above to see the band
+          breathe with the data.
+        </p>
+      </section>
+
+      <section class="step-section" id="step-4">
+        <div class="step-badge">Step 4</div>
+        <h2>Time series + non-exchangeable data</h2>
+        <p>
+          The exchangeability assumption is broken in time series:
+          today's distribution depends on yesterday. Two practical
+          fixes:
+        </p>
+        <ul class="explanation-list">
+          <li><strong>Adaptive Conformal Inference (ACI;
+            Gibbs &amp; Candès, 2021).</strong> Maintain a running
+            $\alpha_t$ that adjusts based on recent miscoverage:
+            $\alpha_{t+1} = \alpha_t + \gamma\,(\alpha - \mathbb{1}\{y_t
+            \notin C_t\})$. The interval width breathes with the
+            drift.</li>
+          <li><strong>EnbPI / weighted conformal.</strong> Replace the
+            uniform empirical CDF over residuals with a weighted one
+            that decays older points. Trades some marginal coverage
+            for adaptivity.</li>
+        </ul>
+        <p>
+          Even outside time series, conformal can lose coverage when
+          covariate-shift hits at deployment. Mondrian / class-conditional
+          conformal partitions the calibration set by feature so the
+          guarantee holds per group.
+        </p>
+      </section>
+
+      <section class="step-section" id="step-5">
+        <div class="step-badge">Step 5</div>
+        <h2>Where this lives in your lab</h2>
+        <ul class="explanation-list">
+          <li><strong>Deployed sensor models.</strong> Wrap any
+            existing predictor with split-conformal: 200 calibration
+            points, one quantile, you ship a 90% interval.</li>
+          <li><strong>Air-quality forecasting (AirDelhi,
+            VayuChat).</strong> Conformal-on-PatchTST gives interval
+            forecasts at any horizon with a coverage guarantee &mdash;
+            a much stronger claim than "we used a Bayesian neural
+            network".</li>
+          <li><strong>Thermal regression (JoulesEye, ApneaEye).</strong>
+            Heart-rate / respiration estimates with calibrated
+            intervals make safety claims realistic.</li>
+          <li><strong>Energy disaggregation.</strong> Conformal
+            intervals on appliance-level estimates give clear "we
+            are confident this is a fridge" signals to downstream
+            decision systems.</li>
+          <li><strong>Multi-class classification.</strong> APS / RAPS
+            variants produce conformal <em>sets</em> (subsets of
+            class labels), with the same coverage guarantee.</li>
+        </ul>
+        <div class="callout callout--think">
+          <strong>Final takeaway.</strong>
+          Conformal prediction is the cheapest way to add a
+          guaranteed coverage band to any model your lab ships. It
+          doesn't replace probabilistic methods (Bayesian, NPs, GPs),
+          but it's the right safety net to wrap around them &mdash;
+          and it costs almost nothing to add.
+        </div>
+      </section>
+    </article>
+
+    <script src="../vendor/katex/katex.min.js"></script>
+    <script type="module" src="main.js"></script>
+  </body>
+</html>
