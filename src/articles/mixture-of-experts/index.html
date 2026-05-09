@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mixture of Experts, Live</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../vendor/katex/katex.min.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <article class="article">
+      <header class="article-header">
+        <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+        <p class="kicker">Interactive Explainer</p>
+        <h1>Mixture of Experts, Live</h1>
+        <p class="abstract">
+          Four linear experts and a softmax gate, trained jointly in
+          your browser on a piecewise 2-D regression. Watch the gate
+          carve the input plane into four regions, the experts
+          specialise inside their regions, and the load-balancing
+          auxiliary loss wake up dead experts. Toggle soft mixture
+          vs top-1 hard routing.
+        </p>
+        <div class="byline">
+          <span>~18 min</span>
+          <span>Deep Learning &middot; Sparse Models &middot; Routing</span>
+        </div>
+      </header>
+
+      <section class="step-section" id="prelude">
+        <div class="step-badge">Prelude</div>
+        <h2>Why MoE</h2>
+        <p>
+          A single dense network has to learn one function for every
+          input. As models grow, more parameters means more compute on
+          every forward pass &mdash; the cost of capacity scales
+          linearly with capacity itself.
+        </p>
+        <p>
+          Mixture of Experts decouples them. You have $E$ expert
+          networks and a small <strong>gating network</strong>. For
+          each input, the gate picks one or two experts; only those
+          run. A model can have 8× the parameters of a dense
+          counterpart but cost roughly 1× the compute &mdash; provided
+          routing is sparse.
+        </p>
+        <div class="callout callout--key">
+          <strong>The slogan.</strong> MoE pays for parameters in
+          memory, not in flops. As of 2026 every frontier-scale model
+          (GPT-OSS, Mixtral, DeepSeek-V3, Llama-MoE) is some flavour
+          of MoE.
+        </div>
+      </section>
+
+      <section class="step-section" id="step-1">
+        <div class="step-badge">Step 1</div>
+        <h2>The model in one line</h2>
+        <div class="math-block" id="math-moe"></div>
+        <p>
+          Each expert $f_e$ is a function (we use linear:
+          $f_e(x) = w_e^\top x + b_e$). The gate $g(x) \in \Delta^E$
+          is a softmax over $E$ logits. The model output is a weighted
+          mixture; the gradient flows into both the experts (where
+          they were used) and the gate (which gets a signal pushing it
+          toward better routings).
+        </p>
+        <p>
+          Hard top-1 routing replaces the soft mixture with
+          $\hat e = \arg\max g_e(x)$ &mdash; only one expert runs
+          per input. We use a straight-through gradient so the gate
+          still learns.
+        </p>
+      </section>
+
+      <section class="step-section" id="step-2">
+        <div class="step-badge">Step 2</div>
+        <h2>Train it live</h2>
+        <p>
+          The toy task: a 2-D plane carved into four quadrants, each
+          with a different linear truth function. A single linear
+          model can't fit it; four linear experts plus a gate can.
+        </p>
+        <div class="train-controls">
+          <button class="action-btn" id="moe-toggle">Start training</button>
+          <button class="action-btn action-btn--ghost" id="moe-reset">Reinitialise</button>
+          <label>routing
+            <select id="moe-routing">
+              <option value="soft" selected>soft mixture</option>
+              <option value="top1">top-1 hard</option>
+            </select>
+          </label>
+          <label class="toggle-pair"><input type="checkbox" id="moe-balance" checked> load-balance loss</label>
+          <label>balance λ &nbsp;<span id="moe-lambda-val">0.10</span> <input type="range" id="moe-lambda" min="0" max="0.5" step="0.01" value="0.1"></label>
+          <span class="train-stat">step <strong id="moe-step">0</strong></span>
+          <span class="train-stat">MSE <strong id="moe-loss">—</strong></span>
+        </div>
+        <div class="moe-grid">
+          <div class="moe-panel">
+            <div class="panel-label">Gating regions (one colour per expert)</div>
+            <canvas id="moe-gate" width="380" height="380"></canvas>
+          </div>
+          <div class="moe-panel">
+            <div class="panel-label">Per-expert prediction error</div>
+            <canvas id="moe-error" width="380" height="380"></canvas>
+          </div>
+          <div class="moe-panel">
+            <div class="panel-label">Loss curve + expert utilisation</div>
+            <canvas id="moe-loss-canvas" width="380" height="380"></canvas>
+          </div>
+        </div>
+        <div class="callout callout--think">
+          <strong>What to watch for.</strong>
+          With <em>soft mixture</em> + no balance loss the gate
+          sometimes collapses onto a single expert (<em>dead expert</em>
+          problem). Turn on <strong>load-balance</strong> and the
+          balance term penalises uneven utilisation; the four-way
+          split usually appears within ~150 steps. Switch to
+          <em>top-1</em> for the Switch-Transformer-style routing &mdash;
+          Voronoi-like region boundaries appear instead of a smooth
+          softmax mixture.
+        </div>
+      </section>
+
+      <section class="step-section" id="step-3">
+        <div class="step-badge">Step 3</div>
+        <h2>The auxiliary load-balance loss</h2>
+        <p>
+          Without intervention the gate has every reason to collapse:
+          the easiest local minimum is "always pick expert 1". The
+          auxiliary loss pushes the gate toward uniform utilisation:
+        </p>
+        <div class="math-block" id="math-aux"></div>
+        <p>
+          $f_e$ is the fraction of tokens routed to expert $e$ and
+          $P_e$ is the average gate probability for expert $e$ over
+          the batch. The product is minimised when both are uniform
+          ($1/E$). The Switch Transformer paper introduced this exact
+          form and it's what every modern MoE uses.
+        </p>
+      </section>
+
+      <section class="step-section" id="step-4">
+        <div class="step-badge">Step 4</div>
+        <h2>What scales, what hurts, what production looks like</h2>
+        <ul class="explanation-list">
+          <li><strong>Switch Transformer (Fedus et al., 2021).</strong>
+            One expert per token (top-1). Demonstrated 4× speed-ups at
+            constant quality.</li>
+          <li><strong>Mixtral 8×7B (Mistral, 2023).</strong> Top-2
+            routing across 8 experts; only the experts of the top-2
+            gates run; effective parameter count ~47B with ~13B active
+            per token.</li>
+          <li><strong>DeepSeek-MoE (2024).</strong> Many small experts
+            (256+) with finer-grained routing. Auxiliary-loss-free
+            balancing via per-expert biases on the gate.</li>
+          <li><strong>Common pitfalls.</strong> Routing instability
+            during early training; experts collapse if the
+            auxiliary loss is too small or absent; ALL-to-ALL
+            communication dominates training time at large scale;
+            "expert capacity" overflow needs token dropping or
+            re-routing.</li>
+          <li><strong>What MoE does <em>not</em> save you.</strong>
+            Inference memory: every expert's weights still need to be
+            in GPU/TPU memory. MoE is FLOP-cheap, RAM-expensive.</li>
+        </ul>
+      </section>
+
+      <section class="step-section" id="step-5">
+        <div class="step-badge">Step 5</div>
+        <h2>Where MoE shows up beyond LLMs</h2>
+        <ul class="explanation-list">
+          <li><strong>Multi-task and multi-domain models.</strong>
+            One expert per task domain; the gate learns the routing.
+            Useful when your lab has multiple sensor modalities feeding
+            one shared backbone.</li>
+          <li><strong>Time-series SSL with MoE.</strong> Different
+            experts for different temporal patterns (HHAR vs sleep vs
+            PPG-DaLia). The gate becomes a soft regime classifier.
+            Direct fit for your group's M.Tech thesis direction.</li>
+          <li><strong>Multimodal models.</strong> Image vs text vs
+            audio expert blocks; gate routes per modality (often hard
+            top-1).</li>
+          <li><strong>Conditional computation in vision.</strong>
+            Different experts for different scales / regions in
+            satellite images. Plays nicely with your SentinelKilnDB
+            line of work.</li>
+        </ul>
+        <div class="callout callout--think">
+          <strong>Final takeaway.</strong>
+          MoE is the cheapest way to give a model more "knowledge" per
+          parameter. As long as routing is sparse and balancing is in
+          place, you get capacity without flops. Once you have it,
+          dense scaling looks wasteful.
+        </div>
+      </section>
+    </article>
+
+    <script src="../vendor/katex/katex.min.js"></script>
+    <script type="module" src="main.js"></script>
+  </body>
+</html>

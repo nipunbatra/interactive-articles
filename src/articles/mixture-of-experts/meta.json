@@ -1,0 +1,19 @@
+{
+  "slug": "mixture-of-experts",
+  "title": "Mixture of Experts, Live",
+  "date": "2026-05-09",
+  "tagline": "Why Mixtral and DeepSeek-MoE scale parameters without scaling compute",
+  "summary": "Train four linear experts and a softmax gate jointly on a piecewise 2D regression in your browser. Watch the gate carve the input plane into four regions, each expert specialise in its region, and the load-balancing auxiliary loss prevent dead experts. Toggle between soft mixture and top-1 routing.",
+  "readingTime": "18 min",
+  "difficulty": "Intermediate",
+  "collection": "Deep learning",
+  "order": 11,
+  "status": "published",
+  "tags": ["MoE", "Sparse Models", "Routing", "Mixtral", "Interactive"],
+  "highlights": [
+    "Live joint training of 4 experts + a gating network on a piecewise plane.",
+    "Toggle soft mixture vs top-1 hard routing — see how sparse experts specialise.",
+    "Add the load-balancing auxiliary loss with one click; watch dead experts wake up.",
+    "Plane visualisation of expert ownership regions with prediction error overlay."
+  ]
+}
