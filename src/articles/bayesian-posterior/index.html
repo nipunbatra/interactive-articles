@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>The Posterior, Built Up</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../vendor/katex/katex.min.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <article class="article">
+      <header class="article-header">
+        <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+        <p class="kicker">Interactive Explainer</p>
+        <h1>The Posterior, Built Up</h1>
+        <p class="abstract">
+          Drag a prior, click data points onto an axis, and watch the
+          posterior crystallize. Then go conjugate, separate posterior
+          predictive from a MAP plug-in, race grid evaluation against
+          Metropolis MCMC against variational inference on a non-conjugate
+          posterior, and finish with Bayesian linear regression whose
+          uncertainty band bows out exactly where data is missing &mdash;
+          every number computed live in pure JS.
+        </p>
+        <div class="byline">
+          <span>~25 min</span>
+          <span>Probability &middot; Bayesian Inference &middot; Uncertainty</span>
+        </div>
+      </header>
+
+      <!-- ─── Prelude ─── -->
+      <section class="step-section" id="prelude">
+        <div class="step-badge">Prelude</div>
+        <h2>From "the right answer" to a distribution over answers</h2>
+        <p>
+          Maximum likelihood gives you one number for an unknown parameter
+          $\theta$ &mdash; the value most consistent with the data. The
+          Bayesian alternative says: the data don't pick a single
+          $\theta$, they update your <em>belief</em> over all possible
+          values. That belief is a probability distribution; the recipe
+          for updating it is one line of math:
+        </p>
+        <div class="math-block" id="math-bayes"></div>
+        <p>
+          Three ingredients: the
+          <span class="prior-tag">prior $p(\theta)$</span> (what you
+          believed before), the
+          <span class="lik-tag">likelihood $p(\mathcal{D}\mid\theta)$</span>
+          (how the data depend on $\theta$), and the
+          <span class="post-tag">posterior $p(\theta \mid \mathcal{D})$</span>
+          (your updated belief). The denominator is just a normalising
+          constant that makes the posterior integrate to 1; we'll mostly
+          ignore it.
+        </p>
+        <p>
+          The whole rest of this article is one slogan rendered in nine
+          increasingly hard ways:
+        </p>
+        <div class="callout callout--key">
+          <strong>The slogan.</strong>
+          posterior $\propto$ prior $\times$ likelihood. That's
+          <em>everything</em>. All the hard machinery (MCMC, VI, GPs,
+          Bayesian deep learning) is just how we do that one product
+          when we can't write it down in closed form.
+        </div>
+      </section>
+
+      <!-- ─── Step 1 ─── -->
+      <section class="step-section" id="step-1">
+        <div class="step-badge">Step 1</div>
+        <h2>Prior × likelihood = posterior, by hand</h2>
+        <p>
+          Easiest setting: a single unknown mean $\theta$ of a Gaussian
+          with known variance $\sigma^2$. Conjugate prior is also
+          Gaussian. The posterior is closed-form:
+        </p>
+        <div class="math-block" id="math-gauss-gauss"></div>
+        <p>
+          Drag the prior with the slider below; click on the data axis to
+          add observations (or use the buttons). The three curves
+          recompute live: the
+          <span class="prior-tag">prior</span> in cool blue, the
+          <span class="lik-tag">likelihood</span> as a function of
+          $\theta$ in warm orange, and the
+          <span class="post-tag">posterior</span> in deep teal. The
+          posterior is the prior squeezed by the likelihood &mdash;
+          literally the pointwise product, normalised.
+        </p>
+
+        <div class="control-row">
+          <div class="control-block">
+            <label>prior mean &nbsp;<span id="g1-mu0-val">0.0</span> <input type="range" id="g1-mu0" min="-3" max="3" step="0.1" value="0"></label>
+          </div>
+          <div class="control-block">
+            <label>prior std &nbsp;<span id="g1-s0-val">1.0</span> <input type="range" id="g1-s0" min="0.2" max="3" step="0.1" value="1"></label>
+          </div>
+          <div class="control-block">
+            <label>obs std σ &nbsp;<span id="g1-sig-val">1.0</span> <input type="range" id="g1-sig" min="0.2" max="2" step="0.1" value="1"></label>
+          </div>
+        </div>
+
+        <div class="bayes-figure">
+          <canvas id="g1-canvas" width="880" height="380"></canvas>
+          <figcaption>Click the axis to add a data point. Data points show up as ticks on the bottom rule.</figcaption>
+        </div>
+
+        <div class="train-controls">
+          <button class="action-btn" id="g1-add">Add 1 random sample (true θ = 1.5)</button>
+          <button class="action-btn action-btn--ghost" id="g1-add5">+5 samples</button>
+          <button class="action-btn action-btn--ghost" id="g1-clear">Clear data</button>
+          <span class="train-stat">n = <strong id="g1-n">0</strong></span>
+          <span class="train-stat">posterior &nbsp;μ̂ = <strong id="g1-postmu">—</strong>, σ̂ = <strong id="g1-posts">—</strong></span>
+        </div>
+
+        <div class="callout">
+          <strong>Read the curves.</strong>
+          With no data the posterior <em>is</em> the prior. Add one
+          sample; the posterior starts shifting toward it. As you keep
+          adding, the posterior tightens around the data mean and the
+          prior loses influence. That's it &mdash; the entire Bayesian
+          ritual.
+        </div>
+      </section>
+
+      <!-- ─── Step 2 ─── -->
+      <section class="step-section" id="step-2">
+        <div class="step-badge">Step 2</div>
+        <h2>How fast does data sharpen the posterior?</h2>
+        <p>
+          The posterior precision (inverse variance) is the
+          <em>sum</em> of the prior precision and the data precision:
+        </p>
+        <div class="math-block" id="math-precision"></div>
+        <p>
+          Two clean consequences. First, posterior variance falls like
+          $1/n$ &mdash; classical "data sharpens beliefs" but with a
+          principled rate. Second, the prior contributes a fixed amount
+          of pseudo-data: a tight prior with $\sigma_0 = 0.1$ is "worth"
+          $\sigma^2 / \sigma_0^2 = 100$ data points for $\sigma=1$.
+        </p>
+        <div class="bayes-figure">
+          <canvas id="g2-canvas" width="880" height="320"></canvas>
+          <figcaption>Posterior std vs sample size for three prior strengths. Theory line is $\sigma_n = (\tau_0 + n/\sigma^2)^{-1/2}$.</figcaption>
+        </div>
+        <p style="font-family: var(--sans); color: var(--muted); font-size: 0.95rem; max-width: 68ch;">
+          The horizontal asymptote at $1/\sigma_0$ goes away as $n$
+          grows; eventually the data precision dominates whatever prior
+          you brought.
+        </p>
+      </section>
+
+      <!-- ─── Step 3 ─── -->
+      <section class="step-section" id="step-3">
+        <div class="step-badge">Step 3</div>
+        <h2>The conjugate coin (Beta-Binomial)</h2>
+        <p>
+          Bernoulli observations, parameter $\theta = $ probability of
+          heads, prior $\theta \sim \mathrm{Beta}(\alpha, \beta)$. After
+          $k$ heads in $n$ flips:
+        </p>
+        <div class="math-block" id="math-beta"></div>
+        <p>
+          Conjugacy means "the posterior stays in the same family"
+          &mdash; here Beta. Update is just adding counts to the
+          parameters. Click the buttons below to flip a real coin and
+          watch the Beta posterior reshape live.
+        </p>
+
+        <div class="control-row" style="grid-template-columns: 1fr 1fr;">
+          <div class="control-block">
+            <label>prior α &nbsp;<span id="bb-a-val">1.0</span> <input type="range" id="bb-a" min="0.5" max="20" step="0.5" value="1"></label>
+          </div>
+          <div class="control-block">
+            <label>prior β &nbsp;<span id="bb-b-val">1.0</span> <input type="range" id="bb-b" min="0.5" max="20" step="0.5" value="1"></label>
+          </div>
+        </div>
+
+        <div class="bayes-figure">
+          <canvas id="bb-canvas" width="880" height="320"></canvas>
+          <figcaption>Beta(α, β) prior in blue, Beta(α+k, β+n−k) posterior in teal. Coin's true bias = 0.65 (drawn for the random buttons).</figcaption>
+        </div>
+
+        <div class="train-controls">
+          <button class="action-btn" id="bb-h">+1 head</button>
+          <button class="action-btn action-btn--ghost" id="bb-t">+1 tail</button>
+          <button class="action-btn action-btn--ghost" id="bb-flip10">Flip 10 fair coins</button>
+          <button class="action-btn action-btn--ghost" id="bb-flip-bias">Flip 10 (bias 0.8)</button>
+          <button class="action-btn action-btn--ghost" id="bb-clear">Clear flips</button>
+          <span class="train-stat">k / n = <strong id="bb-kn">0/0</strong></span>
+          <span class="train-stat">posterior mean = <strong id="bb-mean">—</strong>, 95% CI = <strong id="bb-ci">—</strong></span>
+        </div>
+
+        <div class="callout callout--think">
+          <strong>Why Beta(1, 1) is uniform.</strong> Setting $\alpha = \beta = 1$
+          gives the flat prior on [0,1]: every coin bias is a priori
+          equally likely. With this prior the posterior mean after
+          $k$ heads in $n$ flips is $(k+1)/(n+2)$ &mdash; Laplace's
+          rule of succession. <em>That</em> is what your stats teacher
+          mumbled about why we add 1 to the numerator and 2 to the
+          denominator in small-sample probabilities.
+        </div>
+      </section>
+
+      <!-- ─── Step 4 ─── -->
+      <section class="step-section" id="step-4">
+        <div class="step-badge">Step 4</div>
+        <h2>Posterior predictive ≠ plug-in MAP</h2>
+        <p>
+          The posterior is the right object for the parameter. But
+          downstream we usually care about predicting <em>new
+          data</em>. There are two ways to do that:
+        </p>
+        <ul class="explanation-list">
+          <li><strong>Plug-in MAP / MLE.</strong> Pick one $\theta$
+            (the maximum) and predict $p(x_{\text{new}}\mid\hat\theta)$.</li>
+          <li><strong>Posterior predictive.</strong> Average over every
+            $\theta$ weighted by the posterior:
+            $\;p(x_{\text{new}}\mid\mathcal{D}) = \int p(x_{\text{new}}\mid\theta)\,p(\theta\mid\mathcal{D})\,d\theta$.</li>
+        </ul>
+        <p>
+          Plug-in is faster but lies about uncertainty. The posterior
+          predictive is wider whenever you don't yet know $\theta$
+          precisely &mdash; precisely the regime where calibration
+          matters most. Watch the gap shrink as $n$ grows.
+        </p>
+        <div class="bayes-figure">
+          <canvas id="pp-canvas" width="880" height="360"></canvas>
+          <figcaption>For the same Gaussian-Gaussian setup as Step 1 with a fresh sample drawn from the predictive distributions: dashed = plug-in MAP, solid = full posterior predictive.</figcaption>
+        </div>
+        <div class="control-row" style="grid-template-columns: 1fr 1fr;">
+          <div class="control-block">
+            <label>n samples &nbsp;<span id="pp-n-val">3</span> <input type="range" id="pp-n" min="1" max="50" step="1" value="3"></label>
+          </div>
+          <div class="control-block">
+            <label>obs std σ &nbsp;<span id="pp-sig-val">1.0</span> <input type="range" id="pp-sig" min="0.2" max="2" step="0.1" value="1"></label>
+          </div>
+        </div>
+        <div class="callout callout--warn">
+          <strong>What this costs you in practice.</strong>
+          A neural net that outputs softmax over classes is a plug-in:
+          it pretends the weights are fixed. When the weights are still
+          uncertain (i.e., always, on real data), the predictive
+          distribution should be wider. That gap shows up as an
+          overconfident, miscalibrated model &mdash; the bug Bayesian
+          deep learning is trying to fix.
+        </div>
+      </section>
+
+      <!-- ─── Step 5 ─── -->
+      <section class="step-section" id="step-5">
+        <div class="step-badge">Step 5</div>
+        <h2>What if the posterior isn't a nice family?</h2>
+        <p>
+          Conjugate priors give us closed-form posteriors. Real
+          posteriors &mdash; from a neural net, a hierarchical model,
+          a non-Gaussian likelihood &mdash; usually aren't conjugate.
+          Three families of algorithms cover all of practice:
+        </p>
+        <ul class="explanation-list">
+          <li><strong>Grid evaluation.</strong> Compute the unnormalised
+            posterior on a grid; normalise. Exact, dies above ~3 dimensions.</li>
+          <li><strong>MCMC (we use Metropolis-Hastings).</strong> Random
+            walk on $\theta$ that converges in distribution to the
+            posterior. Exact in the limit, finite-sample-noisy.</li>
+          <li><strong>Variational inference (VI).</strong> Pick a tractable
+            family (we use a Gaussian) and fit it by minimising the
+            KL divergence to the true posterior. Fast but biased
+            &mdash; especially for multimodal targets.</li>
+        </ul>
+        <p>
+          Below: a deliberately cooked, bimodal, non-conjugate posterior.
+          Grid runs once. The MCMC chain walks live; you can watch
+          samples slowly fill out both modes (or get stuck in one).
+          The VI fit is a single Gaussian dropped on top &mdash; almost
+          always centered on one mode and miscalling the other.
+        </p>
+        <div class="bayes-figure">
+          <canvas id="nc-canvas" width="880" height="360"></canvas>
+          <figcaption>Solid = true (grid) posterior. Histogram bars = MCMC samples. Dashed orange = best-fit Gaussian (VI).</figcaption>
+        </div>
+        <div class="train-controls">
+          <button class="action-btn" id="nc-toggle">Run MCMC</button>
+          <button class="action-btn action-btn--ghost" id="nc-reset">Reset chain</button>
+          <label>step size &nbsp;<span id="nc-stepsize-val">0.30</span> <input type="range" id="nc-stepsize" min="0.05" max="2" step="0.05" value="0.3"></label>
+          <span class="train-stat">samples = <strong id="nc-n">0</strong></span>
+          <span class="train-stat">accept rate = <strong id="nc-rate">—</strong></span>
+        </div>
+        <div class="callout">
+          <strong>Reading the picture.</strong>
+          Grid is exact but exhaustive. MCMC histogram converges to
+          grid but takes <em>many</em> samples (and the right step
+          size: too small → no movement, too large → all rejections).
+          VI is fast and pleasing-looking but quietly wrong wherever
+          your true posterior isn't unimodal-Gaussian. This is the
+          single most consequential uncertainty in modern Bayesian
+          deep learning.
+        </div>
+      </section>
+
+      <!-- ─── Step 6 ─── -->
+      <section class="step-section" id="step-6">
+        <div class="step-badge">Step 6</div>
+        <h2>Bayesian linear regression — uncertainty that bows out</h2>
+        <p>
+          One last conjugate model with a famous picture. Linear
+          regression with Gaussian prior on the weights and Gaussian
+          observation noise has a Gaussian posterior over weights, and
+          a Gaussian posterior predictive at every input $x$:
+        </p>
+        <div class="math-block" id="math-blr"></div>
+        <p>
+          Click anywhere to add a data point. The fit line and its
+          uncertainty band recompute live. Notice the band: thin where
+          you have data, fat where you don't. <em>That</em> is what
+          honest uncertainty looks like, and it is exactly what Gaussian
+          processes generalise.
+        </p>
+        <div class="bayes-figure">
+          <canvas id="blr-canvas" width="880" height="380"></canvas>
+          <figcaption>Click to add a data point; right-click (or shift-click) to remove. Solid blue: posterior mean. Shaded teal band: ±2 posterior-predictive σ.</figcaption>
+        </div>
+        <div class="control-row" style="grid-template-columns: 1fr 1fr;">
+          <div class="control-block">
+            <label>prior weight std &nbsp;<span id="blr-priorw-val">1.0</span> <input type="range" id="blr-priorw" min="0.1" max="3" step="0.1" value="1"></label>
+          </div>
+          <div class="control-block">
+            <label>obs noise σ &nbsp;<span id="blr-noise-val">0.4</span> <input type="range" id="blr-noise" min="0.1" max="1.5" step="0.05" value="0.4"></label>
+          </div>
+        </div>
+        <div class="train-controls">
+          <button class="action-btn action-btn--ghost" id="blr-clear">Clear points</button>
+          <button class="action-btn action-btn--ghost" id="blr-seed">Seed sine demo</button>
+          <span class="train-stat">n = <strong id="blr-n">0</strong></span>
+        </div>
+        <div class="callout callout--key">
+          <strong>The big takeaway.</strong>
+          The uncertainty band tells you where the model is allowed to
+          be wrong. A model that hands you a point estimate where you
+          have no data is lying about what it knows. Bayesian inference
+          gives you the right answer to "how unsure am I?" for free,
+          as a side effect of doing the math correctly.
+        </div>
+      </section>
+
+      <!-- ─── Step 7 ─── -->
+      <section class="step-section" id="step-7">
+        <div class="step-badge">Step 7</div>
+        <h2>Five things people get wrong</h2>
+        <div class="misconception-grid">
+          <div class="misconception-card">
+            <span class="misconception-icon">Myth</span>
+            <p><strong>"Bayesian = subjective, frequentist = objective."</strong><br />
+              Both pick assumptions: frequentists pick a sampling
+              model and a procedure (significance level, estimator);
+              Bayesians pick a sampling model and a prior. Bayes makes
+              the assumption explicit, which is the actual difference.</p>
+          </div>
+          <div class="misconception-card">
+            <span class="misconception-icon">Myth</span>
+            <p><strong>"With enough data the prior doesn't matter."</strong><br />
+              True for low-dimensional, well-identified parameters
+              (Step 2 made this concrete). False in high-dimensional
+              models, hierarchical models, or any setting where the
+              likelihood is flat in some directions &mdash; which is
+              most of modern deep learning.</p>
+          </div>
+          <div class="misconception-card">
+            <span class="misconception-icon">Myth</span>
+            <p><strong>"MCMC always converges to the truth."</strong><br />
+              In the infinite-sample limit, yes. With finite chains and
+              poor proposals (Step 5), MCMC spends a long time in a
+              single mode, returns a confidently wrong histogram, and
+              tells you it converged. Always run multiple chains.</p>
+          </div>
+          <div class="misconception-card">
+            <span class="misconception-icon">Myth</span>
+            <p><strong>"VI is just a faster MCMC."</strong><br />
+              VI is fundamentally biased: it returns the closest member
+              of your variational family, even if no member of the
+              family looks like the truth. On multimodal posteriors a
+              Gaussian VI fit can put zero mass on the second mode
+              while still claiming to have "converged".</p>
+          </div>
+          <div class="misconception-card">
+            <span class="misconception-icon">Myth</span>
+            <p><strong>"A Bayesian neural network is just one trained with a prior."</strong><br />
+              The prior is the easy part. The hard part is getting a
+              calibrated <em>posterior</em> over a 100M-dimensional
+              parameter space, which neither MCMC nor VI does honestly
+              today. SGLD, Laplace, deep ensembles, and SWAG are
+              practical compromises &mdash; none of them is "the
+              Bayesian answer".</p>
+          </div>
+          <div class="misconception-card">
+            <span class="misconception-icon">Myth</span>
+            <p><strong>"Bayesian inference is overkill if you only want a point estimate."</strong><br />
+              The posterior <em>mean</em> minimises mean-squared error
+              for any loss; the MAP minimises 0–1 loss. They're often
+              different, and pretending the MAP is the right summary
+              has cost more papers than overfitting has.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── Step 8 ─── -->
+      <section class="step-section" id="step-8">
+        <div class="step-badge">Step 8</div>
+        <h2>Where this lives in your research</h2>
+        <p>
+          Three places the Bayesian frame buys you something concrete
+          rather than aesthetic:
+        </p>
+        <ul class="explanation-list">
+          <li><strong>Calibrated uncertainty in deployed models.</strong>
+            A sensor model that says "I don't know" off-distribution is
+            safer than one that says "0.97" everywhere. Reliability
+            diagrams + temperature scaling + deep ensembles get you
+            most of the way; full Bayesian deep learning is the
+            principled limit.</li>
+          <li><strong>Hierarchical models for sparse, structured data.</strong>
+            Patients, sites, sensors, languages, individuals &mdash;
+            anywhere you have many groups with few observations each,
+            partial pooling beats both "one model per group" and
+            "one model for all" by a lot. This is the Bayesian
+            superpower for sustainability data with regional structure.</li>
+          <li><strong>Inverse problems and physics-informed ML.</strong>
+            Energy disaggregation, source apportionment for air quality,
+            satellite pixel unmixing, sleep-stage estimation &mdash;
+            the unknown is a high-dimensional latent and the forward
+            model is partially known. Bayes is the language of inverse
+            problems; everything else is an approximation to it.</li>
+        </ul>
+        <div class="callout callout--think">
+          <strong>Final takeaway.</strong>
+          The posterior is a probability distribution. You don't need
+          new math to reason about it &mdash; just patience to compute
+          the product on the right side of Bayes' rule. The eight
+          interactives above are eight versions of that one product.
+          Everything else (MCMC, VI, GPs, BNNs) is plumbing.
+        </div>
+      </section>
+    </article>
+
+    <script src="../vendor/katex/katex.min.js"></script>
+    <script type="module" src="main.js"></script>
+  </body>
+</html>

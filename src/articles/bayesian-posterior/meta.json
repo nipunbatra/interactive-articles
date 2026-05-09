@@ -1,0 +1,20 @@
+{
+  "slug": "bayesian-posterior",
+  "title": "The Posterior, Built Up",
+  "date": "2026-05-09",
+  "tagline": "Prior × likelihood = posterior — eight live experiments that turn Bayesian inference from a formula into a feel",
+  "summary": "Drag a Gaussian prior, click data points onto an axis, and watch the posterior crystallize. Then go conjugate (Beta-Binomial coin), separate posterior predictive from a MAP plug-in, race grid evaluation against MCMC against variational inference on a non-conjugate posterior, and finish with Bayesian linear regression whose uncertainty band bows out away from data — every number computed live in pure JS.",
+  "readingTime": "25 min",
+  "difficulty": "Intermediate",
+  "collection": "Probability & inference",
+  "order": 6,
+  "status": "published",
+  "tags": ["Bayesian", "Inference", "Uncertainty", "MCMC", "Variational Inference", "Interactive"],
+  "highlights": [
+    "Drag a Gaussian prior, click data, watch the posterior shrink and shift live.",
+    "Toggle prior strength vs sample size on a real Beta-Binomial coin and see when data wins.",
+    "Compare a MAP plug-in's narrow predictive distribution to the full posterior predictive — the gap is the cost of ignoring uncertainty.",
+    "Race grid evaluation, Metropolis MCMC and a Gaussian variational fit on a non-conjugate, multimodal posterior.",
+    "Bayesian linear regression with uncertainty bands that bow out exactly where data is missing — the real reason GPs feel honest."
+  ]
+}
