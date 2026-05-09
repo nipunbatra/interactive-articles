@@ -128,6 +128,8 @@ let state = {
 
 function loadScenario(key) {
   state.scenarioKey = key;
+  state.matrixRow = null;
+  state.permuteOrder = null;
   const s = SCENARIOS[key];
   // Deep copy so dragging doesn't mutate the scenario definition
   state.Q = {};
@@ -150,6 +152,10 @@ function loadScenario(key) {
   drawValueCanvas();
   updateTables();
   updateLiveMath();
+  renderMatrixView();
+  renderMaskedHeatmaps();
+  renderMultiHead();
+  renderPermuteDemo();
 }
 
 // ---------- Math helpers ----------
@@ -626,14 +632,875 @@ function renderStaticMath() {
   });
 }
 
-// ---------- Boot ----------
+// ============================================================
+// PART 2 — extensions
+//   Step 2: where Q, K, V come from (projection demo)
+//   Step 6: matrix view of attention
+//   Step 7: three knobs (sqrt(d_k), causal mask, multi-head)
+//   Step 8: positional encodings + permute demo
+//   Step 9: live training of a tiny attention head
+// ============================================================
+
+// ---------- Math helpers (vectors + matrices as nested arrays) ----------
+function softmaxArr(arr) {
+  let m = -Infinity;
+  for (const v of arr) if (Number.isFinite(v) && v > m) m = v;
+  if (!Number.isFinite(m)) m = 0;
+  const exps = arr.map((v) => Number.isFinite(v) ? Math.exp(v - m) : 0);
+  const sum = exps.reduce((a, b) => a + b, 0) || 1;
+  return exps.map((e) => e / sum);
+}
+
+function matMul(A, B) {
+  const rows = A.length;
+  const inner = A[0].length;
+  const cols = B[0].length;
+  const out = new Array(rows);
+  for (let i = 0; i < rows; i++) {
+    const row = new Array(cols).fill(0);
+    for (let k = 0; k < inner; k++) {
+      const aik = A[i][k];
+      const Bk = B[k];
+      for (let j = 0; j < cols; j++) row[j] += aik * Bk[j];
+    }
+    out[i] = row;
+  }
+  return out;
+}
+
+function transposeMat(M) {
+  const rows = M.length;
+  const cols = M[0].length;
+  const out = new Array(cols);
+  for (let j = 0; j < cols; j++) {
+    out[j] = new Array(rows);
+    for (let i = 0; i < rows; i++) out[j][i] = M[i][j];
+  }
+  return out;
+}
+
+function makeMat(rows, cols, fill = 0) {
+  const out = new Array(rows);
+  for (let i = 0; i < rows; i++) out[i] = new Array(cols).fill(fill);
+  return out;
+}
+
+function randn() {
+  const u1 = Math.random() || 1e-12;
+  const u2 = Math.random();
+  return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+}
+
+function randMat(rows, cols, scale = 1) {
+  const out = new Array(rows);
+  for (let i = 0; i < rows; i++) {
+    const row = new Array(cols);
+    for (let j = 0; j < cols; j++) row[j] = randn() * scale;
+    out[i] = row;
+  }
+  return out;
+}
+
+function shuffleArr(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function rotate2d(v, theta) {
+  return {
+    x: v.x * Math.cos(theta) - v.y * Math.sin(theta),
+    y: v.x * Math.sin(theta) + v.y * Math.cos(theta)
+  };
+}
+
+// ---------- Render helpers ----------
+function clamp(x, a, b) { return Math.max(a, Math.min(b, x)); }
+
+function valueToColor(v, maxAbs, accent = 'mixed') {
+  const t = clamp(v / maxAbs, -1, 1);
+  if (accent === 'q') return `rgba(217,98,43,${0.10 + 0.7 * Math.abs(t)})`;
+  if (accent === 'k') return `rgba(44,111,183,${0.10 + 0.7 * Math.abs(t)})`;
+  if (accent === 'v') return `rgba(30,119,112,${0.10 + 0.7 * Math.abs(t)})`;
+  return t >= 0
+    ? `rgba(44,111,183,${0.10 + 0.7 * t})`
+    : `rgba(217,98,43,${0.10 + 0.7 * Math.abs(t)})`;
+}
+
+function renderMatrixCellGrid(elementId, matrix, options = {}) {
+  const el = document.getElementById(elementId);
+  if (!el) return;
+  if (!matrix.length) { el.innerHTML = ''; return; }
+  const rows = matrix.length;
+  const cols = matrix[0].length;
+  let maxAbs = 0;
+  for (const row of matrix) for (const v of row) {
+    if (Number.isFinite(v)) maxAbs = Math.max(maxAbs, Math.abs(v));
+  }
+  maxAbs = Math.max(maxAbs, options.maxAbs || 0.01);
+  el.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
+  el.style.gridTemplateRows = `repeat(${rows}, auto)`;
+  let html = '';
+  for (let i = 0; i < rows; i++) {
+    for (let j = 0; j < cols; j++) {
+      const v = matrix[i][j];
+      const color = valueToColor(v, maxAbs, options.accent || 'mixed');
+      const display = Number.isFinite(v) ? v.toFixed(2) : '−∞';
+      html += `<div class="matrix-cell" style="background:${color}">${display}</div>`;
+    }
+  }
+  el.innerHTML = html;
+}
+
+function renderHeatmapGrid(elementId, matrix, labels, options = {}) {
+  const el = document.getElementById(elementId);
+  if (!el || !matrix.length) return;
+  const N = matrix.length;
+  let maxVal = 0;
+  for (const row of matrix) for (const v of row) {
+    if (Number.isFinite(v)) maxVal = Math.max(maxVal, Math.abs(v));
+  }
+  maxVal = Math.max(maxVal, 0.001);
+  const rowsHigh = options.rowsHigh;
+  el.style.gridTemplateColumns = `auto repeat(${N}, minmax(0, 1fr))`;
+  let html = '<div class="hm-corner"></div>';
+  for (let j = 0; j < N; j++) html += `<div class="hm-colhead">${labels[j]}</div>`;
+  for (let i = 0; i < N; i++) {
+    html += `<div class="hm-rowhead">${labels[i]}</div>`;
+    for (let j = 0; j < N; j++) {
+      const v = matrix[i][j];
+      const color = Number.isFinite(v)
+        ? valueToColor(v, maxVal, options.accent || 'mixed')
+        : 'rgba(0,0,0,0.55)';
+      const dim = (rowsHigh != null && i !== rowsHigh) ? 'opacity:0.35;' : '';
+      const display = Number.isFinite(v) ? v.toFixed(2) : '−∞';
+      html += `<div class="hm-cell" style="background:${color};${dim}">${display}</div>`;
+    }
+  }
+  el.innerHTML = html;
+}
+
+// ============================================================
+// Step 2 — Where Q, K, V come from (projection demo)
+// ============================================================
+const QKV_TOKENS = [
+  { id: 'A', label: 'Token A', x: [0.8, 0.1, -0.3, 0.5] },
+  { id: 'B', label: 'Token B', x: [0.2, 0.9, 0.4, -0.1] },
+  { id: 'C', label: 'Token C', x: [-0.4, 0.3, 0.7, 0.2] }
+];
+// 4 x 2 projection matrices (hand-picked, not random)
+const QKV_WQ = [
+  [ 0.30,  0.40],
+  [-0.50,  0.20],
+  [ 0.60, -0.30],
+  [ 0.10,  0.70]
+];
+const QKV_WK = [
+  [ 0.20, -0.40],
+  [ 0.50,  0.30],
+  [-0.20,  0.60],
+  [ 0.40,  0.10]
+];
+const QKV_WV = [
+  [ 0.45,  0.10],
+  [-0.10,  0.55],
+  [ 0.30, -0.20],
+  [ 0.50,  0.40]
+];
+let qkvFocus = 'A';
+
+function renderQKVSource() {
+  const tokensEl = document.getElementById('qkv-tokens');
+  if (!tokensEl) return;
+  tokensEl.innerHTML = QKV_TOKENS.map((t) => `
+    <button class="qkv-token-btn ${t.id === qkvFocus ? 'is-active' : ''}" data-token="${t.id}">${t.label}</button>
+  `).join('');
+  tokensEl.querySelectorAll('[data-token]').forEach((b) => {
+    b.addEventListener('click', () => {
+      qkvFocus = b.dataset.token;
+      renderQKVSource();
+    });
+  });
+
+  const focus = QKV_TOKENS.find((t) => t.id === qkvFocus);
+  const x = focus.x;
+
+  renderMatrixCellGrid('qkv-x', [x]);
+  renderMatrixCellGrid('qkv-wq', QKV_WQ, { accent: 'q' });
+  renderMatrixCellGrid('qkv-wk', QKV_WK, { accent: 'k' });
+  renderMatrixCellGrid('qkv-wv', QKV_WV, { accent: 'v' });
+
+  const q = matMul([x], QKV_WQ)[0];
+  const k = matMul([x], QKV_WK)[0];
+  const v = matMul([x], QKV_WV)[0];
+
+  renderMatrixCellGrid('qkv-q-out', [q], { accent: 'q' });
+  renderMatrixCellGrid('qkv-k-out', [k], { accent: 'k' });
+  renderMatrixCellGrid('qkv-v-out', [v], { accent: 'v' });
+
+  const explain = document.getElementById('qkv-explain');
+  if (explain) {
+    explain.innerHTML =
+      `<strong>${focus.label}</strong> &middot; ` +
+      `q=(${q[0].toFixed(2)}, ${q[1].toFixed(2)}) &middot; ` +
+      `k=(${k[0].toFixed(2)}, ${k[1].toFixed(2)}) &middot; ` +
+      `v=(${v[0].toFixed(2)}, ${v[1].toFixed(2)}). ` +
+      `Same input embedding, three rotations, three roles.`;
+  }
+}
+
+// ============================================================
+// Step 6 — Matrix form: Y = softmax(QK^T / sqrt(d)) V
+// For pedagogy we let every token act as both query and key
+// (self-attention). The focus token's Q is the user-dragged value;
+// every other token's Q is just its K (so they self-match). It gives
+// a varied N x N heatmap that reflects all the same structure.
+// ============================================================
+function buildSentenceMatrices() {
+  const s = SCENARIOS[state.scenarioKey];
+  const N = s.words.length;
+  const Qrows = s.words.map((w) =>
+    w === s.focus ? [state.Q[w].x, state.Q[w].y]
+                  : [state.K[w].x, state.K[w].y]
+  );
+  const Krows = s.words.map((w) => [state.K[w].x, state.K[w].y]);
+  const Vrows = s.words.map((w) => [state.V[w].x, state.V[w].y]);
+  const dk = 2;
+  const scale = 1 / Math.sqrt(dk);
+  const S = makeMat(N, N, 0);
+  for (let i = 0; i < N; i++) {
+    for (let j = 0; j < N; j++) {
+      S[i][j] = (Qrows[i][0] * Krows[j][0] + Qrows[i][1] * Krows[j][1]) * scale;
+    }
+  }
+  const A = S.map(softmaxArr);
+  const Y = matMul(A, Vrows);
+  return { N, S, A, Y, words: s.words };
+}
+
+function renderMatrixView() {
+  const el = document.getElementById('hm-scores');
+  if (!el) return;
+  const { N, S, A, Y, words } = buildSentenceMatrices();
+  renderHeatmapGrid('hm-scores', S, words, { rowsHigh: state.matrixRow });
+  renderHeatmapGrid('hm-weights', A, words, { rowsHigh: state.matrixRow });
+  renderMatrixCellGrid('hm-output', Y, { accent: 'v' });
+
+  const buttons = document.getElementById('matrix-row-buttons');
+  if (buttons) {
+    buttons.innerHTML = words.map((w, i) =>
+      `<button class="mini-btn ${state.matrixRow === i ? 'is-active' : ''}" data-row="${i}">${w}</button>`
+    ).join('');
+    buttons.querySelectorAll('[data-row]').forEach((b) => {
+      b.addEventListener('click', () => {
+        const r = parseInt(b.dataset.row, 10);
+        state.matrixRow = state.matrixRow === r ? null : r;
+        renderMatrixView();
+      });
+    });
+  }
+  const explain = document.getElementById('matrix-row-explain');
+  if (explain) {
+    if (state.matrixRow == null) {
+      explain.textContent = 'Pick a row to see one token\'s outgoing attention.';
+    } else {
+      const row = A[state.matrixRow];
+      let topIdx = 0;
+      for (let j = 0; j < row.length; j++) if (row[j] > row[topIdx]) topIdx = j;
+      explain.innerHTML =
+        `Row <strong>${words[state.matrixRow]}</strong> sends ` +
+        `${(row[topIdx] * 100).toFixed(0)}% of its attention to ` +
+        `<strong>${words[topIdx]}</strong>.`;
+    }
+  }
+}
+
+// ============================================================
+// Step 7 — Three knobs
+// ============================================================
+function dkDemoUpdate() {
+  const slider = document.getElementById('dk-slider');
+  const scaleBox = document.getElementById('dk-scale');
+  if (!slider) return;
+  const dk = parseInt(slider.value, 10);
+  const scaled = scaleBox.checked;
+  const dkValEl = document.getElementById('dk-val');
+  if (dkValEl) dkValEl.textContent = dk;
+
+  const scaleFactor = scaled ? 1 / Math.sqrt(dk) : 1;
+  const N = 8;
+  const sample = drawDkSample(dk, N, scaleFactor);
+  const barRow = document.getElementById('dk-bars');
+  if (barRow) {
+    barRow.innerHTML = sample.weights.map((w, i) =>
+      `<div class="bar-cell" title="weight ${(w*100).toFixed(1)}%"><div class="bar" style="height:${(w*100).toFixed(1)}%"></div><div class="bar-label">k<sub>${i}</sub></div></div>`
+    ).join('');
+  }
+  const stats = document.getElementById('dk-stats');
+  if (stats) {
+    const maxW = Math.max(...sample.weights);
+    const entropy = -sample.weights.reduce((s, w) => s + (w > 0 ? w * Math.log(w) : 0), 0);
+    stats.innerHTML =
+      `max weight = <strong>${(maxW * 100).toFixed(1)}%</strong>, ` +
+      `entropy = ${entropy.toFixed(2)} (max ${Math.log(N).toFixed(2)} = uniform)`;
+  }
+  drawDkHistogram(dk, N, scaleFactor);
+}
+
+function drawDkSample(dk, N, scaleFactor) {
+  const q = Array.from({ length: dk }, randn);
+  const keys = Array.from({ length: N }, () =>
+    Array.from({ length: dk }, randn)
+  );
+  const scores = keys.map((k) => {
+    let s = 0;
+    for (let i = 0; i < dk; i++) s += k[i] * q[i];
+    return s * scaleFactor;
+  });
+  return { weights: softmaxArr(scores), scores };
+}
+
+function drawDkHistogram(dk, N, scaleFactor) {
+  const canvas = document.getElementById('dk-hist');
+  if (!canvas) return;
+  const W = 380, H = 180;
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#fdfcf9';
+  ctx.fillRect(0, 0, W, H);
+
+  const trials = 500;
+  const bins = 20;
+  const counts = new Array(bins).fill(0);
+  let avgMax = 0;
+  for (let t = 0; t < trials; t++) {
+    const sample = drawDkSample(dk, N, scaleFactor);
+    const m = Math.max(...sample.weights);
+    avgMax += m;
+    const bin = Math.min(bins - 1, Math.floor(m * bins));
+    counts[bin]++;
+  }
+  avgMax /= trials;
+  const maxCount = Math.max(1, ...counts);
+  const m = { l: 30, r: 8, t: 8, b: 24 };
+  const px = W - m.l - m.r;
+  const py = H - m.t - m.b;
+  ctx.strokeStyle = '#e2d8c6';
+  ctx.strokeRect(m.l, m.t, px, py);
+  const bw = px / bins;
+  ctx.fillStyle = '#2c6fb7';
+  for (let i = 0; i < bins; i++) {
+    const h = (counts[i] / maxCount) * py;
+    ctx.fillRect(m.l + i * bw + 1, m.t + py - h, bw - 2, h);
+  }
+  ctx.fillStyle = '#9a917f';
+  ctx.font = '11px IBM Plex Mono';
+  ctx.textAlign = 'left';
+  ctx.fillText('0', m.l - 4, m.t + py + 14);
+  ctx.fillText('1', m.l + px - 4, m.t + py + 14);
+  ctx.textAlign = 'center';
+  ctx.fillText('peak weight (1 = one-hot)', m.l + px / 2, H - 6);
+  const stats = document.getElementById('dk-hist-stats');
+  if (stats) {
+    stats.innerHTML = `Average peak weight across 500 random draws: <strong>${(avgMax * 100).toFixed(1)}%</strong>`;
+  }
+}
+
+function renderMaskedHeatmaps() {
+  const { N, S, A, words } = buildSentenceMatrices();
+  if (!N) return;
+  const Smasked = S.map((row, i) => row.map((v, j) => j > i ? -Infinity : v));
+  const Amasked = Smasked.map(softmaxArr);
+  renderHeatmapGrid('hm-mask-before', A, words);
+  renderHeatmapGrid('hm-mask-after', Amasked, words);
+}
+
+function renderMultiHead() {
+  const grid = document.getElementById('multihead-grid');
+  if (!grid) return;
+  const s = SCENARIOS[state.scenarioKey];
+  const heads = [
+    { name: 'Head 1', rotQ: 0,            rotK: 0,             theme: 'identity rotation — same Q/K-space as steps 1–6.' },
+    { name: 'Head 2', rotQ: Math.PI / 4,  rotK: -Math.PI / 4,  theme: 'rotates Q and K opposite ways — bonds tokens whose features point against each other.' },
+    { name: 'Head 3', rotQ: Math.PI / 2,  rotK: 0,             theme: '90° Q rotation — picks tokens whose K is perpendicular to the original Q (often syntactic adjacency).' },
+    { name: 'Head 4', rotQ: -Math.PI / 6, rotK: Math.PI / 6,   theme: 'small mirror twist — sharpens self-similarity, useful for "stay put" heads.' }
+  ];
+  const N = s.words.length;
+  let html = '';
+  heads.forEach((h, idx) => {
+    html += `<div class="multihead-cell">
+      <div class="matrix-label">${h.name}</div>
+      <div class="heatmap-grid" id="hm-multi-${idx}"></div>
+      <div class="multihead-theme">${h.theme}</div>
+    </div>`;
+  });
+  grid.innerHTML = html;
+  heads.forEach((h, idx) => {
+    const Qrows = s.words.map((w) => {
+      const base = w === s.focus ? state.Q[w] : state.K[w];
+      const r = rotate2d(base, h.rotQ);
+      return [r.x, r.y];
+    });
+    const Krows = s.words.map((w) => {
+      const r = rotate2d(state.K[w], h.rotK);
+      return [r.x, r.y];
+    });
+    const dk = 2;
+    const scale = 1 / Math.sqrt(dk);
+    const S = makeMat(N, N, 0);
+    for (let i = 0; i < N; i++) {
+      for (let j = 0; j < N; j++) {
+        S[i][j] = (Qrows[i][0] * Krows[j][0] + Qrows[i][1] * Krows[j][1]) * scale;
+      }
+    }
+    const A = S.map(softmaxArr);
+    renderHeatmapGrid(`hm-multi-${idx}`, A, s.words);
+  });
+}
+
+// ============================================================
+// Step 8 — Positional encodings
+// ============================================================
+function sinusoidalPE(T, d) {
+  const out = makeMat(T, d, 0);
+  for (let pos = 0; pos < T; pos++) {
+    for (let i = 0; i < d; i++) {
+      const dim2 = Math.floor(i / 2) * 2;
+      const angle = pos / Math.pow(10000, dim2 / d);
+      out[pos][i] = (i % 2 === 0) ? Math.sin(angle) : Math.cos(angle);
+    }
+  }
+  return out;
+}
+
+function renderPECanvas() {
+  const canvas = document.getElementById('pe-canvas');
+  if (!canvas) return;
+  const Tslider = document.getElementById('pe-T');
+  const Dslider = document.getElementById('pe-d');
+  const Pslider = document.getElementById('pe-pos');
+  const T = parseInt(Tslider.value, 10);
+  const d = parseInt(Dslider.value, 10);
+  Pslider.max = String(T - 1);
+  if (parseInt(Pslider.value, 10) > T - 1) Pslider.value = String(Math.floor(T / 2));
+  const focus = parseInt(Pslider.value, 10);
+  document.getElementById('pe-T-val').textContent = T;
+  document.getElementById('pe-d-val').textContent = d;
+  document.getElementById('pe-pos-val').textContent = focus;
+
+  const PE = sinusoidalPE(T, d);
+  const W = 720, H = 280;
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+  const margin = { l: 60, r: 12, t: 12, b: 28 };
+  const px = W - margin.l - margin.r;
+  const py = H - margin.t - margin.b;
+  const cellW = px / d;
+  const cellH = py / T;
+  for (let pos = 0; pos < T; pos++) {
+    for (let i = 0; i < d; i++) {
+      const v = PE[pos][i]; // -1..1
+      const t = (v + 1) / 2;
+      const r = Math.round(217 + (44 - 217) * t);
+      const g = Math.round(98 + (111 - 98) * t);
+      const b = Math.round(43 + (183 - 43) * t);
+      ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+      ctx.fillRect(margin.l + i * cellW, margin.t + pos * cellH, cellW + 1, cellH + 1);
+    }
+  }
+  // Highlight focus row
+  ctx.strokeStyle = '#1a1815';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(margin.l, margin.t + focus * cellH, px, cellH);
+
+  ctx.fillStyle = '#6e665b';
+  ctx.font = '12px Manrope';
+  ctx.textAlign = 'center';
+  ctx.fillText('dimension index →', margin.l + px / 2, H - 8);
+  ctx.save();
+  ctx.translate(14, margin.t + py / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillText('position ↓', 0, 0);
+  ctx.restore();
+  ctx.textAlign = 'left';
+  ctx.fillText('low →', margin.l + 4, margin.t - 2);
+  ctx.textAlign = 'right';
+  ctx.fillText('→ high frequency dies off', margin.l + px - 4, margin.t - 2);
+}
+
+function renderPermuteDemo() {
+  const tokensEl = document.getElementById('permute-tokens');
+  const heatmapEl = document.getElementById('permute-heatmap');
+  if (!tokensEl || !heatmapEl) return;
+  const s = SCENARIOS[state.scenarioKey];
+  if (!state.permuteOrder) state.permuteOrder = s.words.map((_, i) => i);
+  const order = state.permuteOrder;
+  const usePE = document.getElementById('permute-pe').checked;
+  const labels = order.map((i) => s.words[i]);
+
+  // X = K vectors for each word, plus tiny PE if enabled
+  function pe(t, dim) {
+    const angle = t / Math.pow(10, dim);
+    return dim === 0 ? Math.sin(angle) : Math.cos(angle * 0.5);
+  }
+  const xs = order.map((idx, t) => {
+    const k = state.K[s.words[idx]];
+    if (!usePE) return [k.x, k.y];
+    return [k.x + 0.4 * pe(t, 0), k.y + 0.4 * pe(t, 1)];
+  });
+  const N = xs.length;
+  const dk = 2;
+  const scaleFactor = 1 / Math.sqrt(dk);
+  const S = makeMat(N, N, 0);
+  for (let i = 0; i < N; i++) {
+    for (let j = 0; j < N; j++) {
+      S[i][j] = (xs[i][0] * xs[j][0] + xs[i][1] * xs[j][1]) * scaleFactor;
+    }
+  }
+  const A = S.map(softmaxArr);
+  tokensEl.innerHTML = labels.map((w, i) =>
+    `<span class="permute-chip${s.words[order[i]] === s.focus ? ' is-focus' : ''}">${i + 1}. ${w}</span>`
+  ).join('');
+  renderHeatmapGrid('permute-heatmap', A, labels);
+}
+
+function wirePermuteControls() {
+  const shuffleBtn = document.getElementById('permute-shuffle');
+  const resetBtn = document.getElementById('permute-reset');
+  const peBox = document.getElementById('permute-pe');
+  if (shuffleBtn) shuffleBtn.addEventListener('click', () => {
+    const s = SCENARIOS[state.scenarioKey];
+    state.permuteOrder = shuffleArr(s.words.map((_, i) => i));
+    renderPermuteDemo();
+  });
+  if (resetBtn) resetBtn.addEventListener('click', () => {
+    const s = SCENARIOS[state.scenarioKey];
+    state.permuteOrder = s.words.map((_, i) => i);
+    renderPermuteDemo();
+  });
+  if (peBox) peBox.addEventListener('change', renderPermuteDemo);
+}
+
+function wirePEControls() {
+  ['pe-T', 'pe-d', 'pe-pos'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', renderPECanvas);
+  });
+}
+
+function wireKnobsControls() {
+  const dk = document.getElementById('dk-slider');
+  const scaleBox = document.getElementById('dk-scale');
+  if (dk) dk.addEventListener('input', dkDemoUpdate);
+  if (scaleBox) scaleBox.addEventListener('change', dkDemoUpdate);
+}
+
+// ============================================================
+// Step 9 — Live training of a tiny attention head.
+// Toy task "soft lookup": 4 tokens (3 candidates + 1 query),
+// candidates carry id (one-hot, 3-d) + payload (random, 3-d).
+// Query carries target id (one-hot) + zero payload.
+// Target output at the query position = matching candidate's payload.
+// Manual SGD over W_Q, W_K, W_V — every gradient computed by hand.
+// ============================================================
+let trainState = null;
+let trainRAF = null;
+
+function makeTrainingExample(D, dv) {
+  const ids = shuffleArr([0, 1, 2]); // unique ids per candidate
+  const payloads = ids.map(() => Array.from({ length: dv }, () => randn() * 0.6));
+  const targetSlot = Math.floor(Math.random() * 3);
+  const targetId = ids[targetSlot];
+  const target = payloads[targetSlot];
+  const x = [];
+  for (let i = 0; i < 3; i++) {
+    const oh = [0, 0, 0]; oh[ids[i]] = 1;
+    x.push([...oh, ...payloads[i]]);
+  }
+  const oh = [0, 0, 0]; oh[targetId] = 1;
+  x.push([...oh, ...new Array(dv).fill(0)]);
+  return { x, target, ids, targetSlot, targetId };
+}
+
+function makeFixedExample(seed) {
+  // Reproducible-ish fixed example for the heatmap viz
+  const oldRandom = Math.random;
+  let s = seed >>> 0;
+  Math.random = () => {
+    s = (s * 1664525 + 1013904223) >>> 0;
+    return s / 0xFFFFFFFF;
+  };
+  const ex = makeTrainingExample(6, 3);
+  Math.random = oldRandom;
+  return ex;
+}
+
+function initTrainingState() {
+  const D = 6, dk = 4, dv = 3, T = 4;
+  trainState = {
+    D, dk, dv, T,
+    Wq: randMat(D, dk, 0.5),
+    Wk: randMat(D, dk, 0.5),
+    Wv: randMat(D, dv, 0.5),
+    losses: [],
+    step: 0,
+    running: false,
+    lr: 0.10,
+    fixed: makeFixedExample(7)
+  };
+}
+
+function forwardAttn(W, x) {
+  const T = x.length;
+  const dk = W.Wq[0].length;
+  const dv = W.Wv[0].length;
+  const q = matMul(x, W.Wq);
+  const k = matMul(x, W.Wk);
+  const v = matMul(x, W.Wv);
+  const scaleFactor = 1 / Math.sqrt(dk);
+  const s = makeMat(T, T, 0);
+  for (let i = 0; i < T; i++) {
+    for (let j = 0; j < T; j++) {
+      let dot = 0;
+      for (let c = 0; c < dk; c++) dot += q[i][c] * k[j][c];
+      s[i][j] = dot * scaleFactor;
+    }
+  }
+  const a = s.map(softmaxArr);
+  const y = matMul(a, v);
+  return { x, q, k, v, s, a, y };
+}
+
+function backwardAttn(W, fwd, target, queryPos) {
+  const T = fwd.x.length;
+  const D = fwd.x[0].length;
+  const dk = W.Wq[0].length;
+  const dv = W.Wv[0].length;
+  const dy = makeMat(T, dv, 0);
+  let loss = 0;
+  for (let c = 0; c < dv; c++) {
+    const diff = fwd.y[queryPos][c] - target[c];
+    dy[queryPos][c] = diff;
+    loss += 0.5 * diff * diff;
+  }
+  // dV = a^T dy ; da = dy v^T
+  const dV = matMul(transposeMat(fwd.a), dy);
+  const da = matMul(dy, transposeMat(fwd.v));
+  // softmax row-wise backward
+  const ds = makeMat(T, T, 0);
+  for (let i = 0; i < T; i++) {
+    let dot = 0;
+    for (let kk = 0; kk < T; kk++) dot += fwd.a[i][kk] * da[i][kk];
+    for (let j = 0; j < T; j++) ds[i][j] = fwd.a[i][j] * (da[i][j] - dot);
+  }
+  const scaleFactor = 1 / Math.sqrt(dk);
+  for (let i = 0; i < T; i++) for (let j = 0; j < T; j++) ds[i][j] *= scaleFactor;
+  // dQ = ds k ; dK = ds^T q
+  const dQ = matMul(ds, fwd.k);
+  const dK = matMul(transposeMat(ds), fwd.q);
+  const dWq = matMul(transposeMat(fwd.x), dQ);
+  const dWk = matMul(transposeMat(fwd.x), dK);
+  const dWv = matMul(transposeMat(fwd.x), dV);
+  return { dWq, dWk, dWv, loss };
+}
+
+function trainStepBatch(batchSize = 16) {
+  const accumQ = makeMat(trainState.D, trainState.dk, 0);
+  const accumK = makeMat(trainState.D, trainState.dk, 0);
+  const accumV = makeMat(trainState.D, trainState.dv, 0);
+  let totalLoss = 0;
+  for (let b = 0; b < batchSize; b++) {
+    const ex = makeTrainingExample(trainState.D, trainState.dv);
+    const fwd = forwardAttn(trainState, ex.x);
+    const bw = backwardAttn(trainState, fwd, ex.target, trainState.T - 1);
+    for (let i = 0; i < trainState.D; i++) {
+      for (let j = 0; j < trainState.dk; j++) {
+        accumQ[i][j] += bw.dWq[i][j];
+        accumK[i][j] += bw.dWk[i][j];
+      }
+      for (let j = 0; j < trainState.dv; j++) {
+        accumV[i][j] += bw.dWv[i][j];
+      }
+    }
+    totalLoss += bw.loss;
+  }
+  const lr = trainState.lr;
+  for (let i = 0; i < trainState.D; i++) {
+    for (let j = 0; j < trainState.dk; j++) {
+      trainState.Wq[i][j] -= lr * accumQ[i][j] / batchSize;
+      trainState.Wk[i][j] -= lr * accumK[i][j] / batchSize;
+    }
+    for (let j = 0; j < trainState.dv; j++) {
+      trainState.Wv[i][j] -= lr * accumV[i][j] / batchSize;
+    }
+  }
+  trainState.step++;
+  trainState.losses.push(totalLoss / batchSize);
+  if (trainState.losses.length > 1500) {
+    trainState.losses = trainState.losses.slice(-1500);
+  }
+}
+
+function drawLossCurve() {
+  const canvas = document.getElementById('train-loss-canvas');
+  if (!canvas || !trainState) return;
+  const W = 500, H = 240;
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#fdfcf9';
+  ctx.fillRect(0, 0, W, H);
+  const m = { l: 56, r: 14, t: 14, b: 30 };
+  const px = W - m.l - m.r;
+  const py = H - m.t - m.b;
+  ctx.strokeStyle = '#e2d8c6';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(m.l, m.t, px, py);
+
+  if (trainState.losses.length === 0) {
+    ctx.fillStyle = '#9a917f';
+    ctx.font = '13px Manrope';
+    ctx.textAlign = 'center';
+    ctx.fillText('Press Start training to begin.', m.l + px / 2, m.t + py / 2);
+    return;
+  }
+  const logL = trainState.losses.map((v) => Math.log10(Math.max(v, 1e-6)));
+  let minLog = Math.floor(Math.min(...logL));
+  let maxLog = Math.ceil(Math.max(...logL));
+  if (minLog === maxLog) maxLog = minLog + 1;
+  const range = maxLog - minLog;
+
+  ctx.fillStyle = '#9a917f';
+  ctx.font = '11px IBM Plex Mono';
+  ctx.textAlign = 'right';
+  for (let v = minLog; v <= maxLog; v++) {
+    const y = m.t + (1 - (v - minLog) / range) * py;
+    ctx.fillText(`10^${v}`, m.l - 6, y + 3);
+    ctx.strokeStyle = '#f0ebe1';
+    ctx.beginPath();
+    ctx.moveTo(m.l, y); ctx.lineTo(m.l + px, y); ctx.stroke();
+  }
+  ctx.textAlign = 'center';
+  const N = trainState.losses.length;
+  const ticks = 5;
+  for (let i = 0; i <= ticks; i++) {
+    const x = m.l + (i / ticks) * px;
+    const step = Math.round((i / ticks) * (N - 1));
+    ctx.fillText(String(step), x, m.t + py + 16);
+  }
+  ctx.strokeStyle = '#2c6fb7';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  logL.forEach((y, i) => {
+    const xx = m.l + (i / Math.max(1, N - 1)) * px;
+    const yy = m.t + (1 - (y - minLog) / range) * py;
+    if (i === 0) ctx.moveTo(xx, yy);
+    else ctx.lineTo(xx, yy);
+  });
+  ctx.stroke();
+
+  ctx.fillStyle = '#6e665b';
+  ctx.font = '12px Manrope';
+  ctx.textAlign = 'center';
+  ctx.fillText('step', m.l + px / 2, H - 6);
+  ctx.save();
+  ctx.translate(14, m.t + py / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillText('loss (log)', 0, 0);
+  ctx.restore();
+}
+
+function renderTraining() {
+  if (!trainState) return;
+  drawLossCurve();
+  const fwd = forwardAttn(trainState, trainState.fixed.x);
+  const labels = ['c1', 'c2', 'c3', 'query'];
+  renderHeatmapGrid('train-heatmap', fwd.a, labels);
+  renderMatrixCellGrid('train-wq', trainState.Wq, { accent: 'q' });
+  renderMatrixCellGrid('train-wk', trainState.Wk, { accent: 'k' });
+  renderMatrixCellGrid('train-wv', trainState.Wv, { accent: 'v' });
+  document.getElementById('train-step').textContent = trainState.step;
+  const lastLoss = trainState.losses.length > 0 ? trainState.losses[trainState.losses.length - 1] : null;
+  document.getElementById('train-loss').textContent = lastLoss == null ? '—' : lastLoss.toFixed(4);
+  const ex = trainState.fixed;
+  const labelOf = (i) => 'ABC'[i];
+  const cap = document.getElementById('train-example-caption');
+  if (cap) {
+    cap.innerHTML =
+      `Candidates carry ids [<strong>${ex.ids.map(labelOf).join(', ')}</strong>]; ` +
+      `query asks for "<strong>${labelOf(ex.targetId)}</strong>" → ` +
+      `the query row should peak at column <strong>c${ex.targetSlot + 1}</strong>.`;
+  }
+  const lossCap = document.getElementById('train-loss-caption');
+  if (lossCap) {
+    if (trainState.step === 0) {
+      lossCap.innerHTML = 'Press <em>Start training</em> to begin.';
+    } else if (trainState.running) {
+      lossCap.innerHTML = `Training&hellip; gradient steps land roughly 6× per frame.`;
+    } else {
+      lossCap.innerHTML = `Paused at step ${trainState.step}. Press <em>Start training</em> to keep going.`;
+    }
+  }
+}
+
+function trainLoop() {
+  if (!trainState || !trainState.running) return;
+  for (let i = 0; i < 6; i++) trainStepBatch(16);
+  renderTraining();
+  trainRAF = requestAnimationFrame(trainLoop);
+}
+
+function wireTrainingControls() {
+  const startBtn = document.getElementById('train-toggle');
+  const resetBtn = document.getElementById('train-reset');
+  const lr = document.getElementById('lr-slider');
+  if (lr) lr.addEventListener('input', () => {
+    if (!trainState) initTrainingState();
+    trainState.lr = parseFloat(lr.value);
+    document.getElementById('lr-val').textContent = trainState.lr.toFixed(2);
+  });
+  if (startBtn) startBtn.addEventListener('click', () => {
+    if (!trainState) initTrainingState();
+    trainState.running = !trainState.running;
+    startBtn.textContent = trainState.running ? 'Pause training' : 'Start training';
+    if (trainState.running) trainLoop();
+    else if (trainRAF) cancelAnimationFrame(trainRAF);
+    renderTraining();
+  });
+  if (resetBtn) resetBtn.addEventListener('click', () => {
+    if (trainRAF) cancelAnimationFrame(trainRAF);
+    initTrainingState();
+    if (startBtn) startBtn.textContent = 'Start training';
+    renderTraining();
+  });
+}
+
+// ============================================================
+// Boot
+// ============================================================
 function init() {
   if (window.katex) {
     renderStaticMath();
+    renderExtraMath();
   } else {
     const s = document.querySelector('script[src*="katex"]');
     if (s) s.addEventListener('load', () => {
       renderStaticMath();
+      renderExtraMath();
       updateLiveMath();
     });
   }
@@ -644,7 +1511,38 @@ function init() {
 
   installQKDrag();
   installValueDrag();
+
+  // Initialise the new sections' interactivity
+  renderQKVSource();
+  wireKnobsControls();
+  dkDemoUpdate();
+  wirePEControls();
+  renderPECanvas();
+  wirePermuteControls();
+  initTrainingState();
+  wireTrainingControls();
+  renderTraining();
+
   loadScenario('riverBank');
+}
+
+function renderExtraMath() {
+  if (!window.katex) return;
+  const blocks = {
+    'math-qkv-projection':
+      'q_i = x_i\\, W_Q,\\qquad k_i = x_i\\, W_K,\\qquad v_i = x_i\\, W_V',
+    'math-attention-full':
+      '\\mathrm{Attn}(Q, K, V) = \\mathrm{softmax}\\!\\left(\\frac{QK^\\top}{\\sqrt{d_k}}\\right) V',
+    'math-pe':
+      '\\mathrm{PE}_{(t, 2i)} = \\sin\\!\\left(\\frac{t}{10000^{2i/d}}\\right),\\quad \\mathrm{PE}_{(t, 2i+1)} = \\cos\\!\\left(\\frac{t}{10000^{2i/d}}\\right)',
+    'math-train-task':
+      '\\mathcal{L} = \\tfrac{1}{2}\\,\\bigl\\lVert\\, y_{\\text{query}} - v_{\\text{matching candidate}} \\,\\bigr\\rVert^2'
+  };
+  Object.keys(blocks).forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    try { katex.render(blocks[id], el, { displayMode: true, throwOnError: false }); } catch (_) {}
+  });
 }
 
 if (document.readyState === 'loading') {

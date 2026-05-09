@@ -101,9 +101,103 @@
         </div>
       </section>
 
-      <!-- ─── Step 2 ─── -->
-      <section class="step-section" id="step-2">
+      <!-- ─── Step 2 — NEW: where Q, K, V come from ─── -->
+      <section class="step-section" id="step-qkv-source">
         <div class="step-badge">Step 2</div>
+        <h2>Where Q, K, V actually come from</h2>
+        <p>
+          Step&nbsp;1 painted Q, K, V as three roles a word plays. Where do
+          those vectors physically come from? Each is a
+          <strong>linear projection</strong> of the same input embedding
+          $x_i \in \mathbb{R}^{d_{\text{model}}}$. Three matrices
+          $W_Q, W_K, W_V$ are learned once, shared across every position:
+        </p>
+        <div class="math-block" id="math-qkv-projection"></div>
+        <p>
+          Same input, three different rotations. The query rotation pulls
+          out the "what am I looking for?" features, the key rotation
+          pulls out the "what do I advertise?" features, and the value
+          rotation pulls out "what do I deliver if attended to?". One word
+          plays three roles because three separate matrices were trained to
+          read it three different ways.
+        </p>
+
+        <h3>Worked example, real numbers</h3>
+        <p>
+          Click any token to see its raw embedding $x_i$ pushed through
+          $W_Q$, $W_K$, $W_V$. We use $d_{\text{model}}=4$ and
+          $d_k = d_v = 2$ so the matrices fit on screen &mdash; in
+          GPT-style models they're 768 or 4096, but the recipe is identical.
+          (Embeddings and projection matrices are pre-cooked here; in real
+          training they'd be learned by gradient descent &mdash; see
+          Step&nbsp;8.)
+        </p>
+
+        <div class="qkv-derivation">
+          <div class="qkv-token-row" id="qkv-tokens" role="group" aria-label="Choose token">
+            <!-- token chips inserted by JS -->
+          </div>
+          <div class="qkv-derivation-body">
+            <div class="qkv-block qkv-block--input">
+              <div class="matrix-label">Embedding $x_i$</div>
+              <div class="matrix-grid" id="qkv-x"></div>
+              <div class="matrix-shape">$1 \times 4$</div>
+            </div>
+            <div class="qkv-multiply">×</div>
+            <div class="qkv-w-stack">
+              <div class="qkv-w-block">
+                <div class="matrix-label" style="color:var(--q-color)">$W_Q$</div>
+                <div class="matrix-grid" id="qkv-wq"></div>
+                <div class="matrix-shape">$4 \times 2$</div>
+              </div>
+              <div class="qkv-w-block">
+                <div class="matrix-label" style="color:var(--k-color)">$W_K$</div>
+                <div class="matrix-grid" id="qkv-wk"></div>
+                <div class="matrix-shape">$4 \times 2$</div>
+              </div>
+              <div class="qkv-w-block">
+                <div class="matrix-label" style="color:var(--v-color)">$W_V$</div>
+                <div class="matrix-grid" id="qkv-wv"></div>
+                <div class="matrix-shape">$4 \times 2$</div>
+              </div>
+            </div>
+            <div class="qkv-equals">=</div>
+            <div class="qkv-result-stack">
+              <div class="qkv-r-block">
+                <div class="matrix-label" style="color:var(--q-color)">$q_i$</div>
+                <div class="matrix-grid" id="qkv-q-out"></div>
+                <div class="matrix-shape">$1 \times 2$</div>
+              </div>
+              <div class="qkv-r-block">
+                <div class="matrix-label" style="color:var(--k-color)">$k_i$</div>
+                <div class="matrix-grid" id="qkv-k-out"></div>
+                <div class="matrix-shape">$1 \times 2$</div>
+              </div>
+              <div class="qkv-r-block">
+                <div class="matrix-label" style="color:var(--v-color)">$v_i$</div>
+                <div class="matrix-grid" id="qkv-v-out"></div>
+                <div class="matrix-shape">$1 \times 2$</div>
+              </div>
+            </div>
+          </div>
+          <div class="qkv-explain" id="qkv-explain">
+            Pick a token to see its projection.
+          </div>
+        </div>
+
+        <div class="callout">
+          <strong>Why three matrices and not one?</strong>
+          A single rotation can express one feature view at a time. With
+          three independent matrices, the model can simultaneously make a
+          word "ask for verbs", "advertise as a water-related noun", and
+          "deliver geography content" &mdash; three orthogonal jobs in
+          three orthogonal subspaces.
+        </div>
+      </section>
+
+      <!-- ─── Step 3 ─── -->
+      <section class="step-section" id="step-2">
+        <div class="step-badge">Step 3</div>
         <h2>Dot product = compatibility score</h2>
         <p>
           How do we measure how well a Query matches a Key? We use the
@@ -155,9 +249,9 @@
         </div>
       </section>
 
-      <!-- ─── Step 3 ─── -->
-      <section class="step-section" id="step-3">
-        <div class="step-badge">Step 3</div>
+      <!-- ─── Step 4 ─── -->
+      <section class="step-section" id="step-4">
+        <div class="step-badge">Step 4</div>
         <h2>Softmax turns scores into percentages</h2>
         <p>
           Raw dot products aren't weights&mdash;they can be negative, or
@@ -209,9 +303,9 @@
         </div>
       </section>
 
-      <!-- ─── Step 4 ─── -->
-      <section class="step-section" id="step-4">
-        <div class="step-badge">Step 4</div>
+      <!-- ─── Step 5 ─── -->
+      <section class="step-section" id="step-5">
+        <div class="step-badge">Step 5</div>
         <h2>Blend the values into a new meaning</h2>
         <p>
           Now the payoff. The focus word rebuilds its meaning as a weighted sum
@@ -250,9 +344,324 @@
         </div>
       </section>
 
-      <!-- ─── Step 5 ─── -->
-      <section class="step-section" id="step-5">
-        <div class="step-badge">Step 5</div>
+      <!-- ─── Step 6 — NEW: matrix form ─── -->
+      <section class="step-section" id="step-matrix">
+        <div class="step-badge">Step 6</div>
+        <h2>All at once &mdash; the matrix view</h2>
+        <p>
+          Real Transformers don't loop over tokens one at a time. They
+          stack all $N$ queries into a matrix $Q$, all $N$ keys into $K$,
+          all $N$ values into $V$, and produce the entire layer output in
+          a single matrix multiplication:
+        </p>
+        <div class="math-block" id="math-attention-full"></div>
+        <p>
+          Here's that exact computation, run live on your current
+          sentence. The score matrix $S$ is the table of every query
+          against every key. Apply softmax to each row and you get the
+          attention weight matrix $A$. Multiply by $V$ and you get the
+          new embeddings $Y$ &mdash; one new vector per token, all in one
+          matmul.
+        </p>
+
+        <div class="matrix-flow" id="matrix-flow">
+          <div class="matrix-flow-cell">
+            <div class="matrix-label">Score $S = QK^\top / \sqrt{d_k}$</div>
+            <div class="heatmap-grid" id="hm-scores"></div>
+            <div class="matrix-shape" id="hm-scores-shape">$N \times N$</div>
+          </div>
+          <div class="matrix-arrow">softmax<br>(row-wise)</div>
+          <div class="matrix-flow-cell">
+            <div class="matrix-label">Weights $A = \mathrm{softmax}(S)$</div>
+            <div class="heatmap-grid" id="hm-weights"></div>
+            <div class="matrix-shape">$N \times N$</div>
+          </div>
+          <div class="matrix-arrow">·V</div>
+          <div class="matrix-flow-cell">
+            <div class="matrix-label">Output $Y = AV$</div>
+            <div class="matrix-grid" id="hm-output"></div>
+            <div class="matrix-shape">$N \times d_v$</div>
+          </div>
+        </div>
+        <div class="matrix-row-pick">
+          <span>Inspect row:</span>
+          <span class="matrix-row-buttons" id="matrix-row-buttons"></span>
+          <span class="matrix-row-explain" id="matrix-row-explain">Pick a row to see one token's outgoing attention.</span>
+        </div>
+
+        <div class="callout">
+          <strong>Read it like a table.</strong>
+          Row $i$ of $A$ is "how token $i$ distributes its attention". It
+          must sum to 1 across the row. Column $j$ tells the opposite story:
+          "who is paying attention to token $j$?". The diagonal $A_{ii}$
+          is self-attention &mdash; how much each token listens to itself.
+        </div>
+      </section>
+
+      <!-- ─── Step 7 — NEW: three knobs ─── -->
+      <section class="step-section" id="step-knobs">
+        <div class="step-badge">Step 7</div>
+        <h2>Three knobs that shape every Transformer</h2>
+        <p>
+          The clean formula above hides three design choices that decide
+          whether the layer is useful or broken. Here they are with quick
+          interactives.
+        </p>
+
+        <h3>Knob 1 &mdash; Why divide by $\sqrt{d_k}$?</h3>
+        <p>
+          Dot products of two random $d_k$-dimensional vectors have
+          variance $d_k$. As $d_k$ grows, raw scores get huge, softmax
+          sharpens to one-hot, and gradients vanish. Dividing by
+          $\sqrt{d_k}$ keeps the variance at 1 regardless of width.
+        </p>
+        <div class="control-row" style="grid-template-columns: 1fr 1fr;">
+          <div class="control-block">
+            <label>$d_k$ &nbsp; <span id="dk-val">8</span> <input type="range" id="dk-slider" min="1" max="256" value="8" step="1"></label>
+          </div>
+          <div class="control-block" style="display:flex;align-items:center;gap:0.6rem;">
+            <label class="toggle-pair">
+              <input type="checkbox" id="dk-scale" checked>
+              <span>divide by $\sqrt{d_k}$</span>
+            </label>
+          </div>
+        </div>
+        <div class="dk-demo" id="dk-demo">
+          <div class="dk-demo-side">
+            <div class="dk-demo-label">Sample of softmax weights for one query against 8 random keys</div>
+            <div class="bar-row" id="dk-bars"></div>
+            <div class="dk-demo-stats" id="dk-stats">—</div>
+          </div>
+          <div class="dk-demo-side">
+            <div class="dk-demo-label">Histogram of max-weight across many random queries</div>
+            <canvas id="dk-hist" width="380" height="180"></canvas>
+            <div class="dk-demo-stats" id="dk-hist-stats">—</div>
+          </div>
+        </div>
+
+        <h3>Knob 2 &mdash; Causal masking</h3>
+        <p>
+          For a language model, the word at position $t$ must not peek at
+          positions $t+1, t+2, \dots$ &mdash; or training would just teach
+          it to copy the next token. We zero out those entries
+          <em>before</em> the softmax by adding $-\infty$ to the upper
+          triangle. After softmax, the future is exactly 0.
+        </p>
+        <div class="mask-flow" id="mask-flow">
+          <div class="matrix-flow-cell">
+            <div class="matrix-label">Unmasked weights $A$</div>
+            <div class="heatmap-grid" id="hm-mask-before"></div>
+          </div>
+          <div class="matrix-arrow">+ mask</div>
+          <div class="matrix-flow-cell">
+            <div class="matrix-label">Causal $A_{\text{causal}}$</div>
+            <div class="heatmap-grid" id="hm-mask-after"></div>
+          </div>
+        </div>
+        <p style="font-family: var(--sans); color: var(--muted); font-size: 0.95rem; max-width: 68ch;">
+          Each row's surviving weights are renormalised by the softmax,
+          so an early token only sees itself, the next sees itself plus
+          one predecessor, and so on. This single trick is what makes
+          GPT-style models autoregressive.
+        </p>
+
+        <h3>Knob 3 &mdash; Multiple heads</h3>
+        <p>
+          One attention map can only express one relation at a time.
+          Real Transformers run $h$ heads in parallel &mdash; each with
+          its own $W_Q^{(h)}, W_K^{(h)}, W_V^{(h)}$ &mdash; then
+          concatenate their outputs. Different heads learn to specialise
+          (syntax, coreference, positional adjacency, topic).
+        </p>
+        <div class="multihead-grid" id="multihead-grid">
+          <!-- 4 heads' heatmaps + labels -->
+        </div>
+        <p style="font-family: var(--sans); color: var(--muted); font-size: 0.95rem; max-width: 68ch;">
+          Each head sees the same input but uses a different rotation of
+          it (we simulate that here with four hand-picked rotations).
+          Real heads are learned, but the visual story is the same: they
+          notice different things.
+        </p>
+      </section>
+
+      <!-- ─── Step 8 — NEW: positional encoding ─── -->
+      <section class="step-section" id="step-positional">
+        <div class="step-badge">Step 8</div>
+        <h2>Positions: the bug attention secretly has</h2>
+        <p>
+          Self-attention is <strong>permutation-invariant</strong>. Shuffle
+          the order of the input tokens and the output is the same set of
+          new vectors, just reshuffled. For language that is fatal &mdash;
+          "dog bites man" and "man bites dog" should not be the same.
+        </p>
+        <div class="callout callout--warn">
+          <strong>Quick proof.</strong> Reorder the tokens in $X$ by some
+          permutation $P$. Then $Q, K, V$ also permute: $Q' = PQ$,
+          $K' = PK$, $V' = PV$. The new attention output is
+          $\mathrm{softmax}(PQ\,(PK)^\top/\sqrt{d_k})\,PV
+          = P\,\mathrm{softmax}(QK^\top/\sqrt{d_k})\,V$. The set of output
+          vectors is identical; only their order changes.
+        </div>
+
+        <h3>The fix &mdash; add a position signal</h3>
+        <p>
+          Before any attention runs, the model adds a position vector
+          $p_t \in \mathbb{R}^{d_{\text{model}}}$ to each token's
+          embedding. The classic Vaswani et al. choice is sinusoidal:
+        </p>
+        <div class="math-block" id="math-pe"></div>
+        <p>
+          Each dimension is a sinusoid with a different wavelength. The
+          short-wavelength dimensions distinguish nearby positions; the
+          long-wavelength ones carry far-apart structure. Together they
+          give every position a unique fingerprint &mdash; and crucially,
+          a fingerprint where <em>relative</em> position can be linearly
+          decoded.
+        </p>
+
+        <div class="pe-figure">
+          <canvas id="pe-canvas" width="720" height="280"></canvas>
+          <figcaption>
+            Sinusoidal positional encodings. Rows are positions, columns
+            are dimensions. Shorter wavelengths on the left, longer on
+            the right. Hover-pick a row in the controls below to see one
+            position's full vector.
+          </figcaption>
+        </div>
+        <div class="control-row" style="grid-template-columns: 1fr 1fr 1fr;">
+          <div class="control-block">
+            <label>positions $T$ &nbsp;<span id="pe-T-val">32</span> <input type="range" id="pe-T" min="8" max="64" step="2" value="32"></label>
+          </div>
+          <div class="control-block">
+            <label>dim $d$ &nbsp;<span id="pe-d-val">32</span> <input type="range" id="pe-d" min="8" max="64" step="2" value="32"></label>
+          </div>
+          <div class="control-block">
+            <label>highlight position &nbsp;<span id="pe-pos-val">5</span> <input type="range" id="pe-pos" min="0" max="31" step="1" value="5"></label>
+          </div>
+        </div>
+
+        <h3>With vs without &mdash; permute the sentence</h3>
+        <p>
+          Toggle the position signal on and off, then shuffle the words.
+          With positions, "river bank" and "bank river" produce different
+          attention; without, they're identical.
+        </p>
+        <div class="permute-controls">
+          <button class="action-btn" id="permute-shuffle">Shuffle words</button>
+          <button class="action-btn action-btn--ghost" id="permute-reset">Reset order</button>
+          <label class="toggle-pair">
+            <input type="checkbox" id="permute-pe" checked>
+            <span>add positional encoding</span>
+          </label>
+        </div>
+        <div class="permute-grid">
+          <div class="matrix-flow-cell">
+            <div class="matrix-label">Token order</div>
+            <div class="permute-tokens" id="permute-tokens"></div>
+          </div>
+          <div class="matrix-flow-cell">
+            <div class="matrix-label">Attention weights for focus token</div>
+            <div class="heatmap-grid" id="permute-heatmap"></div>
+          </div>
+        </div>
+
+        <div class="callout">
+          <strong>Modern variants.</strong> The original sinusoidal
+          encoding is simple and extrapolates to longer sequences. Modern
+          systems often use <strong>learned</strong> embeddings (BERT),
+          <strong>rotary</strong> embeddings (RoPE, used in LLaMA &amp;
+          DeepSeek &mdash; rotates Q and K instead of adding to $X$), or
+          <strong>ALiBi</strong> (a fixed bias added straight to the
+          score matrix). All solve the same problem: telling attention
+          where each token is.
+        </div>
+      </section>
+
+      <!-- ─── Step 9 — NEW: training -->
+      <section class="step-section" id="step-train">
+        <div class="step-badge">Step 9</div>
+        <h2>Watch a tiny attention head learn</h2>
+        <p>
+          Every Q, K, V in the article so far was hand-tuned to produce
+          the "right" answer. Real Transformers don't get those for
+          free &mdash; they discover them with gradient descent. Let's
+          train one in your browser, end-to-end, with manually-coded
+          backprop. Every parameter, every gradient, every step is in
+          plain JavaScript &mdash; nothing imported.
+        </p>
+
+        <h3>The toy task &mdash; a soft lookup</h3>
+        <p>
+          We give the model a sequence of four tokens. The first three
+          are <strong>candidates</strong>: each carries a one-hot
+          identity in $\{A, B, C\}$ plus a random 3-dim payload. The
+          fourth is the <strong>query</strong>: a one-hot saying which
+          candidate's payload we want, with zeros for its payload slot.
+          The model has to output that payload at the query position
+          &mdash; a real "look-up by name" problem.
+        </p>
+        <div class="math-block" id="math-train-task"></div>
+        <p>
+          The only learnable parameters are the three projection
+          matrices $W_Q$, $W_K$, $W_V$. We initialise them to small
+          random Gaussians, run gradient descent on mean-squared error
+          at the query position, and watch the loss fall.
+        </p>
+
+        <div class="train-controls">
+          <button class="action-btn" id="train-toggle">Start training</button>
+          <button class="action-btn action-btn--ghost" id="train-reset">Reinitialise</button>
+          <label>learning rate &nbsp;<span id="lr-val">0.10</span> <input type="range" id="lr-slider" min="0.01" max="0.5" step="0.01" value="0.1"></label>
+          <span class="train-stat">step <strong id="train-step">0</strong></span>
+          <span class="train-stat">loss <strong id="train-loss">—</strong></span>
+        </div>
+
+        <div class="train-grid">
+          <div class="train-panel">
+            <div class="matrix-label">Loss curve (log scale)</div>
+            <canvas id="train-loss-canvas" width="500" height="240"></canvas>
+            <div class="train-caption" id="train-loss-caption">Press <em>Start training</em> to begin.</div>
+          </div>
+          <div class="train-panel">
+            <div class="matrix-label">Attention weights on a fixed example</div>
+            <div class="heatmap-grid" id="train-heatmap"></div>
+            <div class="train-caption" id="train-example-caption">—</div>
+          </div>
+        </div>
+
+        <h3>What the model is learning</h3>
+        <div class="train-w-grid">
+          <div class="train-w-panel">
+            <div class="matrix-label" style="color:var(--q-color)">$W_Q$</div>
+            <div class="matrix-grid" id="train-wq"></div>
+          </div>
+          <div class="train-w-panel">
+            <div class="matrix-label" style="color:var(--k-color)">$W_K$</div>
+            <div class="matrix-grid" id="train-wk"></div>
+          </div>
+          <div class="train-w-panel">
+            <div class="matrix-label" style="color:var(--v-color)">$W_V$</div>
+            <div class="matrix-grid" id="train-wv"></div>
+          </div>
+        </div>
+
+        <div class="callout callout--think">
+          <strong>What to watch for.</strong>
+          Within roughly 100 steps the loss drops by an order of
+          magnitude. The query row of the attention map snaps to (almost)
+          one-hot at the matching candidate. $W_Q$ and $W_K$ start
+          random, but quickly grow large entries on the id columns
+          (so the dot product picks up matching ids); $W_V$ grows
+          large entries on the value columns (so the right payload gets
+          carried through). Nobody told the model "look up by id" &mdash;
+          it discovered that strategy because it's the cheapest way to
+          drive the loss down.
+        </div>
+      </section>
+
+      <!-- ─── Step 10 ─── -->
+      <section class="step-section" id="step-10">
+        <div class="step-badge">Step 10</div>
         <h2>Run it on all five sentences</h2>
         <p>
           Here's one more look at the pipeline, this time fully automated. The
@@ -287,9 +696,9 @@
         </div>
       </section>
 
-      <!-- ─── Step 6 ─── -->
-      <section class="step-section" id="step-6">
-        <div class="step-badge">Step 6</div>
+      <!-- ─── Step 11 ─── -->
+      <section class="step-section" id="step-11">
+        <div class="step-badge">Step 11</div>
         <h2>Three things attention is <em>not</em></h2>
         <div class="misconception-grid">
           <div class="misconception-card">
@@ -318,35 +727,52 @@
         </div>
       </section>
 
-      <!-- ─── Step 7 ─── -->
-      <section class="step-section" id="step-7">
-        <div class="step-badge">Step 7</div>
-        <h2>What we swept under the rug</h2>
+      <!-- ─── Step 12 ─── -->
+      <section class="step-section" id="step-12">
+        <div class="step-badge">Step 12</div>
+        <h2>What we still swept under the rug</h2>
         <p>
-          Everything you built above is <em>one head</em> of
-          <em>one layer</em>. Real Transformers stack a bunch of these:
+          You've now seen every number of one head, one layer, with
+          positions, with masking, with multi-head, and with training.
+          A real Transformer keeps going:
         </p>
         <ul class="explanation-list">
-          <li><strong>Multi-head attention.</strong> Run the same Q/K/V game 8
-            or 16 times in parallel, each with different learned projections.
-            Different heads end up specializing&mdash;some pick up syntax,
-            some coreference, some long-range dependencies.</li>
-          <li><strong>Many layers.</strong> The output of one attention block
-            becomes the input to the next. After a few layers, "bank" doesn't
-            just carry its own meaning plus its neighbors'&mdash;it carries
-            meaning shaped by <em>chains</em> of inference across the whole
-            sentence.</li>
-          <li><strong>Positional encodings.</strong> Attention itself is
-            permutation-invariant&mdash;it has no idea which word came first.
-            So we add a position signal to the embeddings before the first
-            attention block.</li>
+          <li><strong>Many stacked layers.</strong> The output of one
+            attention block becomes the input to the next. After a few
+            layers, "bank" carries meaning shaped by <em>chains</em> of
+            inference across the whole sentence. ViT-Base stacks 12,
+            GPT-3 stacks 96, GPT-4 reportedly more.</li>
+          <li><strong>Residual streams + LayerNorm.</strong> Each block is
+            wrapped in $x \leftarrow x + \mathrm{Attn}(x)$ followed by a
+            LayerNorm and an MLP. The residual lets information skip
+            unchanged through layers and is now believed to be the actual
+            "memory tape" the model writes onto.</li>
+          <li><strong>Cross-attention.</strong> In encoder-decoder models
+            (translation, T5, image-to-text), $Q$ comes from the decoder
+            but $K, V$ come from the encoder &mdash; the decoder
+            "asks the source" instead of itself. Mechanically the same
+            formula.</li>
+          <li><strong>Efficient attention.</strong> $O(N^2)$ blows up at
+            long context. FlashAttention reorders the matmul to fit in
+            SRAM; sliding-window (Mistral), sparse (Longformer),
+            state-space (Mamba), and linear-attention (Linformer)
+            variants trade a little expressivity for $O(N)$ or
+            $O(N \log N)$.</li>
+          <li><strong>KV cache for inference.</strong> When a chatbot
+            generates text token by token, the keys and values of all
+            previous tokens are cached and reused. That cache is most of
+            what fills GPU memory in production deployments.</li>
         </ul>
         <div class="callout callout--think">
           <strong>Final takeaway.</strong>
-          Self-attention is a Transformer's universal way of asking "which
-          neighbors should I listen to?" You just computed every step of that
-          answer by hand. Stacking this operation many times, in parallel and
-          in depth, is what builds GPT-level understanding from raw tokens.
+          Self-attention is a Transformer's universal way of asking
+          "which neighbors should I listen to?" You just computed every
+          step of that answer by hand &mdash; from the projection
+          matrices that produce Q, K, V, through the matrix-form
+          softmax, through positional fixes, through gradient descent on
+          a real toy. Stacking this operation in depth and width, with
+          residuals, MLPs, and a billion-token training set, is what
+          builds GPT-level understanding from raw tokens.
         </div>
       </section>
     </article>

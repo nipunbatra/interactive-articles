@@ -287,9 +287,99 @@
         </div>
       </section>
 
-      <!-- ─── Step 6 ─── -->
-      <section class="step-section" id="step-6">
+      <!-- ─── Step 6 — NEW: attention rollout across L stacked layers ─── -->
+      <section class="step-section" id="step-rollout">
         <div class="step-badge">Step 6</div>
+        <h2>Stacking attention &mdash; the rollout view</h2>
+        <p>
+          One layer of attention only spreads information one hop. After
+          the first block, every patch token has mixed in a weighted
+          neighborhood of the others. After two blocks, it has mixed in
+          neighborhoods <em>of</em> neighborhoods. The receptive field
+          grows with every block; by layer&nbsp;12 (the depth of
+          ViT-Base) almost every patch can in principle hear from every
+          other.
+        </p>
+        <p>
+          To visualise that, we synthesise $L$ layers from your photo's
+          features. Layer&nbsp;1 has a strong locality bias (close
+          patches dominate); each subsequent layer relaxes that bias and
+          sharpens content similarity. Then we apply
+          <strong>attention rollout</strong> &mdash; the residual-aware
+          recipe of Abnar &amp; Zuidema, 2020 &mdash; multiplying the
+          attention matrices together, accounting for the residual stream
+          $A_l \to (A_l + I)/2$:
+        </p>
+        <div class="math-block" id="math-rollout"></div>
+        <p>
+          Click any patch on the left canvas to make it the query token.
+          Each panel below shows its outgoing attention at the requested
+          depth. Drag the slider to step through layers and watch the
+          attended region grow.
+        </p>
+
+        <div class="control-row" style="grid-template-columns: 1fr 1fr;">
+          <div class="control-block">
+            <label>Layers in the stack &nbsp;<span id="rollout-L-val">8</span> <input type="range" id="rollout-L" min="1" max="12" step="1" value="8"></label>
+          </div>
+          <div class="control-block">
+            <label>Inspect single layer $\ell$ &nbsp;<span id="rollout-l-val">1</span> <input type="range" id="rollout-l" min="1" max="12" step="1" value="1"></label>
+          </div>
+        </div>
+
+        <div class="rollout-grid">
+          <div class="interactive-figure">
+            <div class="image-stage-wrap">
+              <canvas id="rolloutQueryCanvas" class="image-canvas"></canvas>
+            </div>
+            <figcaption>Pick a query patch.</figcaption>
+          </div>
+          <div class="rollout-panels">
+            <div class="rollout-panel">
+              <div class="rollout-panel-label">Layer 1 attention (local)</div>
+              <div class="image-stage-wrap rollout-thumb-wrap">
+                <canvas id="rolloutCanvasLayer1" class="image-canvas"></canvas>
+              </div>
+            </div>
+            <div class="rollout-panel">
+              <div class="rollout-panel-label">Layer $\ell$ alone</div>
+              <div class="image-stage-wrap rollout-thumb-wrap">
+                <canvas id="rolloutCanvasLayerL" class="image-canvas"></canvas>
+              </div>
+            </div>
+            <div class="rollout-panel">
+              <div class="rollout-panel-label">Rollout: layers $1{:}\ell$ composed</div>
+              <div class="image-stage-wrap rollout-thumb-wrap">
+                <canvas id="rolloutCanvasRollup" class="image-canvas"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout">
+          <strong>Why composed attention is more than each layer alone.</strong>
+          A single layer can only mix neighbors. Stacked, attention
+          becomes a <em>random walk</em> through the patch graph &mdash;
+          token $i$ at depth $L$ effectively listens to all $j$
+          reachable in $L$ steps along high-weight edges. That is why
+          ViTs can do long-range reasoning even though every individual
+          attention map looks fairly local.
+        </div>
+
+        <div class="callout callout--warn">
+          <strong>What we faked vs what's real.</strong>
+          We have one MobileNet feature map, not 12 ViT layers. We
+          generated each "layer" by varying a position-bias temperature
+          on top of the same features &mdash; a stylised model of how
+          ViT attention is observed to drift from local to global with
+          depth (Caron et&nbsp;al., 2021; Raghu et&nbsp;al., 2021).
+          The rollout math itself is exactly the published recipe.
+        </div>
+      </section>
+
+      <!-- ─── Step 7 ─── -->
+      <section class="step-section" id="step-6">
+        <div class="step-badge">Step 7</div>
         <h2>The full recipe</h2>
         <p>
           One encoder block of a ViT is: self-attention &rarr; residual
@@ -323,9 +413,9 @@
         </div>
       </section>
 
-      <!-- ─── Step 7 ─── -->
+      <!-- ─── Step 8 ─── -->
       <section class="step-section" id="step-7">
-        <div class="step-badge">Step 7</div>
+        <div class="step-badge">Step 8</div>
         <h2>Four things people get wrong about ViTs</h2>
         <div class="misconception-grid">
           <div class="misconception-card">

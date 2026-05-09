@@ -1,18 +1,20 @@
 {
   "slug": "attention",
   "title": "Attention, Calculated",
-  "date": "2026-04-10",
-  "tagline": "How Transformers figure out which words care about each other",
-  "summary": "Pick an ambiguous sentence, drag the query and key arrows, and watch dot products, softmax, and value blending update live to produce one contextual meaning.",
-  "readingTime": "15 min",
+  "date": "2026-05-09",
+  "tagline": "From the Q/K/V projections to a tiny attention head trained live in your browser",
+  "summary": "Twelve interactive steps from one-word ambiguity to manual backprop on a soft-lookup task — including the matrix-form attention, scaled dot products, causal masking, multi-head, sinusoidal positional encodings, and a permute-the-sentence demo.",
+  "readingTime": "30 min",
   "difficulty": "Intermediate",
   "collection": "Deep learning",
   "order": 5,
   "status": "published",
-  "tags": ["Transformers", "Attention", "Deep Learning", "Interactive"],
+  "tags": ["Transformers", "Attention", "Deep Learning", "Interactive", "Training"],
   "highlights": [
-    "Switch between five ambiguous sentences (bank, apple, bass) and see attention disambiguate each one.",
-    "Drag query, key, and value vectors on two live 2-D canvases; every number in the tables recomputes.",
-    "Watch the softmax, the per-word percentages, and the final blended value vector update in live KaTeX."
+    "See where Q, K, V come from — click a token, watch its 4-d embedding push through W_Q, W_K, W_V into 2-d query/key/value vectors.",
+    "Inspect the full N×N matrix-form attention live (score → softmax → weighted V) for any of six ambiguous sentences.",
+    "Three-knob playground: scaled dot product (slider over d_k with a softmax-sharpness histogram), causal masking, four parallel multi-head attention maps.",
+    "Sinusoidal positional encoding heatmap with sliders for T and d, plus a 'permute the sentence' demo showing why attention needs positions.",
+    "Watch a tiny attention head learn a soft-lookup task end-to-end in your browser — manual backprop in pure JS, loss curve and attention heatmap evolving live."
   ]
 }

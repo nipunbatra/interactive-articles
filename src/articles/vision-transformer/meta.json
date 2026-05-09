@@ -1,10 +1,10 @@
 {
   "slug": "vision-transformer",
   "title": "Vision Transformers, on Real Photos",
-  "date": "2026-04-14",
-  "tagline": "Patches, positions, and self-attention computed over real pretrained features",
-  "summary": "A pretrained MobileNet runs live in your browser to turn every patch of your photo into a real 1024-dim feature vector. We then compute honest dot-product attention between those real features — not hand-crafted scalars — and paint the result as an overlay. Upload any photo, drag the patch slider, click a patch, and watch a genuine attention heatmap appear.",
-  "readingTime": "17 min",
+  "date": "2026-05-09",
+  "tagline": "Patches, positions, self-attention, and multi-layer rollout — all computed over real pretrained features",
+  "summary": "A pretrained MobileNet runs live in your browser to turn every patch of your photo into a real 1024-dim feature vector. We then compute honest dot-product attention between those real features — not hand-crafted scalars — and paint the result as an overlay. New: a residual-aware multi-layer attention rollout (Abnar & Zuidema 2020) that composes synthetic ViT layers and shows how the receptive field grows with depth.",
+  "readingTime": "22 min",
   "difficulty": "Intermediate",
   "collection": "Deep learning",
   "order": 14,
@@ -14,6 +14,7 @@
     "Runs real pretrained MobileNet v2 in-browser via TensorFlow.js to extract 1024-dim feature vectors per patch.",
     "Computes real dot-product softmax attention between those real features — no toy scalars anywhere.",
     "Upload any JPEG/PNG or pick a stock photo; patches, vectors, and attention all recompute.",
-    "Toggle position embeddings, change the patch size, click any patch and see its real attention heatmap."
+    "Toggle position embeddings, change the patch size, click any patch and see its real attention heatmap.",
+    "Step through a synthesised L-layer stack and watch the residual-aware attention rollout grow the receptive field with depth."
   ]
 }

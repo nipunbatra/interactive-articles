@@ -97,6 +97,8 @@ function loadImageFromElement(img) {
   state.queryPatch = null;
   state.features = null;
   state.rawRgbCache = null;
+  rolloutCache = null;
+  rolloutCachedNumLayers = -1;
   renderAll();
   if (state.model) extractFeatures();
   else setModelStatus('is-loading', 'Waiting for model&hellip;');
@@ -655,13 +657,233 @@ function renderMath() {
     'math-flatten': '\\mathbf{x}_i = \\mathrm{flatten}(\\text{patch}_i) \\in \\mathbb{R}^{3P^2}, \\quad \\mathbf{z}_i = E\\,\\mathbf{x}_i \\in \\mathbb{R}^D',
     'math-position': '\\mathbf{z}_i \\leftarrow \\mathbf{z}_i + \\mathbf{p}_i',
     'math-cls': '\\mathbf{Z}_0 = \\bigl[\\,\\mathbf{z}_{\\text{cls}};\\, \\mathbf{z}_1;\\, \\dots;\\, \\mathbf{z}_N\\,\\bigr]',
-    'math-attention': '\\mathrm{Attn}(Q, K, V) = \\mathrm{softmax}\\!\\left(\\frac{QK^\\top}{\\sqrt{d_k}}\\right) V'
+    'math-attention': '\\mathrm{Attn}(Q, K, V) = \\mathrm{softmax}\\!\\left(\\frac{QK^\\top}{\\sqrt{d_k}}\\right) V',
+    'math-rollout': '\\mathrm{Rollout}_L \\;=\\; \\prod_{l=1}^{L} \\tfrac{1}{2}\\bigl(A_l + I\\bigr)'
   };
   Object.keys(blocks).forEach((id) => {
     const el = document.getElementById(id);
     if (!el) return;
     try { katex.render(blocks[id], el, { displayMode: true, throwOnError: false }); } catch (_) {}
   });
+}
+
+// ============================================================
+// Step 6 — Attention rollout across L layers
+// We synthesise L "layers" by re-running a softmax(QK^T/sqrt(dk))
+// on the real MobileNet features, varying a position-bias temperature
+// per layer (strong-local at l=1 → weak-local at l=L). Rollout uses
+// the residual-aware composition (A_l + I)/2 from Abnar & Zuidema 2020.
+// ============================================================
+const ROLLOUT_DISPLAY_SIZE = 224;
+
+function fullAttentionMatrixForLayer(layerIdx, totalLayers) {
+  if (!state.features) return null;
+  const N = state.featureN;
+  const C = state.featureDim;
+  const H = state.featureH, W = state.featureW;
+  const t = (totalLayers === 1) ? 0 : layerIdx / (totalLayers - 1); // 0..1
+  const positionBias = 3.5 * (1 - t);          // strong locality early
+  const tempScale = 6 + 6 * t;                  // late layers sharpen
+  const A = new Array(N);
+  for (let i = 0; i < N; i++) {
+    const ir = Math.floor(i / W);
+    const ic = i % W;
+    const offI = i * C;
+    const ni = state.featureNorms[i];
+    const scores = new Float32Array(N);
+    for (let j = 0; j < N; j++) {
+      let dot = 0;
+      const offJ = j * C;
+      for (let c = 0; c < C; c++) dot += state.features[offI + c] * state.features[offJ + c];
+      dot = dot / (ni * state.featureNorms[j]);
+      let sc = dot * tempScale;
+      if (positionBias > 0) {
+        const jr = Math.floor(j / W);
+        const jc = j % W;
+        const dRow = (ir - jr) / H;
+        const dCol = (ic - jc) / W;
+        sc -= positionBias * Math.sqrt(dRow * dRow + dCol * dCol);
+      }
+      scores[j] = sc;
+    }
+    let m = -Infinity;
+    for (let j = 0; j < N; j++) if (scores[j] > m) m = scores[j];
+    let sum = 0;
+    const w = new Float32Array(N);
+    for (let j = 0; j < N; j++) { const e = Math.exp(scores[j] - m); w[j] = e; sum += e; }
+    for (let j = 0; j < N; j++) w[j] /= sum;
+    A[i] = w;
+  }
+  return A;
+}
+
+function multiplyMatricesFloat(B, A) {
+  // out = B @ A, both N x N (Float arrays of arrays).
+  const N = A.length;
+  const out = new Array(N);
+  for (let i = 0; i < N; i++) {
+    const row = new Float32Array(N);
+    const Bi = B[i];
+    for (let k = 0; k < N; k++) {
+      const bik = Bi[k];
+      if (bik === 0) continue;
+      const Ak = A[k];
+      for (let j = 0; j < N; j++) row[j] += bik * Ak[j];
+    }
+    out[i] = row;
+  }
+  return out;
+}
+
+function attentionRollout(numLayers, perLayerCache) {
+  if (!state.features) return null;
+  const N = state.featureN;
+  let R = new Array(N);
+  for (let i = 0; i < N; i++) {
+    const row = new Float32Array(N);
+    row[i] = 1;
+    R[i] = row;
+  }
+  for (let l = 0; l < numLayers; l++) {
+    const A = perLayerCache[l] || fullAttentionMatrixForLayer(l, numLayers);
+    perLayerCache[l] = A;
+    // Residual-aware: A' = (A + I) / 2
+    const Awr = new Array(N);
+    for (let i = 0; i < N; i++) {
+      const r = new Float32Array(N);
+      for (let j = 0; j < N; j++) r[j] = 0.5 * (A[i][j] + (i === j ? 1 : 0));
+      Awr[i] = r;
+    }
+    R = multiplyMatricesFloat(Awr, R);
+  }
+  // Renormalise each row
+  for (let i = 0; i < N; i++) {
+    let s = 0;
+    for (let j = 0; j < N; j++) s += R[i][j];
+    if (s > 0) for (let j = 0; j < N; j++) R[i][j] /= s;
+  }
+  return R;
+}
+
+let rolloutCache = null;
+let rolloutCachedNumLayers = -1;
+
+function ensureRolloutCache(L) {
+  if (rolloutCachedNumLayers !== L || !rolloutCache) {
+    rolloutCache = { perLayer: new Array(L), L };
+    rolloutCachedNumLayers = L;
+  }
+  return rolloutCache;
+}
+
+function drawAttnImage(canvas, queryIdx, weightsRow) {
+  const ctx = setupCanvas(canvas, ROLLOUT_DISPLAY_SIZE, ROLLOUT_DISPLAY_SIZE);
+  drawImageSquare(ctx, ROLLOUT_DISPLAY_SIZE);
+  if (queryIdx == null || !weightsRow) return;
+  const H = state.featureH, W = state.featureW;
+  const cellW = ROLLOUT_DISPLAY_SIZE / W;
+  const cellH = ROLLOUT_DISPLAY_SIZE / H;
+  let maxW = 0;
+  for (let k = 0; k < weightsRow.length; k++) if (weightsRow[k] > maxW) maxW = weightsRow[k];
+  for (let r = 0; r < H; r++) {
+    for (let c = 0; c < W; c++) {
+      const w = weightsRow[r * W + c];
+      const t = Math.min(1, w / (maxW + 1e-9));
+      ctx.fillStyle = t < 0.08 ? 'rgba(0,0,0,0.3)' : `rgba(217, 98, 43, ${0.15 + 0.65 * t})`;
+      ctx.fillRect(c * cellW, r * cellH, cellW, cellH);
+    }
+  }
+  // mark the query patch
+  const qr = Math.floor(queryIdx / W), qc = queryIdx % W;
+  ctx.strokeStyle = '#2c6fb7';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(qc * cellW + 1.5, qr * cellH + 1.5, cellW - 3, cellH - 3);
+}
+
+function drawRolloutQueryCanvas() {
+  const canvas = document.getElementById('rolloutQueryCanvas');
+  if (!canvas) return;
+  const ctx = setupCanvas(canvas, ROLLOUT_DISPLAY_SIZE, ROLLOUT_DISPLAY_SIZE);
+  drawImageSquare(ctx, ROLLOUT_DISPLAY_SIZE);
+  const k = displayPatchesPerSide();
+  const cell = ROLLOUT_DISPLAY_SIZE / k;
+  ctx.strokeStyle = 'rgba(253,252,249,0.55)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let i = 1; i < k; i++) {
+    const p = i * cell;
+    ctx.moveTo(p, 0); ctx.lineTo(p, ROLLOUT_DISPLAY_SIZE);
+    ctx.moveTo(0, p); ctx.lineTo(ROLLOUT_DISPLAY_SIZE, p);
+  }
+  ctx.stroke();
+  if (state.queryPatch != null) {
+    const W = state.featureW, H = state.featureH;
+    const cellW = ROLLOUT_DISPLAY_SIZE / W, cellH = ROLLOUT_DISPLAY_SIZE / H;
+    const qr = Math.floor(state.queryPatch / W), qc = state.queryPatch % W;
+    ctx.strokeStyle = '#2c6fb7';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(qc * cellW + 1.5, qr * cellH + 1.5, cellW - 3, cellH - 3);
+  }
+}
+
+function renderRollout() {
+  const Lslider = document.getElementById('rollout-L');
+  const lslider = document.getElementById('rollout-l');
+  const Lval = document.getElementById('rollout-L-val');
+  const lval = document.getElementById('rollout-l-val');
+  if (!Lslider) return;
+  const L = parseInt(Lslider.value, 10);
+  if (lslider.max !== String(L)) lslider.max = String(L);
+  if (parseInt(lslider.value, 10) > L) lslider.value = String(L);
+  const lInspect = parseInt(lslider.value, 10);
+  if (Lval) Lval.textContent = L;
+  if (lval) lval.textContent = lInspect;
+
+  drawRolloutQueryCanvas();
+  if (!state.features || state.queryPatch == null) {
+    // Just show plain images
+    drawAttnImage(document.getElementById('rolloutCanvasLayer1'), null, null);
+    drawAttnImage(document.getElementById('rolloutCanvasLayerL'), null, null);
+    drawAttnImage(document.getElementById('rolloutCanvasRollup'), null, null);
+    return;
+  }
+  const cache = ensureRolloutCache(L);
+  const A1 = cache.perLayer[0] || fullAttentionMatrixForLayer(0, L);
+  cache.perLayer[0] = A1;
+  const Al = cache.perLayer[lInspect - 1] || fullAttentionMatrixForLayer(lInspect - 1, L);
+  cache.perLayer[lInspect - 1] = Al;
+  const R = attentionRollout(lInspect, cache.perLayer);
+
+  const q = state.queryPatch;
+  drawAttnImage(document.getElementById('rolloutCanvasLayer1'), q, A1[q]);
+  drawAttnImage(document.getElementById('rolloutCanvasLayerL'), q, Al[q]);
+  drawAttnImage(document.getElementById('rolloutCanvasRollup'), q, R[q]);
+}
+
+function wireRolloutControls() {
+  const L = document.getElementById('rollout-L');
+  const l = document.getElementById('rollout-l');
+  if (L) L.addEventListener('input', () => {
+    rolloutCache = null;
+    rolloutCachedNumLayers = -1;
+    renderRollout();
+  });
+  if (l) l.addEventListener('input', renderRollout);
+  const canvas = document.getElementById('rolloutQueryCanvas');
+  if (canvas) {
+    canvas.addEventListener('mousedown', (e) => {
+      if (!state.features) return;
+      const rect = canvas.getBoundingClientRect();
+      const cx = e.clientX - rect.left;
+      const cy = e.clientY - rect.top;
+      const W = state.featureW, H = state.featureH;
+      const cellW = rect.width / W, cellH = rect.height / H;
+      const col = Math.min(W - 1, Math.max(0, Math.floor(cx / cellW)));
+      const row = Math.min(H - 1, Math.max(0, Math.floor(cy / cellH)));
+      state.queryPatch = row * W + col;
+      renderAll();
+    });
+  }
 }
 
 // ---------- Render all ----------
@@ -675,6 +897,7 @@ function renderAll() {
   updateTopAttn();
   updatePipelineTable();
   updateScalingTable();
+  renderRollout();
 }
 
 // ---------- Boot ----------
@@ -686,6 +909,7 @@ function init() {
   }
   wireControls();
   wireCanvases();
+  wireRolloutControls();
   loadModel();
   pickSample(SAMPLES[0].key);
 }
