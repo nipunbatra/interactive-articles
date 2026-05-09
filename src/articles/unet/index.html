@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>U-Net, Section by Section</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../vendor/katex/katex.min.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <article class="article">
+      <header class="article-header">
+        <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+        <p class="kicker">Interactive Explainer</p>
+        <h1>U-Net, Section by Section</h1>
+        <p class="abstract">
+          Watch a synthetic image flow down an encoder, lose 16× of its
+          spatial resolution at the bottleneck, and climb back up. Toggle
+          skip connections at any scale and watch the predicted mask
+          turn from a blurry blob to crisp segmentation. Then meet the
+          same U inside diffusion models.
+        </p>
+        <div class="byline">
+          <span>~18 min</span>
+          <span>Deep Learning &middot; Segmentation &middot; Vision</span>
+        </div>
+      </header>
+
+      <!-- ─── Prelude ─── -->
+      <section class="step-section" id="prelude">
+        <div class="step-badge">Prelude</div>
+        <h2>The shape problem</h2>
+        <p>
+          Many vision tasks need a per-pixel output, not a single class
+          per image: medical image segmentation, satellite land-cover
+          parsing, depth estimation, and most recently denoising in
+          diffusion models. The output has the same spatial size as the
+          input.
+        </p>
+        <p>
+          A pure CNN classifier squashes spatial resolution down to a
+          tiny feature map (good for "is this a cat?"). To produce a
+          full-resolution mask you have to <em>get the resolution
+          back</em> &mdash; and the only honest way to do that is to
+          have remembered it on the way down.
+        </p>
+        <div class="callout callout--key">
+          <strong>U-Net's idea, in one line.</strong>
+          Encoder $\to$ bottleneck $\to$ decoder, with a
+          <em>skip connection</em> at every scale that hands the
+          encoder's high-resolution feature map directly to the matching
+          decoder block. The output mask gets coarse semantic context
+          from deep in the U <em>and</em> sharp pixel-level structure
+          from the early skips.
+        </div>
+      </section>
+
+      <!-- ─── Step 1 ─── -->
+      <section class="step-section" id="step-1">
+        <div class="step-badge">Step 1</div>
+        <h2>The architecture, drawn to scale</h2>
+        <p>
+          A 4-level U-Net: 4 encoder blocks (each halves spatial size
+          and doubles channels), one bottleneck, 4 decoder blocks (each
+          doubles spatial size, halves channels, and concatenates the
+          matching encoder feature). For a 64×64 input the bottleneck
+          is 4×4. That's 16× spatial compression in two dimensions, or
+          256× total &mdash; enormous information loss without skips.
+        </p>
+        <div class="unet-figure">
+          <canvas id="arch-canvas" width="880" height="320"></canvas>
+          <figcaption>The U. Boxes are feature maps; numbers above are H × W; numbers below are channel count.</figcaption>
+        </div>
+      </section>
+
+      <!-- ─── Step 2 ─── -->
+      <section class="step-section" id="step-2">
+        <div class="step-badge">Step 2</div>
+        <h2>Forward pass on a real synthetic image</h2>
+        <p>
+          We synthesise an input: two coloured ellipses on noise. The
+          target mask labels which pixels belong to ellipse 1 vs
+          ellipse 2 vs background. A small U-Net (random weights;
+          we hand-craft the conv kernels for visibility) processes the
+          image. Inspect the feature map at each scale:
+        </p>
+        <div class="train-controls">
+          <button class="action-btn action-btn--ghost" id="re-roll">New random image</button>
+          <span class="train-stat">resolution at bottleneck: <strong id="bottleneck-res">—</strong></span>
+        </div>
+        <div class="feature-stage">
+          <div class="feature-row">
+            <div class="feature-cell">
+              <div class="cell-label">input 64×64</div>
+              <canvas class="feat-canvas" id="feat-input" width="128" height="128"></canvas>
+            </div>
+            <div class="feature-cell">
+              <div class="cell-label">enc 1 · 32×32</div>
+              <canvas class="feat-canvas" id="feat-enc1" width="128" height="128"></canvas>
+            </div>
+            <div class="feature-cell">
+              <div class="cell-label">enc 2 · 16×16</div>
+              <canvas class="feat-canvas" id="feat-enc2" width="128" height="128"></canvas>
+            </div>
+            <div class="feature-cell">
+              <div class="cell-label">enc 3 · 8×8</div>
+              <canvas class="feat-canvas" id="feat-enc3" width="128" height="128"></canvas>
+            </div>
+            <div class="feature-cell">
+              <div class="cell-label">bottleneck · 4×4</div>
+              <canvas class="feat-canvas" id="feat-bot" width="128" height="128"></canvas>
+            </div>
+          </div>
+          <div class="feature-row">
+            <div class="feature-cell">
+              <div class="cell-label">dec 3 · 8×8 (← bot)</div>
+              <canvas class="feat-canvas" id="feat-dec3" width="128" height="128"></canvas>
+            </div>
+            <div class="feature-cell">
+              <div class="cell-label">dec 2 · 16×16</div>
+              <canvas class="feat-canvas" id="feat-dec2" width="128" height="128"></canvas>
+            </div>
+            <div class="feature-cell">
+              <div class="cell-label">dec 1 · 32×32</div>
+              <canvas class="feat-canvas" id="feat-dec1" width="128" height="128"></canvas>
+            </div>
+            <div class="feature-cell">
+              <div class="cell-label">output 64×64</div>
+              <canvas class="feat-canvas" id="feat-out" width="128" height="128"></canvas>
+            </div>
+            <div class="feature-cell">
+              <div class="cell-label">target 64×64</div>
+              <canvas class="feat-canvas" id="feat-tgt" width="128" height="128"></canvas>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── Step 3 ─── -->
+      <section class="step-section" id="step-3">
+        <div class="step-badge">Step 3</div>
+        <h2>Toggle the skips, watch detail die</h2>
+        <p>
+          Each skip connection at level $\ell$ concatenates the
+          encoder's level-$\ell$ feature map onto the decoder's input
+          at the same level. Turn one off and the corresponding scale
+          of detail goes missing. Turn them all off and you've built a
+          plain encoder-decoder, which is exactly the architecture
+          U-Net was invented to beat.
+        </p>
+        <div class="train-controls">
+          <label class="toggle-pair"><input type="checkbox" id="skip-1" checked> skip @ 32×32 (level 1)</label>
+          <label class="toggle-pair"><input type="checkbox" id="skip-2" checked> skip @ 16×16 (level 2)</label>
+          <label class="toggle-pair"><input type="checkbox" id="skip-3" checked> skip @ 8×8 (level 3)</label>
+        </div>
+        <div class="compare-grid">
+          <div class="feature-cell">
+            <div class="cell-label">predicted mask</div>
+            <canvas class="feat-canvas big" id="compare-pred" width="256" height="256"></canvas>
+          </div>
+          <div class="feature-cell">
+            <div class="cell-label">target mask</div>
+            <canvas class="feat-canvas big" id="compare-tgt" width="256" height="256"></canvas>
+          </div>
+          <div class="feature-cell">
+            <div class="cell-label">diff (RMSE)</div>
+            <canvas class="feat-canvas big" id="compare-diff" width="256" height="256"></canvas>
+            <div class="rmse-label" id="rmse-label">—</div>
+          </div>
+        </div>
+        <div class="callout">
+          <strong>What you should see.</strong>
+          With all three skips on, the predicted mask hugs the ellipse
+          boundaries. Disable level 1 (highest resolution) and the
+          outline blurs. Disable level 3 (deepest skip) and the mask
+          can still localise but loses semantic shape. All skips off
+          → the mask collapses to a low-resolution rectangle.
+        </div>
+      </section>
+
+      <!-- ─── Step 4 ─── -->
+      <section class="step-section" id="step-4">
+        <div class="step-badge">Step 4</div>
+        <h2>Why concatenate, not add?</h2>
+        <p>
+          ResNet adds: $y = F(x) + x$. U-Net <em>concatenates</em>:
+          $y = [F(x); \text{skip}]$. The reason is information
+          preservation. The encoder feature carries spatial detail
+          the bottleneck has discarded. Adding a vector with very
+          different statistics into the bottleneck output would
+          interfere with the decoder's learning. Concatenation lets
+          the decoder freely choose which channels to read.
+        </p>
+        <div class="math-block" id="math-cat"></div>
+        <p>
+          This costs more channels in the decoder convolutions, but
+          for dense prediction tasks it's worth it. Modern U-Nets
+          (and diffusion U-Nets, see Step 5) sometimes mix &mdash;
+          add for residuals within a block, concatenate for skips
+          across the U.
+        </p>
+      </section>
+
+      <!-- ─── Step 5 ─── -->
+      <section class="step-section" id="step-5">
+        <div class="step-badge">Step 5</div>
+        <h2>The U inside diffusion</h2>
+        <p>
+          Stable Diffusion, Imagen, every modern image-diffusion
+          backbone is a U-Net. The denoiser takes a noisy image and
+          predicts the noise it has to remove. That's a per-pixel
+          regression problem &mdash; same shape, same downsampling
+          and upsampling story, plus three additions:
+        </p>
+        <ul class="explanation-list">
+          <li><strong>Time-step conditioning.</strong> The current noise
+            level $t$ is fed into every block via a sinusoidal
+            embedding (see the
+            <a href="../attention/index.html#step-positional">
+            positional encoding section in the attention article</a>
+            for the recipe).</li>
+          <li><strong>Cross-attention to text.</strong> Inside each
+            decoder block the U-Net does cross-attention into a
+            CLIP-encoded prompt, so generation is text-conditional.</li>
+          <li><strong>Self-attention at the bottleneck.</strong> After
+            spatial resolution is small (8×8 ish), self-attention
+            connects far-apart features &mdash; locality bias
+            disappears.</li>
+        </ul>
+        <p>
+          The skips do the same job they always did: they preserve
+          high-frequency detail that the encoder has thrown away.
+          That's why diffusion outputs have crisp edges instead of
+          looking like JPEG-compressed dreams.
+        </p>
+      </section>
+
+      <!-- ─── Step 6 ─── -->
+      <section class="step-section" id="step-6">
+        <div class="step-badge">Step 6</div>
+        <h2>The variants worth knowing</h2>
+        <ul class="explanation-list">
+          <li><strong>U-Net (original).</strong> Ronneberger et al.,
+            2015. Built for biomedical segmentation; trained on a few
+            hundred labelled cells. Still the baseline 10 years later.</li>
+          <li><strong>nnU-Net.</strong> Self-configuring U-Net;
+            specifies preprocessing, architecture, and training
+            schedule from the dataset. Auto-tunes for your modality.
+            The thing to use first on any segmentation task.</li>
+          <li><strong>3-D U-Net.</strong> Same architecture with 3-D
+            convolutions; volumetric medical (CT, MRI), satellite
+            time-cubes, point-cloud voxelisations.</li>
+          <li><strong>Attention U-Net.</strong> Gates each skip
+            connection by a learned attention mask. Helps when the
+            image has many small targets.</li>
+          <li><strong>TransUNet / Swin-UNet.</strong> Swap the encoder
+            for a Vision Transformer; keeps the U for resolution
+            recovery. The standard recipe for medical image
+            segmentation in 2024+.</li>
+          <li><strong>U-Net++ (NestedU-Net).</strong> Extra dense
+            skips at every intermediate scale. Slightly stronger,
+            slower.</li>
+          <li><strong>Diffusion U-Net (DDPM, Stable Diffusion).</strong>
+            U-Net + time-step embedding + cross-attention to text.
+            Same skips as in 2015.</li>
+        </ul>
+        <div class="callout callout--think">
+          <strong>Final takeaway.</strong>
+          U-Net is the second piece of pre-2018 deep learning that
+          refused to be obsoleted &mdash; ResNet's residual is the
+          first. Whenever you need a per-pixel output and you don't
+          have unlimited training data, the U is still the best
+          default. The reason is the picture above: the encoder
+          discards detail and the decoder can't invent it back, so
+          you have to remember it via skips.
+        </div>
+      </section>
+    </article>
+
+    <script src="../vendor/katex/katex.min.js"></script>
+    <script type="module" src="main.js"></script>
+  </body>
+</html>

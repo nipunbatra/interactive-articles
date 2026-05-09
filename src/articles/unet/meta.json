@@ -1,0 +1,19 @@
+{
+  "slug": "unet",
+  "title": "U-Net, Section by Section",
+  "date": "2026-05-09",
+  "tagline": "Why the same architecture wins at biomedical segmentation, satellite parsing, and modern diffusion",
+  "summary": "Watch a synthetic image flow through an encoder, lose 16× of its spatial resolution, then climb back up — once with skip connections at every scale and once without. Toggle the skips off mid-decoder and watch the segmentation mask blur. Then peek at the same U inside Stable Diffusion's denoiser.",
+  "readingTime": "18 min",
+  "difficulty": "Intermediate",
+  "collection": "Deep learning",
+  "order": 10,
+  "status": "published",
+  "tags": ["U-Net", "Segmentation", "Diffusion", "Skip Connections", "Computer Vision", "Interactive"],
+  "highlights": [
+    "Live encoder-decoder forward pass on a synthetic shape; toggle skip connections at any scale.",
+    "Side-by-side: predicted mask with vs without skips — the gap is exactly the spatial detail the encoder threw away.",
+    "Per-scale feature thumbnails so you can see where structure lives inside the U.",
+    "Zoom-out: the same U-shaped denoiser inside Stable Diffusion."
+  ]
+}
