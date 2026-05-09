@@ -1,0 +1,19 @@
+{
+  "slug": "knowledge-distillation",
+  "title": "Knowledge Distillation, Live",
+  "date": "2026-05-09",
+  "tagline": "A small student copies a big teacher's softened predictions — and beats hard-label training",
+  "summary": "Watch a tiny linear student trained in your browser absorb a smooth pretrained teacher's 'dark knowledge' through softmax temperature. Toggle hard-only vs KD-only vs hybrid losses, slide the temperature T, and see the student's decision boundary snap to the teacher's much faster than hard labels alone allow.",
+  "readingTime": "18 min",
+  "difficulty": "Intermediate",
+  "collection": "Deep learning",
+  "order": 7,
+  "status": "published",
+  "tags": ["Distillation", "Teacher-Student", "Softmax Temperature", "Compression", "Interactive"],
+  "highlights": [
+    "Live in-browser training of a tiny student against a hand-tuned smooth teacher.",
+    "Toggle three loss recipes (hard CE, pure KD, KD+CE hybrid) and watch the accuracy gap.",
+    "Slide the temperature T to expose 'dark knowledge' — the relative-class structure that hard labels throw away.",
+    "Decision-boundary canvas updates every 4 gradient steps so the geometry of the transfer is visible."
+  ]
+}

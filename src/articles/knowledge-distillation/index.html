@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Knowledge Distillation, Live</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../vendor/katex/katex.min.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <article class="article">
+      <header class="article-header">
+        <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+        <p class="kicker">Interactive Explainer</p>
+        <h1>Knowledge Distillation, Live</h1>
+        <p class="abstract">
+          A tiny student trained in your browser absorbs a smooth
+          pretrained teacher through softmax temperature. Toggle three
+          loss recipes, slide the temperature, and watch the student's
+          decision boundary snap to the teacher's much faster than hard
+          labels alone allow.
+        </p>
+        <div class="byline">
+          <span>~18 min</span>
+          <span>Deep Learning &middot; Compression &middot; Teacher-Student</span>
+        </div>
+      </header>
+
+      <!-- ─── Prelude ─── -->
+      <section class="step-section" id="prelude">
+        <div class="step-badge">Prelude</div>
+        <h2>Why a small model can learn from a big model better than from the data</h2>
+        <p>
+          You have a big, accurate teacher. You want a small, fast student
+          that runs on a phone, a sensor node, an edge GPU. The naive
+          recipe: train the student from scratch on the same data. The
+          better recipe: train the student to imitate the teacher's
+          softened outputs. The student often beats the data-only
+          baseline by a lot &mdash; with the same parameters, on the same
+          dataset.
+        </p>
+        <p>
+          The trick is information that's invisible in hard labels.
+          A cat picture has a hard label "cat", but a teacher's softmax
+          says "cat 0.93, lynx 0.04, tiger 0.02, dog 0.01". That ordering
+          carries <strong>dark knowledge</strong> &mdash; the teacher's
+          opinion about how classes relate. The student picks it up for
+          free.
+        </p>
+        <div class="callout callout--key">
+          <strong>Hinton's slogan.</strong>
+          "Soft targets reveal more about the structure of the data than
+          hard labels." Once you've seen this article's animation, the
+          phrase will mean something.
+        </div>
+      </section>
+
+      <!-- ─── Step 1 ─── -->
+      <section class="step-section" id="step-1">
+        <div class="step-badge">Step 1</div>
+        <h2>Soften with temperature</h2>
+        <p>
+          Standard softmax converts logits $z_c$ into probabilities
+          $p_c$. Knowledge distillation introduces a temperature $T$:
+        </p>
+        <div class="math-block" id="math-soft"></div>
+        <p>
+          $T=1$ is the usual softmax. Larger $T$ flattens the
+          distribution, exposing more of the relative ordering. As $T
+          \to \infty$ everything becomes uniform; as $T \to 0$ it
+          becomes one-hot. The whole game is to pick a $T$ where the
+          non-winning classes still carry useful structure.
+        </p>
+        <div class="control-row" style="grid-template-columns: 1fr;">
+          <div class="control-block">
+            <label>temperature T &nbsp;<span id="t-val">4.0</span> <input type="range" id="t-slider" min="0.5" max="20" step="0.1" value="4"></label>
+          </div>
+        </div>
+        <div class="kd-figure">
+          <canvas id="t-canvas" width="880" height="240"></canvas>
+          <figcaption>Same teacher logits at four temperatures. Bars are softmax probabilities; numbers are the same logits scaled by 1/T.</figcaption>
+        </div>
+      </section>
+
+      <!-- ─── Step 2 ─── -->
+      <section class="step-section" id="step-2">
+        <div class="step-badge">Step 2</div>
+        <h2>The two losses, side by side</h2>
+        <p>
+          The student gets two supervision signals:
+        </p>
+        <ul class="explanation-list">
+          <li><strong>Hard cross-entropy</strong> against the dataset
+            label $y$.</li>
+          <li><strong>Soft KL</strong> from the teacher's softened
+            probabilities $p^{(T)}$ to the student's softened
+            probabilities $q^{(T)}$, both at temperature $T$.</li>
+        </ul>
+        <div class="math-block" id="math-loss"></div>
+        <p>
+          The $T^2$ multiplier in the KD term keeps gradients on the
+          same scale at any $T$ (Hinton et al., 2015). $\alpha$ trades
+          off how much the student listens to data vs. teacher.
+        </p>
+      </section>
+
+      <!-- ─── Step 3 ─── -->
+      <section class="step-section" id="step-3">
+        <div class="step-badge">Step 3</div>
+        <h2>Watch the student learn</h2>
+        <p>
+          The teacher below is a fixed Gaussian-mixture classifier on a
+          2-D plane: smooth, accurate, but 'big' in the sense that we
+          assume we don't get to ship it. The student is a single
+          linear layer (just $2 \times K$ weights) &mdash; barely more
+          than logistic regression. Train it three ways and compare.
+        </p>
+
+        <div class="train-controls">
+          <button class="action-btn" id="kd-toggle">Start training</button>
+          <button class="action-btn action-btn--ghost" id="kd-reset">Reinitialise student</button>
+          <label>recipe
+            <select id="kd-recipe">
+              <option value="hard">Hard CE only</option>
+              <option value="soft">Pure KD (teacher only)</option>
+              <option value="hybrid" selected>Hybrid (KD + α·CE)</option>
+            </select>
+          </label>
+          <label>T &nbsp;<span id="kd-T-val">4.0</span> <input type="range" id="kd-T" min="0.5" max="20" step="0.1" value="4"></label>
+          <label>α &nbsp;<span id="kd-alpha-val">0.30</span> <input type="range" id="kd-alpha" min="0" max="1" step="0.05" value="0.3"></label>
+          <span class="train-stat">step <strong id="kd-step">0</strong></span>
+          <span class="train-stat">student acc <strong id="kd-acc">—</strong></span>
+          <span class="train-stat">teacher acc <strong id="kd-tacc">—</strong></span>
+        </div>
+
+        <div class="kd-grid">
+          <div class="kd-panel">
+            <div class="panel-label">Teacher decision regions</div>
+            <canvas id="kd-teacher-canvas" width="380" height="380"></canvas>
+          </div>
+          <div class="kd-panel">
+            <div class="panel-label">Student decision regions</div>
+            <canvas id="kd-student-canvas" width="380" height="380"></canvas>
+          </div>
+          <div class="kd-panel">
+            <div class="panel-label">Loss curve</div>
+            <canvas id="kd-loss-canvas" width="380" height="380"></canvas>
+          </div>
+        </div>
+
+        <div class="callout callout--think">
+          <strong>What to watch for.</strong>
+          With <em>Hard CE only</em>, the student's boundary is jagged
+          and slow &mdash; it has only the hard label per point. With
+          <em>Pure KD</em> at $T=4$, the student inherits the teacher's
+          smooth confidence everywhere, including in regions with no
+          training points. <em>Hybrid</em> usually wins: data anchors
+          the labels, the teacher fills in the rest. Try setting $T=1$
+          to kill the dark knowledge and see distillation collapse to
+          ordinary cross-entropy.
+        </div>
+      </section>
+
+      <!-- ─── Step 4 ─── -->
+      <section class="step-section" id="step-4">
+        <div class="step-badge">Step 4</div>
+        <h2>Where does the gain come from?</h2>
+        <p>
+          Three angles on the same phenomenon:
+        </p>
+        <ul class="explanation-list">
+          <li><strong>Label smoothing on steroids.</strong> Hard labels
+            are one-hot. The teacher's softened probabilities are a
+            <em>per-input</em> smoothing that depends on the actual
+            geometry of the classes. Generic label smoothing replaces
+            one-hot with a fixed mixture; KD replaces it with a learned
+            mixture that knows your data.</li>
+          <li><strong>Pseudo-data outside the training set.</strong>
+            The teacher answers the student's questions even at points
+            the student never saw labelled &mdash; effectively giving
+            the student a free, infinitely-large dataset (whose ground
+            truth happens to be the teacher).</li>
+          <li><strong>Gradient richness.</strong> A one-hot target gives
+            a gradient that pushes one logit up and (everything-else)
+            down equally. A softened target gives a gradient that
+            pushes <em>each</em> non-winner by a different amount &mdash;
+            far more information per backward pass.</li>
+        </ul>
+        <div class="kd-figure">
+          <canvas id="kd-richness-canvas" width="880" height="280"></canvas>
+          <figcaption>Per-class gradient magnitude on a single example, hard target vs soft target at $T=4$. Same total signal, redistributed.</figcaption>
+        </div>
+      </section>
+
+      <!-- ─── Step 5 ─── -->
+      <section class="step-section" id="step-5">
+        <div class="step-badge">Step 5</div>
+        <h2>The variants you'll meet in papers</h2>
+        <ul class="explanation-list">
+          <li><strong>Logit / response distillation.</strong> The
+            classical recipe above. Cheapest. Works surprisingly well.</li>
+          <li><strong>Feature distillation.</strong> Match intermediate
+            activations or attention maps (FitNets, Romero et&nbsp;al.;
+            attention transfer, Zagoruyko &amp; Komodakis). Useful when
+            the student's capacity bottleneck is hidden, not in the
+            output head.</li>
+          <li><strong>Self-distillation.</strong> Student and teacher
+            share an architecture; student is initialised from a
+            previous training run. Adds 1–3% accuracy "for free".</li>
+          <li><strong>Online / mutual KD.</strong> No frozen teacher;
+            two students teach each other (Zhang et&nbsp;al., 2018).
+            Useful when you don't have a pretrained big model to start
+            with.</li>
+          <li><strong>Born-again networks.</strong> Distil to the same
+            architecture; iterate. Each "generation" tends to gain a
+            little (Furlanello et&nbsp;al., 2018).</li>
+        </ul>
+      </section>
+
+      <!-- ─── Step 6 ─── -->
+      <section class="step-section" id="step-6">
+        <div class="step-badge">Step 6</div>
+        <h2>Five things to remember</h2>
+        <div class="misconception-grid">
+          <div class="misconception-card">
+            <span class="misconception-icon">Tip</span>
+            <p><strong>Pick T per task, not by intuition.</strong> Sweep
+              $T \in \{2, 4, 8, 16\}$ on val. Big-vocabulary models
+              (LLMs) often want $T \le 2$; small-class-count vision
+              tasks like CIFAR-10 work at $T=4$ to $8$.</p>
+          </div>
+          <div class="misconception-card">
+            <span class="misconception-icon">Tip</span>
+            <p><strong>α matters.</strong> Pure KD ($\alpha=0$) inherits
+              the teacher's mistakes. Adding back even $\alpha=0.1$ of
+              hard CE keeps the student grounded in the actual labels.</p>
+          </div>
+          <div class="misconception-card">
+            <span class="misconception-icon">Tip</span>
+            <p><strong>Train the teacher with label smoothing
+              <em>off</em>.</strong> Smoothed teachers throw away the
+              dark knowledge that makes KD work (Müller et al., 2019).
+              Counterintuitive but real.</p>
+          </div>
+          <div class="misconception-card">
+            <span class="misconception-icon">Tip</span>
+            <p><strong>KD is data augmentation in disguise.</strong>
+              You can distil on unlabelled data &mdash; just use the
+              teacher's soft labels as targets. Often this single trick
+              beats more complex semi-supervised pipelines.</p>
+          </div>
+          <div class="misconception-card">
+            <span class="misconception-icon">Tip</span>
+            <p><strong>Distil <em>before</em> quantising / pruning.</strong>
+              KD compresses information; quantisation discards bits.
+              Doing them in the wrong order leaves accuracy on the
+              floor.</p>
+          </div>
+        </div>
+        <div class="callout callout--think">
+          <strong>Final takeaway.</strong>
+          Distillation is the cheapest, simplest, most reliable way to
+          shrink a model — and the only way to put a big model's
+          opinions about <em>uncertainty</em> into a small one. Anywhere
+          you ship a small model, the teacher should be in the loop.
+        </div>
+      </section>
+    </article>
+
+    <script src="../vendor/katex/katex.min.js"></script>
+    <script type="module" src="main.js"></script>
+  </body>
+</html>
