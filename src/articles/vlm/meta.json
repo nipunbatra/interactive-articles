@@ -1,0 +1,19 @@
+{
+  "slug": "vlm",
+  "title": "Vision-Language Models, End to End",
+  "date": "2026-05-09",
+  "tagline": "From CLIP-style alignment to instruction tuning — the full VLM training stack with a live mini-CLIP",
+  "summary": "How a modern VLM is built (vision encoder + projector + language model) and the four training stages that get it there: contrastive image-text alignment, image-grounded language pretraining, instruction tuning, and preference alignment. A mini-CLIP runs live in your browser to make the contrastive part concrete, and we close with the tool-use angle behind ThermEval and the calibration trap real VLMs fall into on thermal data.",
+  "readingTime": "22 min",
+  "difficulty": "Intermediate",
+  "collection": "Multimodal",
+  "order": 14,
+  "status": "published",
+  "tags": ["VLM", "CLIP", "Multimodal", "Instruction Tuning", "RLHF", "Interactive"],
+  "highlights": [
+    "Diagram of the modern VLM stack (vision encoder → projector → LLM) with named example components.",
+    "All four training stages explained with what changes (data, loss, frozen vs trained parts).",
+    "Live mini-CLIP: tiny image and text encoders trained in-browser on 4 toy categories; similarity matrix updates each step.",
+    "The tool-use trap: why VLMs fail on thermal-color → temperature calibration, and how thervlm-style tool calls fix it."
+  ]
+}

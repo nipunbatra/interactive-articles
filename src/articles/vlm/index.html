@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vision-Language Models, End to End</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../vendor/katex/katex.min.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <article class="article">
+      <header class="article-header">
+        <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+        <p class="kicker">Interactive Explainer</p>
+        <h1>Vision-Language Models, End to End</h1>
+        <p class="abstract">
+          Modern VLMs are three boxes glued together (vision encoder,
+          projector, language model) and four training stages
+          (contrastive, image-grounded LM, instruction tuning,
+          preference alignment). A live mini-CLIP makes the
+          contrastive stage concrete, and we close with the
+          calibration trap real VLMs fall into on thermal images.
+        </p>
+        <div class="byline">
+          <span>~22 min</span>
+          <span>Multimodal &middot; CLIP &middot; Instruction Tuning</span>
+        </div>
+      </header>
+
+      <section class="step-section" id="prelude">
+        <div class="step-badge">Prelude</div>
+        <h2>The architecture in three boxes</h2>
+        <p>
+          Every modern VLM &mdash; LLaVA, Qwen-VL, Pixtral, GPT-4o,
+          Claude 3.5 with vision &mdash; is the same shape:
+        </p>
+        <ul class="explanation-list">
+          <li><strong>Vision encoder.</strong> Usually a CLIP- or
+            DINOv2-pretrained ViT. Takes an image, outputs a
+            sequence of patch embeddings (e.g. 256 tokens of 1024-d
+            for a 224×224 image at patch 14).</li>
+          <li><strong>Projector.</strong> A small MLP (sometimes a
+            cross-attention) that maps the vision embeddings into
+            the LLM's hidden dimension and (often) reduces the token
+            count via pooling or Q-Former-style learned queries.</li>
+          <li><strong>Language model.</strong> A pretrained decoder
+            LLM (Llama, Qwen, Mistral, GPT-OSS). Receives projected
+            image tokens prepended to the text token stream and
+            generates an output autoregressively.</li>
+        </ul>
+        <div class="bayes-figure">
+          <canvas id="arch-canvas" width="880" height="240"></canvas>
+          <figcaption>The modern VLM stack. Frozen vs trained parts vary by training stage — see Step 2.</figcaption>
+        </div>
+        <div class="callout callout--key">
+          <strong>The slogan.</strong>
+          A VLM is a language model that has been taught to read an
+          extra "language" &mdash; the language of patch embeddings.
+          Most of the magic is in the encoder; most of the
+          intelligence is in the LLM; the projector is a 60M-parameter
+          translator between them.
+        </div>
+      </section>
+
+      <section class="step-section" id="step-1">
+        <div class="step-badge">Step 1</div>
+        <h2>Stage 1 — Contrastive image-text alignment (CLIP)</h2>
+        <p>
+          Before a VLM can be assembled, the vision encoder usually
+          needs to be aligned with text. The standard recipe is
+          contrastive: train an image encoder $f_I$ and a text
+          encoder $f_T$ so that matched (image, caption) pairs are
+          near in cosine similarity, and unmatched pairs are far.
+        </p>
+        <div class="math-block" id="math-clip"></div>
+        <p>
+          $\tau$ is a learnable temperature. The loss is symmetric
+          (image-to-text + text-to-image cross-entropy, then averaged).
+          With 400M+ image-text pairs scraped from the web, this
+          learns a remarkably general visual vocabulary &mdash; CLIP
+          can zero-shot classify ImageNet at 76% top-1 without ever
+          seeing a labelled ImageNet image during training.
+        </p>
+
+        <h3>A mini-CLIP, live</h3>
+        <p>
+          Below: 4 toy "image" types (coloured shapes) and 4 textual
+          "captions". A tiny image encoder and tiny text encoder
+          trained jointly with the InfoNCE loss. The 4×4 similarity
+          matrix should pull the diagonal (matched pairs) to high
+          values and push the off-diagonal entries low.
+        </p>
+        <div class="train-controls">
+          <button class="action-btn" id="clip-toggle">Start training</button>
+          <button class="action-btn action-btn--ghost" id="clip-reset">Reinitialise</button>
+          <label>temperature τ &nbsp;<span id="clip-tau-val">0.25</span> <input type="range" id="clip-tau" min="0.05" max="1" step="0.01" value="0.25"></label>
+          <span class="train-stat">step <strong id="clip-step">0</strong></span>
+          <span class="train-stat">contrastive loss <strong id="clip-loss">—</strong></span>
+        </div>
+        <div class="vlm-grid">
+          <div class="vlm-panel">
+            <div class="panel-label">Toy data: 4 image types × 4 captions</div>
+            <canvas id="clip-data" width="380" height="380"></canvas>
+          </div>
+          <div class="vlm-panel">
+            <div class="panel-label">Cosine similarity matrix (image × text)</div>
+            <canvas id="clip-sim" width="380" height="380"></canvas>
+          </div>
+          <div class="vlm-panel">
+            <div class="panel-label">Loss curve</div>
+            <canvas id="clip-loss-canvas" width="380" height="380"></canvas>
+          </div>
+        </div>
+        <div class="callout callout--think">
+          <strong>What to watch for.</strong>
+          Within ~50 steps the diagonal of the similarity matrix
+          should start to glow brighter than the off-diagonal. Drop
+          τ very low (e.g. 0.05) and training becomes unstable
+          (gradients explode); push τ very high (e.g. 1) and the
+          loss never separates pairs (saturates near $\log K$).
+          Real CLIP uses a learnable τ initialised at $0.07$.
+        </div>
+      </section>
+
+      <section class="step-section" id="step-2">
+        <div class="step-badge">Step 2</div>
+        <h2>Stage 2 — Image-grounded language pretraining</h2>
+        <p>
+          With the encoder aligned, you bolt on the language model.
+          The projector is randomly initialised; the encoder and LLM
+          are loaded pretrained.
+        </p>
+        <p>
+          Training data: image-caption pairs. Loss: standard next-token
+          cross-entropy on the caption, with image tokens as a prefix
+          context. <strong>Encoder and LLM are frozen</strong>; only
+          the projector trains. This is cheap (60M params), runs on a
+          handful of GPUs, and produces a model that can describe an
+          image but can't follow much instruction.
+        </p>
+        <div class="math-block" id="math-stage2"></div>
+        <div class="callout">
+          <strong>Why freeze the LLM here.</strong>
+          The projector starts random; if you let gradients flow into
+          the LLM at this stage, the LLM's existing language
+          competence collapses (catastrophic forgetting). Stage 2
+          gets the projector into the LLM's hidden-state distribution
+          first.
+        </div>
+      </section>
+
+      <section class="step-section" id="step-3">
+        <div class="step-badge">Step 3</div>
+        <h2>Stage 3 — Instruction tuning</h2>
+        <p>
+          Now the model can describe images but can't answer questions
+          about them or follow instructions. Stage 3 fixes that with a
+          curated dataset of triples
+          $(\text{image}, \text{instruction}, \text{response})$.
+          Examples: "Count the people in this photo." "What's the
+          temperature reading on this thermometer?" "Write Python
+          that plots the chart in this image."
+        </p>
+        <p>
+          Loss: cross-entropy on the response tokens only (the image
+          and instruction tokens are masked out). The projector
+          continues to train; the LLM is now <em>also</em> trained,
+          but with a low learning rate (LoRA on top of the LLM is
+          the most common implementation).
+        </p>
+        <div class="math-block" id="math-stage3"></div>
+        <div class="callout callout--warn">
+          <strong>What changes with scale.</strong>
+          Frontier VLMs (Gemini, GPT-4o, Claude) bake stages 1-3
+          together at trillion-token scale, with the encoder, projector
+          and LLM all trained jointly from early in training. The
+          frozen-stage recipe above is the academic-budget LLaVA
+          flavour; it's still the right starting point for any
+          domain-specific VLM you'd build in a lab.
+        </div>
+      </section>
+
+      <section class="step-section" id="step-4">
+        <div class="step-badge">Step 4</div>
+        <h2>Stage 4 — Preference alignment (RLHF / DPO)</h2>
+        <p>
+          The instruction-tuned model still says wrong things, hedges,
+          or refuses unhelpfully. Stage 4 collects preference pairs
+          (human, or from a stronger model) of "this answer is better
+          than that one" and aligns the model to those preferences.
+        </p>
+        <ul class="explanation-list">
+          <li><strong>RLHF.</strong> Train a reward model on preference
+            pairs; fine-tune the VLM with PPO maximising the reward
+            minus a KL penalty back to the SFT model.</li>
+          <li><strong>DPO (Direct Preference Optimization).</strong>
+            A closed-form alternative that skips the reward model:
+            optimise the implicit reward directly. Cheaper, often
+            comparable.</li>
+          <li><strong>RLAIF.</strong> Use a stronger model as the
+            preference labeller. Now the dominant recipe for
+            mid-sized open VLMs.</li>
+        </ul>
+      </section>
+
+      <section class="step-section" id="step-5">
+        <div class="step-badge">Step 5</div>
+        <h2>The thermal-image trap (and the tool-use fix)</h2>
+        <p>
+          Real VLMs fail spectacularly on thermal imagery. The reason
+          is calibration: a thermal sensor outputs raw temperature
+          per pixel, which is then mapped to a colour-map for human
+          viewing. Two thermal images that look identical to a VLM
+          (same false-colour palette) can correspond to wildly
+          different absolute temperatures &mdash; the VLM only sees
+          colours, not the metadata.
+        </p>
+        <p>
+          The fix isn't a bigger VLM. It's a tool-use loop:
+        </p>
+        <ol class="explanation-list">
+          <li>VLM looks at the image.</li>
+          <li>VLM emits a tool call: "give me the temperature at
+            pixel (i, j)".</li>
+          <li>Tool reads the raw radiometric TIFF and returns a
+            number in Kelvin.</li>
+          <li>VLM reasons over <em>numbers</em>, not colours.</li>
+        </ol>
+        <p>
+          This is exactly the line of research behind
+          <strong>thervlm</strong> and the ThermEval benchmark
+          &mdash; concrete demonstration that the dominant VLMs (GPT-4,
+          Claude, Gemini) fail on tasks where a tool-augmented
+          smaller model succeeds. The lesson generalises: any
+          modality whose pixels-look-the-same-but-mean-different-things
+          (thermal, hyperspectral, depth, audio spectrograms) wants a
+          tool layer.
+        </p>
+        <div class="callout callout--think">
+          <strong>Final takeaway.</strong>
+          A VLM is a language model that learned to read pixel
+          tokens. The training stack is well-understood; the open
+          problems are alignment, hallucination on numbers, and
+          modality-specific calibration. For sustainability work, the
+          modality-specific calibration is where most of the research
+          payoff lives.
+        </div>
+      </section>
+    </article>
+
+    <script src="../vendor/katex/katex.min.js"></script>
+    <script type="module" src="main.js"></script>
+  </body>
+</html>
