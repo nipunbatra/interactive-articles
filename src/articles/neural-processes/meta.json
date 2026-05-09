@@ -1,0 +1,19 @@
+{
+  "slug": "neural-processes",
+  "title": "Neural Processes, Live",
+  "date": "2026-05-09",
+  "tagline": "A neural net that learns 'priors over functions' the way a Gaussian process does — but amortised",
+  "summary": "Click context points onto a 1-D axis and a Conditional Neural Process predicts the rest with uncertainty bands that bow out where data is missing — exactly like a GP, but the kernel is replaced by a learned encoder. Compare the CNP to a real GP fit on the same context. See where the latent (LNP) and attentive (ANP) variants buy you something. Lab-aligned for sensor regression with a small calibration set.",
+  "readingTime": "20 min",
+  "difficulty": "Intermediate",
+  "collection": "Probability & inference",
+  "order": 16,
+  "status": "published",
+  "tags": ["Neural Process", "Meta-Learning", "Gaussian Process", "Uncertainty", "Interactive"],
+  "highlights": [
+    "Click context points onto a 1-D axis; a pre-trained CNP and a GP both predict the rest live, side-by-side.",
+    "Hand-tuned CNP weights so the demo runs without an autograd library, with a separate panel that shows the encoder→aggregate→decoder pipeline.",
+    "Toggle between CNP, latent NP (samples whole functions) and an attentive variant (kernel-like attention over context).",
+    "Where each variant wins and the lab-aligned applications for small-data sensor / thermal regression."
+  ]
+}

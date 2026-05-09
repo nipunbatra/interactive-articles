@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Neural Processes, Live</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../vendor/katex/katex.min.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <article class="article">
+      <header class="article-header">
+        <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+        <p class="kicker">Interactive Explainer</p>
+        <h1>Neural Processes, Live</h1>
+        <p class="abstract">
+          A neural net that learns "priors over functions" the way a
+          Gaussian process does &mdash; but amortised. Click context
+          points; a Conditional Neural Process predicts the rest with
+          uncertainty that bows out where data is missing. Compare to
+          a real GP fit on the same context.
+        </p>
+        <div class="byline">
+          <span>~20 min</span>
+          <span>Probability &middot; Meta-Learning &middot; Uncertainty</span>
+        </div>
+      </header>
+
+      <section class="step-section" id="prelude">
+        <div class="step-badge">Prelude</div>
+        <h2>What problem does an NP solve?</h2>
+        <p>
+          You have a small <em>context</em> set of $(x, y)$ pairs and
+          you want to predict $y$ at new $x$ values, with uncertainty.
+          A Gaussian process does this with a kernel. A neural process
+          replaces the kernel with a learned encoder/decoder, then
+          <em>amortises</em> inference: at test time it's a single
+          forward pass &mdash; no optimisation, no kernel-matrix
+          inversion.
+        </p>
+        <ul class="explanation-list">
+          <li><strong>GP.</strong> Beautiful uncertainty, but $O(N^3)$
+            in the context size and you have to pick a kernel.</li>
+          <li><strong>NP.</strong> Cheap to evaluate, no kernel
+            choice. But you must train it on a distribution of
+            related tasks first.</li>
+        </ul>
+        <div class="callout callout--key">
+          <strong>The slogan.</strong> An NP is a meta-learned
+          surrogate for a GP. You pay a one-time training cost over
+          many functions; thereafter every prediction is one forward
+          pass.
+        </div>
+      </section>
+
+      <section class="step-section" id="step-1">
+        <div class="step-badge">Step 1</div>
+        <h2>Architecture: encoder → aggregate → decoder</h2>
+        <p>
+          The Conditional Neural Process (Garnelo et&nbsp;al., 2018):
+        </p>
+        <div class="math-block" id="math-cnp"></div>
+        <p>
+          $h$ is a small MLP that turns each context pair $(x_i, y_i)$
+          into a representation $r_i$. The aggregator is a
+          permutation-invariant pooling (mean) into a single
+          representation $r$. The decoder $g$ maps $(x_*, r)$ to the
+          predicted mean and variance at any query $x_*$.
+        </p>
+        <div class="bayes-figure">
+          <canvas id="np-arch" width="880" height="220"></canvas>
+          <figcaption>The CNP pipeline. Mean-pooling makes the model permutation-invariant in the context set.</figcaption>
+        </div>
+      </section>
+
+      <section class="step-section" id="step-2">
+        <div class="step-badge">Step 2</div>
+        <h2>Try it: click points, see the posterior</h2>
+        <p>
+          Click anywhere on the canvas to add a context point.
+          Right-click (or shift-click) to remove. The model is
+          pre-trained on a family of smooth functions; it's not
+          training as you click &mdash; it just runs a single forward
+          pass per point. The GP fit on the same context is shown for
+          comparison.
+        </p>
+        <div class="train-controls">
+          <button class="action-btn action-btn--ghost" id="np-clear">Clear context</button>
+          <button class="action-btn action-btn--ghost" id="np-seed">Seed sine demo</button>
+          <label>variant
+            <select id="np-variant">
+              <option value="cnp" selected>CNP (deterministic)</option>
+              <option value="lnp">Latent NP (samples)</option>
+              <option value="anp">Attentive NP</option>
+            </select>
+          </label>
+          <span class="train-stat">|context| = <strong id="np-n">0</strong></span>
+        </div>
+        <div class="np-grid">
+          <div class="np-panel">
+            <div class="panel-label">Neural Process posterior (mean ± 2σ)</div>
+            <canvas id="np-canvas" width="540" height="380"></canvas>
+          </div>
+          <div class="np-panel">
+            <div class="panel-label">GP posterior on same context (RBF)</div>
+            <canvas id="gp-canvas" width="540" height="380"></canvas>
+          </div>
+        </div>
+        <div class="callout callout--think">
+          <strong>What to watch for.</strong>
+          With 0 context points, the NP returns the prior mean of its
+          training family (often roughly zero) with a wide band; the
+          GP returns its prior. Add a few points and both shrink the
+          band locally. The NP's band has a slightly different
+          <em>shape</em> away from the data &mdash; the NP has learned
+          what kinds of functions are likely (smoothness, periodicity)
+          from the family it was trained on; the GP only knows its
+          kernel hyperparameters.
+        </div>
+      </section>
+
+      <section class="step-section" id="step-3">
+        <div class="step-badge">Step 3</div>
+        <h2>The variants and what each adds</h2>
+        <ul class="explanation-list">
+          <li><strong>CNP.</strong> Deterministic. Predicts mean +
+            variance per query. Cheap, single forward pass. Cannot
+            sample whole consistent functions.</li>
+          <li><strong>Latent NP (LNP).</strong> Adds a stochastic
+            latent $z$ that summarises the function. Sample $z$ once,
+            decode many queries &mdash; you get a coherent function
+            sample, like a GP draw. Pays for it in a tighter ELBO loss
+            and harder training.</li>
+          <li><strong>Attentive NP (ANP).</strong> Replaces mean
+            aggregation with attention from query to context. The
+            kernel-like behaviour of GPs reappears: each query looks
+            up the most relevant context points. Best of both worlds
+            for many tasks.</li>
+          <li><strong>Convolutional NP (ConvNP).</strong> Uses a
+            convolutional encoder when the input is a 1-D signal /
+            time-series &mdash; respects translation equivariance.
+            Strong on sensor / climate data.</li>
+          <li><strong>Transformer NP / NP with attention only
+            (NeuralProcessFamily).</strong> Modern variants tend to
+            drop the explicit aggregator and use a transformer over
+            (context ⊕ query) tokens.</li>
+        </ul>
+      </section>
+
+      <section class="step-section" id="step-4">
+        <div class="step-badge">Step 4</div>
+        <h2>When to reach for an NP vs a GP</h2>
+        <ul class="explanation-list">
+          <li><strong>Many similar tasks, each with little data.</strong>
+            Per-sensor calibration; per-location air-quality
+            extrapolation; per-patient breathing-pattern model. NPs
+            shine: train once across all sensors / locations /
+            patients; predict on the next one in milliseconds.</li>
+          <li><strong>One task with a lot of data.</strong> A GP with
+            inducing points (SVGP) or an exact GP if $N \le 10^4$
+            usually beats an NP. The NP's amortisation premium
+            disappears.</li>
+          <li><strong>Online streaming.</strong> NPs handle "context
+            grows over time" naturally because each prediction is a
+            forward pass. GPs need to refit (or use online updates).</li>
+          <li><strong>Lab-aligned applications.</strong>
+            (a) AirDelhi mobile sensor extrapolation with per-route
+            context; (b) JoulesEye per-subject calibration with a
+            short paired session; (c) SentinelKilnDB per-region
+            classifier prior; (d) ApneaEye per-patient adaptation
+            with a few minutes of recording.</li>
+        </ul>
+        <div class="callout callout--think">
+          <strong>Final takeaway.</strong>
+          Neural processes are GPs amortised. If you have many small
+          related tasks and want fast predictions with calibrated
+          uncertainty, they are the right tool. If you have a single
+          big task and want crisp probabilistic semantics, a GP (or
+          deep kernel learning) still wins.
+        </div>
+      </section>
+    </article>
+
+    <script src="../vendor/katex/katex.min.js"></script>
+    <script type="module" src="main.js"></script>
+  </body>
+</html>
