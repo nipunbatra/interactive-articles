@@ -1,0 +1,20 @@
+{
+  "slug": "info-theory",
+  "title": "Information Theory for ML, by Hand",
+  "date": "2026-05-09",
+  "tagline": "Entropy, cross-entropy, KL divergence and mutual information made visible — every quantity recomputed live as you drag distributions",
+  "summary": "Drag a categorical distribution and watch entropy fall as it sharpens. Drop a model alongside data and see cross-entropy turn into KL plus a constant. Switch between forward and reverse KL while fitting a Gaussian to a bimodal target — and feel the difference between mode-covering and mode-seeking. Then build mutual information from a 2-D scatter and see why InfoNCE is a lower bound on it.",
+  "readingTime": "20 min",
+  "difficulty": "Intermediate",
+  "collection": "Probability & inference",
+  "order": 8,
+  "status": "published",
+  "tags": ["Information Theory", "KL Divergence", "Mutual Information", "Cross-Entropy", "InfoNCE", "Interactive"],
+  "highlights": [
+    "Drag a categorical distribution and watch entropy = expected surprise update live.",
+    "Cross-entropy and KL split visually: H(P,Q) = H(P) + KL(P‖Q).",
+    "Forward vs reverse KL on a fixed bimodal target — see mode-covering vs mode-seeking with one toggle.",
+    "Mutual information from a 2-D scatter; slide correlation; watch I(X;Y) shrink to 0 when independent.",
+    "InfoNCE bound on MI as the contrastive temperature shrinks."
+  ]
+}

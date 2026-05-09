@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Information Theory for ML, by Hand</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../vendor/katex/katex.min.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <article class="article">
+      <header class="article-header">
+        <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+        <p class="kicker">Interactive Explainer</p>
+        <h1>Information Theory for ML, by Hand</h1>
+        <p class="abstract">
+          Drag a categorical distribution and watch entropy fall as it
+          sharpens. Drop a model next to data and see cross-entropy
+          split into entropy + KL. Toggle between forward and reverse
+          KL fitting a Gaussian to a bimodal target. Build mutual
+          information from a 2-D scatter. Every quantity recomputed
+          live as you drag.
+        </p>
+        <div class="byline">
+          <span>~20 min</span>
+          <span>Probability &middot; Information Theory &middot; ML</span>
+        </div>
+      </header>
+
+      <!-- ─── Prelude ─── -->
+      <section class="step-section" id="prelude">
+        <div class="step-badge">Prelude</div>
+        <h2>Why every loss in ML traces back to a log</h2>
+        <p>
+          Cross-entropy loss. KL divergence in VAEs. InfoNCE in
+          contrastive learning. The "information bottleneck". Every
+          one of these is the same handful of quantities recombined.
+          Once you have intuition for surprise, entropy, and KL, the
+          whole modern ML toolkit reads like one language.
+        </p>
+        <p>
+          Five quantities, six interactives. Each recomputes live.
+        </p>
+        <div class="callout callout--key">
+          <strong>The whole article in one slogan.</strong>
+          <em>Surprise is a log; entropy is its average; cross-entropy
+          adds a model; KL measures the gap; mutual information
+          measures dependence.</em> Everything else is plumbing.
+        </div>
+      </section>
+
+      <!-- ─── Step 1 ─── -->
+      <section class="step-section" id="step-1">
+        <div class="step-badge">Step 1</div>
+        <h2>Surprise, by the bit</h2>
+        <p>
+          The information content of an outcome with probability $p$ is
+          $-\log p$. Rare = surprising = many bits.
+        </p>
+        <div class="math-block" id="math-info"></div>
+        <p>
+          A coin flip with $p=0.5$ carries 1 bit. Spotting a $p=0.001$
+          event carries about 10 bits &mdash; ten times as informative
+          as a coin flip. The base of the log just sets the unit (base
+          2 = bits, base $e$ = nats); we'll use bits.
+        </p>
+        <div class="info-figure">
+          <canvas id="info-canvas" width="880" height="240"></canvas>
+          <figcaption>−log₂ p as p ranges from 0 to 1. The curve goes to ∞ at impossibility and to 0 at certainty.</figcaption>
+        </div>
+      </section>
+
+      <!-- ─── Step 2 ─── -->
+      <section class="step-section" id="step-2">
+        <div class="step-badge">Step 2</div>
+        <h2>Entropy = expected surprise</h2>
+        <p>
+          Entropy is the average information you'd need per outcome
+          drawn from $P$:
+        </p>
+        <div class="math-block" id="math-entropy"></div>
+        <p>
+          Drag the bars below to change $P$. Entropy is largest when
+          $P$ is uniform (maximally uncertain) and falls to 0 when
+          $P$ puts all its mass on one outcome.
+        </p>
+        <div class="info-figure">
+          <canvas id="entropy-canvas" width="880" height="320"></canvas>
+          <figcaption>Drag bar tops up or down. Numbers on the right show H(P) in bits and log₂(K) (uniform max).</figcaption>
+        </div>
+        <div class="train-controls">
+          <button class="action-btn action-btn--ghost" id="ent-uniform">Uniform</button>
+          <button class="action-btn action-btn--ghost" id="ent-onehot">One-hot</button>
+          <button class="action-btn action-btn--ghost" id="ent-randomize">Randomise</button>
+        </div>
+      </section>
+
+      <!-- ─── Step 3 ─── -->
+      <section class="step-section" id="step-3">
+        <div class="step-badge">Step 3</div>
+        <h2>Cross-entropy = entropy + KL</h2>
+        <p>
+          Now there are two distributions: $P$ (the truth) and $Q$
+          (your model). Cross-entropy is the average surprise you incur
+          using $Q$ to encode draws from $P$:
+        </p>
+        <div class="math-block" id="math-ce"></div>
+        <p>
+          The decomposition makes the geometry obvious: cross-entropy
+          equals entropy (an irreducible cost set by $P$ alone) plus
+          KL divergence (the wasted cost from using a wrong model).
+          Minimising cross-entropy in classification is exactly
+          minimising KL, since $H(P)$ doesn't depend on your weights.
+        </p>
+        <div class="info-figure">
+          <canvas id="ce-canvas" width="880" height="320"></canvas>
+          <figcaption>Drag the orange Q bars. Blue is fixed P. The split bar on the right decomposes H(P, Q) into H(P) (blue) plus KL(P‖Q) (orange).</figcaption>
+        </div>
+        <div class="train-controls">
+          <button class="action-btn action-btn--ghost" id="ce-match">Set Q = P</button>
+          <button class="action-btn action-btn--ghost" id="ce-uniform">Set Q = uniform</button>
+          <button class="action-btn action-btn--ghost" id="ce-randomize">Randomise Q</button>
+        </div>
+      </section>
+
+      <!-- ─── Step 4 ─── -->
+      <section class="step-section" id="step-4">
+        <div class="step-badge">Step 4</div>
+        <h2>Forward vs reverse KL — the personality of the loss</h2>
+        <p>
+          KL is asymmetric. $\mathrm{KL}(P\|Q)$ and $\mathrm{KL}(Q\|P)$
+          are different numbers and they reward different things:
+        </p>
+        <ul class="explanation-list">
+          <li><strong>Forward $\mathrm{KL}(P\|Q)$ &mdash; mode-covering.</strong>
+            Penalises $Q$ for putting near-zero mass anywhere $P$ has
+            mass. The fitted $Q$ stretches to cover all modes of $P$.
+            This is the loss you minimise in maximum likelihood.</li>
+          <li><strong>Reverse $\mathrm{KL}(Q\|P)$ &mdash; mode-seeking.</strong>
+            Penalises $Q$ for putting mass where $P$ has none. The
+            fitted $Q$ collapses onto a single mode. This is what
+            variational inference (Step 5 in the Bayesian playground)
+            optimises.</li>
+        </ul>
+        <p>
+          Below: a fixed bimodal $P$. We numerically minimise either
+          forward or reverse KL over a Gaussian $Q = \mathcal{N}(\mu,
+          \sigma)$ with respect to its parameters. Toggle.
+        </p>
+        <div class="train-controls">
+          <button class="action-btn" id="kl-forward">Forward KL(P‖Q)</button>
+          <button class="action-btn action-btn--ghost" id="kl-reverse">Reverse KL(Q‖P)</button>
+          <span class="train-stat">μ = <strong id="kl-mu">—</strong></span>
+          <span class="train-stat">σ = <strong id="kl-sigma">—</strong></span>
+          <span class="train-stat">KL = <strong id="kl-val">—</strong> nats</span>
+        </div>
+        <div class="info-figure">
+          <canvas id="kl-canvas" width="880" height="320"></canvas>
+          <figcaption>Solid teal: target P. Dashed orange: best Gaussian Q minimising the chosen KL. Forward stretches across modes; reverse picks one and stays.</figcaption>
+        </div>
+      </section>
+
+      <!-- ─── Step 5 ─── -->
+      <section class="step-section" id="step-5">
+        <div class="step-badge">Step 5</div>
+        <h2>Mutual information — how much knowing X tells you about Y</h2>
+        <p>
+          For two variables jointly distributed under $p(x, y)$,
+          mutual information is the KL between joint and product:
+        </p>
+        <div class="math-block" id="math-mi"></div>
+        <p>
+          Equivalently, $I(X; Y) = H(Y) - H(Y \mid X)$ &mdash; the
+          drop in your uncertainty about $Y$ when you learn $X$.
+          $I = 0$ iff $X \perp Y$.
+        </p>
+        <div class="control-row" style="grid-template-columns: 1fr 1fr;">
+          <div class="control-block">
+            <label>correlation ρ &nbsp;<span id="mi-rho-val">0.7</span> <input type="range" id="mi-rho" min="-1" max="1" step="0.05" value="0.7"></label>
+          </div>
+          <div class="control-block">
+            <label>noise scale &nbsp;<span id="mi-n-val">0.3</span> <input type="range" id="mi-n" min="0.05" max="2" step="0.05" value="0.3"></label>
+          </div>
+        </div>
+        <div class="info-figure">
+          <canvas id="mi-canvas" width="880" height="380"></canvas>
+          <figcaption>Left: the 2-D scatter. Right: empirical I(X; Y) computed via histogram binning, plus the analytic Gaussian I = −½ log(1 − ρ²).</figcaption>
+        </div>
+      </section>
+
+      <!-- ─── Step 6 ─── -->
+      <section class="step-section" id="step-6">
+        <div class="step-badge">Step 6</div>
+        <h2>InfoNCE — a lower bound on MI you actually optimise</h2>
+        <p>
+          MI is hard to estimate directly in high dimensions. The
+          contrastive InfoNCE loss is a tractable lower bound:
+        </p>
+        <div class="math-block" id="math-infonce"></div>
+        <p>
+          Where $f$ is a learned similarity. The bound has the form
+          $\mathrm{MI} \ge \log K - \mathrm{InfoNCE}$ for $K$ contrasts
+          per positive. This is why every modern self-supervised
+          recipe (SimCLR, CLIP, contrastive sentence encoders) is
+          quietly an MI-maximisation.
+        </p>
+        <div class="control-row" style="grid-template-columns: 1fr 1fr;">
+          <div class="control-block">
+            <label>K negatives per positive &nbsp;<span id="nce-K-val">16</span> <input type="range" id="nce-K" min="1" max="128" step="1" value="16"></label>
+          </div>
+          <div class="control-block">
+            <label>signal strength &nbsp;<span id="nce-s-val">2.0</span> <input type="range" id="nce-s" min="0.1" max="6" step="0.1" value="2"></label>
+          </div>
+        </div>
+        <div class="info-figure">
+          <canvas id="nce-canvas" width="880" height="280"></canvas>
+          <figcaption>InfoNCE lower bound vs the analytic MI as K and signal strength change. The bound saturates at log K.</figcaption>
+        </div>
+      </section>
+
+      <!-- ─── Step 7 ─── -->
+      <section class="step-section" id="step-7">
+        <div class="step-badge">Step 7</div>
+        <h2>Five misconceptions worth fixing</h2>
+        <div class="misconception-grid">
+          <div class="misconception-card">
+            <span class="misconception-icon">Myth</span>
+            <p><strong>"KL is a distance."</strong><br />
+              It's not symmetric and doesn't satisfy the triangle
+              inequality. It's a divergence. If you want a true metric,
+              use Jensen-Shannon distance: $\sqrt{\mathrm{JSD}}$.</p>
+          </div>
+          <div class="misconception-card">
+            <span class="misconception-icon">Myth</span>
+            <p><strong>"Cross-entropy and KL are the same loss."</strong><br />
+              Identical only when $H(P)$ is constant in your
+              parameters &mdash; true for hard labels (one-hot $P$
+              has $H = 0$), false for soft labels or label smoothing
+              where the entropy moves.</p>
+          </div>
+          <div class="misconception-card">
+            <span class="misconception-icon">Myth</span>
+            <p><strong>"Forward KL is always the right loss."</strong><br />
+              MLE-style maximum likelihood minimises forward KL, which
+              is mode-covering. If your true $P$ is multimodal and
+              your model family $Q$ is unimodal, you'll average across
+              modes &mdash; pick the loss that matches your goal.</p>
+          </div>
+          <div class="misconception-card">
+            <span class="misconception-icon">Myth</span>
+            <p><strong>"Mutual information is hard to estimate."</strong><br />
+              Above ~6 dimensions, almost every neural MI estimator is
+              biased and high-variance. InfoNCE / MINE / CLUB give
+              loose bounds, not faithful values. Treat MI numbers in
+              papers as suggestive.</p>
+          </div>
+          <div class="misconception-card">
+            <span class="misconception-icon">Myth</span>
+            <p><strong>"Information bottleneck explains generalisation."</strong><br />
+              The original IB story was beautiful but its empirical
+              support is contested (Saxe et al. 2018). Useful as a
+              <em>design principle</em>; not a proven mechanism.</p>
+          </div>
+        </div>
+        <div class="callout callout--think">
+          <strong>Final takeaway.</strong>
+          Five quantities &mdash; surprise, entropy, cross-entropy, KL,
+          mutual information &mdash; underlie every loss you'll
+          encounter in modern ML. Once you can compute any of them
+          from any other in your head, classification, VAEs,
+          contrastive learning and Bayesian inference all start
+          looking like the same recipe.
+        </div>
+      </section>
+    </article>
+
+    <script src="../vendor/katex/katex.min.js"></script>
+    <script type="module" src="main.js"></script>
+  </body>
+</html>
