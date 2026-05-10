@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Beyond Gradient Descent</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../vendor/katex/katex.min.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <article class="article">
+      <header class="article-header">
+        <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+        <p class="kicker">Interactive Explainer</p>
+        <h1>Beyond Gradient Descent</h1>
+        <p class="abstract">
+          SGD and Adam aren't the only optimisers. Race five
+          non-SGD methods on the same 2D loss surface and watch
+          where each leaps and stalls.
+        </p>
+        <div class="byline">
+          <span>~16 min</span>
+          <span>Optimization &middot; DL Theory</span>
+        </div>
+      </header>
+
+      <section class="step-section" id="step-1">
+        <div class="step-badge">Step 1</div>
+        <h2>The five contenders</h2>
+        <ul class="explanation-list">
+          <li><strong>Newton's method.</strong> Use the Hessian
+            $H$ and step $-H^{-1}\nabla f$. Quadratic local convergence.
+            Cost: forming $H$ in $O(d^2)$ and inverting in $O(d^3)$.
+            Impractical for $d$ &gt; ~$10^4$.</li>
+          <li><strong>BFGS / L-BFGS.</strong> Maintain a low-rank
+            approximation of $H^{-1}$ from past gradients. The
+            workhorse for medium-scale (&lt;1M parameter) DL.
+            scipy.minimize's default; <code>jax.scipy.optimize</code>
+            ships it.</li>
+          <li><strong>Natural gradient.</strong> Step
+            $-F^{-1}\nabla f$ where $F$ is the Fisher information
+            matrix. Invariant to reparameterisation; the heart of
+            K-FAC and Shampoo. Beats Adam on RNNs / GANs in many
+            settings.</li>
+          <li><strong>CMA-ES (evolutionary).</strong> Sample a
+            population from a Gaussian; update the mean and
+            covariance toward the best samples. Gradient-free,
+            robust to noise; standard in RL hyperparameter search.</li>
+          <li><strong>SPSA (gradient-free finite-difference).</strong>
+            Perturb all parameters once with random ±1, estimate the
+            gradient with a single 2-evaluation finite difference.
+            Optimal when only function values are available.</li>
+        </ul>
+      </section>
+
+      <section class="step-section" id="step-2">
+        <div class="step-badge">Step 2</div>
+        <h2>Race them on a 2-D loss</h2>
+        <div class="train-controls">
+          <label>surface
+            <select id="op-surface">
+              <option value="quadratic">elongated quadratic</option>
+              <option value="rosenbrock" selected>Rosenbrock</option>
+              <option value="bowls">two-bowls (non-convex)</option>
+            </select>
+          </label>
+          <button class="action-btn" id="op-step">Step all</button>
+          <button class="action-btn" id="op-step50">Step 50</button>
+          <button class="action-btn action-btn--ghost" id="op-reset">Reset</button>
+          <span class="train-stat">step <strong id="op-step-count">0</strong></span>
+        </div>
+        <div class="op-figure">
+          <canvas id="op-canvas" width="880" height="440"></canvas>
+          <figcaption>Loss surface contour + each optimiser's trajectory. Final loss values shown in the legend.</figcaption>
+        </div>
+      </section>
+
+      <section class="step-section" id="step-3">
+        <div class="step-badge">Step 3</div>
+        <h2>When to use what</h2>
+        <ul class="explanation-list">
+          <li><strong>L-BFGS.</strong> Smooth full-batch losses up to
+            ~1M parameters. Typical use: physics-informed nets,
+            small-data fine-tunes, numerical methods.</li>
+          <li><strong>K-FAC / Shampoo (natural gradient).</strong>
+            Big nets, stable training. Adopted by labs running
+            very-large LLMs and RNNs where Adam plateaus.</li>
+          <li><strong>CMA-ES.</strong> Black-box hyperparameter
+            search; reward-shaped RL; tasks where the gradient is
+            noisy or unavailable.</li>
+          <li><strong>SPSA.</strong> Hardware-in-the-loop tuning,
+            simulator-based design where every evaluation is a
+            forward simulation. Quantum-circuit optimisation
+            popularised it.</li>
+          <li><strong>Stick with SGD/Adam.</strong> Mini-batch
+            DL with millions of parameters and a stochastic gradient.
+            Cost of computing $H$ exceeds the gain.</li>
+        </ul>
+        <div class="callout callout--think">
+          <strong>Final takeaway.</strong>
+          The right optimiser depends on the cost of each piece of
+          information. SGD throws away curvature (cheap forward+
+          backward, no Hessian). L-BFGS / Newton spend more per step
+          but converge faster. Gradient-free methods spend more per
+          step <em>and</em> ignore gradients but win when there
+          aren't any to use.
+        </div>
+      </section>
+    </article>
+
+    <script src="../vendor/katex/katex.min.js"></script>
+    <script type="module" src="main.js"></script>
+  </body>
+</html>

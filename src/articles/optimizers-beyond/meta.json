@@ -1,0 +1,19 @@
+{
+  "slug": "optimizers-beyond",
+  "title": "Beyond Gradient Descent",
+  "date": "2026-05-10",
+  "tagline": "Newton, BFGS, natural gradient, evolutionary, gradient-free — five non-SGD ideas, live on a 2D loss",
+  "summary": "SGD/Adam aren't the only choices. Race Newton's method, BFGS, natural gradient, CMA-ES (evolutionary), and a gradient-free SPSA optimiser on the same 2D non-convex loss. See where each leaps to the optimum, where each gets stuck, and which to reach for in your lab.",
+  "readingTime": "16 min",
+  "difficulty": "Intermediate",
+  "collection": "Deep learning",
+  "order": 25,
+  "status": "published",
+  "tags": ["Optimization", "Newton", "BFGS", "CMA-ES", "Natural Gradient", "Interactive"],
+  "highlights": [
+    "Five optimisers run live on the same 2D non-convex landscape; their trajectories overlay.",
+    "Step counter + final loss for each so you can compare convergence cost.",
+    "Loss surface selector (quadratic / Rosenbrock / two-bowls) toggles which optimiser shines.",
+    "When to pick what — the lab decision matrix."
+  ]
+}
