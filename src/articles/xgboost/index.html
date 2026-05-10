@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>XGBoost, Tree by Tree</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../vendor/katex/katex.min.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <article class="article">
+      <header class="article-header">
+        <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+        <p class="kicker">Interactive Explainer</p>
+        <h1>XGBoost, Tree by Tree</h1>
+        <p class="abstract">
+          Gradient boosting in slow motion: each new tree fits the
+          residual of the previous ensemble. Click <em>Add tree</em>;
+          watch the prediction sharpen and the loss drop. Then see
+          why the second-order (Newton) update XGBoost actually uses
+          beats the vanilla first-order one.
+        </p>
+        <div class="byline">
+          <span>~18 min</span>
+          <span>Classical ML &middot; Boosting &middot; Trees</span>
+        </div>
+      </header>
+
+      <section class="step-section" id="step-1">
+        <div class="step-badge">Step 1</div>
+        <h2>The boosting recipe in two lines</h2>
+        <p>
+          Build a sequence of weak learners (small trees), each
+          fitting the residual of the running prediction. The
+          ensemble prediction is the sum of all trees.
+        </p>
+        <div class="math-block" id="math-boost"></div>
+        <p>
+          $\eta$ is the learning rate. Smaller $\eta$ + more trees is
+          almost always better than larger $\eta$ + fewer trees, up to
+          a budget. $f_t$ is what tree $t$ outputs on input $x$.
+        </p>
+        <h3>What XGBoost adds</h3>
+        <p>
+          Vanilla gradient boosting fits $f_t$ to the
+          <em>negative gradient</em> $-\partial L / \partial \hat y$
+          (a first-order approximation). XGBoost (Chen &amp; Guestrin,
+          2016) does a <strong>second-order Taylor expansion</strong>
+          and fits the tree to optimise the
+          <em>Newton-step</em> direction. Its split-gain and leaf-value
+          formulas are:
+        </p>
+        <div class="math-block" id="math-xgb"></div>
+        <p>
+          where $g_i = \partial L / \partial \hat y_i$ and
+          $h_i = \partial^2 L / \partial \hat y_i^2$. For squared loss
+          $L = \frac{1}{2}(y - \hat y)^2$ this reduces to vanilla GBM
+          ($g = \hat y - y$, $h = 1$). For logistic loss XGBoost's
+          Hessian-aware update converges meaningfully faster.
+        </p>
+      </section>
+
+      <section class="step-section" id="step-2">
+        <div class="step-badge">Step 2</div>
+        <h2>Tree by tree, live</h2>
+        <p>
+          A 1-D regression toy with a hidden curve. Click <em>Add
+          tree</em>; the next tree fits the current residual; the
+          ensemble prediction (teal) updates. Compare to a single
+          deep tree and a random forest of 25 trees on the same data.
+        </p>
+        <div class="train-controls">
+          <button class="action-btn" id="xg-add">Add tree</button>
+          <button class="action-btn" id="xg-add10">+10 trees</button>
+          <button class="action-btn action-btn--ghost" id="xg-reset">Reset</button>
+          <label>learning rate η &nbsp;<span id="xg-lr-val">0.30</span> <input type="range" id="xg-lr" min="0.05" max="1" step="0.05" value="0.3"></label>
+          <label>max depth &nbsp;<span id="xg-depth-val">3</span> <input type="range" id="xg-depth" min="1" max="6" step="1" value="3"></label>
+          <button class="action-btn action-btn--ghost" id="xg-newdata">New data</button>
+          <span class="train-stat">trees <strong id="xg-n">0</strong></span>
+          <span class="train-stat">train RMSE <strong id="xg-rmse">—</strong></span>
+        </div>
+        <div class="xg-figure">
+          <canvas id="xg-fit" width="880" height="320"></canvas>
+          <figcaption>Training data (●), true curve (dashed), boosted ensemble (teal solid), latest tree's contribution (orange dashed).</figcaption>
+        </div>
+        <div class="xg-figure">
+          <canvas id="xg-residual" width="880" height="200"></canvas>
+          <figcaption>Residuals after the current ensemble. Boosting drives this toward zero.</figcaption>
+        </div>
+        <div class="xg-figure">
+          <canvas id="xg-loss" width="880" height="200"></canvas>
+          <figcaption>Train RMSE vs number of trees. Watch the elbow shape.</figcaption>
+        </div>
+        <h3>Compare to single tree + random forest</h3>
+        <div class="dt-grid">
+          <div class="dt-panel">
+            <div class="panel-label">single deep tree (depth 8)</div>
+            <canvas id="xg-cmp-tree" width="380" height="240"></canvas>
+          </div>
+          <div class="dt-panel">
+            <div class="panel-label">random forest (25 trees, depth 6)</div>
+            <canvas id="xg-cmp-rf" width="380" height="240"></canvas>
+          </div>
+          <div class="dt-panel">
+            <div class="panel-label">boosted ensemble (current)</div>
+            <canvas id="xg-cmp-boost" width="380" height="240"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <section class="step-section" id="step-3">
+        <div class="step-badge">Step 3</div>
+        <h2>What you should see</h2>
+        <ul class="explanation-list">
+          <li><strong>The first tree is just a step function.</strong>
+            Depth-3 means at most 8 leaves; the prediction is a
+            blocky approximation of the truth.</li>
+          <li><strong>Each subsequent tree corrects the residual.</strong>
+            Watch the residual panel: it gets noisier and smaller,
+            never really hitting zero unless you keep adding trees.</li>
+          <li><strong>Lower η = smoother fits.</strong> At η=0.05 + 100
+            trees the curve is smooth. At η=0.5 + 20 trees it's
+            jagged. Same total "step size", different bias/variance.</li>
+          <li><strong>Boosted vs RF.</strong> Random forest averages
+            many <em>independent</em> deep trees; boosting builds
+            <em>dependent</em> shallow trees. RF is robust + parallel;
+            boosting is more accurate + sequential. For tabular
+            tasks XGBoost / LightGBM / CatBoost beat RF on most
+            benchmarks since 2018.</li>
+        </ul>
+      </section>
+
+      <section class="step-section" id="step-4">
+        <div class="step-badge">Step 4</div>
+        <h2>Production XGBoost — what to actually tune</h2>
+        <ul class="explanation-list">
+          <li><strong>n_estimators / num_boost_round.</strong> Use
+            early stopping with a validation set. 500–5000 is the
+            useful range; more is wasted.</li>
+          <li><strong>learning_rate (η).</strong> 0.01–0.1 for big
+            datasets, 0.05–0.3 for small. Lower with more trees.</li>
+          <li><strong>max_depth.</strong> 3–10. Deeper for big tabular
+            data with rich interactions; shallower for noisy data.</li>
+          <li><strong>min_child_weight.</strong> Equivalent of
+            min-samples-per-leaf weighted by the Hessian. 1 default;
+            push higher for noisy data.</li>
+          <li><strong>subsample / colsample_bytree.</strong> Bootstrap
+            row / feature sampling per tree. 0.7–0.9 is the sweet
+            spot — adds randomness, regularises.</li>
+          <li><strong>reg_alpha / reg_lambda.</strong> L1 / L2 on
+            leaf weights. Tune if you have many features and worry
+            about overfitting.</li>
+          <li><strong>tree_method.</strong> Use 'hist' (default in
+            modern XGBoost) for everything; it's faster and as accurate
+            as 'exact'.</li>
+          <li><strong>objective.</strong> 'reg:squarederror',
+            'binary:logistic', 'multi:softprob', 'rank:pairwise',
+            'reg:tweedie' (zero-inflated counts), …</li>
+          <li><strong>monotonic constraints.</strong> Force
+            "prediction must be monotone in feature X" — useful for
+            insurance, healthcare, regulation.</li>
+          <li><strong>missing values.</strong> XGBoost natively learns
+            best-direction routing for NaN per split; don't impute
+            unless you must.</li>
+        </ul>
+        <div class="callout callout--key">
+          <strong>The slogan.</strong>
+          For tabular data with mixed types, missing values, and
+          $\le$ a few million rows, XGBoost / LightGBM / CatBoost are
+          still the strongest <em>and simplest</em> default.
+          Neural-tabular models (TabNet, FT-Transformer, SAINT) win
+          benchmarks occasionally; gradient-boosted trees still win
+          most of the production time.
+        </div>
+      </section>
+
+      <section class="step-section" id="step-5">
+        <div class="step-badge">Step 5</div>
+        <h2>Variants worth knowing</h2>
+        <ul class="explanation-list">
+          <li><strong>LightGBM.</strong> Histogram-based; leaf-wise
+            (deepest-first) splitting; faster than XGBoost on big
+            data; slightly more overfit-prone, easily controlled with
+            <code>num_leaves</code> and regularisation.</li>
+          <li><strong>CatBoost.</strong> Native handling of
+            categorical features (target encoding without leakage);
+            excellent default hyperparameters; slowest of the three
+            on large data.</li>
+          <li><strong>HistGradientBoosting (sklearn).</strong>
+            Pure-Python alternative; much faster than the original
+            sklearn GBM; comparable accuracy; ships with sklearn.</li>
+          <li><strong>NGBoost.</strong> Gradient boosting that
+            outputs a <em>distribution</em> (mean + variance); useful
+            for downstream uncertainty work.</li>
+          <li><strong>XGBoost-Spark / Dask-XGBoost.</strong>
+            Distributed for very large data.</li>
+          <li><strong>TabNet, FT-Transformer, SAINT.</strong> Neural
+            tabular alternatives; sometimes win, often tie, rarely
+            justify the extra ML-ops complexity.</li>
+        </ul>
+      </section>
+    </article>
+
+    <script src="../vendor/katex/katex.min.js"></script>
+    <script type="module" src="main.js"></script>
+  </body>
+</html>

@@ -1,0 +1,19 @@
+{
+  "slug": "xgboost",
+  "title": "XGBoost, Tree by Tree",
+  "date": "2026-05-10",
+  "tagline": "Each new tree fits the residual of the last — watch the regression curve land, click by click",
+  "summary": "Live gradient-boosted regression on a 1-D toy. Each click adds a new tree that fits the residuals; the ensemble prediction sharpens. Sliders for learning rate, max depth, n_estimators. Compare the boosted ensemble vs single tree vs random forest on the same target. Plus the exact gradient/Hessian formulas XGBoost uses.",
+  "readingTime": "18 min",
+  "difficulty": "Intermediate",
+  "collection": "Classical ML",
+  "order": 31,
+  "status": "published",
+  "tags": ["XGBoost", "Gradient Boosting", "Trees", "Classical ML", "Interactive"],
+  "highlights": [
+    "Click 'Add tree' to step through boosting rounds; watch the residuals shrink and the prediction match the truth.",
+    "Single tree vs random forest vs boosted ensemble on the same data, side-by-side.",
+    "Per-step training-loss curve; hyperparameter sliders for learning rate, depth, and number of trees.",
+    "The XGBoost gain formula and second-order Newton view of why it beats vanilla GBM."
+  ]
+}
