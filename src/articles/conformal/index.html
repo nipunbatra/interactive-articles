@@ -156,17 +156,17 @@
 
       <section class="step-section" id="step-5">
         <div class="step-badge">Step 5</div>
-        <h2>Where this lives in your lab</h2>
+        <h2>Where this lives in practice</h2>
         <ul class="explanation-list">
           <li><strong>Deployed sensor models.</strong> Wrap any
             existing predictor with split-conformal: 200 calibration
             points, one quantile, you ship a 90% interval.</li>
-          <li><strong>Air-quality forecasting (AirDelhi,
-            VayuChat).</strong> Conformal-on-PatchTST gives interval
+          <li><strong>Air-quality forecasting (mobile air-quality data,
+            an LLM data-chat tool).</strong> Conformal-on-PatchTST gives interval
             forecasts at any horizon with a coverage guarantee &mdash;
             a much stronger claim than "we used a Bayesian neural
             network".</li>
-          <li><strong>Thermal regression (JoulesEye, ApneaEye).</strong>
+          <li><strong>Thermal regression (thermal-imaging energy estimation, thermal-imaging respiration monitoring).</strong>
             Heart-rate / respiration estimates with calibrated
             intervals make safety claims realistic.</li>
           <li><strong>Energy disaggregation.</strong> Conformal
@@ -180,7 +180,7 @@
         <div class="callout callout--think">
           <strong>Final takeaway.</strong>
           Conformal prediction is the cheapest way to add a
-          guaranteed coverage band to any model your lab ships. It
+          guaranteed coverage band to any model practice ships. It
           doesn't replace probabilistic methods (Bayesian, NPs, GPs),
           but it's the right safety net to wrap around them &mdash;
           and it costs almost nothing to add.

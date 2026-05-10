@@ -34,7 +34,7 @@
         <div class="step-badge">Prelude</div>
         <h2>Why we don't train from scratch any more</h2>
         <p>
-          ImageNet has 1.2M labelled images. Your sustainability lab
+          ImageNet has 1.2M labelled images. Your practice
           has, optimistically, a few thousand labelled thermal frames
           or satellite tiles. A ViT-Base trained from scratch on that
           would overfit catastrophically. Self-supervised pretraining
@@ -46,7 +46,7 @@
         <div class="callout callout--key">
           <strong>The slogan.</strong>
           Spend your unlabelled-data calories on a self-supervised
-          pretext task. Save your labelling budget for the part that
+          pretext task. Save labelling budget for the part that
           actually needs labels (the head, sometimes a thin LoRA
           through the backbone).
         </div>
@@ -159,7 +159,7 @@
           set. The slope of that "labelled-data vs accuracy" curve is
           the SSL value. Below: a synthetic curve illustrating
           <em>random init</em> vs <em>SSL pretrained</em> as you grow
-          the labelled fraction.
+          labelled fraction.
         </p>
         <div class="ssl-figure">
           <canvas id="probe-canvas" width="880" height="320"></canvas>
@@ -169,15 +169,15 @@
 
       <section class="step-section" id="step-4">
         <div class="step-badge">Step 4</div>
-        <h2>What this looks like in your lab</h2>
+        <h2>What this looks like in practice</h2>
         <ul class="explanation-list">
           <li><strong>Thermal pretraining.</strong> Stockpile every
             thermal frame from FLIR cameras on campus &mdash;
             unlabeled. Pretrain MAE on ~50k–200k frames. Fine-tune on
-            a few hundred ApneaEye / JoulesEye labels. The backbone
+            a few hundred thermal-imaging respiration monitoring / thermal-imaging energy estimation labels. The backbone
             features will catch breathing-pattern motifs that a
             from-scratch model can't see.</li>
-          <li><strong>Satellite pretraining.</strong> SentinelKilnDB
+          <li><strong>Satellite pretraining.</strong> satellite kiln-detection
             has finite labelled tiles, but the source Sentinel-2
             mosaic is essentially infinite. Pretrain MAE or DINOv2 on
             the unlabelled tiles; the kiln detector then trains on
@@ -188,15 +188,15 @@
             your in-domain unlabeled data, then fine-tune. The free
             big-pretrained backbone gives you a head-start; the
             domain pretrain shifts it toward your modality.</li>
-          <li><strong>Modality embeddings for retrieval / VayuChat.</strong>
+          <li><strong>Modality embeddings for retrieval / an LLM data-chat tool.</strong>
             CLIP-style alignment between (image, technical-text)
-            pairs from your lab's papers / dashboards turns a free-text
+            pairs from your papers / dashboards turns a free-text
             user question into a search over your dataset. Direct
-            VayuChat / VayuBuddy upgrade.</li>
+            an LLM data-chat tool / an LLM data-chat tool upgrade.</li>
         </ul>
         <div class="callout callout--think">
           <strong>Final takeaway.</strong>
-          The hardest part of vision in a sustainability lab isn't
+          The hardest part of vision in a practice isn't
           training; it's labelling. SSL pretraining lets the unlabelled
           mountain do the heavy lifting and your annotators only
           touch the part that fundamentally needs human judgement.

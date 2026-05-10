@@ -304,10 +304,46 @@ function build() {
       path.join(articlesDir, article.slug),
       path.join(docsDir, article.slug)
     );
+    injectKaTeXAutoRender(path.join(docsDir, article.slug, 'index.html'));
   }
 
   fs.writeFileSync(path.join(docsDir, '.nojekyll'), '');
   fs.writeFileSync(path.join(docsDir, 'index.html'), renderHomePage(siteConfig, articles));
+}
+
+// Add KaTeX auto-render so $...$ / $$...$$ inside paragraphs renders.
+// Idempotent: skips if marker comment is already present.
+function injectKaTeXAutoRender(htmlPath) {
+  if (!fs.existsSync(htmlPath)) return;
+  let html = fs.readFileSync(htmlPath, 'utf8');
+  if (html.includes('<!-- katex-auto-render -->')) return;
+  const insertion = `
+    <!-- katex-auto-render -->
+    <script defer src="../vendor/katex/contrib/auto-render.min.js"></script>
+    <script>
+      document.addEventListener('DOMContentLoaded', function () {
+        var go = function () {
+          if (!window.renderMathInElement) { setTimeout(go, 50); return; }
+          renderMathInElement(document.body, {
+            delimiters: [
+              { left: '$$', right: '$$', display: true },
+              { left: '\\\\[', right: '\\\\]', display: true },
+              { left: '$', right: '$', display: false },
+              { left: '\\\\(', right: '\\\\)', display: false }
+            ],
+            throwOnError: false,
+            ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code', 'option']
+          });
+        };
+        go();
+      });
+    </script>
+  </body>`;
+  if (html.includes('</body>')) {
+    // Function form bypasses `$$` etc. special handling in replacement strings.
+    html = html.replace('</body>', () => insertion);
+    fs.writeFileSync(htmlPath, html);
+  }
 }
 
 build();

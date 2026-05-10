@@ -129,10 +129,10 @@
 
       <section class="step-section" id="step-4">
         <div class="step-badge">Step 4</div>
-        <h2>Where this lives in your lab</h2>
+        <h2>Where this lives in practice</h2>
         <ul class="explanation-list">
           <li><strong>Cross-city air-quality models.</strong>
-            Train on AirDelhi mobile sensors; CORAL-align to a new
+            Train on mobile air-quality sensors; CORAL-align to a new
             city's distribution before deploying. Often recovers most
             of the source-domain accuracy with no fresh labelling.</li>
           <li><strong>Seasonal drift.</strong> Same city, different
@@ -142,7 +142,7 @@
             L1C vs L2A; different sun angles; different sensor years.
             Test-time CORAL on the encoder features keeps your kiln
             detector working.</li>
-          <li><strong>Multi-site clinical (ApneaEye).</strong> Each
+          <li><strong>Multi-site clinical (thermal-imaging respiration monitoring).</strong> Each
             site is its own domain. Domain generalisation (training
             with several labelled sites + IRM-style penalty) gives a
             model that holds up at the next site.</li>

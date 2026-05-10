@@ -41,7 +41,7 @@
         </p>
         <div class="callout callout--key">
           <strong>The slogan.</strong> Don't show the model points it
-          already knows the answer to. Spend the labelling budget on
+          already knows the answer to. Spend labelling budget on
           the boundary it's most uncertain about.
         </div>
       </section>
@@ -139,41 +139,41 @@
             classes in the acquisition.</li>
           <li><strong>Acquisition mismatch.</strong> The model class
             you use for active learning must be the model class you
-            train on the labels. Acquiring with logistic regression
+            train on labels. Acquiring with logistic regression
             then training a neural net is a fast way to leave
             label-efficiency on the table.</li>
           <li><strong>Reproducibility.</strong> Random seeds matter
             enormously in AL; report results as a curve over multiple
-            seeds, not single runs. (See the lab-side recommendation
+            seeds, not single runs. (See practice-side recommendation
             on multi-seed reporting.)</li>
         </ul>
       </section>
 
       <section class="step-section" id="step-4">
         <div class="step-badge">Step 4</div>
-        <h2>Where this hits your lab</h2>
+        <h2>Where this hits practice</h2>
         <ul class="explanation-list">
           <li><strong>Sensor placement.</strong> Choose where to put
             the next air-quality sensor (or thermal camera, or PM2.5
             buoy) by maximum predictive uncertainty under your current
             field model.</li>
-          <li><strong>Labelling thermal frames for ApneaEye.</strong>
+          <li><strong>Labelling thermal frames for thermal-imaging respiration monitoring.</strong>
             Frame-level annotation is expensive; AL targets the frames
             where the current breathing-pattern model is least
             confident.</li>
-          <li><strong>Satellite tile selection (SentinelKilnDB).</strong>
+          <li><strong>Satellite tile selection (satellite kiln-detection).</strong>
             Out of millions of unlabeled tiles, AL surfaces the few
             hundred that the kiln detector is least sure about,
             multiplying labelling efficiency.</li>
           <li><strong>Sleep-stage / activity recognition.</strong>
-            For SSL-pretrained models, AL on the labelled fine-tuning
+            For SSL-pretrained models, AL on labelled fine-tuning
             set lets you pick which transitions and atypical events
             to send to the human labeller.</li>
         </ul>
         <div class="callout callout--think">
           <strong>Final takeaway.</strong>
           Active learning is one of the cheapest ways to multiply
-          your labelling budget. It costs only a model retrain per
+          labelling budget. It costs only a model retrain per
           query and a small bit of book-keeping. For sensor and
           satellite work in a lab with finite annotation budget, it
           should be the default, not the optional add-on.
