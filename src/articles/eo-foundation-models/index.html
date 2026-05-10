@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Earth-Observation Foundation Models, in Depth</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../vendor/katex/katex.min.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <article class="article">
+      <header class="article-header">
+        <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+        <p class="kicker">Interactive Explainer</p>
+        <h1>Earth-Observation Foundation Models, in Depth</h1>
+        <p class="abstract">
+          A deep tour: why ImageNet weights underperform on satellites,
+          which pretraining recipes have actually scaled, the 2026
+          model zoo (Prithvi, SatMAE, Clay, AnySat, MMEarth, …), a
+          live multi-band MAE demo, and an end-to-end worked example
+          from raw Sentinel-2 to a fine-tuned downstream model.
+        </p>
+        <div class="byline">
+          <span>~30 min</span>
+          <span>Foundation Models &middot; Earth Observation &middot; Pretraining</span>
+        </div>
+      </header>
+
+      <section class="step-section" id="prelude">
+        <div class="step-badge">Prelude</div>
+        <h2>Why is EO different from ImageNet?</h2>
+        <p>
+          A foundation model trained on ImageNet has seen 1.2M
+          three-channel RGB photos shot by humans for humans. A
+          satellite tile is none of those things:
+        </p>
+        <ul class="explanation-list">
+          <li><strong>Multi-spectral, not RGB.</strong> Sentinel-2 ships
+            13 bands (visible + near-IR + short-wave IR + a few
+            atmospheric correction bands). Landsat-8 has 11. Hyperspectral
+            sensors have 200+. ImageNet backbones have learned to read
+            three channels in a fixed order; the moment you feed
+            them 13, the patch-embed layer can't even initialise.</li>
+          <li><strong>Calibrated radiance, not aesthetic exposure.</strong>
+            Pixel values are physical reflectances, not sRGB. A pixel
+            of value 0.27 in the SWIR-1 band <em>means</em> something
+            quantitative. Auto-exposure + colour-balance assumptions
+            in ImageNet pretraining work against you.</li>
+          <li><strong>Multi-temporal.</strong> Most EO tasks need a
+            sequence of revisits to see crop growth, urban change,
+            seasonality. ImageNet sees one frame, full stop.</li>
+          <li><strong>Multi-resolution / multi-modal.</strong> Optical
+            (10m), radar (SAR, 5–20m), elevation (30m), nightlights,
+            climate. A foundation model that knows only one of these
+            misses 80% of the signal.</li>
+          <li><strong>Heavy class imbalance + huge unlabeled stash.</strong>
+            10–20 land-cover classes, but most of the planet is one of
+            three (water, forest, cropland). Labels are expensive
+            (often human/expert); unlabelled tiles are essentially
+            free.</li>
+          <li><strong>Hierarchical spatial scales.</strong> A tile
+            covers a few square km. The same task may need pixel-level
+            (segmentation), patch-level (kiln in this 64×64 chip), or
+            tile-level (deforestation rate over 1km²) outputs. ImageNet
+            classification heads don't generalise.</li>
+        </ul>
+        <div class="callout callout--key">
+          <strong>The slogan.</strong>
+          EO foundation models trade the breadth of internet imagery
+          for the depth and physics of remote sensing. The pretraining
+          objective is unchanged (mostly MAE); the data, the tokenizer
+          and the evaluation are completely different.
+        </div>
+      </section>
+
+      <section class="step-section" id="step-1">
+        <div class="step-badge">Step 1</div>
+        <h2>The 2026 EO foundation-model zoo</h2>
+        <p>
+          By mid-2026 there are roughly a dozen actively-maintained EO
+          foundation models. They differ in modality, pretraining
+          objective, and downstream coverage:
+        </p>
+        <div class="examples-table-wrap">
+          <table class="examples-table">
+            <thead><tr><th>Model</th><th>Year</th><th>Backbone</th><th>Modalities</th><th>Pretrain objective</th><th>Best at</th></tr></thead>
+            <tbody>
+              <tr><td><strong>SatMAE</strong></td><td>2022</td><td>ViT-L</td><td>Optical (multi-spectral, multi-temporal)</td><td>MAE with band+time masking</td><td>Multi-temporal classification</td></tr>
+              <tr><td><strong>Prithvi-100M</strong> (NASA / IBM)</td><td>2023</td><td>ViT-L</td><td>HLS (Sentinel-2 + Landsat-8)</td><td>MAE on 6-band tiles</td><td>Flood, burn-scar, crop type</td></tr>
+              <tr><td><strong>Prithvi-EO 600M / 2.0</strong></td><td>2024</td><td>ViT-H</td><td>HLS + temporal</td><td>MAE + temporal modelling</td><td>Hierarchical change detection</td></tr>
+              <tr><td><strong>SatMAE++</strong></td><td>2023</td><td>ViT-L</td><td>Optical + SAR</td><td>MAE + cross-modal contrastive</td><td>Cross-sensor generalisation</td></tr>
+              <tr><td><strong>SatlasPretrain</strong></td><td>2023</td><td>Swin-B</td><td>Sentinel-1, Sentinel-2, NAIP</td><td>Supervised on 137 tasks</td><td>Multi-task fine-tuning</td></tr>
+              <tr><td><strong>Clay v1</strong></td><td>2024</td><td>ViT-B/L</td><td>Multi-modal embedding</td><td>MAE + CLIP-style language alignment</td><td>Search / retrieval / zero-shot</td></tr>
+              <tr><td><strong>MMEarth</strong></td><td>2024</td><td>ViT-B</td><td>12 modalities (S2, S1, DEM, climate, biomass…)</td><td>Multi-modal MAE</td><td>Modality-flexible downstream</td></tr>
+              <tr><td><strong>AnySat</strong></td><td>2024</td><td>JEPA-style</td><td>Any optical config (any bands, any res, any time)</td><td>Predictive (V-JEPA flavour)</td><td>Heterogeneous deployment</td></tr>
+              <tr><td><strong>Presto</strong></td><td>2023</td><td>1D Transformer over pixels</td><td>Sentinel-2 + S1 + ERA5</td><td>MAE on per-pixel time series</td><td>Crop-type, very small fine-tune sets</td></tr>
+              <tr><td><strong>GFM</strong> (Mendieta et&nbsp;al.)</td><td>2023</td><td>ViT-B</td><td>Optical</td><td>Continual MAE pretraining from a generic ViT</td><td>Cheap to retrain in-domain</td></tr>
+              <tr><td><strong>IBM/NASA Granite-EO</strong></td><td>2024</td><td>ViT-H/22</td><td>HLS</td><td>MAE + climate-conditioned objectives</td><td>Operational deployment</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          Two clusters: the MAE-on-multispectral camp (Prithvi, SatMAE,
+          Granite) and the multi-modal camp (Clay, MMEarth, AnySat).
+          The first is simpler and stronger on a fixed sensor; the
+          second is more flexible at deployment time when you don't
+          know what bands or sensors you'll get.
+        </p>
+      </section>
+
+      <section class="step-section" id="step-2">
+        <div class="step-badge">Step 2</div>
+        <h2>The pretraining objective: masked autoencoder, but with twists</h2>
+        <p>
+          Almost every successful EO FM uses a masked autoencoder
+          (Step&nbsp;1 of the
+          <a href="../vision-ssl/index.html">vision-pretraining article</a>).
+          The twists matter:
+        </p>
+        <ul class="explanation-list">
+          <li><strong>Spectral masking.</strong> Mask whole bands, not
+            just patches. The encoder must learn band-band relations
+            (e.g. NDVI = (NIR - Red) / (NIR + Red) is implicit in any
+            optical FM). SatMAE and MMEarth do this.</li>
+          <li><strong>Temporal masking.</strong> Mask whole timesteps
+            of a multi-temporal stack. Forces the model to interpolate
+            phenology / weather / change. Prithvi 2.0 and Presto.</li>
+          <li><strong>Modality drop.</strong> With probability $p$,
+            drop an entire modality (SAR / DEM / climate). Forces
+            graceful degradation. MMEarth standard recipe.</li>
+          <li><strong>Resolution + GSD encoding.</strong> Add the
+            ground-sample distance (e.g., 10m vs 30m) as a token
+            embedding so the model can normalise scale. Clay and
+            AnySat depend on this.</li>
+          <li><strong>Climate / location conditioning.</strong> Many
+            recent models condition on lat/lon and season. Useful
+            for generalisation to unseen regions.</li>
+        </ul>
+        <div class="math-block" id="math-eomae"></div>
+      </section>
+
+      <section class="step-section" id="step-3">
+        <div class="step-badge">Step 3</div>
+        <h2>Live: multi-band MAE on a synthetic Sentinel-2 tile</h2>
+        <p>
+          We synthesise a 6-band 64×64 tile (mimicking Sentinel-2's
+          B2/B3/B4/B8/B11/B12) with realistic correlations across
+          bands (vegetation correlates green and NIR; water suppresses
+          NIR; soil pops in SWIR). Drag the mask ratio and which bands
+          to mask; the reconstruction is a smart fill from the visible
+          patches, mimicking what an MAE decoder converges to.
+        </p>
+        <div class="train-controls">
+          <label>mask ratio &nbsp;<span id="eo-ratio-val">0.50</span> <input type="range" id="eo-ratio" min="0.05" max="0.95" step="0.05" value="0.5"></label>
+          <label>bands to mask
+            <select id="eo-bands">
+              <option value="random" selected>random patches per band</option>
+              <option value="all-bands">whole bands (mask the band stack)</option>
+              <option value="time">whole timesteps (mask all 3 dates)</option>
+            </select>
+          </label>
+          <button class="action-btn action-btn--ghost" id="eo-reroll">New tile</button>
+        </div>
+        <div class="eo-figure">
+          <div class="eo-band-strip" id="eo-bands-orig"></div>
+          <figcaption>Original 6 bands (B2 blue, B3 green, B4 red, B8 NIR, B11 SWIR1, B12 SWIR2).</figcaption>
+        </div>
+        <div class="eo-figure">
+          <div class="eo-band-strip" id="eo-bands-masked"></div>
+          <figcaption>Masked input (encoder sees this).</figcaption>
+        </div>
+        <div class="eo-figure">
+          <div class="eo-band-strip" id="eo-bands-recon"></div>
+          <figcaption>Decoder reconstruction; per-band RMSE shown.</figcaption>
+        </div>
+      </section>
+
+      <section class="step-section" id="step-4">
+        <div class="step-badge">Step 4</div>
+        <h2>From raw Sentinel-2 to a fine-tuned downstream model</h2>
+        <p>
+          The end-to-end pipeline from a Copernicus product to a
+          deployed kiln-detector / crop-type / biomass model.
+        </p>
+        <div class="examples-table-wrap">
+          <table class="examples-table">
+            <thead><tr><th>Stage</th><th>Tooling</th><th>Why it matters</th></tr></thead>
+            <tbody>
+              <tr><td><strong>1. Download</strong></td><td>Sentinel Hub, Microsoft Planetary Computer, AWS Open Data, NASA HLS</td><td>L1C (top-of-atmosphere) vs L2A (surface reflectance) — pick L2A unless you have your own atmospheric correction</td></tr>
+              <tr><td><strong>2. Tile + normalise</strong></td><td>rasterio, rioxarray</td><td>Reproject to a common CRS, tile to 224×224 chips, normalise per-band by training-set mean/std</td></tr>
+              <tr><td><strong>3. Filter</strong></td><td>cloud / snow masks (s2cloudless, SCL band)</td><td>~30% of optical tiles are clouded; if you don't filter, the FM learns to predict clouds and downstream tasks underperform</td></tr>
+              <tr><td><strong>4. Pretrain (or load)</strong></td><td>Hugging Face hub: ibm-nasa-geospatial/Prithvi-100M, made-with-clay/Clay-v1</td><td>Almost always load; you only pretrain if your domain is genuinely off-distribution (hyperspectral, micro-satellite)</td></tr>
+              <tr><td><strong>5. Adapt encoder</strong></td><td>linear probe → LoRA → full FT</td><td>For ≤10k labels, linear probe wins; for ≥10k, LoRA on attention; for ≥100k, full FT</td></tr>
+              <tr><td><strong>6. Task head</strong></td><td>UperNet / DPT / linear classifier</td><td>For segmentation, UperNet over a ViT; for chip classification, a global-pool + MLP; for regression, an MLP</td></tr>
+              <tr><td><strong>7. Eval</strong></td><td>geospatially held-out tiles (no spatial leakage!)</td><td>Random split overestimates by a lot; use spatial blocking (k-fold over geographic blocks) — this is the most common error in EO papers</td></tr>
+              <tr><td><strong>8. Deploy</strong></td><td>onnx / tflite / TorchServe with TIFF preprocessing baked in</td><td>The data pipeline is the deployment risk, not the model</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout callout--warn">
+          <strong>The single biggest mistake in EO ML papers.</strong>
+          Random train/test split. Adjacent tiles are correlated; a
+          random split puts neighbours in train and test, inflating
+          accuracy by 5–25%. Spatial blocking (split by 1°×1° boxes,
+          country, watershed) reveals real generalisation. Always
+          require this in reviews.
+        </div>
+      </section>
+
+      <section class="step-section" id="step-5">
+        <div class="step-badge">Step 5</div>
+        <h2>Where general foundation models fit</h2>
+        <p>
+          DINOv2, SAM2, CLIP, and the new generation of vision-language
+          models also work on EO &mdash; sometimes very well, sometimes
+          terribly. Rules of thumb:
+        </p>
+        <ul class="explanation-list">
+          <li><strong>DINOv2 features on RGB tiles.</strong> Match or
+            beat ImageNet-pretrained ResNets on small-data EO
+            classification. Worse than EO-specific FMs on
+            multi-spectral or multi-temporal data.</li>
+          <li><strong>SAM2 for segmentation prompts.</strong> Excellent
+            zero-shot for "draw me a polygon around this object" if the
+            object is in RGB and visually distinct (kilns, ships,
+            buildings, large fields). Falls apart on small-object or
+            spectral-distinguishable classes.</li>
+          <li><strong>CLIP for retrieval.</strong> Find tiles
+            "containing a brick kiln" via text query — works
+            surprisingly well on RGB. Combine with EO-specific embedding
+            for re-ranking.</li>
+          <li><strong>Pixtral / GPT-4o for visual QA on tiles.</strong>
+            Useful when you want quick exploration ("are there fires
+            visible in this tile?"), useless when you want quantitative
+            radiometric answers (the
+            <a href="../vlm/index.html#step-5">thermal-trap argument</a>
+            applies).</li>
+          <li><strong>VLM + EO FM stack.</strong> The 2026 frontier:
+            EO FM embeds the tile; a small adapter projects to LLM
+            space; the LLM answers free-form questions over the tile.
+            EarthGPT / RemoteCLIP / GeoChat are early examples.</li>
+        </ul>
+      </section>
+
+      <section class="step-section" id="step-6">
+        <div class="step-badge">Step 6</div>
+        <h2>Practical tips before you build</h2>
+        <ul class="explanation-list">
+          <li><strong>Don't pretrain unless you must.</strong> Start
+            with Prithvi or Clay; you almost certainly can't beat
+            their tens-of-thousands of GPU-hours. Pretrain only for a
+            domain shift not covered (UAV, micro-satellite,
+            hyperspectral with novel bands).</li>
+          <li><strong>The label budget is the model.</strong> 200
+            labelled chips with a frozen FM linear probe will beat 200
+            chips with a from-scratch ResNet by ~15-30 mAP points.</li>
+          <li><strong>Tile size matters.</strong> 224×224 is the
+            standard for ViT-pretrained FMs; many EO objects (small
+            kilns, buildings, vehicles) need finer; reach for SAM-style
+            high-res or sliding window.</li>
+          <li><strong>Active learning + spatial blocking.</strong>
+            Combine the
+            <a href="../active-learning/index.html">active learning
+            article</a> with spatial-block CV to spend your label
+            budget on tiles that genuinely improve generalisation.</li>
+          <li><strong>Conformal prediction on outputs.</strong> Wrap
+            any deployed EO model in
+            <a href="../conformal/index.html">conformal prediction</a>
+            for trustworthy intervals; the marginal coverage guarantee
+            is exactly what regulators want.</li>
+          <li><strong>Calibration matters more here than in
+            ImageNet.</strong> Predicted probability of "kiln" in
+            policy applications must be calibrated; use temperature
+            scaling per region.</li>
+        </ul>
+        <div class="callout callout--think">
+          <strong>Final takeaway.</strong>
+          EO foundation models exist because remote sensing is a
+          modality apart. As of 2026 the right default for any
+          satellite ML project is: download Prithvi or Clay, freeze it,
+          add a small task head, and only train the head until you
+          run out of data. Most of the work is in the data pipeline
+          and the spatial-blocking evaluation, not the model.
+        </div>
+      </section>
+    </article>
+
+    <script src="../vendor/katex/katex.min.js"></script>
+    <script type="module" src="main.js"></script>
+  </body>
+</html>

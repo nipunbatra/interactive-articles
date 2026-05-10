@@ -1,0 +1,20 @@
+{
+  "slug": "eo-foundation-models",
+  "title": "Earth-Observation Foundation Models, in Depth",
+  "date": "2026-05-10",
+  "tagline": "Why satellite-pretrained backbones are different — modalities, recipes, downstream evaluation, and the 2026 model zoo",
+  "summary": "A deep tour of Earth-observation foundation models: why a single Sentinel-2 tile breaks every assumption ImageNet builds, what pretraining objectives have actually scaled (MAE / SatMAE / DINO / pixel-language), the 2026 model zoo (Prithvi, SatMAE++, Clay, AnySat, MMEarth, GFM, Presto), and a worked-example map from raw L1C tile through pretraining to a fine-tune that actually beats ImageNet weights. Includes a live multi-band masked-reconstruction demo on a synthetic tile.",
+  "readingTime": "30 min",
+  "difficulty": "Advanced",
+  "collection": "Computer Vision",
+  "order": 28,
+  "status": "published",
+  "tags": ["Foundation Models", "Earth Observation", "Satellite", "MAE", "Multi-spectral", "Interactive"],
+  "highlights": [
+    "Why ImageNet backbones lose to EO-pretrained ones (modalities, scales, label scarcity).",
+    "Live multi-band MAE on a synthetic 6-band tile with mask-ratio and bands-to-mask sliders.",
+    "2026 model zoo (Prithvi-100M / Prithvi-EO 600M, SatMAE / SatMAE++, Clay v1, AnySat, MMEarth, Presto, GFM, IBM/NASA Granite, SatlasPretrain) with what each pretrains on.",
+    "Worked end-to-end pipeline: download Sentinel-2 → tile → normalise → mask → pretrain → linear-probe → fine-tune for a downstream task (kiln detection, crop type, biomass).",
+    "Cross-link to general foundation models (DINOv2, SAM2, CLIP) and where general FMs win or lose against EO-specific ones."
+  ]
+}
