@@ -110,6 +110,47 @@
         </div>
       </section>
 
+      <section class="step-section" id="step-scan">
+        <div class="step-badge">Step 3 ½</div>
+        <h2>The parallel scan — the trick that makes SSMs trainable at scale</h2>
+        <p>
+          A linear recurrence $h_t = A h_{t-1} + B x_t$ <em>looks</em>
+          inherently sequential &mdash; each step depends on the
+          previous. RNNs sit in this trap: their training is
+          $O(N)$ wall-clock because each layer waits for the previous
+          token's hidden state. SSMs escape via the
+          <strong>parallel scan</strong> (Blelloch, 1990; Smith
+          et&nbsp;al., 2023): an associative tree-reduction that
+          computes all $h_1, \dots, h_N$ in $O(\log N)$ depth.
+        </p>
+        <div class="math-block" id="math-scan"></div>
+        <p>
+          The trick: the operator $(c_1, M_1) \oplus (c_2, M_2) =
+          (M_2 c_1 + c_2,\; M_2 M_1)$ is associative. Pair-wise reduce
+          neighbours, then pair-wise reduce neighbours-of-neighbours,
+          and so on. Each level halves the count; $\log_2 N$ levels
+          finish the scan. On a GPU this matches matmul throughput.
+        </p>
+        <div class="bayes-figure">
+          <canvas id="scan-canvas" width="880" height="380"></canvas>
+          <figcaption>Parallel-scan tree for N=8. Step 1 combines (1,2), (3,4), (5,6), (7,8). Step 2 combines (1:2, 3:4) and (5:6, 7:8). Step 3 combines (1:4, 5:8). After log₂N levels, every prefix is computed.</figcaption>
+        </div>
+        <div class="train-controls">
+          <label>sequence length N &nbsp;<span id="scan-N-val">8</span> <input type="range" id="scan-N" min="2" max="64" step="1" value="8"></label>
+          <label class="toggle-pair"><input type="checkbox" id="scan-rnn"> animate sequential RNN comparison</label>
+        </div>
+        <div class="bayes-figure">
+          <canvas id="scan-cost-canvas" width="880" height="220"></canvas>
+          <figcaption>Wall-clock depth: sequential RNN is $O(N)$; parallel scan is $O(\log N)$. On a 1M-token context that's 1M sequential steps vs 20.</figcaption>
+        </div>
+        <div class="callout callout--key">
+          <strong>Why this is the SSM superpower.</strong>
+          The parallel scan is the only reason SSMs (S4, S5, Mamba)
+          can train as fast as Transformers despite being recurrent.
+          Without it, "linear in length" stays a paper claim.
+        </div>
+      </section>
+
       <section class="step-section" id="step-4">
         <div class="step-badge">Step 4</div>
         <h2>Where each wins</h2>
