@@ -1,0 +1,19 @@
+{
+  "slug": "saliency",
+  "title": "Saliency, Side by Side",
+  "date": "2026-05-10",
+  "tagline": "Which pixels does your classifier actually use? Four attribution methods, one image",
+  "summary": "On a synthetic 'thermal scene' with hidden ground truth, a hand-crafted classifier predicts the class. Vanilla gradient, SmoothGrad, Integrated Gradients and Grad-CAM compute saliency live and side-by-side. See where they agree, where they disagree, and the well-known reasons each one can lie.",
+  "readingTime": "16 min",
+  "difficulty": "Intermediate",
+  "collection": "Computer Vision",
+  "order": 22,
+  "status": "published",
+  "tags": ["Saliency", "Interpretability", "Grad-CAM", "Integrated Gradients", "Interactive"],
+  "highlights": [
+    "Four saliency maps on the same image: vanilla gradient, SmoothGrad, IG, Grad-CAM.",
+    "Toggle the synthetic image (hot blob / two blobs / striped) and see the maps update.",
+    "Why each method can lie — concrete failure modes (saturation, noisy gradients, coarse localisation).",
+    "Lab-aligned: thermal-image attribution for ApneaEye / JoulesEye explanations."
+  ]
+}

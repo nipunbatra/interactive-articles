@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Saliency, Side by Side</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../vendor/katex/katex.min.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <article class="article">
+      <header class="article-header">
+        <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+        <p class="kicker">Interactive Explainer</p>
+        <h1>Saliency, Side by Side</h1>
+        <p class="abstract">
+          Which pixels does your classifier actually use? Four
+          attribution methods (vanilla gradient, SmoothGrad,
+          Integrated Gradients, Grad-CAM) computed live on the same
+          image. Where they agree, where they disagree, and the
+          known reasons each one can lie.
+        </p>
+        <div class="byline">
+          <span>~16 min</span>
+          <span>Interpretability &middot; Saliency &middot; Vision</span>
+        </div>
+      </header>
+
+      <section class="step-section" id="prelude">
+        <div class="step-badge">Prelude</div>
+        <h2>The 'why' question</h2>
+        <p>
+          You hand a thermal frame to a classifier; it says "apnea
+          event, 0.92". The right next question is <em>why</em>.
+          Saliency methods produce a per-pixel "importance" map. They
+          are useful, sometimes deeply misleading, and almost always
+          worth running before publishing or deploying.
+        </p>
+        <div class="callout callout--warn">
+          <strong>The catch.</strong>
+          Saliency does not equal evidence. The same prediction can be
+          supported by very different maps. Saliency-shapley
+          experiments (Adebayo et al., 2018) show some methods pass
+          their sanity tests on randomised models &mdash; meaning the
+          map looked like the original even when the classifier was
+          random. Use saliency to <em>generate hypotheses</em>, not
+          to confirm them.
+        </div>
+      </section>
+
+      <section class="step-section" id="step-1">
+        <div class="step-badge">Step 1</div>
+        <h2>The four methods</h2>
+        <ul class="explanation-list">
+          <li><strong>Vanilla gradient.</strong>
+            $\partial f_c / \partial x$. Cheapest, noisiest. Saturates
+            on ReLUs (zero gradient where the unit was off).</li>
+          <li><strong>SmoothGrad.</strong> Average vanilla gradients
+            over $n$ noisy copies of the image. Smoother, more stable;
+            still sensitive to the model.</li>
+          <li><strong>Integrated Gradients.</strong> Integrate
+            gradients along a path from a baseline (often zeros) to
+            the input. Satisfies <em>completeness</em>: pixel
+            attributions sum to (output − baseline-output).</li>
+          <li><strong>Grad-CAM.</strong> Gradient-weighted activation
+            map at a chosen conv layer. Coarser (one-pixel-per-CNN-cell)
+            but faithful to the network's internal feature space.</li>
+        </ul>
+      </section>
+
+      <section class="step-section" id="step-2">
+        <div class="step-badge">Step 2</div>
+        <h2>Live, on a synthetic image</h2>
+        <p>
+          Below: a hand-crafted small CNN (just 1 conv + global mean
+          + linear head, with manually-chosen weights) classifies a
+          synthetic "thermal" image. Toggle the image and watch the
+          four saliency maps respond. The hot regions in the image
+          are the ground-truth signal; a faithful method should focus
+          its attribution there.
+        </p>
+        <div class="train-controls">
+          <label>image
+            <select id="sa-img">
+              <option value="hot" selected>single hot blob</option>
+              <option value="two">two blobs (different temps)</option>
+              <option value="striped">striped pattern</option>
+            </select>
+          </label>
+        </div>
+        <div class="sa-grid">
+          <div class="sa-panel">
+            <div class="panel-label">input + class score</div>
+            <canvas id="sa-input" width="220" height="220"></canvas>
+            <div class="panel-meta" id="sa-score">—</div>
+          </div>
+          <div class="sa-panel">
+            <div class="panel-label">vanilla gradient</div>
+            <canvas id="sa-grad" width="220" height="220"></canvas>
+          </div>
+          <div class="sa-panel">
+            <div class="panel-label">SmoothGrad (n=20, σ=0.15)</div>
+            <canvas id="sa-smooth" width="220" height="220"></canvas>
+          </div>
+          <div class="sa-panel">
+            <div class="panel-label">Integrated Gradients (steps=30)</div>
+            <canvas id="sa-ig" width="220" height="220"></canvas>
+          </div>
+          <div class="sa-panel">
+            <div class="panel-label">Grad-CAM</div>
+            <canvas id="sa-cam" width="220" height="220"></canvas>
+          </div>
+          <div class="sa-panel">
+            <div class="panel-label">ground truth</div>
+            <canvas id="sa-gt" width="220" height="220"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <section class="step-section" id="step-3">
+        <div class="step-badge">Step 3</div>
+        <h2>The traps</h2>
+        <ul class="explanation-list">
+          <li><strong>Vanilla gradient is noisy.</strong> Single-pixel
+            differences scatter; tiny network non-linearities
+            dominate. SmoothGrad and IG are usually more readable.</li>
+          <li><strong>IG depends on the baseline.</strong> Black image
+            isn't always the right "absence of feature". For thermal,
+            a constant-temperature reference is more honest.</li>
+          <li><strong>Grad-CAM is class-discriminative <em>per layer</em>.</strong>
+            Pick the wrong layer and you get a uniform blob.
+            Conventionally use the last conv layer.</li>
+          <li><strong>None of these is causal.</strong> Saliency is
+            "the gradient of $f$ at $x$", not "what would happen if
+            we removed this pixel". For causal attributions look at
+            <em>occlusion</em>, <em>RISE</em>, or
+            <em>perturbation-based</em> methods.</li>
+          <li><strong>Adebayo's sanity check.</strong> Permute the
+            model's last layer; rerun saliency. If the maps look the
+            same, your saliency is reading the input, not the model.</li>
+        </ul>
+        <div class="callout callout--think">
+          <strong>Final takeaway.</strong>
+          Always show a saliency map next to the prediction in lab
+          paper figures. Use IG with a domain-meaningful baseline +
+          Grad-CAM together &mdash; they fail in different ways and
+          their disagreement is informative.
+        </div>
+      </section>
+    </article>
+
+    <script src="../vendor/katex/katex.min.js"></script>
+    <script type="module" src="main.js"></script>
+  </body>
+</html>
