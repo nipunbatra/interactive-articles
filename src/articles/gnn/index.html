@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Graph Neural Networks, Step by Step</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../vendor/katex/katex.min.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <article class="article">
+      <header class="article-header">
+        <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+        <p class="kicker">Interactive Explainer</p>
+        <h1>Graph Neural Networks, Step by Step</h1>
+        <p class="abstract">
+          A 14-node sensor graph; click a node to spike its feature;
+          watch K rounds of message passing diffuse the signal.
+          Toggle aggregation (mean GCN / max / attention GAT) and see
+          the propagation pattern change. Then a logistic head trained
+          on 4 labelled nodes reads off the class.
+        </p>
+        <div class="byline">
+          <span>~16 min</span>
+          <span>Graphs &middot; Message Passing &middot; Sensor Networks</span>
+        </div>
+      </header>
+
+      <section class="step-section" id="prelude">
+        <div class="step-badge">Prelude</div>
+        <h2>What problem do GNNs solve?</h2>
+        <p>
+          Many sustainability data sources are graphs, not images or
+          sequences. A network of air-quality sensors with shared
+          weather context. A grid of satellite tiles connected by
+          spatial adjacency. A road network with traffic counters at
+          intersections. The natural inductive bias for these is
+          <em>message passing</em>: a node's prediction should depend
+          on itself and its neighbourhood.
+        </p>
+        <div class="callout callout--key">
+          <strong>The slogan.</strong>
+          A GNN is a CNN where the receptive field is set by the
+          graph instead of a square. Each layer is one hop; $K$
+          layers see a $K$-hop neighbourhood.
+        </div>
+      </section>
+
+      <section class="step-section" id="step-1">
+        <div class="step-badge">Step 1</div>
+        <h2>One layer of message passing</h2>
+        <div class="math-block" id="math-mp"></div>
+        <p>
+          For each node $i$, gather messages from neighbours, aggregate
+          them (sum / mean / max / attention), and combine with the
+          node's own feature through a small MLP. That's the entire
+          recipe. Specific GNNs (GCN, GraphSAGE, GAT, MPNN) differ in
+          how they pick the message function, the aggregator, and the
+          combination.
+        </p>
+      </section>
+
+      <section class="step-section" id="step-2">
+        <div class="step-badge">Step 2</div>
+        <h2>Watch a feature spread</h2>
+        <p>
+          Click any node to set its feature to 1 (and clear the rest).
+          Step through 0, 1, 2, 3 rounds of message passing and watch
+          the value diffuse to the neighbourhood, then to the
+          neighbours-of-neighbours.
+        </p>
+        <div class="train-controls">
+          <label>aggregation
+            <select id="gnn-agg">
+              <option value="mean" selected>mean (GCN-flavour)</option>
+              <option value="max">max</option>
+              <option value="attn">attention (GAT-flavour)</option>
+            </select>
+          </label>
+          <label>rounds K &nbsp;<span id="gnn-k-val">2</span> <input type="range" id="gnn-k" min="0" max="6" step="1" value="2"></label>
+          <button class="action-btn action-btn--ghost" id="gnn-clear">Clear features</button>
+          <button class="action-btn action-btn--ghost" id="gnn-reroll">Reroll graph</button>
+        </div>
+        <div class="gnn-figure">
+          <canvas id="gnn-canvas" width="880" height="440"></canvas>
+          <figcaption>Click any node to spike its feature. Greens encode the feature value (darker = higher). Edges show the graph; dashed labelled nodes are the 4 supervised seeds for Step 3.</figcaption>
+        </div>
+      </section>
+
+      <section class="step-section" id="step-3">
+        <div class="step-badge">Step 3</div>
+        <h2>Node classification with 4 labels</h2>
+        <p>
+          Add a 2-class structure: 4 of the 14 nodes are labelled
+          (red ring vs blue ring). After $K$ rounds of message
+          passing, a logistic head reads each node's representation
+          and predicts a class. The boundary you see emerging is a
+          <em>graph-aware</em> classifier — neighbours of red seeds
+          tend to be classified red, etc.
+        </p>
+        <p style="font-family: var(--sans); color: var(--muted); font-size: 0.95rem;">
+          The classifier is trained from scratch in your browser at
+          every aggregator change. Crank K up: at K=0 the classifier
+          can only see the 4 labelled nodes' own features and
+          generalises poorly. At K=2 the labels propagate to
+          neighbours and the predictions improve. Past K~5 you'll
+          see <em>over-smoothing</em> — every node's representation
+          looks the same and the classifier collapses to majority
+          class. That's a known GNN failure mode (Li et al., 2018).
+        </p>
+      </section>
+
+      <section class="step-section" id="step-4">
+        <div class="step-badge">Step 4</div>
+        <h2>The variants worth knowing</h2>
+        <ul class="explanation-list">
+          <li><strong>GCN.</strong> Symmetric-normalised mean
+            aggregation. Cheapest, the default first try.</li>
+          <li><strong>GraphSAGE.</strong> Neighborhood sampling +
+            mean / LSTM / pooling aggregator. Scales to large graphs.</li>
+          <li><strong>GAT.</strong> Attention over neighbours.
+            Edge weights become learnable and content-dependent
+            &mdash; useful for heterogeneous neighbourhoods.</li>
+          <li><strong>MPNN.</strong> The general framework above; any
+            choice of message and aggregator.</li>
+          <li><strong>GIN.</strong> Provably as expressive as the
+            Weisfeiler-Lehman test &mdash; needed when graph
+            isomorphism actually matters.</li>
+          <li><strong>Graph Transformer.</strong> Self-attention over
+            all nodes (with positional / Laplacian encodings).
+            Computationally heavier; helps for global structure.</li>
+        </ul>
+      </section>
+
+      <section class="step-section" id="step-5">
+        <div class="step-badge">Step 5</div>
+        <h2>Where this fits the lab</h2>
+        <ul class="explanation-list">
+          <li><strong>Cross-station air quality.</strong> Edges
+            between stations within a wind-corridor; node features
+            are PM2.5 and weather; predict missing-station readings
+            via message passing.</li>
+          <li><strong>Satellite-tile graphs.</strong> Each tile a
+            node; edges to spatial neighbours and same-class
+            historical tiles; predict cropping / kiln presence
+            jointly.</li>
+          <li><strong>Sensor-failure detection.</strong> Build the
+            sensor co-correlation graph; train a GNN that flags a
+            sensor whose readings disagree with its
+            neighbourhood (anomaly).</li>
+          <li><strong>Traffic + road network for emissions.</strong>
+            Traffic-counter graph + emission models; useful for
+            combined urban-air-quality / energy work.</li>
+        </ul>
+        <div class="callout callout--think">
+          <strong>Final takeaway.</strong>
+          If your data has a graph in it, build the GNN before the
+          MLP. The inductive bias is free; the expressive ceiling is
+          higher; and over-smoothing is the only real footgun.
+        </div>
+      </section>
+    </article>
+
+    <script src="../vendor/katex/katex.min.js"></script>
+    <script type="module" src="main.js"></script>
+  </body>
+</html>

@@ -1,0 +1,19 @@
+{
+  "slug": "gnn",
+  "title": "Graph Neural Networks, Step by Step",
+  "date": "2026-05-10",
+  "tagline": "Message passing on a sensor-network graph — every round, watch the signal spread",
+  "summary": "A 14-node sensor graph in your browser. Pick a node, add a feature spike, and step through 1, 2, 3 rounds of message passing — watch the signal diffuse to neighbours and neighbours-of-neighbours. Toggle aggregation (mean / max / attention). Lab-aligned: cross-station air-quality models, satellite tile graphs.",
+  "readingTime": "16 min",
+  "difficulty": "Intermediate",
+  "collection": "Deep learning",
+  "order": 21,
+  "status": "published",
+  "tags": ["GNN", "Message Passing", "Graph Convolution", "Sensor Networks", "Interactive"],
+  "highlights": [
+    "Live message passing on a 14-node graph; click a node, spike its feature, watch K rounds of diffusion.",
+    "Aggregation toggle (mean GCN / max / attention GAT) with visibly different propagation patterns.",
+    "Node-classification toy with a logistic head trained on 4 labelled nodes.",
+    "Lab fit: cross-station AQ, satellite-tile graph, sensor-network monitoring."
+  ]
+}
