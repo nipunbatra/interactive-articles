@@ -1523,7 +1523,424 @@ function init() {
   wireTrainingControls();
   renderTraining();
 
+  // Multi-head specialisation demo
+  initMHState();
+  wireMHControls();
+  renderMH();
+
   loadScenario('riverBank');
+}
+
+// ============================================================
+// Step 9 ½ — Multi-head specialisation, live.
+// 4-token sequence; first 3 tokens form (type, key, val) entries
+// of two types A/B, plus a fourth query token carrying two key
+// queries (one for type A, one for type B). Target = val_A + val_B.
+// Two heads with their own W_Q^h / W_K^h / W_V^h, then a final
+// linear that combines [head_A_out ; head_B_out] -> dv-dim output.
+// All gradients computed by hand.
+// ============================================================
+let mhState = null;
+let mhRAF = null;
+
+function initMHState() {
+  // Token format (D = 8): [typeA flag, typeB flag, key0, key1, key2, val0, val1, val2]
+  // Query token: [typeA flag, typeB flag, queryA0, queryA1, queryA2, queryB0, queryB1, queryB2]
+  // We tile the inputs so the same D matches both candidate and query.
+  const D = 8, dk = 4, dv = 3, T = 4;
+  mhState = {
+    D, dk, dv, T,
+    Wq: [randMat(D, dk, 0.4), randMat(D, dk, 0.4)],
+    Wk: [randMat(D, dk, 0.4), randMat(D, dk, 0.4)],
+    Wv: [randMat(D, dv, 0.4), randMat(D, dv, 0.4)],
+    Wo: randMat(2 * dv, dv, 0.3), // combine concat(head_A, head_B)
+    losses: [],
+    spec: [], // mean of (peakA on tokenA - peakA on tokenB) etc
+    step: 0,
+    running: false,
+    lr: 0.05,
+    singleHead: false,
+    fixed: makeMHExample(7)
+  };
+}
+
+function makeMHExample(seed) {
+  const oldR = Math.random;
+  let s = seed >>> 0;
+  Math.random = () => {
+    s = (s * 1103515245 + 12345) >>> 0;
+    return s / 0xFFFFFFFF;
+  };
+  const ex = makeMHRandomExample();
+  Math.random = oldR;
+  return ex;
+}
+
+function makeMHRandomExample() {
+  // Generate 2 type-A pairs and 2 type-B pairs - but we only have 3
+  // candidates; sample 1 A pair and 2 B pair (or 2 A 1 B). Ensure both
+  // types present so both heads are needed.
+  const D = 8;
+  const T = 4;
+  const x = []; // T x D
+  const placement = Math.random() < 0.5 ? ['A','B','A'] : ['B','A','B'];
+  // Random keys/vals
+  const keyA = [randn() * 0.6, randn() * 0.6, randn() * 0.6];
+  const valA = [randn() * 0.6, randn() * 0.6, randn() * 0.6];
+  const keyB = [randn() * 0.6, randn() * 0.6, randn() * 0.6];
+  const valB = [randn() * 0.6, randn() * 0.6, randn() * 0.6];
+  for (let i = 0; i < 3; i++) {
+    const tp = placement[i];
+    if (tp === 'A') {
+      x.push([1, 0, ...keyA, ...valA]);
+    } else {
+      x.push([0, 1, ...keyB, ...valB]);
+    }
+  }
+  // Query token: queries both A and B. We supply both keys
+  // concatenated; heads pick out their relevant 3-d slice.
+  // Layout: [1, 1, keyA[0], keyA[1], keyA[2], keyB[0], keyB[1], keyB[2]]
+  x.push([1, 1, ...keyA.slice(0, 3), ...keyB.slice(0, 3)].slice(0, D));
+  // Fix length: above has D=8 (1+1+3+3=8). Good.
+  const target = [valA[0] + valB[0], valA[1] + valB[1], valA[2] + valB[2]];
+  return { x, target, placement };
+}
+
+// Forward through a single head h (0 or 1), returning attention probs and head output (T x dv)
+function forwardOneHead(h, x, W) {
+  const T = x.length;
+  const dk = W.Wq[h][0].length;
+  const dv = W.Wv[h][0].length;
+  const q = matMul(x, W.Wq[h]);
+  const k = matMul(x, W.Wk[h]);
+  const v = matMul(x, W.Wv[h]);
+  const scaleF = 1 / Math.sqrt(dk);
+  const s = makeMat(T, T, 0);
+  for (let i = 0; i < T; i++) {
+    for (let j = 0; j < T; j++) {
+      let dot = 0;
+      for (let c = 0; c < dk; c++) dot += q[i][c] * k[j][c];
+      s[i][j] = dot * scaleF;
+    }
+  }
+  const a = s.map(softmaxArr);
+  const out = matMul(a, v);
+  return { q, k, v, s, a, out };
+}
+
+function mhForward(W, x) {
+  const f0 = forwardOneHead(0, x, W);
+  const f1 = forwardOneHead(1, x, W);
+  // Concatenate along feature dim -> T x (2*dv)
+  const T = x.length;
+  const dv = f0.v[0].length;
+  const concat = new Array(T);
+  for (let i = 0; i < T; i++) {
+    concat[i] = [];
+    for (let c = 0; c < dv; c++) concat[i].push(f0.out[i][c]);
+    for (let c = 0; c < dv; c++) concat[i].push(W.singleHead ? 0 : f1.out[i][c]);
+  }
+  // Final linear -> T x dv
+  const y = matMul(concat, W.Wo);
+  return { y, concat, f0, f1 };
+}
+
+function mhBackward(W, fwd, target, queryPos) {
+  const T = fwd.y.length;
+  const D = fwd.f0.q.length === 0 ? 0 : null; // not used directly
+  const dv = W.Wv[0][0].length;
+  const dk = W.Wq[0][0].length;
+  const Din = W.Wq[0].length; // D (input dim)
+  // Loss: 0.5 * sum_c (y[query, c] - target[c])^2  (only at queryPos)
+  let loss = 0;
+  const dy = makeMat(T, dv, 0);
+  for (let c = 0; c < dv; c++) {
+    const diff = fwd.y[queryPos][c] - target[c];
+    dy[queryPos][c] = diff;
+    loss += 0.5 * diff * diff;
+  }
+  // d(concat) = dy @ Wo^T, d(Wo) = concat^T @ dy
+  const dConcat = matMul(dy, transposeMat(W.Wo));
+  const dWo = matMul(transposeMat(fwd.concat), dy);
+  // Split dConcat into d(head0_out) and d(head1_out)
+  const dHead0 = new Array(T), dHead1 = new Array(T);
+  for (let i = 0; i < T; i++) {
+    dHead0[i] = dConcat[i].slice(0, dv);
+    dHead1[i] = dConcat[i].slice(dv, 2 * dv);
+    if (W.singleHead) dHead1[i] = new Array(dv).fill(0);
+  }
+
+  function backHead(headIdx, fwdH, dOut) {
+    // y_h = a_h @ v_h ; dV_h = a^T dy_h ; da = dy v^T
+    const Th = T;
+    const dVh = matMul(transposeMat(fwdH.a), dOut);
+    const da = matMul(dOut, transposeMat(fwdH.v));
+    // softmax row-wise backward
+    const ds = makeMat(Th, Th, 0);
+    for (let i = 0; i < Th; i++) {
+      let dot = 0;
+      for (let kk = 0; kk < Th; kk++) dot += fwdH.a[i][kk] * da[i][kk];
+      for (let j = 0; j < Th; j++) ds[i][j] = fwdH.a[i][j] * (da[i][j] - dot);
+    }
+    const scaleF = 1 / Math.sqrt(dk);
+    for (let i = 0; i < Th; i++) for (let j = 0; j < Th; j++) ds[i][j] *= scaleF;
+    const dQh = matMul(ds, fwdH.k);
+    const dKh = matMul(transposeMat(ds), fwdH.q);
+    const dWqh = matMul(transposeMat(fwd.f0.x || fwd.input), dQh); // we'll pass x instead
+    return { dQh, dKh, dVh, ds };
+  }
+
+  return { loss, dHead0, dHead1, dWo };
+}
+
+// Forward + backward end-to-end for batch step
+function mhTrainStep(batchSize = 16) {
+  const W = mhState;
+  const D = W.D, dk = W.dk, dv = W.dv, T = W.T;
+  const accumWq = [makeMat(D, dk, 0), makeMat(D, dk, 0)];
+  const accumWk = [makeMat(D, dk, 0), makeMat(D, dk, 0)];
+  const accumWv = [makeMat(D, dv, 0), makeMat(D, dv, 0)];
+  const accumWo = makeMat(2 * dv, dv, 0);
+  let totalLoss = 0;
+  const queryPos = T - 1;
+  // Track specialisation
+  let specA = 0, specB = 0;
+  for (let b = 0; b < batchSize; b++) {
+    const ex = makeMHRandomExample();
+    const x = ex.x;
+    // Forward two heads
+    const f0 = forwardOneHead(0, x, W);
+    const f1 = forwardOneHead(1, x, W);
+    const concat = new Array(T);
+    for (let i = 0; i < T; i++) {
+      concat[i] = [];
+      for (let c = 0; c < dv; c++) concat[i].push(f0.out[i][c]);
+      for (let c = 0; c < dv; c++) concat[i].push(W.singleHead ? 0 : f1.out[i][c]);
+    }
+    const y = matMul(concat, W.Wo);
+    const dy = makeMat(T, dv, 0);
+    let loss = 0;
+    for (let c = 0; c < dv; c++) {
+      const diff = y[queryPos][c] - ex.target[c];
+      dy[queryPos][c] = diff;
+      loss += 0.5 * diff * diff;
+    }
+    totalLoss += loss;
+    // dWo += concat^T dy ; dConcat = dy Wo^T
+    for (let i = 0; i < 2 * dv; i++) for (let c = 0; c < dv; c++) {
+      accumWo[i][c] += concat[queryPos][i] * dy[queryPos][c];
+    }
+    const dConcat = matMul(dy, transposeMat(W.Wo));
+    const dHead0 = new Array(T), dHead1 = new Array(T);
+    for (let i = 0; i < T; i++) {
+      dHead0[i] = dConcat[i].slice(0, dv);
+      dHead1[i] = W.singleHead ? new Array(dv).fill(0) : dConcat[i].slice(dv, 2 * dv);
+    }
+    function backH(fwdH, dOut, accQ, accK, accV) {
+      const dVh = matMul(transposeMat(fwdH.a), dOut);
+      const da = matMul(dOut, transposeMat(fwdH.v));
+      const ds = makeMat(T, T, 0);
+      for (let i = 0; i < T; i++) {
+        let dot = 0;
+        for (let kk = 0; kk < T; kk++) dot += fwdH.a[i][kk] * da[i][kk];
+        for (let j = 0; j < T; j++) ds[i][j] = fwdH.a[i][j] * (da[i][j] - dot);
+      }
+      const scaleF = 1 / Math.sqrt(dk);
+      for (let i = 0; i < T; i++) for (let j = 0; j < T; j++) ds[i][j] *= scaleF;
+      const dQh = matMul(ds, fwdH.k);
+      const dKh = matMul(transposeMat(ds), fwdH.q);
+      // Accumulate gradients into the W matrices: dWq += x^T dQh, etc.
+      const xT = transposeMat(x);
+      const tWq = matMul(xT, dQh);
+      const tWk = matMul(xT, dKh);
+      const tWv = matMul(xT, dVh);
+      for (let i = 0; i < D; i++) {
+        for (let c = 0; c < dk; c++) {
+          accQ[i][c] += tWq[i][c];
+          accK[i][c] += tWk[i][c];
+        }
+        for (let c = 0; c < dv; c++) accV[i][c] += tWv[i][c];
+      }
+    }
+    backH(f0, dHead0, accumWq[0], accumWk[0], accumWv[0]);
+    if (!W.singleHead) backH(f1, dHead1, accumWq[1], accumWk[1], accumWv[1]);
+    // Specialisation: head 0's attention from query position to type-A token vs type-B token
+    const queryRowA = f0.a[queryPos];
+    const queryRowB = f1.a[queryPos];
+    // Identify which tokens are type A vs type B from the placement
+    let aIdx = -1, bIdx = -1;
+    for (let i = 0; i < 3; i++) {
+      if (ex.placement[i] === 'A' && aIdx < 0) aIdx = i;
+      if (ex.placement[i] === 'B' && bIdx < 0) bIdx = i;
+    }
+    if (aIdx >= 0) specA += queryRowA[aIdx];
+    if (bIdx >= 0) specB += queryRowB[bIdx];
+  }
+  const lr = W.lr;
+  for (let h = 0; h < 2; h++) {
+    for (let i = 0; i < D; i++) {
+      for (let c = 0; c < dk; c++) {
+        W.Wq[h][i][c] -= lr * accumWq[h][i][c] / batchSize;
+        W.Wk[h][i][c] -= lr * accumWk[h][i][c] / batchSize;
+      }
+      for (let c = 0; c < dv; c++) W.Wv[h][i][c] -= lr * accumWv[h][i][c] / batchSize;
+    }
+  }
+  for (let i = 0; i < 2 * dv; i++) for (let c = 0; c < dv; c++) W.Wo[i][c] -= lr * accumWo[i][c] / batchSize;
+  W.step++;
+  W.losses.push(totalLoss / batchSize);
+  W.spec.push({ a: specA / batchSize, b: specB / batchSize });
+  if (W.losses.length > 1500) {
+    W.losses = W.losses.slice(-1500);
+    W.spec = W.spec.slice(-1500);
+  }
+}
+
+function renderMH() {
+  if (!mhState) return;
+  // Render heatmaps for both heads on the fixed example
+  const W = mhState;
+  const ex = W.fixed;
+  const f0 = forwardOneHead(0, ex.x, W);
+  const f1 = forwardOneHead(1, ex.x, W);
+  const labels = ex.placement.concat(['query']);
+  renderHeatmapGrid('mh-heatA', f0.a, labels);
+  renderHeatmapGrid('mh-heatB', f1.a, labels);
+  document.getElementById('mh-step').textContent = W.step;
+  document.getElementById('mh-loss').textContent = W.losses.length ? W.losses[W.losses.length - 1].toFixed(4) : '—';
+  drawMHLossCurve();
+  drawMHSpecCurve();
+}
+
+function drawMHLossCurve() {
+  const canvas = document.getElementById('mh-loss-canvas');
+  if (!canvas || !mhState) return;
+  const Wd = 500, Hd = 240;
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = Wd * dpr; canvas.height = Hd * dpr;
+  canvas.style.width = Wd + 'px'; canvas.style.height = Hd + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, Wd, Hd);
+  ctx.fillStyle = '#fdfcf9'; ctx.fillRect(0, 0, Wd, Hd);
+  const m = { l: 56, r: 14, t: 14, b: 30 };
+  const px = Wd - m.l - m.r, py = Hd - m.t - m.b;
+  ctx.strokeStyle = '#e2d8c6'; ctx.strokeRect(m.l, m.t, px, py);
+  if (mhState.losses.length === 0) {
+    ctx.fillStyle = '#9a917f';
+    ctx.font = '13px Manrope';
+    ctx.textAlign = 'center';
+    ctx.fillText('Press Start training to begin.', m.l + px / 2, m.t + py / 2);
+    return;
+  }
+  const logL = mhState.losses.map((v) => Math.log10(Math.max(v, 1e-6)));
+  let minLog = Math.floor(Math.min(...logL));
+  let maxLog = Math.ceil(Math.max(...logL));
+  if (minLog === maxLog) maxLog = minLog + 1;
+  const range = maxLog - minLog;
+  ctx.fillStyle = '#9a917f';
+  ctx.font = '11px IBM Plex Mono';
+  ctx.textAlign = 'right';
+  for (let v = minLog; v <= maxLog; v++) {
+    const y = m.t + (1 - (v - minLog) / range) * py;
+    ctx.fillText(`10^${v}`, m.l - 6, y + 3);
+    ctx.strokeStyle = '#f0ebe1';
+    ctx.beginPath(); ctx.moveTo(m.l, y); ctx.lineTo(m.l + px, y); ctx.stroke();
+  }
+  ctx.strokeStyle = '#2c6fb7';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  const N = mhState.losses.length;
+  logL.forEach((y, i) => {
+    const xx = m.l + (i / Math.max(1, N - 1)) * px;
+    const yy = m.t + (1 - (y - minLog) / range) * py;
+    if (i === 0) ctx.moveTo(xx, yy);
+    else ctx.lineTo(xx, yy);
+  });
+  ctx.stroke();
+}
+
+function drawMHSpecCurve() {
+  const canvas = document.getElementById('mh-spec-canvas');
+  if (!canvas || !mhState) return;
+  const Wd = 500, Hd = 240;
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = Wd * dpr; canvas.height = Hd * dpr;
+  canvas.style.width = Wd + 'px'; canvas.style.height = Hd + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, Wd, Hd);
+  ctx.fillStyle = '#fdfcf9'; ctx.fillRect(0, 0, Wd, Hd);
+  const m = { l: 56, r: 14, t: 14, b: 30 };
+  const px = Wd - m.l - m.r, py = Hd - m.t - m.b;
+  ctx.strokeStyle = '#e2d8c6'; ctx.strokeRect(m.l, m.t, px, py);
+  ctx.fillStyle = '#9a917f';
+  ctx.font = '11px IBM Plex Mono';
+  ctx.textAlign = 'right';
+  for (let i = 0; i <= 4; i++) {
+    const v = i / 4;
+    const y = m.t + (1 - v) * py;
+    ctx.fillText(v.toFixed(2), m.l - 4, y + 3);
+    ctx.strokeStyle = '#f0ebe1';
+    ctx.beginPath(); ctx.moveTo(m.l, y); ctx.lineTo(m.l + px, y); ctx.stroke();
+  }
+  if (mhState.spec.length === 0) return;
+  const N = mhState.spec.length;
+  function plot(arr, color) {
+    ctx.strokeStyle = color; ctx.lineWidth = 2;
+    ctx.beginPath();
+    arr.forEach((v, i) => {
+      const xx = m.l + (i / Math.max(1, N - 1)) * px;
+      const yy = m.t + (1 - Math.max(0, Math.min(1, v))) * py;
+      if (i === 0) ctx.moveTo(xx, yy); else ctx.lineTo(xx, yy);
+    });
+    ctx.stroke();
+  }
+  plot(mhState.spec.map((s) => s.a), '#2c6fb7');
+  plot(mhState.spec.map((s) => s.b), '#d9622b');
+  ctx.fillStyle = '#3b342b';
+  ctx.font = '11px Manrope';
+  ctx.textAlign = 'left';
+  ctx.fillText('Head A on type-A token', m.l + 8, m.t + 14);
+  ctx.fillStyle = '#d9622b';
+  ctx.fillText('Head B on type-B token', m.l + 220, m.t + 14);
+}
+
+function mhLoop() {
+  if (!mhState || !mhState.running) return;
+  for (let i = 0; i < 4; i++) mhTrainStep(16);
+  renderMH();
+  mhRAF = requestAnimationFrame(mhLoop);
+}
+
+function wireMHControls() {
+  const tog = document.getElementById('mh-toggle');
+  const reset = document.getElementById('mh-reset');
+  const lr = document.getElementById('mh-lr');
+  const sh = document.getElementById('mh-singlehead');
+  if (lr) lr.addEventListener('input', () => {
+    if (!mhState) initMHState();
+    mhState.lr = parseFloat(lr.value);
+    document.getElementById('mh-lr-val').textContent = mhState.lr.toFixed(3);
+  });
+  if (sh) sh.addEventListener('change', () => {
+    if (!mhState) initMHState();
+    mhState.singleHead = sh.checked;
+    renderMH();
+  });
+  if (tog) tog.addEventListener('click', () => {
+    if (!mhState) initMHState();
+    mhState.running = !mhState.running;
+    tog.textContent = mhState.running ? 'Pause' : 'Start training';
+    if (mhState.running) mhLoop();
+    else if (mhRAF) cancelAnimationFrame(mhRAF);
+  });
+  if (reset) reset.addEventListener('click', () => {
+    if (mhRAF) cancelAnimationFrame(mhRAF);
+    initMHState();
+    if (tog) tog.textContent = 'Start training';
+    renderMH();
+  });
 }
 
 function renderExtraMath() {

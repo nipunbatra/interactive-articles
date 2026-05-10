@@ -659,6 +659,73 @@
         </div>
       </section>
 
+      <!-- ─── Step 9b — NEW: multi-head specialisation -->
+      <section class="step-section" id="step-multihead">
+        <div class="step-badge">Step 9 ½</div>
+        <h2>Two heads, two specialists</h2>
+        <p>
+          Step 7 said multi-head exists; Step 9 trained one head. Now
+          watch <em>two</em> heads train side-by-side on a task that
+          a single head cannot solve. Each head gets its own
+          $W_Q, W_K, W_V$ (and a final linear that combines the two
+          outputs). Loss flows through both.
+        </p>
+        <h3>The task: two compatible lookups</h3>
+        <p>
+          The sequence has four tokens: two
+          <strong>type-A pairs</strong> $(\text{key}_A, \text{val}_A)$
+          and two <strong>type-B pairs</strong> $(\text{key}_B,
+          \text{val}_B)$. Each token's input is
+          $\bigl[\text{type}\ (2)\;|\;\text{key}\ (3)\;|\;\text{val}\ (3)\bigr]$.
+          The query token (token 4) carries
+          $\bigl[\text{type-A flag}\ (1)\;|\;\text{key}\ (3)\;|\;\text{type-B flag}\ (1)\;|\;\text{key}\ (3)\bigr]$
+          and we ask the model to output
+          $\text{val}_A + \text{val}_B$ at the query position. One head
+          can't disentangle the two lookups; two heads can.
+        </p>
+        <div class="train-controls">
+          <button class="action-btn" id="mh-toggle">Start training</button>
+          <button class="action-btn action-btn--ghost" id="mh-reset">Reinitialise</button>
+          <label>learning rate &nbsp;<span id="mh-lr-val">0.05</span> <input type="range" id="mh-lr" min="0.005" max="0.3" step="0.005" value="0.05"></label>
+          <label class="toggle-pair"><input type="checkbox" id="mh-singlehead"> ablate to single head</label>
+          <span class="train-stat">step <strong id="mh-step">0</strong></span>
+          <span class="train-stat">loss <strong id="mh-loss">—</strong></span>
+        </div>
+        <div class="train-grid">
+          <div class="train-panel">
+            <div class="matrix-label">Head A attention (on a fixed example)</div>
+            <div class="heatmap-grid" id="mh-heatA"></div>
+          </div>
+          <div class="train-panel">
+            <div class="matrix-label">Head B attention (on the same example)</div>
+            <div class="heatmap-grid" id="mh-heatB"></div>
+          </div>
+        </div>
+        <div class="train-grid">
+          <div class="train-panel">
+            <div class="matrix-label">Loss curve</div>
+            <canvas id="mh-loss-canvas" width="500" height="240"></canvas>
+          </div>
+          <div class="train-panel">
+            <div class="matrix-label">Head specialisation score</div>
+            <canvas id="mh-spec-canvas" width="500" height="240"></canvas>
+            <div class="train-caption">
+              How peaked each head is on its preferred type. Specialisation
+              rises after ~80 steps once the heads carve up the task.
+            </div>
+          </div>
+        </div>
+        <div class="callout callout--think">
+          <strong>What to watch.</strong>
+          With <em>two heads</em> the loss falls smoothly to near zero;
+          one head's heatmap focuses on the type-A pair, the other on the
+          type-B pair. Tick <em>ablate to single head</em> and the
+          loss plateaus much higher &mdash; one attention pattern can't
+          point at two different things at once. This is the actual
+          reason real Transformers run 8 or 16 heads.
+        </div>
+      </section>
+
       <!-- ─── Step 10 ─── -->
       <section class="step-section" id="step-10">
         <div class="step-badge">Step 10</div>
