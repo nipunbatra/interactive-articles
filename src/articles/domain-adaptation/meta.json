@@ -1,0 +1,19 @@
+{
+  "slug": "domain-adaptation",
+  "title": "Domain Shift, Adapted",
+  "date": "2026-05-10",
+  "tagline": "When the training distribution and the deployment distribution disagree — and what to do about it",
+  "summary": "Source and target domains drift apart on a 2-D classification toy. Watch a vanilla classifier collapse on the target, then add a CORAL feature-alignment step (hand-coded covariance matching) and an OOD energy score. Live source/target accuracy + OOD detection ROC. Direct fit for cross-city sensor calibration.",
+  "readingTime": "16 min",
+  "difficulty": "Intermediate",
+  "collection": "Deep learning",
+  "order": 20,
+  "status": "published",
+  "tags": ["Domain Adaptation", "Distribution Shift", "OOD Detection", "Transfer Learning", "Interactive"],
+  "highlights": [
+    "Source / target distribution drift slider; watch the vanilla classifier collapse on target.",
+    "CORAL covariance alignment computed live — recovers most of the lost accuracy with no target labels.",
+    "Energy-score OOD detector with a ROC curve over a held-out OOD set.",
+    "Lab-aligned: cross-city sensor calibration, season-shifted air-quality models, satellite domain transfer."
+  ]
+}

@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Domain Shift, Adapted</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../vendor/katex/katex.min.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <article class="article">
+      <header class="article-header">
+        <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+        <p class="kicker">Interactive Explainer</p>
+        <h1>Domain Shift, Adapted</h1>
+        <p class="abstract">
+          The training distribution and deployment distribution rarely
+          match. Slide the drift; watch the classifier collapse;
+          align the source and target features with CORAL; recover
+          accuracy without target labels. Then flag the truly
+          out-of-distribution points with an energy score.
+        </p>
+        <div class="byline">
+          <span>~16 min</span>
+          <span>Distribution Shift &middot; OOD &middot; Adaptation</span>
+        </div>
+      </header>
+
+      <section class="step-section" id="prelude">
+        <div class="step-badge">Prelude</div>
+        <h2>The cross-city sensor problem</h2>
+        <p>
+          You train an air-quality model on Delhi sensor data; deploy
+          it in Bengaluru. Same physical phenomenon, different
+          calibration, different humidity, different wind. The
+          classifier looks great on the source distribution and
+          painfully wrong on the target. Domain adaptation is the
+          family of techniques that let you do something about it
+          &mdash; ideally without labelling the target.
+        </p>
+        <ul class="explanation-list">
+          <li><strong>Domain adaptation:</strong> labelled source +
+            unlabelled target. Goal: a model that works on target.</li>
+          <li><strong>Domain generalisation:</strong> multiple
+            labelled source domains, no target during training. Goal:
+            a model that works on an unseen target.</li>
+          <li><strong>OOD detection:</strong> flag inputs that are too
+            far from any training distribution to trust the prediction.</li>
+        </ul>
+      </section>
+
+      <section class="step-section" id="step-1">
+        <div class="step-badge">Step 1</div>
+        <h2>Watch the source classifier fail on target</h2>
+        <p>
+          Two clusters in 2-D, source and target. As you slide
+          drift &gt; 0, the target distribution rotates and translates;
+          the source-trained classifier's accuracy on target drops.
+        </p>
+        <div class="train-controls">
+          <label>drift &nbsp;<span id="da-drift-val">1.5</span> <input type="range" id="da-drift" min="0" max="3" step="0.1" value="1.5"></label>
+          <label class="toggle-pair"><input type="checkbox" id="da-coral"> apply CORAL alignment</label>
+          <button class="action-btn action-btn--ghost" id="da-resample">Resample</button>
+          <span class="train-stat">source acc <strong id="da-src-acc">—</strong></span>
+          <span class="train-stat">target acc <strong id="da-tgt-acc">—</strong></span>
+          <span class="train-stat">OOD AUC <strong id="da-auc">—</strong></span>
+        </div>
+        <div class="da-grid">
+          <div class="da-panel">
+            <div class="panel-label">Source (filled) + target (×) + classifier</div>
+            <canvas id="da-board" width="380" height="380"></canvas>
+          </div>
+          <div class="da-panel">
+            <div class="panel-label">Energy score over the plane (lighter = more OOD)</div>
+            <canvas id="da-energy" width="380" height="380"></canvas>
+          </div>
+          <div class="da-panel">
+            <div class="panel-label">OOD ROC (target vs distant noise)</div>
+            <canvas id="da-roc" width="380" height="380"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <section class="step-section" id="step-2">
+        <div class="step-badge">Step 2</div>
+        <h2>CORAL — match second-order statistics</h2>
+        <p>
+          CORAL (Sun &amp; Saenko, 2016): align the covariance of
+          source features to the target's. Compute $C_S$ and $C_T$,
+          whiten the source by $C_S^{-1/2}$, then re-colour by
+          $C_T^{1/2}$. The classifier sees a source whose covariance
+          matches the target.
+        </p>
+        <div class="math-block" id="math-coral"></div>
+        <p>
+          Other heavy-hitters: <strong>DANN</strong> (domain-adversarial
+          NN, gradient reversal so features are domain-indistinguishable),
+          <strong>MMD</strong> (match feature means with a kernelised
+          test), <strong>BatchNorm statistics adaptation</strong>
+          (often shockingly strong with one line of code: recompute
+          BN running stats on target). For tabular / sensor data,
+          CORAL is usually a strong, training-free first try.
+        </p>
+      </section>
+
+      <section class="step-section" id="step-3">
+        <div class="step-badge">Step 3</div>
+        <h2>OOD detection — when adaptation isn't enough</h2>
+        <p>
+          Adaptation closes the gap when source and target overlap.
+          Some inputs at deployment are <em>truly</em> out of
+          distribution &mdash; a satellite tile under a snowstorm
+          when you trained on cloudless tiles. Flag them with an
+          <strong>energy score</strong>:
+        </p>
+        <div class="math-block" id="math-energy"></div>
+        <p>
+          The lower the negative log-sum-exp of logits, the further
+          the input is from the training manifold. Threshold the
+          score on a held-out validation set; everything below the
+          threshold gets flagged. The ROC curve in the demo above
+          shows separability between target-domain points and
+          deliberately-distant noise points.
+        </p>
+      </section>
+
+      <section class="step-section" id="step-4">
+        <div class="step-badge">Step 4</div>
+        <h2>Where this lives in your lab</h2>
+        <ul class="explanation-list">
+          <li><strong>Cross-city air-quality models.</strong>
+            Train on AirDelhi mobile sensors; CORAL-align to a new
+            city's distribution before deploying. Often recovers most
+            of the source-domain accuracy with no fresh labelling.</li>
+          <li><strong>Seasonal drift.</strong> Same city, different
+            month. Re-fit BN running stats and add an OOD detector
+            for monsoon-season frames.</li>
+          <li><strong>Satellite domain transfer.</strong> Sentinel-2
+            L1C vs L2A; different sun angles; different sensor years.
+            Test-time CORAL on the encoder features keeps your kiln
+            detector working.</li>
+          <li><strong>Multi-site clinical (ApneaEye).</strong> Each
+            site is its own domain. Domain generalisation (training
+            with several labelled sites + IRM-style penalty) gives a
+            model that holds up at the next site.</li>
+        </ul>
+        <div class="callout callout--think">
+          <strong>Final takeaway.</strong>
+          Distribution shift is the single most likely reason your
+          deployed model is worse than your test number suggested.
+          A 30-minute CORAL retrofit + OOD detector should be
+          standard before any deployment.
+        </div>
+      </section>
+    </article>
+
+    <script src="../vendor/katex/katex.min.js"></script>
+    <script type="module" src="main.js"></script>
+  </body>
+</html>
