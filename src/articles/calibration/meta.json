@@ -1,0 +1,19 @@
+{
+  "slug": "calibration",
+  "title": "Calibration & Reliability Diagrams",
+  "date": "2026-05-10",
+  "tagline": "Why a softmax of 0.97 doesn't mean 97% — and the one-parameter fix that often heals it",
+  "summary": "Train a tiny classifier live; draw the reliability diagram (binned predicted vs empirical accuracy); compare ECE, MCE, Brier and NLL side-by-side. Slide the temperature-scaling parameter and watch the calibration error collapse without changing accuracy. The lab takeaway: any deployed sustainability model should ship with a reliability plot.",
+  "readingTime": "15 min",
+  "difficulty": "Intermediate",
+  "collection": "Probability & inference",
+  "order": 19,
+  "status": "published",
+  "tags": ["Calibration", "Uncertainty", "Reliability Diagram", "Temperature Scaling", "Interactive"],
+  "highlights": [
+    "Live training of a 3-class RBF logistic-regression classifier; reliability diagram updates after each step.",
+    "ECE / MCE / Brier / NLL bars side-by-side so you can see which metric responds to what.",
+    "Temperature-scaling slider that collapses ECE without touching accuracy — the cheapest UQ upgrade in DL.",
+    "Lab-aligned: deployed sensor / AQ / health models should ship with a reliability plot."
+  ]
+}

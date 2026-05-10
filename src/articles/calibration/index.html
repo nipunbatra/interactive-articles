@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Calibration & Reliability Diagrams</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../vendor/katex/katex.min.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <article class="article">
+      <header class="article-header">
+        <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+        <p class="kicker">Interactive Explainer</p>
+        <h1>Calibration & Reliability Diagrams</h1>
+        <p class="abstract">
+          A model that says "0.97" should be right 97% of the time.
+          Most aren't. The reliability diagram tells you exactly how
+          off you are; ECE summarises it; temperature scaling
+          collapses it &mdash; one scalar parameter, no retraining.
+        </p>
+        <div class="byline">
+          <span>~15 min</span>
+          <span>UQ &middot; Calibration &middot; Reliability</span>
+        </div>
+      </header>
+
+      <section class="step-section" id="prelude">
+        <div class="step-badge">Prelude</div>
+        <h2>What 'calibrated' actually means</h2>
+        <p>
+          A classifier is calibrated if, among all examples where it
+          predicts confidence $p$, the fraction that are actually
+          correct is $p$. Across $p$. Always. Modern neural networks
+          are notoriously over-confident: a softmax of 0.97 on a
+          held-out test point is more likely to be right ~85% of the
+          time than 97% (Guo et&nbsp;al., 2017).
+        </p>
+        <div class="callout callout--key">
+          <strong>The slogan.</strong>
+          Accuracy and calibration are independent. A model can be
+          90% accurate and badly miscalibrated; a model can be 60%
+          accurate and perfectly calibrated. Any safety-relevant
+          deployment cares about both.
+        </div>
+      </section>
+
+      <section class="step-section" id="step-1">
+        <div class="step-badge">Step 1</div>
+        <h2>The reliability diagram</h2>
+        <p>
+          Bin predictions by their confidence. For each bin, plot
+          (mean predicted confidence) vs (empirical accuracy). On a
+          calibrated classifier this lies on the diagonal. Above the
+          diagonal: under-confident. Below: over-confident.
+        </p>
+        <div class="math-block" id="math-cal"></div>
+        <p>
+          <strong>ECE</strong> (expected calibration error) is the
+          weighted average of $|\text{bin acc} - \text{bin
+          confidence}|$. <strong>MCE</strong> (max calibration error)
+          is the worst bin. <strong>Brier</strong> and
+          <strong>NLL</strong> are scoring rules that combine
+          calibration and refinement.
+        </p>
+      </section>
+
+      <section class="step-section" id="step-2">
+        <div class="step-badge">Step 2</div>
+        <h2>Train a classifier and watch it miscalibrate</h2>
+        <p>
+          A 3-class RBF logistic regression on a 2-D dataset; we
+          train past the calibration sweet spot to deliberately push
+          it into the over-confident regime modern deep nets tend to
+          inhabit.
+        </p>
+        <div class="train-controls">
+          <button class="action-btn" id="cal-toggle">Start training</button>
+          <button class="action-btn action-btn--ghost" id="cal-reset">Reinitialise</button>
+          <label>temperature T &nbsp;<span id="cal-T-val">1.00</span> <input type="range" id="cal-T" min="0.5" max="6" step="0.05" value="1"></label>
+          <span class="train-stat">step <strong id="cal-step">0</strong></span>
+          <span class="train-stat">accuracy <strong id="cal-acc">—</strong></span>
+          <span class="train-stat">ECE <strong id="cal-ece">—</strong></span>
+        </div>
+        <div class="cal-grid">
+          <div class="cal-panel">
+            <div class="panel-label">Decision boundary on test data</div>
+            <canvas id="cal-board" width="380" height="380"></canvas>
+          </div>
+          <div class="cal-panel">
+            <div class="panel-label">Reliability diagram</div>
+            <canvas id="cal-reliab" width="380" height="380"></canvas>
+          </div>
+          <div class="cal-panel">
+            <div class="panel-label">Metrics over time</div>
+            <canvas id="cal-metrics" width="380" height="380"></canvas>
+          </div>
+        </div>
+        <div class="callout callout--think">
+          <strong>What to watch for.</strong>
+          For the first ~50 steps accuracy and ECE both improve. Past
+          ~150 steps, accuracy plateaus but the bins drift below the
+          diagonal &mdash; the model has become over-confident.
+          Slide T from 1 toward ~2 and watch the bins migrate up to
+          the diagonal while accuracy stays exactly the same. That's
+          temperature scaling.
+        </div>
+      </section>
+
+      <section class="step-section" id="step-3">
+        <div class="step-badge">Step 3</div>
+        <h2>Temperature scaling — one parameter, big win</h2>
+        <p>
+          Replace the softmax $p_c = e^{z_c} / \sum e^{z_{c'}}$ with
+          $p_c^{(T)} = e^{z_c / T} / \sum e^{z_{c'} / T}$ at inference.
+          Fit $T$ on a held-out validation set by minimising NLL.
+          Tipically $T \in [1, 3]$ for over-confident networks; you
+          recover most of the calibration without touching the
+          weights.
+        </p>
+        <div class="math-block" id="math-temp"></div>
+        <p>
+          Other recipes when temperature alone isn't enough:
+          <strong>Platt scaling</strong> (logistic regression on
+          logits, binary), <strong>isotonic regression</strong>
+          (non-parametric monotone fit), <strong>histogram binning</strong>,
+          <strong>vector / matrix scaling</strong> (per-class
+          temperatures). Pick the simplest that works.
+        </p>
+      </section>
+
+      <section class="step-section" id="step-4">
+        <div class="step-badge">Step 4</div>
+        <h2>Why this matters for your lab</h2>
+        <ul class="explanation-list">
+          <li><strong>Deployed AQ models.</strong> A "high PM2.5" alert
+            with 0.95 calibrated confidence is actionable; the same
+            number from an over-confident model is just noise.</li>
+          <li><strong>Apnea detection.</strong> A medical-adjacent
+            decision <em>must</em> ship calibrated probabilities
+            &mdash; otherwise downstream care decisions are made on
+            the wrong basis.</li>
+          <li><strong>Active learning + Bayes-Opt.</strong>
+            Acquisition functions (BALD, EI) read confidence; broken
+            calibration breaks every uncertainty-aware downstream
+            choice.</li>
+          <li><strong>Conformal sandwich.</strong> Conformal
+            prediction (the
+            <a href="../conformal/index.html">conformal article</a>)
+            gives a coverage guarantee but tighter intervals when the
+            base model is well-calibrated. Calibrate first, conformal
+            second.</li>
+        </ul>
+        <div class="callout callout--think">
+          <strong>Final takeaway.</strong>
+          Every deployed model should ship with a reliability plot
+          and an ECE number. It's 30 lines of code and it tells you
+          whether the confidences mean anything. Temperature scaling
+          is the cheapest possible repair if they don't.
+        </div>
+      </section>
+    </article>
+
+    <script src="../vendor/katex/katex.min.js"></script>
+    <script type="module" src="main.js"></script>
+  </body>
+</html>

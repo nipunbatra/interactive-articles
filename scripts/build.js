@@ -91,33 +91,53 @@ function renderTagPills(tags = []) {
 }
 
 function renderArticleList(articles) {
-  // Sort articles by date descending if available, else by order or fallback
-  const sortedArticles = [...articles].sort((a, b) => {
-    if (a.date && b.date) return new Date(b.date) - new Date(a.date);
-    return (a.order || 99) - (b.order || 99);
+  // Group by collection; within each collection, sort by date desc.
+  const groups = new Map();
+  articles.forEach((a) => {
+    const col = a.collection || 'Other';
+    if (!groups.has(col)) groups.set(col, []);
+    groups.get(col).push(a);
+  });
+  // Order collections: pinned order first, then alphabetical
+  const pinned = ['Deep learning', 'Computer Vision', 'Multimodal', 'Probability & inference', 'Time series'];
+  const colNames = Array.from(groups.keys()).sort((a, b) => {
+    const ia = pinned.indexOf(a), ib = pinned.indexOf(b);
+    if (ia >= 0 && ib >= 0) return ia - ib;
+    if (ia >= 0) return -1;
+    if (ib >= 0) return 1;
+    return a.localeCompare(b);
   });
 
-  return sortedArticles.map((article) => {
-    const metaParts = [];
-    if (article.date) {
-      const d = new Date(article.date);
-      metaParts.push(d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }));
-    }
-    if (article.collection) metaParts.push(escapeHtml(article.collection));
-    if (article.readingTime) metaParts.push(escapeHtml(article.readingTime));
-
+  function rowHtml(article) {
+    const dateText = article.date
+      ? new Date(article.date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+      : '';
     return `
-      <article class="simple-article-row">
-        <div class="simple-article-header">
-          <span class="simple-article-meta">${metaParts.join(' &middot; ')}</span>
-          ${article.difficulty ? `<span class="simple-article-difficulty">${escapeHtml(article.difficulty)}</span>` : ''}
-        </div>
-        <h2 class="simple-article-title"><a href="${escapeHtml(article.url)}">${escapeHtml(article.title)}</a></h2>
-        <p class="simple-article-summary">${escapeHtml(article.summary || '')}</p>
-        <div class="simple-article-footer">
-          <a class="simple-article-link" href="${escapeHtml(article.url)}">Read interactive explainer &rarr;</a>
-        </div>
-      </article>
+      <li class="ix-row">
+        <a class="ix-row-link" href="${escapeHtml(article.url)}">
+          <span class="ix-row-title">${escapeHtml(article.title)}</span>
+          <span class="ix-row-tag">${escapeHtml(article.tagline || article.summary || '').slice(0, 110)}</span>
+          <span class="ix-row-meta">
+            ${article.readingTime ? `<span>${escapeHtml(article.readingTime)}</span>` : ''}
+            ${dateText ? `<span class="ix-row-date">${dateText}</span>` : ''}
+          </span>
+        </a>
+      </li>
+    `;
+  }
+
+  return colNames.map((col) => {
+    const items = groups.get(col).slice().sort((a, b) => {
+      if (a.date && b.date) return new Date(b.date) - new Date(a.date);
+      return (a.order || 99) - (b.order || 99);
+    });
+    return `
+      <section class="ix-collection">
+        <h2 class="ix-collection-title">${escapeHtml(col)} <span class="ix-collection-count">${items.length}</span></h2>
+        <ul class="ix-list">
+          ${items.map(rowHtml).join('')}
+        </ul>
+      </section>
     `;
   }).join('\n');
 }
@@ -133,105 +153,117 @@ function renderHomePage(siteConfig, articles) {
     <link rel="stylesheet" href="assets/site.css" />
     <style>
       .simple-shell {
-        max-width: 800px;
+        max-width: 920px;
         margin: 0 auto;
-        padding: 4rem 1.5rem;
+        padding: 3rem 1.5rem 5rem;
       }
       .simple-header {
-        margin-bottom: 4rem;
+        margin-bottom: 3rem;
         text-align: center;
       }
       .simple-header h1 {
         font-family: var(--font-serif);
-        font-size: clamp(2.5rem, 5vw, 3.5rem);
-        margin: 0 0 1rem;
+        font-size: clamp(2.2rem, 4.5vw, 3rem);
+        margin: 0 0 0.6rem;
         color: var(--ink);
         letter-spacing: -0.02em;
         line-height: 1.1;
       }
       .simple-header p {
-        font-size: 1.15rem;
+        font-size: 1.05rem;
         color: var(--muted);
-        max-width: 600px;
+        max-width: 640px;
         margin: 0 auto;
-        line-height: 1.6;
+        line-height: 1.55;
       }
-      .simple-article-list {
-        display: grid;
-        gap: 2rem;
+      .ix-collection {
+        margin: 2.4rem 0;
       }
-      .simple-article-row {
-        background: var(--panel);
-        padding: 2.5rem;
-        border-radius: var(--radius-lg);
-        border: 1px solid var(--border);
-        box-shadow: 0 8px 30px rgba(31, 38, 48, 0.04);
-        transition: transform 0.3s ease, box-shadow 0.3s ease;
-      }
-      .simple-article-row:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 12px 40px rgba(31, 38, 48, 0.08);
-      }
-      .simple-article-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 1rem;
-      }
-      .simple-article-meta {
-        font-size: 0.85rem;
-        color: var(--muted);
-        text-transform: uppercase;
-        letter-spacing: 0.1em;
-      }
-      .simple-article-difficulty {
-        font-size: 0.8rem;
-        background: var(--panel-soft);
-        padding: 0.3rem 0.8rem;
-        border-radius: 999px;
-        color: var(--muted);
-        border: 1px solid var(--border);
-      }
-      .simple-article-title {
-        margin: 0 0 0.8rem;
-        font-size: 1.8rem;
+      .ix-collection-title {
         font-family: var(--font-serif);
-        line-height: 1.2;
+        font-size: 1.05rem;
+        margin: 0 0 0.7rem;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        color: var(--ink);
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 0.45rem;
       }
-      .simple-article-title a {
+      .ix-collection-count {
+        font-family: var(--font-mono, 'IBM Plex Mono', monospace);
+        font-size: 0.78rem;
+        color: var(--muted);
+        background: var(--panel-soft);
+        border: 1px solid var(--border);
+        padding: 0.05rem 0.5rem;
+        border-radius: 999px;
+        font-weight: 500;
+      }
+      .ix-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        gap: 0;
+      }
+      .ix-row {
+        margin: 0;
+      }
+      .ix-row-link {
+        display: grid;
+        grid-template-columns: 1.4fr 2.2fr auto;
+        gap: 1rem;
+        align-items: baseline;
+        padding: 0.7rem 0.6rem;
+        border-radius: 6px;
         text-decoration: none;
         color: var(--ink);
+        transition: background 120ms ease;
+        border-bottom: 1px solid rgba(0,0,0,0.04);
       }
-      .simple-article-title a:hover {
-        color: var(--accent);
+      .ix-row-link:hover {
+        background: rgba(44, 111, 183, 0.05);
       }
-      .simple-article-summary {
-        color: var(--muted);
-        font-size: 1.05rem;
-        margin: 0 0 1.5rem;
-        line-height: 1.6;
-      }
-      .simple-article-footer {
-        margin-top: 1.5rem;
-      }
-      .simple-article-link {
-        display: inline-block;
-        text-decoration: none;
-        color: var(--accent);
+      .ix-row-title {
+        font-family: var(--font-serif);
         font-weight: 600;
         font-size: 1rem;
-        transition: color 0.2s;
+        color: var(--ink);
       }
-      .simple-article-link:hover {
-        color: var(--accent-2);
+      .ix-row-tag {
+        font-size: 0.92rem;
+        color: var(--muted);
+        line-height: 1.4;
+        font-family: var(--font-serif);
+      }
+      .ix-row-meta {
+        display: flex;
+        gap: 0.7rem;
+        font-family: var(--font-mono, 'IBM Plex Mono', monospace);
+        font-size: 0.74rem;
+        color: var(--muted);
+        white-space: nowrap;
+        text-align: right;
+        justify-content: flex-end;
+      }
+      .ix-row-date { opacity: 0.7; }
+      @media (max-width: 720px) {
+        .ix-row-link {
+          grid-template-columns: 1fr;
+          gap: 0.25rem;
+        }
+        .ix-row-meta { justify-content: flex-start; }
       }
       .simple-footer {
-        margin-top: 5rem;
+        margin-top: 4rem;
         text-align: center;
         color: var(--muted);
-        font-size: 0.95rem;
+        font-size: 0.9rem;
         border-top: 1px solid var(--border);
-        padding-top: 2rem;
+        padding-top: 1.5rem;
       }
     </style>
   </head>
@@ -242,10 +274,8 @@ function renderHomePage(siteConfig, articles) {
         <p>${escapeHtml(siteConfig.description)}</p>
       </header>
 
-      <div class="simple-article-list">
-        ${renderArticleList(articles)}
-      </div>
-      
+      ${renderArticleList(articles)}
+
       <footer class="simple-footer">
         <p>Interactive explainers designed to be manipulated, not skimmed as static notes.</p>
       </footer>
