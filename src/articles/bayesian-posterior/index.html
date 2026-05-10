@@ -345,6 +345,56 @@
         </div>
       </section>
 
+      <!-- ─── Step 6½ — NEW: hierarchical / partial pooling ─── -->
+      <section class="step-section" id="step-pool">
+        <div class="step-badge">Step 6 ½</div>
+        <h2>Hierarchical models — partial pooling, the Bayesian superpower</h2>
+        <p>
+          Suppose you have several related groups: many sites, sensors,
+          schools, patients, batches. Each has a small pile of
+          observations. You can fit one model per group ("no pooling")
+          or one model for everything ("complete pooling"). Both are
+          wrong in known ways. The Bayesian fix is
+          <strong>partial pooling</strong>: a hierarchical prior that
+          lets each group have its own mean while pulling outliers
+          toward the global mean.
+        </p>
+        <div class="math-block" id="math-hier"></div>
+        <p>
+          $\mu$ is the global mean; $\tau$ is how strongly groups are
+          pulled toward it; $\theta_g$ is the group-specific mean. The
+          posterior of $\theta_g$ is shrunk toward $\mu$ by an amount
+          that depends on $\tau$ and the group's data count $n_g$.
+        </p>
+        <div class="train-controls">
+          <label>shrinkage τ &nbsp;<span id="hp-tau-val">1.00</span> <input type="range" id="hp-tau" min="0.05" max="5" step="0.05" value="1"></label>
+          <label>obs noise σ &nbsp;<span id="hp-sig-val">1.00</span> <input type="range" id="hp-sig" min="0.2" max="3" step="0.1" value="1"></label>
+          <label class="toggle-pair"><input type="checkbox" id="hp-empty"> include data-poor group (n=2)</label>
+          <button class="action-btn action-btn--ghost" id="hp-resample">Resample groups</button>
+        </div>
+        <div class="bayes-figure">
+          <canvas id="hp-canvas" width="880" height="380"></canvas>
+          <figcaption>Eight groups along the x-axis. Black dots: observations. Big symbols: per-group MLE (orange ×), partial-pool posterior mean (teal ●), and complete-pool global mean (blue dashed line). Watch the data-poor group's estimate pull toward the global mean as τ shrinks.</figcaption>
+        </div>
+        <div class="callout callout--key">
+          <strong>The shrinkage formula.</strong>
+          For Gaussian data, the posterior mean of group $g$ is a
+          weighted average:
+          $\hat\theta_g = w_g \bar y_g + (1 - w_g)\,\mu,$
+          $\;w_g = \frac{n_g/\sigma^2}{n_g/\sigma^2 + 1/\tau^2}.$
+          Big $n_g$ or small $\tau$ ⇒ trust the group; small $n_g$ or
+          big $\tau$ ⇒ trust the global mean. Partial pooling
+          interpolates the two extremes <em>per group</em>.
+        </div>
+        <p>
+          Why this matters: data-poor groups borrow strength from
+          data-rich ones <em>without</em> being forced to agree with
+          them. James &amp; Stein, 1961, proved that this estimator
+          dominates the per-group MLE in mean squared error &mdash;
+          in three or more dimensions, no-pool is provably suboptimal.
+        </p>
+      </section>
+
       <!-- ─── Step 7 ─── -->
       <section class="step-section" id="step-7">
         <div class="step-badge">Step 7</div>

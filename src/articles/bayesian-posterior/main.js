@@ -990,7 +990,9 @@ function renderMath() {
     'math-beta':
       '\\theta \\sim \\mathrm{Beta}(\\alpha, \\beta) \\;\\Longrightarrow\\; \\theta \\mid \\mathcal{D} \\sim \\mathrm{Beta}(\\alpha + k,\\;\\beta + n - k)',
     'math-blr':
-      'p(y \\mid x, \\mathcal{D}) = \\mathcal{N}\\!\\bigl(\\,\\phi(x)^\\top \\boldsymbol{\\mu}_n,\\;\\sigma^2 + \\phi(x)^\\top \\Sigma_n\\, \\phi(x)\\,\\bigr)'
+      'p(y \\mid x, \\mathcal{D}) = \\mathcal{N}\\!\\bigl(\\,\\phi(x)^\\top \\boldsymbol{\\mu}_n,\\;\\sigma^2 + \\phi(x)^\\top \\Sigma_n\\, \\phi(x)\\,\\bigr)',
+    'math-hier':
+      '\\theta_g \\sim \\mathcal{N}(\\mu, \\tau^2),\\qquad y_{g,i} \\mid \\theta_g \\sim \\mathcal{N}(\\theta_g, \\sigma^2),\\qquad g = 1, \\dots, G'
   };
   Object.keys(blocks).forEach((id) => {
     const el = document.getElementById(id);
@@ -1014,6 +1016,177 @@ function init() {
   wirePP(); renderPP();
   wireNC();
   wireBLR(); renderBLR();
+  wireHP(); renderHP();
+}
+
+// ============================================================
+// Step 6½ — Hierarchical / partial pooling
+// 8 groups, each with a true theta_g drawn from N(0, 1.5). The g-th
+// group has n_g observations from N(theta_g, sigma^2). We compare:
+//   - no pooling (per-group MLE = sample mean)
+//   - complete pooling (global sample mean)
+//   - partial pooling (Bayesian posterior with prior theta_g ~ N(mu, tau^2))
+// ============================================================
+const HP = {
+  groups: null,
+  trueMu: 0,
+  tau: 1.0,
+  sigma: 1.0,
+  withEmpty: false
+};
+
+function hpResample() {
+  const G = 8;
+  const groups = [];
+  for (let g = 0; g < G; g++) {
+    const trueTheta = randn() * 1.5;
+    let n = 8 + Math.floor(Math.random() * 12);
+    if (HP.withEmpty && g === 4) n = 2; // sparse group at index 4
+    const obs = [];
+    for (let i = 0; i < n; i++) obs.push(trueTheta + randn() * HP.sigma);
+    groups.push({ trueTheta, obs });
+  }
+  HP.groups = groups;
+}
+
+function partialPoolEstimates() {
+  // Two-stage approximation: estimate global mu = mean(group means),
+  // then shrink each group estimate toward mu with weight w_g.
+  const G = HP.groups.length;
+  const ybar = HP.groups.map((g) => g.obs.reduce((a, b) => a + b, 0) / g.obs.length);
+  const mu = ybar.reduce((a, b) => a + b, 0) / G;
+  const ests = HP.groups.map((g, i) => {
+    const n = g.obs.length;
+    const w = (n / (HP.sigma * HP.sigma)) / (n / (HP.sigma * HP.sigma) + 1 / (HP.tau * HP.tau));
+    return { mle: ybar[i], pool: w * ybar[i] + (1 - w) * mu, w };
+  });
+  return { mu, ests };
+}
+
+function renderHP() {
+  if (!HP.groups) hpResample();
+  const canvas = document.getElementById('hp-canvas');
+  if (!canvas) return;
+  const W = 880, H = 380;
+  const ctx = setupCanvas(canvas, W, H);
+  ctx.fillStyle = '#fdfcf9'; ctx.fillRect(0, 0, W, H);
+  const m = { l: 50, r: 14, t: 18, b: 38 };
+  const px = W - m.l - m.r, py = H - m.t - m.b;
+  ctx.strokeStyle = '#e2d8c6'; ctx.strokeRect(m.l, m.t, px, py);
+  const G = HP.groups.length;
+  const all = [];
+  HP.groups.forEach((g) => g.obs.forEach((o) => all.push(o)));
+  let lo = Math.min(...all) - 0.6, hi = Math.max(...all) + 0.6;
+  const sx = (gi) => m.l + (gi + 0.5) / G * px;
+  const sy = (y) => m.t + (1 - (y - lo) / (hi - lo)) * py;
+  // Y axis ticks
+  ctx.fillStyle = TICK_COLOR;
+  ctx.font = '11px IBM Plex Mono';
+  ctx.textAlign = 'right';
+  for (let i = 0; i <= 4; i++) {
+    const v = lo + (hi - lo) * (1 - i / 4);
+    const y = m.t + i / 4 * py;
+    ctx.fillText(v.toFixed(1), m.l - 4, y + 3);
+    ctx.strokeStyle = '#f0ebe1';
+    ctx.beginPath(); ctx.moveTo(m.l, y); ctx.lineTo(m.l + px, y); ctx.stroke();
+  }
+  // X axis labels
+  ctx.textAlign = 'center';
+  for (let g = 0; g < G; g++) {
+    const x = sx(g);
+    ctx.fillStyle = '#9a917f';
+    ctx.fillText(`grp ${g + 1}`, x, m.t + py + 16);
+  }
+  const { mu, ests } = partialPoolEstimates();
+  // Global pool line
+  ctx.strokeStyle = '#2c6fb7';
+  ctx.setLineDash([5, 4]);
+  ctx.beginPath(); ctx.moveTo(m.l, sy(mu)); ctx.lineTo(m.l + px, sy(mu)); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#1a4f8a';
+  ctx.font = '11px Manrope';
+  ctx.textAlign = 'left';
+  ctx.fillText(`global pool μ = ${mu.toFixed(2)}`, m.l + 6, sy(mu) - 4);
+  // Per group: observations dots, MLE ×, posterior ●, true theta as ring
+  HP.groups.forEach((g, gi) => {
+    const x = sx(gi);
+    g.obs.forEach((o) => {
+      ctx.beginPath();
+      ctx.arc(x + (Math.random() - 0.5) * 18, sy(o), 1.8, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(0,0,0,0.5)';
+      ctx.fill();
+    });
+    // True theta — small open ring
+    ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.arc(x, sy(g.trueTheta), 5, 0, Math.PI * 2);
+    ctx.stroke();
+    // MLE — orange ×
+    const e = ests[gi];
+    ctx.strokeStyle = '#d9622b';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(x - 5, sy(e.mle) - 5); ctx.lineTo(x + 5, sy(e.mle) + 5);
+    ctx.moveTo(x + 5, sy(e.mle) - 5); ctx.lineTo(x - 5, sy(e.mle) + 5);
+    ctx.stroke();
+    // Pool ● — teal disc
+    ctx.fillStyle = '#1e7770';
+    ctx.beginPath();
+    ctx.arc(x, sy(e.pool), 6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = 'white';
+    ctx.lineWidth = 1.4;
+    ctx.stroke();
+    // Shrinkage arrow MLE → pool
+    if (Math.abs(e.mle - e.pool) > 0.04) {
+      ctx.strokeStyle = 'rgba(30,119,112,0.55)';
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.moveTo(x, sy(e.mle));
+      ctx.lineTo(x, sy(e.pool));
+      ctx.stroke();
+    }
+    // Annotation: w_g (weight on data)
+    ctx.fillStyle = '#6e665b';
+    ctx.font = '10px IBM Plex Mono';
+    ctx.textAlign = 'center';
+    ctx.fillText(`n=${g.obs.length}`, x, m.t + py + 28);
+  });
+  // Legend
+  ctx.font = '11px Manrope';
+  ctx.fillStyle = '#3b342b';
+  ctx.textAlign = 'left';
+  ctx.fillText('orange × = no-pool (MLE)', m.l + 8, m.t + 14);
+  ctx.fillStyle = '#1e7770';
+  ctx.fillText('teal ● = partial-pool posterior', m.l + 200, m.t + 14);
+  ctx.fillStyle = '#1a4f8a';
+  ctx.fillText('blue dashed = complete-pool', m.l + 410, m.t + 14);
+  ctx.fillStyle = '#1a1815';
+  ctx.fillText('open ring = true θ', m.l + 600, m.t + 14);
+}
+
+function wireHP() {
+  document.getElementById('hp-tau').addEventListener('input', (e) => {
+    HP.tau = parseFloat(e.target.value);
+    document.getElementById('hp-tau-val').textContent = HP.tau.toFixed(2);
+    renderHP();
+  });
+  document.getElementById('hp-sig').addEventListener('input', (e) => {
+    HP.sigma = parseFloat(e.target.value);
+    document.getElementById('hp-sig-val').textContent = HP.sigma.toFixed(2);
+    hpResample();
+    renderHP();
+  });
+  document.getElementById('hp-empty').addEventListener('change', (e) => {
+    HP.withEmpty = e.target.checked;
+    hpResample();
+    renderHP();
+  });
+  document.getElementById('hp-resample').addEventListener('click', () => {
+    hpResample();
+    renderHP();
+  });
 }
 
 if (document.readyState === 'loading') {
