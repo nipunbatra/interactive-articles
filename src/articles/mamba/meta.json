@@ -1,0 +1,19 @@
+{
+  "slug": "mamba",
+  "title": "Mamba & State-Space Models, Visualised",
+  "date": "2026-05-10",
+  "tagline": "An RNN that scales linearly with sequence length — and beats attention on long contexts",
+  "summary": "A discrete-time SSM is a linear recurrence. Watch a one-channel SSM state evolve as it processes a 256-step input; toggle the selective Δ parameter that gives Mamba its key advantage; compare with attention's quadratic cost on the same sequence.",
+  "readingTime": "18 min",
+  "difficulty": "Intermediate",
+  "collection": "Deep learning",
+  "order": 23,
+  "status": "published",
+  "tags": ["Mamba", "SSM", "State-Space", "Long Context", "Interactive"],
+  "highlights": [
+    "Live discrete-time SSM forward pass on a 256-step input; state value plotted alongside input.",
+    "Selective Δ slider — Mamba's input-dependent step size that turns a static SSM into a content-sensitive one.",
+    "Cost-vs-length plot: O(N) Mamba scan vs O(N²) attention.",
+    "When SSMs win, when attention wins, where hybrids live."
+  ]
+}

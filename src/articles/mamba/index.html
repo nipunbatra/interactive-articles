@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mamba & State-Space Models, Visualised</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../vendor/katex/katex.min.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <article class="article">
+      <header class="article-header">
+        <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+        <p class="kicker">Interactive Explainer</p>
+        <h1>Mamba &amp; State-Space Models, Visualised</h1>
+        <p class="abstract">
+          A linear recurrence over a hidden state. Watch the state
+          evolve as it processes a 256-step signal. Toggle the
+          input-dependent Δ that gives Mamba its selectivity edge.
+          See why O(N) is the right complexity for million-token
+          contexts.
+        </p>
+        <div class="byline">
+          <span>~18 min</span>
+          <span>SSM &middot; Mamba &middot; Long Context</span>
+        </div>
+      </header>
+
+      <section class="step-section" id="prelude">
+        <div class="step-badge">Prelude</div>
+        <h2>The long-context bottleneck</h2>
+        <p>
+          Self-attention is $O(N^2)$ in sequence length. At 1k tokens
+          that's fine; at 100k it's the dominant cost; at 1M it's
+          impossible. State-space models (S4, S5, H3, Mamba)
+          replace attention with a linear recurrence whose
+          per-token cost is $O(1)$ regardless of sequence length.
+        </p>
+        <div class="callout callout--key">
+          <strong>The slogan.</strong>
+          A discrete-time SSM is a fancy RNN with carefully chosen
+          dynamics that lets you compute many tokens in parallel via
+          a "scan". It keeps the linear-in-length cost of an RNN and
+          regains the parallelism of attention.
+        </div>
+      </section>
+
+      <section class="step-section" id="step-1">
+        <div class="step-badge">Step 1</div>
+        <h2>The recurrence</h2>
+        <div class="math-block" id="math-ssm"></div>
+        <p>
+          $h_t \in \mathbb{R}^d$ is the hidden state. $\bar A, \bar B$
+          are the discretised dynamics; $C$ is the output projection.
+          For S4 / S5 these are fixed (or learned but
+          input-independent). The big Mamba idea: make $\bar A, \bar
+          B$ depend on the current input $x_t$. That single change
+          gives "selective" SSMs that can decide which inputs to
+          carry forward and which to forget.
+        </p>
+        <div class="math-block" id="math-mamba"></div>
+        <p>
+          Δ is the per-token step size; tiny Δ means "barely update
+          the state" (good for skipping uninformative inputs); large
+          Δ means "treat this input as important". Both are learned.
+        </p>
+      </section>
+
+      <section class="step-section" id="step-2">
+        <div class="step-badge">Step 2</div>
+        <h2>Watch the state evolve</h2>
+        <p>
+          A 1-channel discrete SSM with $A = -0.2$ (slow decay), $B =
+          C = 1$, and a Δ that you can either fix or modulate from
+          the input. The bottom panel shows $|h_t|$ across the 256-step
+          sequence; the top shows the input.
+        </p>
+        <div class="train-controls">
+          <label>signal
+            <select id="mb-sig">
+              <option value="impulse" selected>impulses (3 spikes)</option>
+              <option value="square">square pulse</option>
+              <option value="needle">needle in noise</option>
+            </select>
+          </label>
+          <label>fixed Δ &nbsp;<span id="mb-d-val">0.30</span> <input type="range" id="mb-d" min="0.02" max="2" step="0.02" value="0.3"></label>
+          <label class="toggle-pair"><input type="checkbox" id="mb-sel"> selective Δ (Mamba)</label>
+        </div>
+        <div class="mb-figure">
+          <canvas id="mb-canvas" width="880" height="320"></canvas>
+          <figcaption>Top: input x_t. Bottom: |h_t| (state magnitude). With selective Δ, the state ignores low-amplitude inputs and latches onto sparse important events.</figcaption>
+        </div>
+      </section>
+
+      <section class="step-section" id="step-3">
+        <div class="step-badge">Step 3</div>
+        <h2>Cost vs sequence length</h2>
+        <p>
+          Mamba is linear in length; attention is quadratic. Below:
+          synthetic operation count for both vs sequence length.
+          The break-even point depends on hidden width, but for any
+          sufficiently long sequence, attention loses.
+        </p>
+        <div class="mb-figure">
+          <canvas id="mb-cost" width="880" height="240"></canvas>
+          <figcaption>Operation counts (log-log). Attention's $O(N^2)$ vs Mamba scan's $O(N \cdot d_{\text{state}})$.</figcaption>
+        </div>
+      </section>
+
+      <section class="step-section" id="step-4">
+        <div class="step-badge">Step 4</div>
+        <h2>Where each wins</h2>
+        <ul class="explanation-list">
+          <li><strong>Attention wins on:</strong> short sequences,
+            tasks needing exact long-range copy / lookup, in-context
+            learning of arbitrary patterns. Most LLM tasks at
+            sub-32k context.</li>
+          <li><strong>Mamba wins on:</strong> very long contexts
+            (DNA, audio, long documents, time series). Linear scaling
+            stops being a research detail and starts being the
+            difference between feasible and not.</li>
+          <li><strong>Hybrids win:</strong> Mamba-2, Jamba,
+            Nemotron-H, Zamba interleave SSM and attention layers
+            and beat the pure variants of either. The 2026 default.</li>
+          <li><strong>Time-series forecasting.</strong> Mamba and S5
+            currently trade blows with PatchTST on long horizons.
+            For sustainability data with hour / minute resolution
+            stretching across years, this is the natural backbone.</li>
+        </ul>
+        <div class="callout callout--think">
+          <strong>Final takeaway.</strong>
+          The right way to think of an SSM is "a parallel-friendly
+          RNN with hand-tuned eigenvalues". The right way to think
+          of Mamba on top is "the SSM gets to look at its input
+          before deciding how much to update". Together they remove
+          the $N^2$ ceiling on context length without sacrificing
+          training speed.
+        </div>
+      </section>
+    </article>
+
+    <script src="../vendor/katex/katex.min.js"></script>
+    <script type="module" src="main.js"></script>
+  </body>
+</html>
