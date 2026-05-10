@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Decision Trees, Live</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../vendor/katex/katex.min.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <article class="article">
+      <header class="article-header">
+        <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+        <p class="kicker">Interactive Explainer</p>
+        <h1>Decision Trees, Live</h1>
+        <p class="abstract">
+          Click to drop training points; a CART decision tree grows
+          axis-aligned splits live. Adjust depth, split criterion,
+          minimum leaf size; watch the boundary go from too-simple to
+          overfit-to-points. Then compare to logistic regression and
+          a 25-tree random forest on the same dataset.
+        </p>
+        <div class="byline">
+          <span>~16 min</span>
+          <span>Classical ML &middot; CART &middot; Random Forest</span>
+        </div>
+      </header>
+
+      <section class="step-section" id="step-1">
+        <div class="step-badge">Step 1</div>
+        <h2>The greedy split rule</h2>
+        <p>
+          A CART decision tree builds itself top-down. At each node, it
+          picks the (feature, threshold) pair that maximally
+          <em>decreases</em> the impurity of the children. Standard
+          impurities for classification:
+        </p>
+        <div class="math-block" id="math-impurity"></div>
+        <p>
+          For a candidate split, the impurity drop is
+          $\Delta = I(\text{parent}) - \frac{N_L}{N}I(\text{left}) - \frac{N_R}{N}I(\text{right})$.
+          Search over all features and all candidate thresholds, pick
+          the maximum, recurse on each side. Stop when a node is pure,
+          too small, or hits the depth limit.
+        </p>
+        <p>
+          Two consequences worth feeling: (1) splits are
+          <strong>axis-aligned</strong> — the resulting decision
+          regions are unions of rectangles. (2) the algorithm is
+          <strong>greedy</strong> — a globally-better split sequence
+          may exist but won't be found.
+        </p>
+      </section>
+
+      <section class="step-section" id="step-2">
+        <div class="step-badge">Step 2</div>
+        <h2>Build a tree, click by click</h2>
+        <p>
+          Left-click to add a class-A point (blue), right-click /
+          shift-click for class-B (orange). The tree re-fits at every
+          click. Push <em>max depth</em> up; watch the boundary become
+          increasingly fragmented. Push <em>min samples per leaf</em>
+          up; watch it smooth out.
+        </p>
+        <div class="train-controls">
+          <label>criterion
+            <select id="dt-crit">
+              <option value="gini" selected>Gini</option>
+              <option value="entropy">entropy</option>
+            </select>
+          </label>
+          <label>max depth &nbsp;<span id="dt-depth-val">5</span> <input type="range" id="dt-depth" min="1" max="12" step="1" value="5"></label>
+          <label>min samples / leaf &nbsp;<span id="dt-leaf-val">1</span> <input type="range" id="dt-leaf" min="1" max="20" step="1" value="1"></label>
+          <button class="action-btn action-btn--ghost" id="dt-clear">Clear points</button>
+          <button class="action-btn action-btn--ghost" id="dt-seed">Seed XOR / spirals</button>
+        </div>
+        <div class="dt-grid">
+          <div class="dt-panel">
+            <div class="panel-label">Tree decision regions</div>
+            <canvas id="dt-tree" width="380" height="380"></canvas>
+          </div>
+          <div class="dt-panel">
+            <div class="panel-label">Random forest (25 trees)</div>
+            <canvas id="dt-rf" width="380" height="380"></canvas>
+          </div>
+          <div class="dt-panel">
+            <div class="panel-label">Logistic regression</div>
+            <canvas id="dt-lr" width="380" height="380"></canvas>
+          </div>
+        </div>
+        <div class="dt-grid">
+          <div class="dt-panel" style="grid-column: 1 / -1;">
+            <div class="panel-label">Tree shape (BFS layout)</div>
+            <canvas id="dt-shape" width="880" height="240"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <section class="step-section" id="step-3">
+        <div class="step-badge">Step 3</div>
+        <h2>What you should notice</h2>
+        <ul class="explanation-list">
+          <li><strong>Axis-aligned everything.</strong> Even the
+            "diagonal" boundaries you see are staircases of vertical
+            and horizontal cuts. This is why decision trees struggle
+            with rotated data — feature engineering / rotated
+            embeddings help.</li>
+          <li><strong>Depth ⇆ overfitting.</strong> At depth 1 the tree
+            is just a thresholded line; at depth 8 every training point
+            sits in its own leaf. The right depth depends on how noisy
+            the data is.</li>
+          <li><strong>Min-samples-per-leaf is the cleanest regulariser.</strong>
+            Setting it to 5 forces the tree to ignore single-point
+            outliers; cleaner boundary, slightly higher train error,
+            usually better test error.</li>
+          <li><strong>Random forest = many shallow trees voted.</strong>
+            Each tree sees a bootstrap sample and a random subset of
+            features per split. The 25-tree ensemble is much smoother
+            than a single deep tree at similar accuracy. This is why
+            it's the everyday tabular workhorse.</li>
+          <li><strong>Logistic regression = one straight line.</strong>
+            Worst on XOR-shaped data, often best on
+            high-dimensional-but-near-linear tabular tasks.</li>
+        </ul>
+      </section>
+
+      <section class="step-section" id="step-4">
+        <div class="step-badge">Step 4</div>
+        <h2>What trees are good at — and what they're not</h2>
+        <ul class="explanation-list">
+          <li><strong>Tabular features, mixed types.</strong> Trees
+            handle categorical and numeric features without
+            normalisation. The default first try on any tabular task.</li>
+          <li><strong>Interpretability per prediction.</strong>
+            "Predicted class A because feature X &gt; 3.2 and feature
+            Y &lt; 0.7" — a tree gives you that path for free. Useful
+            for explainable systems and audits.</li>
+          <li><strong>Strong ensembles.</strong> Random Forest, ExtraTrees,
+            Gradient Boosted Trees, XGBoost, LightGBM, CatBoost — all
+            still routinely win Kaggle tabular competitions.</li>
+          <li><strong>Bad at:</strong> high-dimensional sparse data
+            (text, images), smooth low-dim regression (use a GP),
+            extrapolation outside training range (a tree
+            literally cannot predict beyond min/max in training).</li>
+          <li><strong>Inductive bias.</strong> Strong axis-aligned
+            staircase prior. If your true decision boundary is a
+            sphere or rotated, you need rotated features or a
+            smoother model.</li>
+        </ul>
+        <div class="callout callout--key">
+          <strong>The slogan.</strong>
+          A single decision tree is rarely the answer; an ensemble of
+          trees often is. That ensemble (gradient-boosted) is what the
+          <a href="../xgboost/index.html">XGBoost article</a> covers
+          next.
+        </div>
+      </section>
+    </article>
+
+    <script src="../vendor/katex/katex.min.js"></script>
+    <script type="module" src="main.js"></script>
+  </body>
+</html>

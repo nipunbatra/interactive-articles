@@ -1,0 +1,19 @@
+{
+  "slug": "decision-trees",
+  "title": "Decision Trees, Live",
+  "date": "2026-05-10",
+  "tagline": "Watch a CART tree split a 2-D plane axis-aligned, slice by slice — and see exactly when it overfits",
+  "summary": "Click points to add training data; the tree grows live, splitting by Gini / entropy / variance reduction. Sliders for max depth and minimum-samples-per-leaf. Compare the tree's decision boundary to logistic regression and a random forest of 25 trees side-by-side.",
+  "readingTime": "16 min",
+  "difficulty": "Beginner",
+  "collection": "Classical ML",
+  "order": 30,
+  "status": "published",
+  "tags": ["Decision Trees", "CART", "Random Forest", "Classical ML", "Interactive"],
+  "highlights": [
+    "Click left/right to add class-A / class-B points; tree re-grows live each click.",
+    "Split criterion selector (Gini / entropy) and depth + min-samples sliders.",
+    "Side-by-side: 1 tree vs random forest of 25 trees vs logistic regression.",
+    "Tree-shape diagram with split points labelled; feature-importance bars."
+  ]
+}
