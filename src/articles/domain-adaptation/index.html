@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Domain Shift, Adapted</title>
+    <title>Domain Shift in Vision, In Depth</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
@@ -15,50 +15,61 @@
       <header class="article-header">
         <a class="back-link" href="../index.html">&larr; Explainer Library</a>
         <p class="kicker">Interactive Explainer</p>
-        <h1>Domain Shift, Adapted</h1>
+        <h1>Domain Shift in Vision, In Depth</h1>
         <p class="abstract">
-          The training distribution and deployment distribution rarely
-          match. Slide the drift; watch the classifier collapse;
-          align the source and target features with CORAL; recover
-          accuracy without target labels. Then flag the truly
-          out-of-distribution points with an energy score.
+          The complete vision-focused tour: a taxonomy of shifts you'll
+          actually meet, ten techniques worked through end-to-end (BN
+          stats, CORAL, MMD, DANN, AdaBN, MixStyle, TENT, source-free
+          DA, FrePolad-flavour normalisation, prompt-tuning DA), a
+          decision tree for picking one, and a live 2-D demo to keep
+          the intuition honest.
         </p>
         <div class="byline">
-          <span>~16 min</span>
-          <span>Distribution Shift &middot; OOD &middot; Adaptation</span>
+          <span>~30 min</span>
+          <span>Distribution Shift &middot; Vision &middot; Adaptation</span>
         </div>
       </header>
 
       <section class="step-section" id="prelude">
         <div class="step-badge">Prelude</div>
-        <h2>The cross-city sensor problem</h2>
+        <h2>Where the gap opens up</h2>
         <p>
-          You train an air-quality model on Delhi sensor data; deploy
-          it in Bengaluru. Same physical phenomenon, different
-          calibration, different humidity, different wind. The
-          classifier looks great on the source distribution and
-          painfully wrong on the target. Domain adaptation is the
-          family of techniques that let you do something about it
-          &mdash; ideally without labelling the target.
+          Test accuracy on the test set was 92%. Production accuracy
+          is 67%. Why? In every paper this is called "domain shift" or
+          "distribution shift", but those phrases hide six very
+          different problems. You have to know which one you have
+          before you can fix it.
         </p>
-        <ul class="explanation-list">
-          <li><strong>Domain adaptation:</strong> labelled source +
-            unlabelled target. Goal: a model that works on target.</li>
-          <li><strong>Domain generalisation:</strong> multiple
-            labelled source domains, no target during training. Goal:
-            a model that works on an unseen target.</li>
-          <li><strong>OOD detection:</strong> flag inputs that are too
-            far from any training distribution to trust the prediction.</li>
-        </ul>
+        <div class="examples-table-wrap">
+          <table class="examples-table">
+            <thead><tr><th>Type</th><th>$p_{\text{src}}$ vs $p_{\text{tgt}}$</th><th>Vision example</th><th>Symptom</th></tr></thead>
+            <tbody>
+              <tr><td><strong>Covariate shift</strong></td><td>$p(x)$ differs; $p(y\mid x)$ same</td><td>Same kilns, different sensor / season / illumination</td><td>Predictor still right where it triggers, but rarely triggers</td></tr>
+              <tr><td><strong>Label shift</strong></td><td>$p(y)$ differs</td><td>10× more rare class in target</td><td>Confusion matrix tilts toward the new majority</td></tr>
+              <tr><td><strong>Concept drift</strong></td><td>$p(y\mid x)$ changes over time</td><td>Definition of "fire" expanded after policy change</td><td>Calibration silently breaks even with same accuracy</td></tr>
+              <tr><td><strong>Sub-population shift</strong></td><td>$p(\text{group})$ differs</td><td>Trained on one camera; deployed across many</td><td>Worst-group accuracy collapses</td></tr>
+              <tr><td><strong>Open-set shift</strong></td><td>New classes at test</td><td>New land-use type appears</td><td>Confidently wrong predictions on never-seen classes</td></tr>
+              <tr><td><strong>Adversarial shift</strong></td><td>Targeted perturbation of $x$</td><td>Stickers, sensor jamming, weather attacks</td><td>Catastrophic, point-wise</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout callout--key">
+          <strong>The slogan.</strong>
+          The right tool depends on the type of shift, the access you
+          have to target data (none / unlabelled / few-shot / fully
+          labelled), and your training budget. The next two sections
+          map techniques to each combination.
+        </div>
       </section>
 
       <section class="step-section" id="step-1">
         <div class="step-badge">Step 1</div>
-        <h2>Watch the source classifier fail on target</h2>
+        <h2>The 2-D playground (live)</h2>
         <p>
-          Two clusters in 2-D, source and target. As you slide
-          drift &gt; 0, the target distribution rotates and translates;
-          the source-trained classifier's accuracy on target drops.
+          Drift the target relative to source; watch the source-only
+          classifier collapse on target. Tick CORAL to feature-align;
+          watch most of the gap close. Energy heatmap and OOD ROC
+          show how confidently you can flag truly-OOD points.
         </p>
         <div class="train-controls">
           <label>drift &nbsp;<span id="da-drift-val">1.5</span> <input type="range" id="da-drift" min="0" max="3" step="0.1" value="1.5"></label>
@@ -70,11 +81,11 @@
         </div>
         <div class="da-grid">
           <div class="da-panel">
-            <div class="panel-label">Source (filled) + target (×) + classifier</div>
+            <div class="panel-label">Source (●) + target (×) + classifier</div>
             <canvas id="da-board" width="380" height="380"></canvas>
           </div>
           <div class="da-panel">
-            <div class="panel-label">Energy score over the plane (lighter = more OOD)</div>
+            <div class="panel-label">Energy score (lighter = more OOD)</div>
             <canvas id="da-energy" width="380" height="380"></canvas>
           </div>
           <div class="da-panel">
@@ -86,73 +97,316 @@
 
       <section class="step-section" id="step-2">
         <div class="step-badge">Step 2</div>
-        <h2>CORAL — match second-order statistics</h2>
+        <h2>Ten vision-specific adaptation techniques, walked through</h2>
         <p>
-          CORAL (Sun &amp; Saenko, 2016): align the covariance of
-          source features to the target's. Compute $C_S$ and $C_T$,
-          whiten the source by $C_S^{-1/2}$, then re-colour by
-          $C_T^{1/2}$. The classifier sees a source whose covariance
-          matches the target.
+          What follows is a working summary of the techniques you'll
+          meet in the literature and how to actually use each one in a
+          vision pipeline. Order: cheap → expensive.
+        </p>
+
+        <h3>2.1 BatchNorm-stats adaptation (AdaBN)</h3>
+        <p>
+          The cheapest fix in the book. Take your trained model;
+          re-compute the running mean / variance of every BatchNorm
+          layer using a few hundred unlabelled target images;
+          freeze the affine $\gamma, \beta$. Done in 30 seconds, no
+          back-prop. Often closes 30-60% of the gap when shift is
+          mostly low-level (illumination, sensor noise).
+        </p>
+        <div class="math-block" id="math-adabn"></div>
+        <p>
+          <em>Caveats.</em> Doesn't help if shift is semantic (new
+          objects, new classes). Doesn't help with plain LayerNorm /
+          GroupNorm models &mdash; those have no running stats to
+          re-fit. For ViTs, the analog is "recalibrate the LayerNorm
+          affine on a held-out batch of target."
+        </p>
+
+        <h3>2.2 CORAL — second-order moment matching</h3>
+        <p>
+          Whiten source features by $C_S^{-1/2}$, re-colour by
+          $C_T^{1/2}$, train the head on the matched source. The
+          live demo above does exactly this. Strong baseline for
+          tabular and feature-level alignment; less effective on
+          raw pixels.
         </p>
         <div class="math-block" id="math-coral"></div>
+
+        <h3>2.3 MMD — kernel maximum mean discrepancy</h3>
         <p>
-          Other heavy-hitters: <strong>DANN</strong> (domain-adversarial
-          NN, gradient reversal so features are domain-indistinguishable),
-          <strong>MMD</strong> (match feature means with a kernelised
-          test), <strong>BatchNorm statistics adaptation</strong>
-          (often shockingly strong with one line of code: recompute
-          BN running stats on target). For tabular / sensor data,
-          CORAL is usually a strong, training-free first try.
+          Add a loss term that pushes the kernel-mean of source
+          features close to the kernel-mean of target features.
+          Implemented as the MK-MMD penalty in DAN (Long et al.,
+          2015) and DDC. Useful when you want to align distributions
+          beyond second-order statistics.
+        </p>
+        <div class="math-block" id="math-mmd"></div>
+
+        <h3>2.4 DANN — domain-adversarial training</h3>
+        <p>
+          Add a small <em>domain classifier</em> head that tries to
+          tell source from target. Train the feature extractor to
+          <em>fool</em> it via gradient reversal (Ganin &amp;
+          Lempitsky, 2015). Features become domain-invariant and the
+          downstream task head still works. DANN is what every
+          subsequent adversarial DA method (CDAN, MDD, ADDA) refines.
+        </p>
+        <div class="math-block" id="math-dann"></div>
+        <p>
+          <em>Implementation tip.</em> The gradient-reversal layer
+          is just the identity in forward and a sign-flipping
+          multiplier $-\lambda$ in backward. Schedule $\lambda$ from
+          0 to 1 over training; otherwise the adversarial signal is
+          too strong early and breaks the task head.
+        </p>
+
+        <h3>2.5 MixStyle — domain-augmenting style mix</h3>
+        <p>
+          Inside the network, mix the channel-wise mean and std of
+          two examples from different (or random) source domains
+          (Zhou et al., 2021). Cheap data augmentation that simulates
+          unseen styles. Strong for cross-camera and cross-illumination
+          shifts.
+        </p>
+        <div class="math-block" id="math-mixstyle"></div>
+
+        <h3>2.6 IRM &amp; group-DRO — robust ERM</h3>
+        <p>
+          When you have multiple labelled source domains,
+          Invariant Risk Minimisation (Arjovsky et al., 2019) and
+          Group Distributionally Robust Optimisation (Sagawa et al.,
+          2020) train a model to do well on the worst environment, not
+          the average. Useful when the test domain is "unseen but
+          related."
+        </p>
+
+        <h3>2.7 Test-time adaptation — TENT &amp; SHOT</h3>
+        <p>
+          Adapt at deployment with no source data. TENT (Wang et al.,
+          2021) updates the BatchNorm affine parameters by minimising
+          prediction entropy on the test batch. SHOT (Liang et al.,
+          2020) goes further: source-free DA where you only ship the
+          source-trained model, then adapt features on target with
+          self-training pseudo-labels. Both work on small streaming
+          batches; both can <em>break</em> if the batch is class-imbalanced
+          or includes too much OOD &mdash; entropy minimisation
+          collapses to a single class.
+        </p>
+        <div class="math-block" id="math-tent"></div>
+
+        <h3>2.8 Pseudo-labelling + self-training</h3>
+        <p>
+          The workhorse for semi-supervised DA. Use the source model
+          to produce labels on confident target samples, retrain the
+          model on (source labelled ∪ target pseudo-labelled).
+          Iterate. Combine with consistency regularisation
+          (FixMatch, MixMatch) for stronger results.
+        </p>
+
+        <h3>2.9 Prompt / adapter / LoRA-based DA on big backbones</h3>
+        <p>
+          For large pretrained backbones (CLIP, DINOv2, SAM), a tiny
+          domain-specific prompt or LoRA adapter often closes the
+          gap with a fraction of the parameters of full DA training.
+          Visual Prompt Tuning, CoOp / CoCoOp, AdapterHub. Especially
+          attractive when the source data is private or unavailable.
+        </p>
+
+        <h3>2.10 Diffusion-based domain translation</h3>
+        <p>
+          When source and target are <em>visually</em> different
+          (sim-to-real, rainy → sunny, season change), train a
+          conditional diffusion model that translates a target image
+          into a source-flavoured one (or vice versa) before
+          inference. CycleGAN was the GAN-era version; today
+          ControlNet / IP-Adapter / SDXL-Turbo translations are
+          the practical stack.
         </p>
       </section>
 
       <section class="step-section" id="step-3">
         <div class="step-badge">Step 3</div>
-        <h2>OOD detection — when adaptation isn't enough</h2>
-        <p>
-          Adaptation closes the gap when source and target overlap.
-          Some inputs at deployment are <em>truly</em> out of
-          distribution &mdash; a satellite tile under a snowstorm
-          when you trained on cloudless tiles. Flag them with an
-          <strong>energy score</strong>:
-        </p>
-        <div class="math-block" id="math-energy"></div>
-        <p>
-          The lower the negative log-sum-exp of logits, the further
-          the input is from the training manifold. Threshold the
-          score on a held-out validation set; everything below the
-          threshold gets flagged. The ROC curve in the demo above
-          shows separability between target-domain points and
-          deliberately-distant noise points.
-        </p>
+        <h2>The decision tree — pick the technique in 30 seconds</h2>
+        <ol class="explanation-list">
+          <li><strong>Q1: Do you have labelled target?</strong>
+            If <em>any</em> labelled target → fine-tune a head + LoRA on
+            target; you don't need DA. Stop.</li>
+          <li><strong>Q2: Unlabelled target only, can re-train?</strong>
+            Try AdaBN first (free). If the model uses BatchNorm and the
+            shift is illumination / sensor / weather, this often closes
+            most of the gap. If insufficient, add CORAL or MMD on
+            features. If still insufficient, train DANN.</li>
+          <li><strong>Q3: No target data at training time, just at
+            test?</strong> Test-time adaptation: TENT for BN models;
+            SHOT for source-free; otherwise rely on a robustly-trained
+            backbone (DINOv2 features + small head).</li>
+          <li><strong>Q4: Multiple labelled source domains, no target?</strong>
+            Domain generalisation: IRM / group-DRO / MixStyle augmentation.
+            Or pretrain on all sources and rely on regularisation.</li>
+          <li><strong>Q5: Big visual gap (sim → real, day → night)?</strong>
+            Diffusion-based domain translation; or aggressive style
+            augmentation; or both.</li>
+          <li><strong>Q6: Privacy / no source access?</strong>
+            Source-free DA (SHOT, AdaContrast); ship only the model
+            and adapt on target with pseudo-labels + entropy
+            minimisation.</li>
+        </ol>
+        <div class="callout callout--key">
+          <strong>Default recipe for vision in 2026.</strong>
+          (1) DINOv2 backbone. (2) Linear / LoRA head on source. (3)
+          AdaBN if BN is in the architecture (it usually isn't for
+          ViT). (4) TENT at test time. (5) Wrap predictions in
+          <a href="../conformal/index.html">conformal prediction</a>
+          for guaranteed coverage. This stack handles most shifts
+          you'll see; reach for DANN / CORAL / MMD only when the
+          backbone is small or the gap is huge.
+        </div>
       </section>
 
       <section class="step-section" id="step-4">
         <div class="step-badge">Step 4</div>
-        <h2>Where this lives in practice</h2>
+        <h2>OOD detection — knowing when not to predict</h2>
+        <p>
+          Adaptation closes the gap when source and target overlap.
+          Truly out-of-distribution inputs need a separate detector
+          and a refuse-to-predict path. Five detectors worth knowing:
+        </p>
+        <div class="math-block" id="math-energy"></div>
         <ul class="explanation-list">
-          <li><strong>Cross-city air-quality models.</strong>
-            Train on mobile air-quality sensors; CORAL-align to a new
-            city's distribution before deploying. Often recovers most
-            of the source-domain accuracy with no fresh labelling.</li>
-          <li><strong>Seasonal drift.</strong> Same city, different
-            month. Re-fit BN running stats and add an OOD detector
-            for monsoon-season frames.</li>
-          <li><strong>Satellite domain transfer.</strong> Sentinel-2
-            L1C vs L2A; different sun angles; different sensor years.
-            Test-time CORAL on the encoder features keeps your kiln
-            detector working.</li>
-          <li><strong>Multi-site clinical (thermal-imaging respiration monitoring).</strong> Each
-            site is its own domain. Domain generalisation (training
-            with several labelled sites + IRM-style penalty) gives a
-            model that holds up at the next site.</li>
+          <li><strong>Max softmax probability (MSP).</strong>
+            Cheapest, surprisingly hard to beat at scale. Threshold
+            on $\max_c p(c\mid x)$.</li>
+          <li><strong>Energy score</strong> (above). Strict improvement
+            on MSP; same compute. The default in 2024+.</li>
+          <li><strong>Mahalanobis on penultimate features.</strong>
+            Fit a Gaussian per class on training features; score new
+            inputs by min-class Mahalanobis distance. Good when the
+            backbone gives clean clusters.</li>
+          <li><strong>ViM, KNN-OOD.</strong> Match against the
+            penultimate feature bank with virtual logits or a k-NN
+            distance. Strong on large vision benchmarks (OpenOOD).</li>
+          <li><strong>Outlier exposure.</strong> Add a tiny dataset
+            of "obvious OOD" images during training with a uniform
+            target; the model learns to be uncertain off-distribution.
+            Cheap and reliable.</li>
+        </ul>
+      </section>
+
+      <section class="step-section" id="step-5">
+        <div class="step-badge">Step 5</div>
+        <h2>Worked example — sim-to-real for an object detector</h2>
+        <p>
+          Concrete pipeline for a common vision DA setup: train an
+          object detector in simulation, deploy on real photos.
+          Standard recipe in robotics / autonomy / agritech.
+        </p>
+        <ol class="explanation-list">
+          <li><strong>Pretrain backbone on real photos (free).</strong>
+            DINOv2 or a CLIP-flavoured backbone. Don't train from
+            scratch on simulated data &mdash; you'll bake in the
+            sim aesthetic.</li>
+          <li><strong>Train detector on simulation (labelled).</strong>
+            Standard DETR / RT-DETR / YOLOv10 head; freeze backbone for
+            the first 5 epochs to avoid corrupting features.</li>
+          <li><strong>Add aggressive style augmentation.</strong>
+            MixStyle in feature space + colour-jitter + RandAugment
+            on the simulator output. Simulator weather diversity
+            helps too.</li>
+          <li><strong>Domain-translation pre-step (optional).</strong>
+            Run a sim-to-real CycleGAN / ControlNet over each batch
+            during training. Reduces the visual gap by a lot at the
+            cost of more compute per batch.</li>
+          <li><strong>Real-data fine-tune (if any labelled real
+            available).</strong> Even 100 labelled real images +
+            existing 100k sim images, fine-tuned end-to-end with
+            10× lower lr, beats sim-only by a wide margin.</li>
+          <li><strong>Test-time adaptation.</strong> TENT on detection
+            heads + a small EMA-of-self pseudo-labelling loop.</li>
+          <li><strong>OOD gate.</strong> An energy-score threshold:
+            don't emit boxes if the patch energy is below threshold.
+            Always wraps a deployed detector.</li>
+          <li><strong>Conformal calibration.</strong> Conformalise the
+            detector's confidence so that "0.85" actually means 85%
+            precision; see the
+            <a href="../conformal/index.html">conformal article</a>.</li>
+        </ol>
+      </section>
+
+      <section class="step-section" id="step-6">
+        <div class="step-badge">Step 6</div>
+        <h2>Worked example — multi-site medical / satellite shift</h2>
+        <p>
+          When the "domains" are <em>sites</em> (hospitals, sensor
+          stations, satellite passes), the problem is domain
+          generalisation, not single-target adaptation. Recipe:
+        </p>
+        <ol class="explanation-list">
+          <li><strong>Hold-one-site-out evaluation.</strong> Always.
+            Random splits leak by site and over-state generalisation
+            by 10-30 points.</li>
+          <li><strong>Per-site stratified sampling during training.</strong>
+            Equal weight per site, not per image. Keeps any site from
+            dominating the gradient.</li>
+          <li><strong>Group-DRO loss.</strong> Optimise for the
+            worst-site loss. Costs a small accuracy hit on average,
+            wins on worst-case.</li>
+          <li><strong>Site-conditioning at training, not at test.</strong>
+            Encode site as an embedding fed to the backbone during
+            training; <em>at test</em> drop it and rely on
+            generalisation. Helps disentangle site effects from
+            class effects.</li>
+          <li><strong>Hierarchical Bayes per site.</strong> See the
+            <a href="../bayesian-posterior/index.html#step-pool">partial-pooling section</a>;
+            each site has its own posterior, pulled toward a global
+            prior. Especially relevant for small data per site.</li>
+          <li><strong>OOD detector per site.</strong> Train an OOD
+            detector that flags inputs that look unlike any seen site.</li>
+        </ol>
+      </section>
+
+      <section class="step-section" id="step-7">
+        <div class="step-badge">Step 7</div>
+        <h2>The bugs and gotchas</h2>
+        <ul class="explanation-list">
+          <li><strong>"BN in eval mode is fine on target."</strong>
+            No. Eval mode locks running mean/var to source values;
+            TENT / AdaBN exist precisely because this loses points.</li>
+          <li><strong>"DANN converged" but accuracy is bad.</strong>
+            Adversarial DA can find solutions where domain-invariant
+            features are also class-invariant. Always evaluate on
+            target accuracy, not the adversarial loss.</li>
+          <li><strong>Random target preview during development.</strong>
+            Tempting to peek at target during model selection; it
+            biases your hyperparameter choice toward the test set.
+            Use <em>unsupervised</em> selection criteria (e.g.,
+            self-confidence on target) when you don't have target
+            labels.</li>
+          <li><strong>"My model just does worse with augmentation."</strong>
+            Style-augmentation and weather-aug help shifts they
+            simulate. If your shift is sensor-band reordering or
+            spectral, RGB-augmentation won't touch it.</li>
+          <li><strong>OOD detector picked on the wrong score.</strong>
+            Energy &gt; MSP &gt; Mahalanobis on most benchmarks, but
+            OpenOOD shows the right pick depends on backbone and
+            shift type. Test all three; pick by AUROC on a synthetic
+            OOD set.</li>
+          <li><strong>Simulation overfit.</strong> Detectors trained
+            only on sim learn to recognise the simulator's renderer.
+            Real-world deployment fails. Domain randomisation or
+            sim-to-real translation is non-negotiable.</li>
+          <li><strong>Spectral / multi-modal shift.</strong> CORAL on
+            RGB doesn't help when target is multi-spectral. Pretrain on
+            an
+            <a href="../eo-foundation-models/index.html">EO foundation
+            model</a> and adapt at the feature level instead.</li>
         </ul>
         <div class="callout callout--think">
           <strong>Final takeaway.</strong>
-          Distribution shift is the single most likely reason your
-          deployed model is worse than your test number suggested.
-          A 30-minute CORAL retrofit + OOD detector should be
-          standard before any deployment.
+          The hard part of domain shift in vision is rarely choosing a
+          loss function &mdash; it's diagnosing <em>which</em> kind of
+          shift you have and matching the technique to it. The
+          decision tree in Step 3 plus an honest hold-one-site-out
+          evaluation in Step 6 will save you a year of debugging.
         </div>
       </section>
     </article>

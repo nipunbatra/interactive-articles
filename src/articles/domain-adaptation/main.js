@@ -364,7 +364,17 @@ function renderMath() {
     'math-coral':
       'X_S \\leftarrow (X_S - \\mu_S)\\,C_S^{-1/2}\\,C_T^{1/2} + \\mu_T',
     'math-energy':
-      '\\mathrm{Energy}(x) = -\\log\\!\\sum_c \\exp(z_c(x))'
+      '\\mathrm{Energy}(x) = -\\log\\!\\sum_c \\exp(z_c(x))',
+    'math-adabn':
+      '\\mathrm{BN}_{\\text{tgt}}(x) = \\gamma\\,\\frac{x - \\mu_T}{\\sqrt{\\sigma_T^2 + \\epsilon}} + \\beta\\quad\\text{with}\\;\\;(\\mu_T, \\sigma_T^2)\\;\\text{recomputed on a target batch}',
+    'math-mmd':
+      '\\mathrm{MMD}^2(P_S, P_T) = \\bigl\\lVert \\mathbb{E}_{x \\sim P_S}\\,\\phi(x) - \\mathbb{E}_{x \\sim P_T}\\,\\phi(x) \\bigr\\rVert_{\\mathcal{H}}^2',
+    'math-dann':
+      '\\min_{\\theta_f, \\theta_y}\\;\\max_{\\theta_d}\\;\\mathcal{L}_{\\text{task}}(\\theta_f, \\theta_y) - \\lambda\\,\\mathcal{L}_{\\text{dom}}(\\theta_f, \\theta_d)',
+    'math-mixstyle':
+      '\\hat\\mu = \\lambda\\,\\mu(x_i) + (1-\\lambda)\\,\\mu(x_j),\\;\\; \\hat\\sigma = \\lambda\\,\\sigma(x_i) + (1-\\lambda)\\,\\sigma(x_j),\\;\\; \\tilde x_i = \\hat\\sigma\\,\\frac{x_i - \\mu(x_i)}{\\sigma(x_i)} + \\hat\\mu',
+    'math-tent':
+      '\\min_{\\gamma, \\beta}\\;\\sum_{x_t \\in \\text{batch}}\\;-\\!\\sum_c p_c(x_t)\\log p_c(x_t)\\quad\\text{(BN affine only; entropy on test batch)}'
   };
   Object.keys(blocks).forEach((id) => {
     const el = document.getElementById(id);
