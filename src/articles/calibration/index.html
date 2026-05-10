@@ -132,6 +132,44 @@
         </p>
       </section>
 
+      <section class="step-section" id="step-recipes">
+        <div class="step-badge">Step 3 ½</div>
+        <h2>Four post-hoc calibrators, side by side</h2>
+        <p>
+          Temperature scaling is a one-parameter fix. Sometimes one
+          parameter isn't enough. Here are the four post-hoc
+          calibrators you'll meet in practice, fit on the same
+          held-out validation set and then evaluated on the same test
+          set:
+        </p>
+        <ul class="explanation-list">
+          <li><strong>Temperature scaling.</strong> One scalar $T$.
+            Cheap, accuracy-preserving. Most popular default.</li>
+          <li><strong>Platt scaling.</strong> Logistic regression on
+            the max logit: $p = \sigma(a\,z_{\max} + b)$. Two
+            parameters. Strong baseline for binary problems.</li>
+          <li><strong>Isotonic regression.</strong> Non-parametric
+            monotone fit on the binned reliability curve. Many
+            parameters, but reliably calibrates without distorting
+            the ordering.</li>
+          <li><strong>Vector scaling.</strong> Per-class temperatures
+            $T_c$ on logits before softmax. $C$ parameters; useful
+            when over-confidence is class-dependent.</li>
+        </ul>
+        <div class="cal-multi-figure">
+          <canvas id="cal-multi" width="880" height="380"></canvas>
+          <figcaption>Reliability diagrams for the four post-hoc calibrators on the same trained classifier. ECE shown under each panel.</figcaption>
+        </div>
+        <div class="callout callout--key">
+          <strong>The verdict.</strong> Temperature scaling almost
+          always wins on accuracy + simplicity + parameter count.
+          Isotonic and vector scaling can edge ahead on
+          severely-miscalibrated multi-class problems but cost more
+          parameters. Platt is binary-only and largely subsumed by
+          temperature.
+        </div>
+      </section>
+
       <section class="step-section" id="step-4">
         <div class="step-badge">Step 4</div>
         <h2>Why this matters</h2>

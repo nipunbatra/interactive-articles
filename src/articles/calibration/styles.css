@@ -79,3 +79,10 @@ li { margin-bottom: 0.5rem; }
   .article { padding-inline: 1rem; }
   .step-section { padding: 2rem 1.5rem; }
 }
+
+.cal-multi-figure {
+  margin: 1.4rem 0; padding: 1.1rem;
+  background: white; border: 1px solid var(--border); border-radius: 16px;
+}
+.cal-multi-figure canvas { width: 100%; height: auto; display: block; border-radius: 8px; background: #fdfcf9; }
+.cal-multi-figure figcaption { margin-top: 0.6rem; text-align: center; font-family: var(--sans); font-size: 0.92rem; color: var(--muted); }

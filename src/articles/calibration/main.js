@@ -350,13 +350,239 @@ function renderAll() {
   renderReliability();
   renderMetrics();
   refreshStats();
+  renderCalMulti();
 }
 
 function loop() {
   if (!STATE.running) return;
   for (let i = 0; i < 4; i++) trainStep();
   renderAll();
+  renderCalMulti();
   STATE.raf = requestAnimationFrame(loop);
+}
+
+// ============================================================
+// Four post-hoc calibrators — fit on a "validation" half of test, eval on the other half.
+// Methods:
+//   - temperature scaling: scalar T (already in STATE.T)
+//   - Platt: a, b on confidence (max softmax)
+//   - isotonic: monotone fit via Pool Adjacent Violators on (conf, acc) pairs
+//   - vector scaling: per-class temperatures T_c
+// ============================================================
+function fitTemperature(predsLogits, labels) {
+  // Find T minimising NLL via grid + small search
+  let bestT = 1, bestL = Infinity;
+  for (let logT = -1; logT <= 1; logT += 0.05) {
+    const T = Math.pow(10, logT);
+    let nll = 0;
+    for (let i = 0; i < predsLogits.length; i++) {
+      const probs = softmax(predsLogits[i], T);
+      nll -= Math.log(Math.max(probs[labels[i]], 1e-12));
+    }
+    if (nll < bestL) { bestL = nll; bestT = T; }
+  }
+  return bestT;
+}
+function fitPlatt(predsLogits, labels) {
+  // Treat max-class as positive; fit a, b
+  let a = 0, b = 0;
+  const lr = 0.1;
+  const conf = predsLogits.map((z) => Math.max(...z));
+  const isCorrect = predsLogits.map((z, i) => {
+    let best = 0; for (let c = 1; c < z.length; c++) if (z[c] > z[best]) best = c;
+    return best === labels[i] ? 1 : 0;
+  });
+  for (let it = 0; it < 200; it++) {
+    let ga = 0, gb = 0;
+    for (let i = 0; i < conf.length; i++) {
+      const z = a * conf[i] + b;
+      const p = 1 / (1 + Math.exp(-z));
+      const e = p - isCorrect[i];
+      ga += e * conf[i]; gb += e;
+    }
+    a -= lr * ga / conf.length;
+    b -= lr * gb / conf.length;
+  }
+  return { a, b };
+}
+function fitIsotonic(predsLogits, labels) {
+  // Build (conf, isCorrect) pairs sorted by conf
+  const pairs = predsLogits.map((z, i) => {
+    let best = 0; for (let c = 1; c < z.length; c++) if (z[c] > z[best]) best = c;
+    const probs = softmax(z, 1);
+    return { conf: probs[best], correct: best === labels[i] ? 1 : 0 };
+  }).sort((a, b) => a.conf - b.conf);
+  // PAV
+  const blocks = pairs.map((p) => ({ sum: p.correct, count: 1, end: p.conf }));
+  let i = 0;
+  while (i < blocks.length - 1) {
+    if (blocks[i].sum / blocks[i].count > blocks[i + 1].sum / blocks[i + 1].count) {
+      blocks[i].sum += blocks[i + 1].sum;
+      blocks[i].count += blocks[i + 1].count;
+      blocks[i].end = blocks[i + 1].end;
+      blocks.splice(i + 1, 1);
+      if (i > 0) i--;
+    } else i++;
+  }
+  return { blocks };
+}
+function applyIsotonic(iso, conf) {
+  for (const b of iso.blocks) {
+    if (conf <= b.end) return b.sum / b.count;
+  }
+  return iso.blocks[iso.blocks.length - 1].sum / iso.blocks[iso.blocks.length - 1].count;
+}
+function fitVectorScaling(predsLogits, labels) {
+  // Per-class temperature; gradient descent on cross-entropy
+  const C = predsLogits[0].length;
+  const T = new Array(C).fill(1);
+  const lr = 0.05;
+  for (let it = 0; it < 200; it++) {
+    const dT = new Array(C).fill(0);
+    for (let i = 0; i < predsLogits.length; i++) {
+      const scaled = predsLogits[i].map((z, c) => z / T[c]);
+      const m = Math.max(...scaled);
+      const ex = scaled.map((s) => Math.exp(s - m));
+      const Z = ex.reduce((a, b) => a + b, 0);
+      const probs = ex.map((e) => e / Z);
+      // dL/dT_c (softmax xent): gradient is messy; approximate by numerical
+      for (let c = 0; c < C; c++) {
+        const eps = 1e-3;
+        const Talt = T.slice(); Talt[c] = T[c] + eps;
+        const sa = predsLogits[i].map((z, cc) => z / Talt[cc]);
+        const ma = Math.max(...sa);
+        const exa = sa.map((s) => Math.exp(s - ma));
+        const Za = exa.reduce((a, b) => a + b, 0);
+        const pa = exa.map((e) => e / Za);
+        const lossOrig = -Math.log(Math.max(probs[labels[i]], 1e-12));
+        const lossAlt = -Math.log(Math.max(pa[labels[i]], 1e-12));
+        dT[c] += (lossAlt - lossOrig) / eps;
+      }
+    }
+    for (let c = 0; c < C; c++) T[c] = Math.max(0.1, T[c] - lr * dT[c] / predsLogits.length);
+  }
+  return T;
+}
+
+function ecePieces(probsArr, labels) {
+  const nBins = 10;
+  const bins = Array.from({ length: nBins }, () => ({ count: 0, conf: 0, acc: 0 }));
+  let ece = 0;
+  probsArr.forEach((p, i) => {
+    let best = 0;
+    for (let c = 1; c < p.length; c++) if (p[c] > p[best]) best = c;
+    const conf = p[best];
+    const idx = Math.min(nBins - 1, Math.floor(conf * nBins));
+    bins[idx].count++;
+    bins[idx].conf += conf;
+    bins[idx].acc += (best === labels[i]) ? 1 : 0;
+  });
+  const N = probsArr.length;
+  const out = bins.map((b) => b.count > 0 ? { acc: b.acc / b.count, conf: b.conf / b.count, w: b.count / N } : null);
+  out.forEach((b) => { if (b) ece += b.w * Math.abs(b.acc - b.conf); });
+  return { bins: out, ece };
+}
+
+function renderCalMulti() {
+  const canvas = document.getElementById('cal-multi');
+  if (!canvas) return;
+  if (!STATE.test || STATE.step < 50) {
+    const ctx = setupCanvas(canvas, 880, 380);
+    ctx.fillStyle = '#fdfcf9'; ctx.fillRect(0, 0, 880, 380);
+    ctx.fillStyle = '#9a917f';
+    ctx.font = '13px Manrope';
+    ctx.textAlign = 'center';
+    ctx.fillText('Train past step ~50 to populate four calibrators.', 440, 190);
+    return;
+  }
+  // Split test into val / eval
+  const N = STATE.test.length;
+  const valEnd = Math.floor(N / 2);
+  const valSet = STATE.test.slice(0, valEnd);
+  const evalSet = STATE.test.slice(valEnd);
+  const valLogits = valSet.map((p) => predictLogits(STATE.W, p.x, p.y));
+  const valLabels = valSet.map((p) => p.label);
+  const evalLogits = evalSet.map((p) => predictLogits(STATE.W, p.x, p.y));
+  const evalLabels = evalSet.map((p) => p.label);
+  // Fit each calibrator
+  const T = fitTemperature(valLogits, valLabels);
+  const platt = fitPlatt(valLogits, valLabels);
+  const iso = fitIsotonic(valLogits, valLabels);
+  const vs = fitVectorScaling(valLogits, valLabels);
+  // Get probabilities under each on eval
+  function tempProbs(z) { return softmax(z, T); }
+  function plattProbs(z) {
+    const probs = softmax(z, 1);
+    let best = 0; for (let c = 1; c < z.length; c++) if (z[c] > z[best]) best = c;
+    const conf = probs[best];
+    const newConf = 1 / (1 + Math.exp(-(platt.a * Math.max(...z) + platt.b)));
+    // Spread mass: keep argmax confidence at newConf, distribute (1-newConf) over others
+    const out = new Array(z.length).fill((1 - newConf) / (z.length - 1));
+    out[best] = newConf;
+    return out;
+  }
+  function isoProbs(z) {
+    const probs = softmax(z, 1);
+    let best = 0; for (let c = 1; c < z.length; c++) if (z[c] > z[best]) best = c;
+    const newConf = applyIsotonic(iso, probs[best]);
+    const out = new Array(z.length).fill((1 - newConf) / (z.length - 1));
+    out[best] = newConf;
+    return out;
+  }
+  function vsProbs(z) {
+    const scaled = z.map((zi, c) => zi / vs[c]);
+    const m = Math.max(...scaled);
+    const ex = scaled.map((s) => Math.exp(s - m));
+    const Z = ex.reduce((a, b) => a + b, 0);
+    return ex.map((e) => e / Z);
+  }
+  const variants = [
+    { name: `Temperature (T=${T.toFixed(2)})`, probsFn: tempProbs },
+    { name: `Platt`, probsFn: plattProbs },
+    { name: `Isotonic`, probsFn: isoProbs },
+    { name: `Vector scaling`, probsFn: vsProbs }
+  ];
+  const W = 880, H = 380;
+  const ctx = setupCanvas(canvas, W, H);
+  ctx.fillStyle = '#fdfcf9'; ctx.fillRect(0, 0, W, H);
+  const panelW = W / 4;
+  variants.forEach((v, idx) => {
+    const x0 = idx * panelW;
+    const m = { l: x0 + 38, r: 12, t: 28, b: 36 };
+    const px = panelW - 38 - 12, py = H - m.t - m.b;
+    ctx.strokeStyle = '#e2d8c6';
+    ctx.strokeRect(m.l, m.t, px, py);
+    // Diagonal
+    ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(m.l, m.t + py); ctx.lineTo(m.l + px, m.t); ctx.stroke();
+    ctx.setLineDash([]);
+    const probsArr = evalLogits.map(v.probsFn);
+    const stats = ecePieces(probsArr, evalLabels);
+    const nBins = 10;
+    const bw = px / nBins;
+    stats.bins.forEach((b, i) => {
+      if (!b) return;
+      const x = m.l + i * bw + 1;
+      const h = b.acc * py;
+      ctx.fillStyle = 'rgba(44,111,183,0.6)';
+      ctx.fillRect(x, m.t + py - h, bw - 2, h);
+      const cy = m.t + py - b.conf * py;
+      ctx.fillStyle = '#d9622b';
+      ctx.beginPath();
+      ctx.arc(x + bw / 2, cy, 3, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    // Title and ECE
+    ctx.fillStyle = '#1a1815';
+    ctx.font = 'bold 12px Manrope';
+    ctx.textAlign = 'center';
+    ctx.fillText(v.name, x0 + panelW / 2, m.t - 12);
+    ctx.fillStyle = '#9c3f15';
+    ctx.font = '11px IBM Plex Mono';
+    ctx.fillText(`ECE = ${stats.ece.toFixed(3)}`, x0 + panelW / 2, m.t + py + 22);
+  });
 }
 
 function wire() {
