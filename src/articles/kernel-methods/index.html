@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Kernel Methods, and Why DL Cares</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../vendor/katex/katex.min.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <article class="article">
+      <header class="article-header">
+        <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+        <p class="kicker">Interactive Explainer</p>
+        <h1>Kernel Methods, and Why DL Cares</h1>
+        <p class="abstract">
+          Kernels never went away. The same recipe that powered SVMs
+          underlies Gaussian processes, the Neural Tangent Kernel, and
+          modern deep-kernel-learning hybrids. Click points and try
+          four kernels live; then see the NTK and why the
+          infinite-width-limit theory matters.
+        </p>
+        <div class="byline">
+          <span>~20 min</span>
+          <span>Kernels &middot; SVM &middot; NTK</span>
+        </div>
+      </header>
+
+      <section class="step-section" id="step-1">
+        <div class="step-badge">Step 1</div>
+        <h2>The kernel trick in one line</h2>
+        <p>
+          A linear classifier learns $w$ such that $\mathrm{sign}(w^\top x)$
+          predicts the label. Replace $x \to \phi(x)$ for some feature
+          map; the model becomes
+          $\sum_i \alpha_i y_i \phi(x_i)^\top \phi(x) = \sum_i \alpha_i y_i k(x_i, x)$.
+          You never need $\phi$ explicitly &mdash; only the kernel
+          $k(x, x') = \phi(x)^\top \phi(x')$. That's the kernel trick.
+        </p>
+        <div class="math-block" id="math-kernel"></div>
+      </section>
+
+      <section class="step-section" id="step-2">
+        <div class="step-badge">Step 2</div>
+        <h2>Live: try four kernels</h2>
+        <p>
+          Click anywhere to drop a class-A (left-click) or class-B
+          (right-click / shift-click) point. A kernel-ridge classifier
+          re-fits each click and recolours the decision regions.
+        </p>
+        <div class="train-controls">
+          <label>kernel
+            <select id="km-kernel">
+              <option value="rbf" selected>RBF</option>
+              <option value="poly">polynomial</option>
+              <option value="laplace">Laplacian</option>
+              <option value="linear">linear</option>
+            </select>
+          </label>
+          <label>bandwidth / scale &nbsp;<span id="km-h-val">0.50</span> <input type="range" id="km-h" min="0.1" max="3" step="0.05" value="0.5"></label>
+          <label>polynomial degree &nbsp;<span id="km-d-val">3</span> <input type="range" id="km-d" min="1" max="6" step="1" value="3"></label>
+          <button class="action-btn action-btn--ghost" id="km-clear">Clear points</button>
+          <button class="action-btn action-btn--ghost" id="km-seed">Seed XOR demo</button>
+        </div>
+        <div class="km-figure">
+          <canvas id="km-canvas" width="640" height="380"></canvas>
+          <figcaption>Left-click adds class-A (blue), right-click / shift-click adds class-B (orange). The boundary recomputes live.</figcaption>
+        </div>
+      </section>
+
+      <section class="step-section" id="step-3">
+        <div class="step-badge">Step 3</div>
+        <h2>NTK — the kernel inside an infinite-width net</h2>
+        <p>
+          A wide enough randomly-initialised neural net,
+          when trained with vanishing learning rate, behaves as a
+          kernel method (Jacot et&nbsp;al., 2018). Its kernel is the
+          <strong>Neural Tangent Kernel</strong>:
+        </p>
+        <div class="math-block" id="math-ntk"></div>
+        <p>
+          For a 1-hidden-layer ReLU net the NTK has a known
+          closed form. Below: a finite-width network's predictions
+          alongside the analytic NTK regressor on the same training
+          points. They agree better as you increase width.
+        </p>
+        <div class="train-controls">
+          <label>hidden width &nbsp;<span id="ntk-w-val">128</span> <input type="range" id="ntk-w" min="8" max="512" step="8" value="128"></label>
+          <button class="action-btn action-btn--ghost" id="ntk-resample">Resample net + data</button>
+        </div>
+        <div class="km-figure">
+          <canvas id="ntk-canvas" width="880" height="280"></canvas>
+          <figcaption>Finite-width-net prediction (solid) vs NTK regressor (dashed). The gap shrinks as width →∞.</figcaption>
+        </div>
+        <div class="callout callout--think">
+          <strong>Why this matters.</strong> The NTK gives a
+          rare-for-DL piece of <em>theory</em>: a closed-form prediction
+          for what an over-parameterised network does. It has limits
+          (real DL learns features; NTK does not), but it explains
+          a lot of double-descent, generalisation, and optimisation
+          behaviour seen in practice.
+        </div>
+      </section>
+
+      <section class="step-section" id="step-4">
+        <div class="step-badge">Step 4</div>
+        <h2>Where kernel methods are still the right tool</h2>
+        <ul class="explanation-list">
+          <li><strong>Small-data regression with calibrated UQ.</strong>
+            A GP with an RBF kernel beats a deep net on $\le 1k$
+            training points and gives you principled error bars for
+            free. Direct fit for sensor calibration, hardware design,
+            wet-lab.</li>
+          <li><strong>Deep kernel learning.</strong> $k(x, x') =
+            k_{\text{RBF}}(\phi_\theta(x), \phi_\theta(x'))$ where
+            $\phi_\theta$ is a neural feature extractor learned
+            jointly. Best of both worlds; works well on tabular and
+            time-series.</li>
+          <li><strong>NTK / NNGP regression.</strong> When you
+            <em>want</em> the infinite-width limit's prediction (e.g.
+            for theory or as a baseline), the NTK regressor is a
+            line of code in <code>jax</code> via
+            <code>neural-tangents</code>.</li>
+          <li><strong>Spectral methods on graphs.</strong> Graph
+            kernels for molecule property prediction, citation
+            networks, sensor topologies. Often beat GNNs on small
+            graph datasets.</li>
+        </ul>
+      </section>
+    </article>
+
+    <script src="../vendor/katex/katex.min.js"></script>
+    <script type="module" src="main.js"></script>
+  </body>
+</html>

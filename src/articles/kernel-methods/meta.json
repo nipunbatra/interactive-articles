@@ -1,0 +1,19 @@
+{
+  "slug": "kernel-methods",
+  "title": "Kernel Methods, and Why DL Cares",
+  "date": "2026-05-10",
+  "tagline": "From SVM kernels to the Neural Tangent Kernel — the through-line that connects classical ML to deep nets",
+  "summary": "Click points onto a 2-D plane; pick RBF / polynomial / Laplacian; watch a kernel SVM's decision boundary change with the kernel and its hyperparameters. Then meet the Neural Tangent Kernel — the kernel that an infinitely wide neural net is, in the linearised limit. Then deep kernel learning, the practical hybrid.",
+  "readingTime": "20 min",
+  "difficulty": "Intermediate",
+  "collection": "Probability & inference",
+  "order": 27,
+  "status": "published",
+  "tags": ["Kernel Methods", "SVM", "NTK", "Deep Kernel Learning", "Interactive"],
+  "highlights": [
+    "Live click-to-add classification with RBF / polynomial / Laplacian / linear kernels.",
+    "Bandwidth and degree sliders so you can feel the kernel's smoothness knob.",
+    "NTK panel: a 1-hidden-layer NN with width →∞ behaves as a kernel regressor — visualised side-by-side with an actual finite-width net.",
+    "Where deep kernel learning sits and where it shines (small-data calibrated regression)."
+  ]
+}
