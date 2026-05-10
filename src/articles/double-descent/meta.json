@@ -1,0 +1,18 @@
+{
+  "slug": "double-descent",
+  "title": "Double Descent, Made Concrete",
+  "date": "2026-05-10",
+  "tagline": "More parameters than data points should overfit. They sometimes generalize better instead.",
+  "summary": "Random-feature ridge regression on a 1-D curve, with the model size knob exposed. Watch the test error rise into the U, peak around the interpolation threshold, then descend again as the model gets even bigger — the double-descent phenomenon, in your browser.",
+  "readingTime": "14 min",
+  "difficulty": "Intermediate",
+  "collection": "Deep learning",
+  "order": 26,
+  "status": "published",
+  "tags": ["Generalization", "Double Descent", "Random Features", "Interactive"],
+  "highlights": [
+    "Live random-feature regression with a model-size slider; test error draws the double-descent curve.",
+    "Slide ridge λ to suppress the spike — overparameterised regimes are sensitive to regularisation.",
+    "Same dataset, different noise levels; see how noise shifts the spike location and height."
+  ]
+}
