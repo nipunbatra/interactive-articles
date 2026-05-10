@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Concept Bottleneck Models</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../vendor/katex/katex.min.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <article class="article">
+      <header class="article-header">
+        <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+        <p class="kicker">Interactive Explainer</p>
+        <h1>Concept Bottleneck Models</h1>
+        <p class="abstract">
+          Predict human-named concepts first; read off the label
+          from those concepts. Toggle a concept on or off at
+          inference and watch the label change &mdash; the closest
+          DL gets to <em>causal</em> interpretability.
+        </p>
+        <div class="byline">
+          <span>~14 min</span>
+          <span>Interpretability &middot; Intervention &middot; Vision</span>
+        </div>
+      </header>
+
+      <section class="step-section" id="prelude">
+        <div class="step-badge">Prelude</div>
+        <h2>The interpretability promise</h2>
+        <p>
+          Saliency tells you "the model used these pixels"; concept
+          bottleneck (Koh et&nbsp;al., 2020) tells you "the model
+          used these <em>named</em> features &mdash; here are their
+          values, and if you change them by hand, here's how the
+          prediction changes". The bottleneck is a known set of
+          interpretable concepts; the head is a small classifier on
+          top of them.
+        </p>
+        <div class="math-block" id="math-cb"></div>
+        <p>
+          During training, you supervise both stages: the bottleneck
+          must predict the right concept values from the image, and
+          the head must predict the right label from the concept
+          vector. At inference, you can replace any predicted concept
+          with a human-set value (an <em>intervention</em>) and see
+          the label respond.
+        </p>
+      </section>
+
+      <section class="step-section" id="step-1">
+        <div class="step-badge">Step 1</div>
+        <h2>Watch a CBM predict and accept interventions</h2>
+        <p>
+          Synthetic 4-class problem. Each shape has 4 concepts:
+          <em>is-dark</em>, <em>is-large</em>, <em>has-stripes</em>,
+          <em>is-warm</em>. Class is determined by a fixed boolean
+          recipe over those concepts. Toggle a concept off (or on)
+          and watch the predicted class flip.
+        </p>
+        <div class="train-controls">
+          <button class="action-btn action-btn--ghost" id="cb-reroll">New image</button>
+          <span class="train-stat">true class <strong id="cb-true">—</strong></span>
+          <span class="train-stat">predicted class <strong id="cb-pred">—</strong></span>
+        </div>
+        <div class="cb-grid">
+          <div class="cb-panel">
+            <div class="panel-label">image</div>
+            <canvas id="cb-img" width="220" height="220"></canvas>
+          </div>
+          <div class="cb-panel cb-panel-wide">
+            <div class="panel-label">predicted concepts (drag to override)</div>
+            <div class="cb-concepts" id="cb-concepts"></div>
+            <div class="panel-meta">Each bar is the model's predicted concept value (0..1). Click a bar to override (forces the concept to 0 or 1). Refresh "New image" to clear.</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="step-section" id="step-2">
+        <div class="step-badge">Step 2</div>
+        <h2>Three training recipes</h2>
+        <ul class="explanation-list">
+          <li><strong>Sequential.</strong> Train the bottleneck $g$
+            to predict concepts; freeze; then train the head $f$ on
+            the predicted concepts. Most interpretable; concepts
+            cannot leak label information.</li>
+          <li><strong>Joint.</strong> Train $g$ and $f$ together with
+            a weighted loss $\mathcal{L}_c + \lambda \mathcal{L}_y$.
+            Slightly higher accuracy but the bottleneck can encode
+            spurious info to help $f$ &mdash; called <em>leakage</em>.</li>
+          <li><strong>Independent.</strong> Train $f$ on
+            <em>ground-truth</em> concepts during training; at test
+            use predicted concepts. Best test accuracy when concepts
+            are hard to predict.</li>
+        </ul>
+      </section>
+
+      <section class="step-section" id="step-3">
+        <div class="step-badge">Step 3</div>
+        <h2>The leakage trap</h2>
+        <p>
+          If the concept layer has more channels than the
+          ground-truth concept count, the model can use the spare
+          channels to encode arbitrary features. Then "intervening"
+          on a named concept doesn't actually change the prediction
+          &mdash; the spare channel still encodes the answer.
+          Several recent papers (Margeloiu et&nbsp;al., 2021;
+          Mahinpei et&nbsp;al., 2021) document this.
+        </p>
+        <div class="callout callout--warn">
+          <strong>The fix.</strong>
+          Use the concept layer dimension equal to the number of
+          named concepts. Use sequential training. Verify with
+          intervention experiments &mdash; if forcing a concept to
+          its opposite doesn't change predictions on the right
+          subset of inputs, your bottleneck has leaked.
+        </div>
+      </section>
+
+      <section class="step-section" id="step-4">
+        <div class="step-badge">Step 4</div>
+        <h2>Where this fits the lab</h2>
+        <ul class="explanation-list">
+          <li><strong>Apnea detection.</strong> Concepts: chest
+            motion strength, nostril breathing rate, body posture,
+            ambient lighting. The doctor can intervene on
+            "ambient lighting" and confirm the apnea claim is robust.</li>
+          <li><strong>Air-quality alerting.</strong> Concepts:
+            sensor reading band, weather pattern, traffic density,
+            satellite cloudiness. The community-relations conversation
+            becomes "we predicted a high-pollution alert because
+            sensor band was high <em>and</em> traffic was elevated"
+            instead of "the model said 0.97".</li>
+          <li><strong>Satellite kilns.</strong> Concepts: shape
+            (oval / rectangular), thermal signature, vegetation
+            ring, smokestack. Reviewers can intervene on each.</li>
+        </ul>
+        <div class="callout callout--think">
+          <strong>Final takeaway.</strong>
+          Concept bottlenecks trade a small amount of accuracy for a
+          large amount of accountability. For any model whose
+          predictions feed a policy decision, this trade is usually
+          a bargain.
+        </div>
+      </section>
+    </article>
+
+    <script src="../vendor/katex/katex.min.js"></script>
+    <script type="module" src="main.js"></script>
+  </body>
+</html>

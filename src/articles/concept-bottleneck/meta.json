@@ -1,0 +1,19 @@
+{
+  "slug": "concept-bottleneck",
+  "title": "Concept Bottleneck Models",
+  "date": "2026-05-10",
+  "tagline": "Make the model predict human-named concepts first, then read off the label — and intervene if it's wrong",
+  "summary": "A two-stage classifier that you can debug. The image is mapped to a vector of named concepts (\"is dark\", \"has-stripes\", \"is-warm\") and a small head reads those concepts. Toggle a concept on or off at inference and the prediction changes — the closest thing DL has to causal interpretability.",
+  "readingTime": "14 min",
+  "difficulty": "Intermediate",
+  "collection": "Computer Vision",
+  "order": 24,
+  "status": "published",
+  "tags": ["Concept Bottleneck", "Interpretability", "Intervention", "Interactive"],
+  "highlights": [
+    "Live two-stage model on a 4-class synthetic shape problem; toggle concepts and watch label predictions flip.",
+    "Sequential vs joint training comparison.",
+    "Concept-leakage demonstration: when the bottleneck has spare capacity, the head learns to bypass concepts.",
+    "Lab-aligned: thermal-respiration concepts (chest / nostril / breath-rate) → apnea label; satellite concepts → kiln class."
+  ]
+}
