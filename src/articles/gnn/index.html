@@ -113,6 +113,40 @@
         </p>
       </section>
 
+      <section class="step-section" id="step-oversmooth">
+        <div class="step-badge">Step 3 ½</div>
+        <h2>The oversmoothing curve — and why "deeper GNN" usually backfires</h2>
+        <p>
+          A natural instinct for any neural net: stack more layers,
+          get more capacity. For GNNs this fails badly. After a few
+          message-passing rounds, every node's representation becomes
+          a smoothed average of its receptive field; eventually all
+          nodes look the same and the classifier collapses to majority
+          class (Li et al., 2018; Oono &amp; Suzuki, 2020).
+        </p>
+        <p>
+          Below: the same 14-node graph, three aggregators, K from 0
+          to 8. Two metrics tracked: <strong>node-classifier accuracy</strong>
+          on the unlabelled nodes, and <strong>feature variance across
+          nodes</strong> (the textbook oversmoothing diagnostic). Watch
+          accuracy peak around K=2-3 and then collapse as variance
+          shrinks to ~0.
+        </p>
+        <div class="gnn-figure">
+          <canvas id="os-curve" width="880" height="320"></canvas>
+          <figcaption>Solid: classifier accuracy on unlabelled nodes. Dashed: cross-node feature variance (log scale). Three aggregators overlaid.</figcaption>
+        </div>
+        <div class="callout callout--key">
+          <strong>The fix.</strong>
+          Real GNNs ($\le$ 2-3 layers in practice) shouldn't go deep.
+          When you need long-range information, use either
+          <em>residual</em> connections (PairNorm, GCNII), an
+          attention-based aggregator (GAT, GATv2), or a graph
+          transformer with positional encodings. Stacking vanilla
+          GCN past 4 layers almost always hurts.
+        </div>
+      </section>
+
       <section class="step-section" id="step-4">
         <div class="step-badge">Step 4</div>
         <h2>The variants worth knowing</h2>

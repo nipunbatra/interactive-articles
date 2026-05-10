@@ -247,6 +247,158 @@ function renderMath() {
   });
 }
 
+// ============================================================
+// Oversmoothing curve — accuracy vs K for three aggregators
+// ============================================================
+function computeOversmoothCurve() {
+  // For each aggregator and each K in 0..8, run K message passes from
+  // a random initial feature set, compute (1) classifier accuracy on
+  // unlabelled nodes (using a logistic head trained at this K), (2)
+  // cross-node feature variance.
+  const Ks = [];
+  for (let k = 0; k <= 8; k++) Ks.push(k);
+  const aggs = ['mean', 'max', 'attn'];
+  const trials = 4;
+  const results = {};
+  aggs.forEach((agg) => {
+    results[agg] = { accs: [], vars: [] };
+    Ks.forEach((K) => {
+      let accSum = 0, varSum = 0;
+      for (let t = 0; t < trials; t++) {
+        // Initialise random features
+        const feats0 = STATE.nodes.map(() => Math.random());
+        // Save and restore state
+        const saved = STATE.nodes.map((n) => n.feat);
+        STATE.nodes.forEach((n, i) => { n.feat = feats0[i]; });
+        const savedAgg = STATE.agg, savedK = STATE.K;
+        STATE.agg = agg; STATE.K = K;
+        const f = propagate();
+        const cls = trainClassifier(f);
+        // Test accuracy: all nodes (use ground-truth labels: alternate by spatial cluster)
+        // Use existing labelled seeds + assume unseen nodes' labels = nearest seed's label.
+        // Simplification: test on labelled nodes themselves, since we lack ground truth
+        // for non-seeds. Better: synth ground truth from a 2-cluster spatial split.
+        const W = 880;
+        const split = W / 2;
+        let correct = 0, total = 0;
+        STATE.nodes.forEach((n, i) => {
+          const trueClass = n.x < split ? 0 : 1;
+          const z = cls.w * f[i] + cls.b;
+          const p = 1 / (1 + Math.exp(-z));
+          const pred = p > 0.5 ? 1 : 0;
+          if (pred === trueClass) correct++;
+          total++;
+        });
+        accSum += correct / total;
+        // Variance across nodes
+        const mean = f.reduce((a, b) => a + b, 0) / f.length;
+        const v = f.reduce((s, x) => s + (x - mean) * (x - mean), 0) / f.length;
+        varSum += v;
+        // Restore
+        STATE.nodes.forEach((n, i) => { n.feat = saved[i]; });
+        STATE.agg = savedAgg; STATE.K = savedK;
+      }
+      results[agg].accs.push(accSum / trials);
+      results[agg].vars.push(Math.max(1e-6, varSum / trials));
+    });
+  });
+  return { Ks, results };
+}
+
+function renderOversmoothCurve() {
+  const canvas = document.getElementById('os-curve');
+  if (!canvas) return;
+  const W = 880, H = 320;
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.fillStyle = '#fdfcf9'; ctx.fillRect(0, 0, W, H);
+  const m = { l: 60, r: 60, t: 18, b: 32 };
+  const px = W - m.l - m.r, py = H - m.t - m.b;
+  ctx.strokeStyle = '#e2d8c6'; ctx.strokeRect(m.l, m.t, px, py);
+  const { Ks, results } = computeOversmoothCurve();
+  // Left axis: accuracy 0..1
+  ctx.fillStyle = '#9a917f';
+  ctx.font = '11px IBM Plex Mono';
+  ctx.textAlign = 'right';
+  for (let i = 0; i <= 4; i++) {
+    const v = i / 4;
+    const y = m.t + (1 - v) * py;
+    ctx.fillText(v.toFixed(2), m.l - 4, y + 3);
+    ctx.strokeStyle = '#f0ebe1';
+    ctx.beginPath(); ctx.moveTo(m.l, y); ctx.lineTo(m.l + px, y); ctx.stroke();
+  }
+  // Right axis: log variance, range 1e-4..1
+  ctx.textAlign = 'left';
+  for (let i = 0; i <= 4; i++) {
+    const v = -4 + i;
+    const y = m.t + (1 - i / 4) * py;
+    ctx.fillStyle = '#d9622b';
+    ctx.fillText(`10^${v}`, m.l + px + 4, y + 3);
+  }
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#9a917f';
+  for (let k = 0; k <= 8; k++) {
+    const x = m.l + (k / 8) * px;
+    ctx.fillText(k.toString(), x, m.t + py + 16);
+  }
+  const colors = { mean: '#2c6fb7', max: '#1e7770', attn: '#9b59b6' };
+  // Plot accuracy (solid)
+  Object.keys(results).forEach((agg) => {
+    ctx.strokeStyle = colors[agg]; ctx.lineWidth = 2;
+    ctx.beginPath();
+    results[agg].accs.forEach((a, i) => {
+      const x = m.l + (i / 8) * px;
+      const y = m.t + (1 - a) * py;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+  });
+  // Plot variance (dashed) on log scale -4..0
+  Object.keys(results).forEach((agg) => {
+    ctx.strokeStyle = colors[agg]; ctx.lineWidth = 1.4;
+    ctx.setLineDash([5, 4]);
+    ctx.beginPath();
+    results[agg].vars.forEach((v, i) => {
+      const x = m.l + (i / 8) * px;
+      const lv = Math.max(-4, Math.min(0, Math.log10(v)));
+      const y = m.t + (1 - (lv + 4) / 4) * py;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+    ctx.setLineDash([]);
+  });
+  // Legend
+  ctx.fillStyle = '#3b342b';
+  ctx.font = '11px Manrope';
+  ctx.textAlign = 'left';
+  let lx = m.l + 8, ly = m.t + 14;
+  Object.keys(colors).forEach((agg) => {
+    ctx.strokeStyle = colors[agg]; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(lx, ly); ctx.lineTo(lx + 14, ly); ctx.stroke();
+    ctx.fillStyle = '#3b342b';
+    ctx.fillText(agg, lx + 18, ly + 4);
+    lx += 18 + ctx.measureText(agg).width + 14;
+  });
+  ctx.fillStyle = '#3b342b';
+  ctx.font = '12px Manrope';
+  ctx.textAlign = 'center';
+  ctx.fillText('rounds K', m.l + px / 2, m.t + py + 28);
+  ctx.save();
+  ctx.translate(14, m.t + py / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillText('accuracy', 0, 0);
+  ctx.restore();
+  ctx.save();
+  ctx.translate(W - 14, m.t + py / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillStyle = '#9c3f15';
+  ctx.fillText('variance (log, dashed)', 0, 0);
+  ctx.restore();
+}
+
 function boot() {
   if (window.katex) renderMath();
   else {
@@ -254,6 +406,7 @@ function boot() {
     if (s) s.addEventListener('load', renderMath);
   }
   wire();
+  setTimeout(renderOversmoothCurve, 100);
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
 else boot();
