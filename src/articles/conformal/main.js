@@ -329,13 +329,189 @@ function renderMath() {
   if (!window.katex) return;
   const blocks = {
     'math-conf':
-      '\\hat q = \\mathrm{Quantile}_{(1-\\alpha)(N+1)/N}\\!\\bigl(\\{\\,|y_i - \\hat f(x_i)|\\,\\}_{i=1}^{N}\\bigr),\\quad C(x) = [\\hat f(x) - \\hat q,\\, \\hat f(x) + \\hat q]'
+      '\\hat q = \\mathrm{Quantile}_{(1-\\alpha)(N+1)/N}\\!\\bigl(\\{\\,|y_i - \\hat f(x_i)|\\,\\}_{i=1}^{N}\\bigr),\\quad C(x) = [\\hat f(x) - \\hat q,\\, \\hat f(x) + \\hat q]',
+    'math-aps':
+      's_i = \\sum_{c \\in \\pi(x_i,\\,\\le y_i)} \\hat p_c(x_i),\\quad \\hat q = \\mathrm{Quantile}_{1-\\alpha}\\{s_i\\},\\quad C(x) = \\bigl\\{\\,c : \\sum_{c\' \\in \\pi(x,\\,\\le c)} \\hat p_{c\'}(x) \\le \\hat q\\,\\bigr\\}'
   };
   Object.keys(blocks).forEach((id) => {
     const el = document.getElementById(id);
     if (!el) return;
     try { katex.render(blocks[id], el, { displayMode: true, throwOnError: false }); } catch (_) {}
   });
+}
+
+// ============================================================
+// APS classification — 3-class 2D problem; classifier from RBF logreg.
+// ============================================================
+const APS = { alpha: 0.10, train: null, calib: null, test: null, W: null };
+
+const APS_RBF_CENTERS = [];
+for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) {
+  APS_RBF_CENTERS.push([-2.5 + 5 * (c + 0.5) / 4, -2.5 + 5 * (r + 0.5) / 4]);
+}
+const APS_RBF_GAMMA = 0.7;
+function apsPhi(x, y) {
+  const out = new Array(APS_RBF_CENTERS.length + 1);
+  out[0] = 1;
+  for (let i = 0; i < APS_RBF_CENTERS.length; i++) {
+    const dx = x - APS_RBF_CENTERS[i][0];
+    const dy = y - APS_RBF_CENTERS[i][1];
+    out[i + 1] = Math.exp(-APS_RBF_GAMMA * (dx * dx + dy * dy));
+  }
+  return out;
+}
+function apsSoftmax(arr) {
+  let m = -Infinity;
+  for (const v of arr) if (v > m) m = v;
+  const exps = arr.map((v) => Math.exp(v - m));
+  const s = exps.reduce((a, b) => a + b, 0) || 1;
+  return exps.map((e) => e / s);
+}
+function apsLogits(W, x, y) {
+  const f = apsPhi(x, y);
+  const C = W.length;
+  const out = new Array(C);
+  for (let c = 0; c < C; c++) {
+    let s = 0;
+    for (let d = 0; d < f.length; d++) s += W[c][d] * f[d];
+    out[c] = s;
+  }
+  return out;
+}
+function apsMakeData(N) {
+  const out = [];
+  const clusters = [
+    { mu: [-1.4, 0.2], cov: 0.7, label: 0 },
+    { mu: [1.3, 1.2], cov: 0.65, label: 1 },
+    { mu: [0.0, -1.5], cov: 0.8, label: 2 }
+  ];
+  for (let i = 0; i < N; i++) {
+    const c = clusters[i % 3];
+    out.push({ x: c.mu[0] + randn() * c.cov, y: c.mu[1] + randn() * c.cov, label: c.label });
+  }
+  return out;
+}
+function apsTrain() {
+  const C = 3;
+  const D = APS_RBF_CENTERS.length + 1;
+  let W = [];
+  for (let c = 0; c < C; c++) W.push(new Array(D).fill(0).map(() => randn() * 0.05));
+  const lr = 0.4, l2 = 0.05;
+  for (let it = 0; it < 250; it++) {
+    const dW = new Array(C).fill(0).map(() => new Array(D).fill(0));
+    for (const ex of APS.train) {
+      const f = apsPhi(ex.x, ex.y);
+      const probs = apsSoftmax(apsLogits(W, ex.x, ex.y));
+      for (let c = 0; c < C; c++) {
+        const t = (c === ex.label) ? 1 : 0;
+        const g = probs[c] - t;
+        for (let d = 0; d < D; d++) dW[c][d] += g * f[d];
+      }
+    }
+    for (let c = 0; c < C; c++) for (let d = 0; d < D; d++) W[c][d] -= lr * (dW[c][d] / APS.train.length + l2 * W[c][d]);
+  }
+  return W;
+}
+
+function apsScore(probs, label) {
+  // Score = sum of probabilities of all classes ranked at or above the true class
+  const ranked = probs.map((p, c) => ({ p, c })).sort((a, b) => b.p - a.p);
+  let s = 0;
+  for (const item of ranked) {
+    s += item.p;
+    if (item.c === label) break;
+  }
+  return s;
+}
+function apsCalibrate() {
+  const scores = APS.calib.map((ex) => apsScore(apsSoftmax(apsLogits(APS.W, ex.x, ex.y)), ex.label));
+  const sorted = scores.slice().sort((a, b) => a - b);
+  const N = sorted.length;
+  const idx = Math.min(N - 1, Math.ceil((1 - APS.alpha) * (N + 1)) - 1);
+  return sorted[Math.max(0, idx)];
+}
+function apsPredictionSet(W, x, y, qhat) {
+  const probs = apsSoftmax(apsLogits(W, x, y));
+  const ranked = probs.map((p, c) => ({ p, c })).sort((a, b) => b.p - a.p);
+  const set = [];
+  let cum = 0;
+  for (const item of ranked) {
+    set.push(item.c);
+    cum += item.p;
+    if (cum >= qhat) break;
+  }
+  return { set, probs };
+}
+
+function apsRender() {
+  const canvas = document.getElementById('aps-canvas');
+  if (!canvas) return;
+  const Wd = 880, Hd = 320;
+  const ctx = setupCanvas(canvas, Wd, Hd);
+  ctx.fillStyle = '#fdfcf9'; ctx.fillRect(0, 0, Wd, Hd);
+  // Plot test points coloured by set size
+  const xMin = -3.2, xMax = 3.2, yMin = -2.6, yMax = 2.6;
+  const m = { l: 50, r: 14, t: 18, b: 36 };
+  const px = Wd - m.l - m.r, py = Hd - m.t - m.b;
+  ctx.strokeStyle = '#e2d8c6'; ctx.strokeRect(m.l, m.t, px, py);
+  const sx = (x) => m.l + (x - xMin) / (xMax - xMin) * px;
+  const sy = (y) => m.t + (1 - (y - yMin) / (yMax - yMin)) * py;
+  const qhat = apsCalibrate();
+  let covered = 0, totalSet = 0;
+  // Background heat showing set size
+  const step = 4;
+  for (let pyy = 0; pyy < py; pyy += step) {
+    for (let pxx = 0; pxx < px; pxx += step) {
+      const x = xMin + (xMax - xMin) * (pxx / px);
+      const yp = yMax - (yMax - yMin) * (pyy / py);
+      const r = apsPredictionSet(APS.W, x, yp, qhat);
+      const sz = r.set.length;
+      const t = (sz - 1) / 2; // 0..1 for sizes 1..3
+      ctx.fillStyle = `rgba(217, 98, 43, ${0.05 + 0.45 * t})`;
+      ctx.fillRect(m.l + pxx, m.t + pyy, step, step);
+    }
+  }
+  // Test points
+  APS.test.forEach((ex) => {
+    const r = apsPredictionSet(APS.W, ex.x, ex.y, qhat);
+    if (r.set.includes(ex.label)) covered++;
+    totalSet += r.set.length;
+    const xx = sx(ex.x), yy = sy(ex.y);
+    const colors = ['#2c6fb7', '#d9622b', '#1e7770'];
+    ctx.beginPath();
+    ctx.arc(xx, yy, 2.4, 0, Math.PI * 2);
+    ctx.fillStyle = colors[ex.label];
+    ctx.fill();
+  });
+  document.getElementById('aps-target').textContent = `${(100 * (1 - APS.alpha)).toFixed(1)}%`;
+  document.getElementById('aps-emp').textContent = `${(100 * covered / APS.test.length).toFixed(1)}%`;
+  document.getElementById('aps-size').textContent = (totalSet / APS.test.length).toFixed(2);
+}
+
+function apsRefresh() {
+  if (!APS.train) {
+    APS.train = apsMakeData(200);
+    APS.calib = apsMakeData(400);
+    APS.test = apsMakeData(800);
+    APS.W = apsTrain();
+  }
+  APS.alpha = parseFloat(document.getElementById('aps-alpha').value);
+  document.getElementById('aps-alpha-val').textContent = APS.alpha.toFixed(2);
+  apsRender();
+}
+
+function wireAPS() {
+  const a = document.getElementById('aps-alpha');
+  if (!a) return;
+  a.addEventListener('input', apsRefresh);
+  document.getElementById('aps-resample').addEventListener('click', () => {
+    APS.train = apsMakeData(200);
+    APS.calib = apsMakeData(400);
+    APS.test = apsMakeData(800);
+    APS.W = apsTrain();
+    apsRefresh();
+  });
+  apsRefresh();
 }
 
 function boot() {
@@ -345,6 +521,7 @@ function boot() {
     if (s) s.addEventListener('load', renderMath);
   }
   wire();
+  wireAPS();
 }
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
