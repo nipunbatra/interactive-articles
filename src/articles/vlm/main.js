@@ -456,6 +456,96 @@ function renderAll() {
   renderSim();
   renderLoss();
   refreshStats();
+  renderRetrieval();
+}
+
+// ============================================================
+// Retrieval — recall@K via the trained mini-CLIP
+// ============================================================
+const RETR = { recallHistory: [] }; // each entry: { step, r1, r2 }
+function computeRecall() {
+  // For each text query (column j of similarity matrix), rank images by similarity
+  const { S } = similarityMatrix();
+  const K = S.length;
+  let r1 = 0, r2 = 0;
+  for (let j = 0; j < K; j++) {
+    const sims = [];
+    for (let i = 0; i < K; i++) sims.push({ i, s: S[i][j] });
+    sims.sort((a, b) => b.s - a.s);
+    if (sims[0].i === j) r1++;
+    if (sims[0].i === j || sims[1].i === j) r2++;
+  }
+  return { r1: r1 / K, r2: r2 / K };
+}
+
+function renderRetrieval() {
+  const { S } = similarityMatrix();
+  const K = S.length;
+  const r = computeRecall();
+  RETR.recallHistory.push({ step: STATE.step, r1: r.r1, r2: r.r2 });
+  if (RETR.recallHistory.length > 600) RETR.recallHistory = RETR.recallHistory.slice(-600);
+  // Rank list: for each text caption, show ranked image labels
+  const rankEl = document.getElementById('ret-rank');
+  if (rankEl) {
+    let html = '<table class="vlm-ret-table"><thead><tr><th>text query</th><th>rank 1</th><th>rank 2</th><th>rank 3</th><th>rank 4</th></tr></thead><tbody>';
+    for (let j = 0; j < K; j++) {
+      const sims = [];
+      for (let i = 0; i < K; i++) sims.push({ i, s: S[i][j] });
+      sims.sort((a, b) => b.s - a.s);
+      html += `<tr><td><em>${TEXT_LABELS[j]}</em></td>`;
+      for (let r = 0; r < K; r++) {
+        const correct = sims[r].i === j;
+        html += `<td class="${correct ? 'ret-hit' : ''}">${IMAGE_LABELS[sims[r].i]} (${sims[r].s.toFixed(2)})</td>`;
+      }
+      html += '</tr>';
+    }
+    html += '</tbody></table>';
+    rankEl.innerHTML = html;
+  }
+  // Recall@K curve
+  const canvas = document.getElementById('ret-canvas');
+  if (!canvas) return;
+  const Wd = 380, Hd = 380;
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = Wd * dpr; canvas.height = Hd * dpr;
+  canvas.style.width = Wd + 'px'; canvas.style.height = Hd + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.fillStyle = '#fdfcf9'; ctx.fillRect(0, 0, Wd, Hd);
+  const m = { l: 50, r: 12, t: 18, b: 30 };
+  const px = Wd - m.l - m.r, py = Hd - m.t - m.b;
+  ctx.strokeStyle = '#e2d8c6'; ctx.strokeRect(m.l, m.t, px, py);
+  ctx.fillStyle = '#9a917f';
+  ctx.font = '11px IBM Plex Mono';
+  ctx.textAlign = 'right';
+  for (let i = 0; i <= 4; i++) {
+    const v = i / 4;
+    const y = m.t + (1 - v) * py;
+    ctx.fillText(v.toFixed(2), m.l - 4, y + 3);
+    ctx.strokeStyle = '#f0ebe1';
+    ctx.beginPath(); ctx.moveTo(m.l, y); ctx.lineTo(m.l + px, y); ctx.stroke();
+  }
+  if (RETR.recallHistory.length > 1) {
+    const N = RETR.recallHistory.length;
+    function plotKey(key, color) {
+      ctx.strokeStyle = color; ctx.lineWidth = 2;
+      ctx.beginPath();
+      RETR.recallHistory.forEach((h, i) => {
+        const x = m.l + (i / Math.max(1, N - 1)) * px;
+        const y = m.t + (1 - h[key]) * py;
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+    }
+    plotKey('r1', '#1e7770');
+    plotKey('r2', '#2c6fb7');
+  }
+  ctx.fillStyle = '#3b342b';
+  ctx.font = '11px Manrope';
+  ctx.textAlign = 'left';
+  ctx.fillText(`recall@1 = ${(r.r1 * 100).toFixed(0)}%`, m.l + 8, m.t + 14);
+  ctx.fillStyle = '#1a4f8a';
+  ctx.fillText(`recall@2 = ${(r.r2 * 100).toFixed(0)}%`, m.l + 8, m.t + 30);
 }
 
 function loop() {
@@ -473,7 +563,11 @@ function renderMath() {
     'math-stage2':
       '\\mathcal{L}_{\\text{cap}} = -\\sum_{t} \\log p_{\\text{LLM}}(y_t \\mid y_{<t}, \\mathrm{Proj}(\\mathrm{Enc}(I)))',
     'math-stage3':
-      '\\mathcal{L}_{\\text{IT}} = -\\sum_{t \\in \\text{response}} \\log p_{\\text{LLM}}(y_t \\mid y_{<t}, \\mathrm{Proj}(\\mathrm{Enc}(I)), \\text{instr})'
+      '\\mathcal{L}_{\\text{IT}} = -\\sum_{t \\in \\text{response}} \\log p_{\\text{LLM}}(y_t \\mid y_{<t}, \\mathrm{Proj}(\\mathrm{Enc}(I)), \\text{instr})',
+    'math-resampler':
+      '\\text{Q-Former: }\\;\\;\\hat z_k = \\mathrm{Attn}\\!\\bigl(q_k,\\; \\mathrm{Enc}(I),\\; \\mathrm{Enc}(I)\\bigr)\\quad\\text{for }k = 1,\\dots,K\\text{ learned queries}',
+    'math-lora':
+      'W \\leftarrow W_0 + \\frac{\\alpha}{r}\\,B A,\\qquad A \\in \\mathbb{R}^{r \\times d_{\\text{in}}},\\;\\; B \\in \\mathbb{R}^{d_{\\text{out}} \\times r}'
   };
   Object.keys(blocks).forEach((id) => {
     const el = document.getElementById(id);

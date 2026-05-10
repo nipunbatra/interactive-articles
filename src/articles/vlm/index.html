@@ -125,6 +125,55 @@
         </div>
       </section>
 
+      <section class="step-section" id="step-projector">
+        <div class="step-badge">Step 1 ½</div>
+        <h2>The image-language interface — projector designs</h2>
+        <p>
+          Once the vision encoder is aligned, every patch becomes a
+          ~1024-dim feature vector. A 224×224 image at patch 14 has 256
+          such tokens; the LLM might want them in 4096-dim hidden space
+          and may not want all 256. The projector is the small network
+          between the encoder and the LLM that does both jobs. Four
+          designs dominate practice:
+        </p>
+        <ul class="explanation-list">
+          <li><strong>Linear / 2-layer MLP (LLaVA-1.0, LLaVA-1.5).</strong>
+            Token-for-token: each patch embedding maps to one image token
+            in LLM space. Cheapest, surprisingly strong, but image-token
+            count = patch count which dominates context length at high
+            resolution.</li>
+          <li><strong>Perceiver resampler / Q-Former (Flamingo, BLIP-2).</strong>
+            $K$ learned query tokens cross-attend to the patch features;
+            output is exactly $K$ image tokens regardless of image
+            resolution. Compute and context savings: ~32 query tokens
+            instead of 576. Cost: a separately trained module.</li>
+          <li><strong>Cross-attention into the LLM (Flamingo, IDEFICS).</strong>
+            Insert dedicated cross-attention layers <em>inside</em> the
+            LLM that attend to image tokens. The LLM "sees" the image
+            without spending self-attention budget on it.</li>
+          <li><strong>Token packing + AnyRes / dynamic tiling
+            (LLaVA-NeXT, Qwen-VL-2.5, GPT-4o, Pixtral).</strong>
+            High-resolution images are split into tiles; each tile is a
+            sub-image; tile features are concatenated. Lets the model
+            see a 1344×1344 image without a 1344-pixel-aware encoder.</li>
+        </ul>
+        <div class="math-block" id="math-resampler"></div>
+        <p>
+          The choice has measurable consequences:
+        </p>
+        <div class="examples-table-wrap">
+          <table class="examples-table">
+            <thead><tr><th>Design</th><th>Image tokens</th><th>Trainable params</th><th>Strengths</th><th>Trade-offs</th></tr></thead>
+            <tbody>
+              <tr><td><strong>Linear / MLP</strong></td><td>= patch count (256–576)</td><td>~10M</td><td>Simplest; preserves spatial info</td><td>Long context bill</td></tr>
+              <tr><td><strong>Q-Former / Resampler</strong></td><td>32–64 (fixed)</td><td>~100M</td><td>Constant cost; trains in a separate stage</td><td>Lossy compression; needs its own pretrain</td></tr>
+              <tr><td><strong>Cross-attention</strong></td><td>handled in-LLM</td><td>~1B</td><td>Richest interaction; LLM sees full token set</td><td>Need to modify LLM; expensive train</td></tr>
+              <tr><td><strong>Tile packing (AnyRes)</strong></td><td>k × tile-tokens</td><td>~10M</td><td>High-res; OCR; charts</td><td>Large context; positional encoding tricks</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
       <section class="step-section" id="step-2">
         <div class="step-badge">Step 2</div>
         <h2>Stage 2 — Image-grounded language pretraining</h2>
@@ -204,6 +253,121 @@
             preference labeller. Now the dominant recipe for
             mid-sized open VLMs.</li>
         </ul>
+      </section>
+
+      <section class="step-section" id="step-finetune">
+        <div class="step-badge">Step 4 ½</div>
+        <h2>Fine-tuning a VLM — recipes that actually work</h2>
+        <p>
+          Most labs don't <em>train</em> a VLM; they fine-tune one. The
+          options form a ladder of cost vs flexibility:
+        </p>
+        <ul class="explanation-list">
+          <li><strong>Prompt engineering only.</strong> Free; works for
+            zero-shot tasks the base model already covers.</li>
+          <li><strong>Retrieval-augmented (RAG).</strong> Add a vector
+            database of domain images / captions; retrieve and prepend
+            at inference. No training; helps with tail knowledge.</li>
+          <li><strong>LoRA on the LLM (the default).</strong> Adapt
+            $r$-rank low-rank deltas on the LLM's attention and MLP
+            weights. ~1% of LLM parameters; fits on a single GPU.
+            Common targets: $\{\,W_q, W_v\,\}$ at minimum;
+            $\{\,W_q, W_k, W_v, W_o, W_{up}, W_{down}, W_{gate}\,\}$
+            for stronger adaptation.</li>
+          <li><strong>Full fine-tune of projector + LLM (LoRA-free).</strong>
+            Best quality, multi-GPU. Needed when the domain shift is
+            large (medical images, satellites, thermal).</li>
+          <li><strong>Full encoder + projector + LLM.</strong> Required
+            when the modality is fundamentally new (depth, audio,
+            point clouds). Cost: ~500-2000 GPU-hours on $\le$1B-param
+            base.</li>
+        </ul>
+        <div class="math-block" id="math-lora"></div>
+        <h3>Practical recipe (single-GPU lab fine-tune)</h3>
+        <ul class="explanation-list">
+          <li><strong>Backbone.</strong> Llama-3.2-Vision-11B or
+            Qwen-VL-7B as the frozen-encoder base. Both ship
+            instruction-tuned weights.</li>
+          <li><strong>Adapter.</strong> LoRA rank $r = 16$ on
+            $\{W_q, W_k, W_v, W_o\}$ in every layer; $\alpha = 32$;
+            dropout $0.05$.</li>
+          <li><strong>Data.</strong> 5–50k domain image-instruction-answer
+            triples. Synthesise instructions with a stronger VLM if
+            you have only image-label pairs. Mix in 5–10% of the
+            base instruction data to prevent catastrophic forgetting.</li>
+          <li><strong>Optimiser.</strong> AdamW, learning rate $1{\times}10^{-4}$
+            for LoRA params, $1{\times}10^{-5}$ for the projector
+            (if unfrozen). Cosine schedule with 3% warmup, 1–3 epochs.</li>
+          <li><strong>Eval.</strong> Held-out val with the same prompt
+            distribution; track exact-match, BLEU/Rouge for free-form,
+            and a held-out hallucination probe.</li>
+          <li><strong>Bugs to watch.</strong> Frozen image tokens
+            still consuming context budget; mismatched image
+            preprocessing between train and eval (the silent killer);
+            tokenizer template drift between base and your prompts.</li>
+        </ul>
+      </section>
+
+      <section class="step-section" id="step-eval">
+        <div class="step-badge">Step 4 ¾</div>
+        <h2>Evaluation — what each benchmark actually measures</h2>
+        <p>
+          A trained VLM number means nothing without knowing the eval.
+          The 2024-2026 standards:
+        </p>
+        <div class="examples-table-wrap">
+          <table class="examples-table">
+            <thead><tr><th>Benchmark</th><th>What it tests</th><th>Format</th><th>Watch out for</th></tr></thead>
+            <tbody>
+              <tr><td><strong>VQAv2 / GQA / OK-VQA</strong></td><td>Open-ended visual QA</td><td>1-word / short phrase</td><td>Templated prompts; saturated</td></tr>
+              <tr><td><strong>MMBench / MMVet</strong></td><td>Broad capability suite</td><td>Multi-choice + free-form</td><td>Eval is itself a (judge) LLM call</td></tr>
+              <tr><td><strong>MMMU</strong></td><td>College-level multi-discipline reasoning</td><td>Multi-choice</td><td>Heavy on diagram/chart understanding</td></tr>
+              <tr><td><strong>POPE / HallusionBench</strong></td><td>Hallucination on objects + scenes</td><td>Yes/no, free-form</td><td>Polarity bias; need balanced "no" cases</td></tr>
+              <tr><td><strong>ChartQA / DocVQA</strong></td><td>Charts and document understanding</td><td>Numeric / extractive</td><td>Reads OCR; high-res tile packing helps</td></tr>
+              <tr><td><strong>MathVista / MathVerse</strong></td><td>Visual math</td><td>Numeric</td><td>Calibration on numbers; tool-use wins</td></tr>
+              <tr><td><strong>MMMU-Pro / Reason-Bench</strong></td><td>Reasoning under image perturbation</td><td>Multi-choice</td><td>Robustness to crop / rotation / colour</td></tr>
+              <tr><td><strong>RefCOCO / GroundedVQA</strong></td><td>Visual grounding (output a box)</td><td>Coordinates</td><td>Coordinate format varies wildly</td></tr>
+              <tr><td><strong>BLINK / Video-MME</strong></td><td>Vision-only and video tasks</td><td>Multi-choice</td><td>Video models inherit different biases</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          Pick 2 broad benchmarks (MMBench + MMMU) and 1 hallucination
+          probe (POPE) as the lab's house metrics; report all three on
+          every checkpoint. The most common deception: "we beat GPT-4 on
+          VQAv2" — VQAv2 has been saturated since 2022 and almost
+          nothing publishes there anymore.
+        </p>
+      </section>
+
+      <section class="step-section" id="step-retrieval">
+        <div class="step-badge">Step 4 ⅞</div>
+        <h2>Image-text retrieval — recall@K, live</h2>
+        <p>
+          The CLIP-aligned encoders also give you free retrieval: take a
+          text query, embed it, find the nearest image embeddings.
+          Recall@K is the fraction of test queries whose true image
+          appears in the top-K retrieved. Watch the live mini-CLIP from
+          Step 1 produce its own retrieval matrix.
+        </p>
+        <div class="vlm-grid">
+          <div class="vlm-panel" style="grid-column: 1 / 3;">
+            <div class="panel-label">Image → text retrieval rank list (live)</div>
+            <div class="vlm-retrieval" id="ret-rank"></div>
+          </div>
+          <div class="vlm-panel">
+            <div class="panel-label">Recall@K vs training step</div>
+            <canvas id="ret-canvas" width="380" height="380"></canvas>
+          </div>
+        </div>
+        <div class="callout">
+          <strong>What good retrieval looks like.</strong>
+          With four toy categories, the CLIP demo should hit 100%
+          recall@1 within ~80 steps. Real CLIP at scale: ~75–80%
+          recall@1 on Flickr30k with the largest backbones. The drop
+          tells you most of the difficulty is just having more
+          distractors and longer-tailed concepts.
+        </div>
       </section>
 
       <section class="step-section" id="step-5">

@@ -112,3 +112,13 @@ li { margin-bottom: 0.5rem; }
   .article { padding-inline: 1rem; }
   .step-section { padding: 2rem 1.5rem; }
 }
+
+.vlm-retrieval { width: 100%; overflow-x: auto; }
+.vlm-ret-table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 0.78rem; }
+.vlm-ret-table th { text-align: left; font-family: var(--sans); font-size: 0.78rem; color: var(--muted); padding: 0.5rem 0.4rem; border-bottom: 1px solid var(--border); }
+.vlm-ret-table td { padding: 0.4rem; border-bottom: 1px solid #f4eedf; }
+.vlm-ret-table .ret-hit { background: rgba(30, 119, 112, 0.14); color: #145c54; font-weight: 700; }
+.examples-table-wrap { overflow-x: auto; margin: 1.2rem 0; }
+.examples-table { width: 100%; border-collapse: collapse; font-family: var(--sans); font-size: 0.92rem; }
+.examples-table th, .examples-table td { padding: 0.55rem 0.7rem; text-align: left; vertical-align: top; border-bottom: 1px solid var(--border); }
+.examples-table th { background: rgba(0,0,0,0.02); color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.74rem; }
