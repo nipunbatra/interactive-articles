@@ -1,0 +1,19 @@
+{
+  "slug": "in-context-learning",
+  "title": "In-Context Learning, From the Inside",
+  "date": "2026-05-11",
+  "tagline": "Why a frozen Transformer learns a new task from a few examples in its prompt",
+  "summary": "A live induction-head toy: a 2-layer attention model trained only on next-token prediction discovers in-context copying — the mechanistic basis of all few-shot prompting. Slide k (the number of in-context examples) and watch accuracy ramp; then read why ICL is just gradient descent in disguise.",
+  "readingTime": "20 min",
+  "difficulty": "Advanced",
+  "collection": "Deep learning",
+  "order": 35,
+  "status": "published",
+  "tags": ["In-Context Learning", "Induction Heads", "LLM", "Mechanistic Interpretability", "Interactive"],
+  "highlights": [
+    "Live 2-layer attention model that learns to copy in-context via the induction-head mechanism.",
+    "k-shot accuracy curve: how performance ramps with more examples in the prompt.",
+    "Mechanistic story: previous-token head + induction head = ICL on copy tasks.",
+    "Why ICL ≈ implicit gradient descent on the prompt (Akyürek et al. 2023; von Oswald et al. 2022)."
+  ]
+}

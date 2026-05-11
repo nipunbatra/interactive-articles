@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>In-Context Learning, From the Inside</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../vendor/katex/katex.min.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <article class="article">
+      <header class="article-header">
+        <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+        <p class="kicker">Interactive Explainer</p>
+        <h1>In-Context Learning, From the Inside</h1>
+        <p class="abstract">
+          A frozen LLM learns a new task from a few examples in its
+          prompt. No weight updates. Why? The mechanistic answer is
+          the <em>induction head</em>: a two-step attention circuit
+          that, once trained, can copy "patterns seen earlier in the
+          context" almost arbitrarily.
+        </p>
+        <div class="byline">
+          <span>~20 min</span>
+          <span>LLM &middot; Mech Interp &middot; Few-shot</span>
+        </div>
+      </header>
+
+      <section class="step-section" id="step-1">
+        <div class="step-badge">Step 1</div>
+        <h2>What ICL is, operationally</h2>
+        <p>
+          You pass a frozen model a prompt like:
+        </p>
+        <pre class="icl-pre">apple → red
+banana → yellow
+broccoli → green
+strawberry →</pre>
+        <p>
+          and the model outputs <code>red</code>. No fine-tuning, no
+          gradient steps. The accuracy on the task usually grows with
+          the number of in-context examples $k$, then plateaus.
+          Empirically this works for translation, arithmetic, named
+          entity recognition, function approximation, even small
+          reasoning tasks.
+        </p>
+        <p>
+          Two facts that motivated the research:
+        </p>
+        <ol class="explanation-list">
+          <li>ICL <em>emerges</em> with scale. GPT-2 (1.5B) does it
+            poorly; GPT-3 (175B) does it well. Below a critical model
+            size and training-data scale, ICL accuracy is at chance.</li>
+          <li>ICL works on tasks that don't appear in pretraining.
+            The model isn't retrieving memorised answers; it's running
+            something that functions like an algorithm at inference.</li>
+        </ol>
+      </section>
+
+      <section class="step-section" id="step-2">
+        <div class="step-badge">Step 2</div>
+        <h2>The induction head — a 2-layer attention circuit</h2>
+        <p>
+          Olsson et&nbsp;al. (2022) localised the mechanism behind
+          the simplest form of ICL — <em>copying</em>. It needs two
+          attention heads working together:
+        </p>
+        <ul class="explanation-list">
+          <li><strong>Layer 1 — previous-token head.</strong> At each
+            position $t$, attend to position $t-1$. Now every token's
+            representation contains "the previous token".</li>
+          <li><strong>Layer 2 — induction head.</strong> Given the
+            current token $A$ at position $t$, search earlier in the
+            sequence for places where the <em>previous</em> token was
+            also $A$. Found one? Predict whatever followed it.</li>
+        </ul>
+        <p>
+          That two-step circuit implements: "find the last time we
+          saw this token; copy what came next." On a sequence
+          <code>X A Y B A ?</code> it predicts <code>Y</code>.
+          Combined with the
+          <a href="../attention/index.html">attention article</a>'s
+          mechanics, this is one short script.
+        </p>
+        <div class="math-block" id="math-induction"></div>
+      </section>
+
+      <section class="step-section" id="step-3">
+        <div class="step-badge">Step 3</div>
+        <h2>Watch it work — k-shot copy task, live</h2>
+        <p>
+          A toy task: each prompt has $k$ (key, value) pairs followed
+          by a query key. The correct answer is the value of the pair
+          whose key equals the query. The model is a 2-layer attention
+          network with 4 heads pre-trained to do well at copy tasks.
+          Slide $k$; watch accuracy.
+        </p>
+        <div class="train-controls">
+          <label>k (in-context examples) &nbsp;<span id="icl-k-val">3</span> <input type="range" id="icl-k" min="1" max="12" step="1" value="3"></label>
+          <label>vocabulary size V &nbsp;<span id="icl-V-val">6</span> <input type="range" id="icl-V" min="3" max="20" step="1" value="6"></label>
+          <button class="action-btn action-btn--ghost" id="icl-newprompt">New prompt</button>
+          <span class="train-stat">accuracy <strong id="icl-acc">—</strong></span>
+        </div>
+        <div class="icl-grid">
+          <div class="icl-panel" style="grid-column: 1 / -1;">
+            <div class="panel-label">Sample prompt + model prediction</div>
+            <div class="icl-prompt" id="icl-prompt"></div>
+          </div>
+          <div class="icl-panel" style="grid-column: 1 / -1;">
+            <div class="panel-label">Layer 2 attention from the query token (the induction head in action)</div>
+            <div class="heatmap-grid" id="icl-attn"></div>
+          </div>
+          <div class="icl-panel" style="grid-column: 1 / -1;">
+            <div class="panel-label">k-shot accuracy vs k</div>
+            <canvas id="icl-curve" width="880" height="280"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <section class="step-section" id="step-4">
+        <div class="step-badge">Step 4</div>
+        <h2>"ICL is implicit gradient descent"</h2>
+        <p>
+          A surprising line of work (Akyürek et&nbsp;al. 2023;
+          von&nbsp;Oswald et&nbsp;al. 2022; Garg et&nbsp;al. 2022)
+          shows that a single Transformer layer applied to a sequence
+          of $(x_i, y_i)$ pairs can <em>implement</em> a step of
+          gradient descent on linear regression. With enough layers,
+          ICL approximately equals "fit a small model to the prompt's
+          examples, then predict."
+        </p>
+        <div class="math-block" id="math-icl-gd"></div>
+        <p>
+          The construction: pack $(x, y)$ pairs into tokens; the
+          attention layer's $W_Q, W_K, W_V$ can be chosen so the
+          output at the query position equals the prediction of one
+          step of GD on the data so far. Layer-by-layer compounds
+          into multiple GD steps. This explains both why ICL needs
+          scale (enough layers to do enough steps) and why it
+          generalises to held-out function classes.
+        </p>
+      </section>
+
+      <section class="step-section" id="step-5">
+        <div class="step-badge">Step 5</div>
+        <h2>Practical implications</h2>
+        <ul class="explanation-list">
+          <li><strong>More examples isn't always better.</strong>
+            Accuracy plateaus around $k=10-20$ for most tasks; beyond
+            that you're just using context for diminishing returns.</li>
+          <li><strong>Example selection matters.</strong> Diverse,
+            representative examples outperform random sampling. The
+            "best-of-K with semantic search over a labelled pool" is
+            the RAG-flavoured improvement.</li>
+          <li><strong>Format sensitivity is real.</strong> The exact
+            separator, capitalisation, and ordering of examples can
+            swing accuracy by 5-15 points. Test variants.</li>
+          <li><strong>Chain-of-thought is ICL with reasoning steps.</strong>
+            Including "let's think step by step" plus worked examples
+            unlocks much harder tasks. Why: the model gets to allocate
+            more compute to the answer.</li>
+          <li><strong>Calibration breaks badly under ICL.</strong>
+            Confidence is unreliable; wrap critical predictions in
+            <a href="../conformal/index.html">conformal prediction</a>.</li>
+          <li><strong>Fine-tune vs ICL tradeoff.</strong> If you have
+            ≥100 labelled examples and care about reliability, LoRA
+            fine-tune; if you have ≤30 examples or constantly-changing
+            tasks, ICL is the right tool.</li>
+        </ul>
+        <div class="callout callout--key">
+          <strong>The slogan.</strong>
+          ICL is not magic: it's a circuit (induction heads) inside a
+          model big enough to have learned it, doing what looks like
+          gradient descent over your prompt. Once you see the circuit,
+          you stop being surprised that prompts matter so much.
+        </div>
+      </section>
+    </article>
+
+    <script src="../vendor/katex/katex.min.js"></script>
+    <script type="module" src="main.js"></script>
+  </body>
+</html>
