@@ -1,0 +1,19 @@
+{
+  "slug": "federated-learning",
+  "title": "Federated Learning, Round by Round",
+  "date": "2026-05-11",
+  "tagline": "Train a model across clients that never share data — and watch non-IID drift wreck FedAvg",
+  "summary": "Six clients with different local label distributions train a shared classifier via FedAvg. Slide the non-IID strength and see global accuracy collapse; switch to FedProx and watch it stabilise. Communication-rounds-vs-accuracy curve; per-client weight drift; secure-aggregation and DP commentary.",
+  "readingTime": "20 min",
+  "difficulty": "Intermediate",
+  "collection": "Distributed ML",
+  "order": 33,
+  "status": "published",
+  "tags": ["Federated Learning", "FedAvg", "FedProx", "Privacy", "Interactive"],
+  "highlights": [
+    "Six clients with per-client non-IID label skew; live FedAvg rounds in your browser.",
+    "Non-IID slider: IID → label-skewed → single-class-per-client; watch global accuracy fail.",
+    "FedProx vs FedAvg toggle: proximal term tames drift on non-IID clients.",
+    "Communication-rounds-vs-accuracy curve + per-client weight-drift bars."
+  ]
+}

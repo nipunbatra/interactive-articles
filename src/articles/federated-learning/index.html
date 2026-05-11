@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Federated Learning, Round by Round</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../vendor/katex/katex.min.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <article class="article">
+      <header class="article-header">
+        <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+        <p class="kicker">Interactive Explainer</p>
+        <h1>Federated Learning, Round by Round</h1>
+        <p class="abstract">
+          Six clients with private data train a shared classifier
+          without ever sending the data to a server. Watch FedAvg
+          succeed on IID clients and collapse on non-IID ones; flip
+          to FedProx and watch it recover. Then the privacy + security
+          stack (secure aggregation, differential privacy).
+        </p>
+        <div class="byline">
+          <span>~20 min</span>
+          <span>Distributed ML &middot; Privacy &middot; FedAvg</span>
+        </div>
+      </header>
+
+      <section class="step-section" id="step-1">
+        <div class="step-badge">Step 1</div>
+        <h2>The federated setting</h2>
+        <p>
+          Data lives on $K$ clients (phones, hospitals, edge devices,
+          sensor networks). Each client has a private dataset
+          $\mathcal{D}_k$ it will not share. A central server
+          coordinates training of a shared model $\theta$. Each round:
+        </p>
+        <ol class="explanation-list">
+          <li>Server sends $\theta$ to a random sample of clients.</li>
+          <li>Each client runs $E$ local epochs of SGD on its data.</li>
+          <li>Clients send back updated $\theta_k$.</li>
+          <li>Server averages: $\theta \leftarrow \sum_k \frac{n_k}{n}\,\theta_k$
+            (FedAvg, McMahan et&nbsp;al., 2017).</li>
+        </ol>
+        <div class="math-block" id="math-fedavg"></div>
+        <p>
+          FedAvg is one of the most cited DL papers of the decade and
+          one of the brittlest. It works beautifully when client
+          datasets are IID (random partition of a global dataset);
+          it collapses when they aren't (which is most of the time
+          in production).
+        </p>
+      </section>
+
+      <section class="step-section" id="step-2">
+        <div class="step-badge">Step 2</div>
+        <h2>FedAvg vs FedProx — see them break and heal</h2>
+        <p>
+          Six clients, three-class 2-D classification. The non-IID
+          slider controls how skewed each client's label distribution
+          is. At 0, every client sees roughly uniform classes; at 1,
+          each client sees only one or two classes. FedProx
+          (Li et&nbsp;al., 2020) adds a proximal term $\frac{\mu}{2}\|\theta_k -
+          \theta\|^2$ to each client's local objective, gently
+          pulling local updates back toward the global model.
+        </p>
+        <div class="math-block" id="math-fedprox"></div>
+        <div class="train-controls">
+          <button class="action-btn" id="fl-round">Run 1 round</button>
+          <button class="action-btn" id="fl-round10">+10 rounds</button>
+          <button class="action-btn action-btn--ghost" id="fl-reset">Reinitialise</button>
+          <label>algorithm
+            <select id="fl-algo">
+              <option value="fedavg" selected>FedAvg</option>
+              <option value="fedprox">FedProx (μ = 0.1)</option>
+            </select>
+          </label>
+          <label>non-IID α &nbsp;<span id="fl-niid-val">0.50</span> <input type="range" id="fl-niid" min="0" max="1" step="0.05" value="0.5"></label>
+          <label>local epochs E &nbsp;<span id="fl-E-val">3</span> <input type="range" id="fl-E" min="1" max="10" step="1" value="3"></label>
+          <span class="train-stat">round <strong id="fl-round-count">0</strong></span>
+          <span class="train-stat">global acc <strong id="fl-acc">—</strong></span>
+        </div>
+        <div class="fl-grid">
+          <div class="fl-panel">
+            <div class="panel-label">Global classifier on test data</div>
+            <canvas id="fl-global" width="380" height="380"></canvas>
+          </div>
+          <div class="fl-panel">
+            <div class="panel-label">Per-client class distribution</div>
+            <canvas id="fl-clients" width="380" height="380"></canvas>
+          </div>
+          <div class="fl-panel">
+            <div class="panel-label">Accuracy vs rounds</div>
+            <canvas id="fl-loss" width="380" height="380"></canvas>
+          </div>
+        </div>
+        <div class="callout callout--think">
+          <strong>What to watch.</strong>
+          With non-IID α near 0, FedAvg converges within ~10 rounds.
+          Push α to 1 and FedAvg <em>oscillates</em> or diverges &mdash;
+          each client's local SGD overfits to its own classes and the
+          average ends up worse than any client's local model. Switch
+          to FedProx; the proximal term clips drift and accuracy
+          climbs again.
+        </div>
+      </section>
+
+      <section class="step-section" id="step-3">
+        <div class="step-badge">Step 3</div>
+        <h2>The privacy + security stack</h2>
+        <p>
+          FedAvg by itself isn't private. Sharing gradients leaks
+          information; reconstruction attacks (Zhu et&nbsp;al., 2019)
+          can recover original images from a single client update.
+          Three layers fix this:
+        </p>
+        <ul class="explanation-list">
+          <li><strong>Secure aggregation</strong> (Bonawitz et&nbsp;al.,
+            2017). Cryptographic protocol so the server only sees the
+            <em>sum</em> $\sum_k \theta_k$, not individual updates.
+            Information-theoretically secure under a t-honest-but-curious
+            threat model.</li>
+          <li><strong>Differential privacy</strong> (DP-FedAvg, Abadi
+            et&nbsp;al., 2016). Each client clips its update to a
+            bounded norm and adds Gaussian noise; the global model
+            satisfies $(\varepsilon, \delta)$-DP. Trade accuracy
+            against privacy budget.</li>
+          <li><strong>Homomorphic encryption / TEE.</strong> The
+            server computes the average on encrypted values; or runs
+            in a Trusted Execution Environment (Intel SGX, AMD SEV).
+            Heavier, used in regulated industries.</li>
+        </ul>
+        <div class="math-block" id="math-dp"></div>
+        <p>
+          Practical setups in 2026: <strong>FedML</strong>,
+          <strong>Flower</strong>, <strong>NVFlare</strong>,
+          <strong>OpenFL</strong> all ship FedAvg/FedProx/SCAFFOLD,
+          secure aggregation, and DP-SGD as drop-in components.
+        </p>
+      </section>
+
+      <section class="step-section" id="step-4">
+        <div class="step-badge">Step 4</div>
+        <h2>Algorithm zoo — what to use when</h2>
+        <div class="examples-table-wrap">
+          <table class="examples-table">
+            <thead><tr><th>Algorithm</th><th>Key idea</th><th>Best when</th></tr></thead>
+            <tbody>
+              <tr><td><strong>FedAvg</strong></td><td>Plain weight average</td><td>IID-ish clients, baseline</td></tr>
+              <tr><td><strong>FedProx</strong></td><td>+ proximal term on client objective</td><td>Non-IID, system heterogeneity</td></tr>
+              <tr><td><strong>SCAFFOLD</strong></td><td>Control variates to cancel client drift</td><td>Strongly non-IID, large E</td></tr>
+              <tr><td><strong>FedAvgM / FedAdam</strong></td><td>Server-side momentum / Adam</td><td>Slow / unstable convergence</td></tr>
+              <tr><td><strong>FedDF</strong></td><td>Distillation on a server-side public set</td><td>Heterogeneous client architectures</td></tr>
+              <tr><td><strong>FedBN</strong></td><td>Keep BatchNorm stats local, average everything else</td><td>Image clients with different statistics</td></tr>
+              <tr><td><strong>Personalised FL (pFedMe, Ditto)</strong></td><td>Per-client head, global trunk</td><td>Per-client distribution drift; medical, mobile keyboards</td></tr>
+              <tr><td><strong>Federated MoE</strong></td><td>Mixture-of-experts where each expert is local</td><td>Strongly heterogeneous clients; 2024+</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="step-section" id="step-5">
+        <div class="step-badge">Step 5</div>
+        <h2>Practical pitfalls</h2>
+        <ul class="explanation-list">
+          <li><strong>Stragglers.</strong> One slow client blocks every
+            round. Standard fix: drop the slowest 20% per round; use
+            asynchronous variants like FedBuff.</li>
+          <li><strong>Heterogeneous compute.</strong> A phone client
+            can't run 10 epochs in the time the server waits. Use
+            FedProx (insensitive to E) or per-client local-step budgets.</li>
+          <li><strong>Catastrophic forgetting.</strong> If a client
+            joins late with a new class, the global model can lose
+            old classes. FedDF / replay buffers / continual-FL papers
+            address this.</li>
+          <li><strong>Reconstruction attacks.</strong> Gradients reveal
+            data. Always combine FedAvg with secure aggregation and DP
+            for any privacy-sensitive deployment.</li>
+          <li><strong>Free-rider / Byzantine clients.</strong> A
+            malicious client can poison the model. Robust aggregation
+            (Krum, median, trimmed mean) defends against a bounded
+            fraction; cryptographic verifiable aggregation goes further.</li>
+          <li><strong>Evaluation.</strong> Global accuracy hides
+            per-client disparity. Always report worst-client and
+            10th-percentile accuracy too.</li>
+        </ul>
+        <div class="callout callout--key">
+          <strong>The slogan.</strong>
+          Federated learning works when clients differ <em>a little</em>;
+          collapses when they differ <em>a lot</em>; needs FedProx /
+          SCAFFOLD / personalised variants in the middle; and always
+          needs privacy primitives if the data is private. The
+          algorithmic part is small; the systems and threat-model
+          parts dominate.
+        </div>
+      </section>
+    </article>
+
+    <script src="../vendor/katex/katex.min.js"></script>
+    <script type="module" src="main.js"></script>
+  </body>
+</html>
