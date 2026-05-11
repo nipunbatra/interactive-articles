@@ -102,12 +102,38 @@
       <li><strong>GPT-2, GPT-3</strong> — byte-level BPE, 50,257 tokens.</li>
       <li><strong>BERT</strong> — WordPiece (a variant of BPE), 30,522 tokens.</li>
       <li><strong>Llama, Mistral</strong> — SentencePiece + BPE, 32k tokens.</li>
-      <li><strong>Claude, GPT-4</strong> — proprietary, but ~100k tokens each.</li>
+      <li><strong>Claude, GPT-4 / GPT-4o</strong> — proprietary, ~100k–200k tokens.</li>
+      <li><strong>Gemini, Qwen</strong> — proprietary; large vocabularies tuned for multilingual + code.</li>
     </ul>
 
-    <p style="margin-top: 48px; color: var(--muted); font-size: 14px;">
-      Part of the ES 667 Deep Learning course · IIT Gandhinagar · Aug 2026.
+    <h2>The three tokeniser families</h2>
+    <ul>
+      <li><strong>BPE (Sennrich et&nbsp;al., 2015).</strong> Start with characters; repeatedly merge the most frequent pair. Outputs a single deterministic token sequence for any string. Used in GPT-2/3/4, Llama, Mistral.</li>
+      <li><strong>WordPiece (Schuster &amp; Nakajima, 2012; in BERT, 2018).</strong> Similar to BPE but the merge criterion is mutual information / likelihood gain, not raw frequency. Tokens that <em>increase the data likelihood</em> the most are merged. Marginally better at handling rare words.</li>
+      <li><strong>SentencePiece (Unigram LM; Kudo, 2018).</strong> Treats tokenisation as a unigram language model. Starts from a huge vocabulary, iteratively removes tokens that hurt the corpus log-likelihood the least, until the target vocab size is reached. Produces probabilistic tokenisation (each text has multiple valid token sequences with different probabilities — useful for subword regularisation).</li>
+    </ul>
+
+    <h2>Byte-level BPE — handling any Unicode</h2>
+    <p>
+      A pure-BPE tokeniser breaks on text containing characters it never saw at training. GPT-2 solves this with <em>byte-level BPE</em>: operate on bytes (256 possible) instead of characters, so any Unicode string decomposes into a byte sequence the tokeniser knows. Adds a small overhead (Cyrillic / CJK get ~2× more tokens than Latin) in exchange for never crashing on rare scripts or emoji.
     </p>
+
+    <h2>The 'strawberry has 3 r's' phenomenon</h2>
+    <p>
+      LLMs often miscount letters in their own output. The reason is tokenisation: "strawberry" is typically split into "straw" + "berry" (or just one token!). The model never sees individual r's; it sees subword tokens, none of which is "r". To answer "how many r's in strawberry?" the model has to <em>decompose</em> its own tokens — which it does imperfectly because the decomposition never appeared during training.
+    </p>
+    <p>
+      The same explains: weird arithmetic on numbers tokenised as one piece, off-by-one errors on reversing text, and inability to spell out names character by character. The fix in 2024+ is finer-grained number tokenisation (single-digit tokens for numbers) plus character-level data mixed in during training.
+    </p>
+
+    <h2>Reading list</h2>
+    <ul>
+      <li><strong>Sennrich, Haddow, Birch (2015)</strong> — <em>Neural Machine Translation of Rare Words with Subword Units.</em> The paper that brought BPE to NLP.</li>
+      <li><strong>Kudo (2018)</strong> — <em>Subword Regularization.</em> The Unigram LM tokeniser.</li>
+      <li><strong>Kudo &amp; Richardson (2018)</strong> — <em>SentencePiece.</em> The implementation that ships with Llama, T5, etc.</li>
+      <li><strong>Wu et&nbsp;al. (2016)</strong> — <em>Google's Neural Machine Translation System.</em> WordPiece in production.</li>
+      <li><strong>Tokenizer playground</strong> — <code>tiktoken</code> (OpenAI), <code>tokenizers</code> (HuggingFace).</li>
+    </ul>
 
     <script>
       let tokens = [];           // current tokenization as array of arrays (word-level)
