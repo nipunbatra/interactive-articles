@@ -99,8 +99,39 @@
       GRU (Cho 2014) merges the forget and input gates into one "update" gate, and merges c and h. Fewer parameters, often comparable accuracy. Picking between them in 2026 is mostly personal preference; both are dwarfed by Transformers on most tasks. But for tiny devices and streaming, they are still the workhorses.
     </p>
 
+    <h2>BPTT and the vanishing-gradient story</h2>
+    <p>
+      Training an RNN is backprop-through-time (BPTT): unroll the recurrence, treat it like a feed-forward net with shared weights, and propagate gradients backward through time. The fatal problem in a plain RNN: at every step backward, the gradient is multiplied by the same Jacobian of the recurrent map. If that Jacobian's spectral radius is &lt; 1, gradients vanish exponentially; if &gt; 1, they explode.
+    </p>
+    <p style="text-align: center; font-family: 'IBM Plex Mono', monospace; font-size: 15px; margin: 24px 0;">
+      ∂L/∂h_0 = ∂L/∂h_T · ∏_{t=1}^{T} ∂h_t/∂h_{t−1}
+    </p>
+    <p>
+      Why LSTMs fix it: the cell state $c_t$ carries information forward via $c_t = f_t \odot c_{t-1} + i_t \odot g_t$. The Jacobian $\partial c_t / \partial c_{t-1} = f_t$ is just the forget-gate value — a per-step learnable scalar in $(0,1)$. When the model wants to remember, $f_t \approx 1$ and the gradient flows back unchanged. <em>That's the actual reason LSTMs train.</em>
+    </p>
+
+    <h2>Peephole / ConvLSTM / xLSTM</h2>
+    <ul style="margin: 0 0 24px 1.4em; padding: 0;">
+      <li><strong>Peephole LSTM.</strong> Gates also see the cell state $c_{t-1}$. Marginal accuracy on long-dependency tasks.</li>
+      <li><strong>GRU.</strong> One fewer gate; one fewer state; comparable on most tasks; cheaper.</li>
+      <li><strong>ConvLSTM.</strong> Replace the matmuls with convolutions; useful for spatio-temporal data (radar, video, satellite time series).</li>
+      <li><strong>xLSTM (2024).</strong> Updated gates + matrix-valued memory; scales further; competitive with small Mambas on language modelling.</li>
+    </ul>
+
+    <h2>When to reach for an LSTM in 2026</h2>
+    <ul style="margin: 0 0 24px 1.4em; padding: 0;">
+      <li>Streaming inference where state-space carrying matters per step (low-latency speech, time-series forecasting at the edge).</li>
+      <li>Tiny embedded devices where Transformers' KV cache is too expensive.</li>
+      <li>As a baseline before reaching for <a href="../mamba/index.html">Mamba</a> or
+        <a href="../ts-transformer/index.html">PatchTST</a> on long-horizon time series.</li>
+    </ul>
+    <p>
+      Beyond that, modern Transformers and SSMs dominate. The LSTM lives on as the cleanest pedagogical model for the
+      <a href="../vanishing-gradients/index.html">vanishing-gradient problem</a> and the simplest model where "memory" is an explicit, gated state.
+    </p>
+
     <p style="margin-top: 48px; color: var(--muted); font-size: 14px;">
-      Part of the ES 667 Deep Learning course · IIT Gandhinagar · Aug 2026.
+      Companion: <a href="../mamba/index.html">Mamba / SSMs</a> · <a href="../vanishing-gradients/index.html">vanishing gradients</a> · <a href="../ts-transformer/index.html">PatchTST forecasting</a>.
     </p>
 
     <script>

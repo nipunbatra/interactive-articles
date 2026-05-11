@@ -81,8 +81,60 @@
       Sample a random clean image, a random timestep, and a random noise ε. Compute x_t. Ask the network to predict ε. That's the entire loss. Simple, stable, and works better than everything else.
     </p>
 
+    <h2>The reverse process · where the magic lives</h2>
+    <p>
+      Reversing diffusion means: given $x_t$ (noisy) and the timestep $t$, predict $x_{t-1}$ (slightly less noisy). The exact reverse is intractable, but Ho et al. (2020) show that for small enough noise steps it's well-approximated by a Gaussian:
+    </p>
+    <p style="text-align: center; font-family: 'IBM Plex Mono', monospace; font-size: 15px; margin: 24px 0;">
+      p_θ(x_{t-1} | x_t) = N(x_{t-1}; μ_θ(x_t, t), Σ_θ(x_t, t))
+    </p>
+    <p>
+      And — the algebraic punchline — once you have $\epsilon_\theta$, the predicted noise, the mean of that Gaussian has a closed form:
+    </p>
+    <p style="text-align: center; font-family: 'IBM Plex Mono', monospace; font-size: 15px; margin: 24px 0;">
+      μ_θ(x_t, t) = (1/√α_t) [ x_t − (β_t / √(1−α̅_t)) · ε_θ(x_t, t) ]
+    </p>
+    <p>
+      That's why DDPM's loss is just "predict the noise" — once $\epsilon_\theta$ is good, the reverse mean is automatic.
+      The variance $\Sigma_\theta$ is either fixed to $\beta_t$ (DDPM) or learned (Nichol &amp; Dhariwal 2021).
+    </p>
+
+    <h2>DDIM · skip steps without quality loss</h2>
+    <p>
+      DDPM sampling is $T$ network calls (typically 1000) per image. DDIM (Song et al., 2020) shows that a <em>non-Markovian</em> reverse process can take just 25–50 steps with the same trained model:
+    </p>
+    <p style="text-align: center; font-family: 'IBM Plex Mono', monospace; font-size: 15px; margin: 24px 0;">
+      x_{t−Δ} = √(α̅_{t−Δ}) · x̂_0 + √(1 − α̅_{t−Δ}) · ε_θ(x_t, t)
+    </p>
+    <p>
+      where $\hat x_0 = (x_t - \sqrt{1 - \bar\alpha_t}\,\epsilon_\theta) / \sqrt{\bar\alpha_t}$ is the model's current estimate of the clean image. Set $\Delta = T/N$; you get $N$-step sampling. Quality survives well even at $N = 25$. The successors (DPM-Solver, UniPC) push the floor below 10 steps.
+    </p>
+
+    <h2>Classifier-free guidance · the conditioning lever</h2>
+    <p>
+      How do diffusion models know what to generate? They train on $(x, c)$ pairs where $c$ is a class label or text embedding, and the noise predictor takes $c$ as an extra input. At inference, the famous trick (Ho &amp; Salimans, 2021):
+    </p>
+    <p style="text-align: center; font-family: 'IBM Plex Mono', monospace; font-size: 15px; margin: 24px 0;">
+      ε̂(x_t, t, c) = (1 + w) · ε_θ(x_t, t, c) − w · ε_θ(x_t, t, ∅)
+    </p>
+    <p>
+      Compute the noise prediction with the condition $c$ <em>and</em> without (an empty / "null" condition the model also saw during training). Extrapolate beyond the conditional prediction by $w$. Large $w$ → strongly on-prompt but less diverse; $w \approx 7$ is the Stable-Diffusion default. The
+      <a href="../cfg-scale-visualizer/index.html">CFG scale visualiser</a> shows this on a 2D toy.
+    </p>
+
+    <h2>What changed between DDPM (2020) and today</h2>
+    <ul style="margin: 0 0 24px 1.4em; padding: 0;">
+      <li><strong>Latent diffusion (Stable Diffusion, 2022).</strong> Run the diffusion in a small VAE latent (64×64) instead of pixels (512×512). 64× cheaper, same quality.</li>
+      <li><strong>Velocity / v-prediction.</strong> Predict $v_t = \sqrt{\bar\alpha_t}\,\epsilon - \sqrt{1-\bar\alpha_t}\,x_0$ rather than $\epsilon$ directly. Better numerical behaviour, used in Imagen, Stable Diffusion 3.</li>
+      <li><strong>Flow-matching / rectified flow.</strong> Reformulate as an ODE; train to predict the velocity field. SD3, AuraFlow. Cleaner theory, faster inference.</li>
+      <li><strong>Consistency models (2023).</strong> Distil a slow diffusion into a 1-step generator. Single-step sampling at usable quality.</li>
+      <li><strong>Score-based view (Song &amp; Ermon, 2019).</strong> Same model, equivalent formulation as score $\nabla_x \log p_t(x)$. The SDE / ODE perspective subsumes DDPM.</li>
+      <li><strong>Conditioning via cross-attention.</strong> Stable Diffusion uses cross-attention into the UNet to attend to a CLIP-encoded prompt; see the
+        <a href="../unet/index.html#step-5">U-Net article's diffusion section</a>.</li>
+    </ul>
+
     <p style="margin-top: 48px; color: var(--muted); font-size: 14px;">
-      Part of the ES 667 Deep Learning course · IIT Gandhinagar · Aug 2026.
+      Companion: <a href="../cfg-scale-visualizer/index.html">CFG scale visualiser</a> · <a href="../text-diffusion/index.html">text diffusion</a> · <a href="../unet/index.html">U-Net inside diffusion</a>.
     </p>
 
     <script>

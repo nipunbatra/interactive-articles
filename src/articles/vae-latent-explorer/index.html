@@ -78,8 +78,54 @@
       The ELBO is a lower bound on the log-marginal likelihood. We can't compute log p(x) directly (intractable marginal), but we CAN compute and maximize its lower bound. That's what VAE training does.
     </p>
 
+    <h2>ELBO, derived step by step</h2>
+    <p>
+      We want $\log p(x)$ but it's intractable. Introduce an approximate posterior $q_\phi(z\mid x)$ (the encoder) and use the fact that for any $q$:
+    </p>
+    <p style="text-align: center; font-family: 'IBM Plex Mono', monospace; font-size: 15px; margin: 24px 0;">
+      log p(x) = E_{q_φ(z|x)} [ log p(x, z) − log q_φ(z|x) ]  +  KL( q_φ(z|x) ∥ p(z|x) )
+    </p>
+    <p>
+      The KL term on the right is $\ge 0$, so dropping it gives a <em>lower bound</em> — the ELBO. Rearranging:
+    </p>
+    <p style="text-align: center; font-family: 'IBM Plex Mono', monospace; font-size: 15px; margin: 24px 0;">
+      ELBO(x) = E_{q_φ(z|x)} [ log p_θ(x|z) ]  −  KL( q_φ(z|x) ∥ p(z) )
+    </p>
+    <p>
+      Two terms with intuitive readings: the first wants $z$ to <em>reconstruct</em> $x$ (the decoder loss); the second wants $z$'s posterior to <em>match the prior</em>. Maximising ELBO trades off both.
+    </p>
+
+    <h2>The reparameterisation trick · why VAEs train</h2>
+    <p>
+      Sampling $z \sim \mathcal{N}(\mu_\phi(x), \sigma_\phi^2(x))$ doesn't have a gradient with respect to $\mu_\phi, \sigma_\phi$. Reparameterise:
+    </p>
+    <p style="text-align: center; font-family: 'IBM Plex Mono', monospace; font-size: 15px; margin: 24px 0;">
+      z = μ_φ(x) + σ_φ(x) ⊙ ε,&nbsp;&nbsp;&nbsp;&nbsp;ε ~ N(0, I)
+    </p>
+    <p>
+      Now the sampling step is just an elementwise multiply and add; $\mu_\phi, \sigma_\phi$ receive gradients. Kingma &amp; Welling 2014 — the trick that made VAEs trainable end-to-end.
+    </p>
+
+    <h2>Posterior collapse · and three fixes</h2>
+    <p>
+      A common failure: the encoder outputs $q_\phi(z\mid x) \approx p(z)$ for every $x$, and the decoder learns to ignore $z$. The KL term is zero; reconstruction is mediocre but stable; the latent is useless. Symptoms: low KL, blurry samples, samples that don't depend on $z$.
+    </p>
+    <ul style="margin: 0 0 24px 1.4em; padding: 0;">
+      <li><strong>β-VAE.</strong> Weight the KL term by $\beta &lt; 1$ (or $\beta &gt; 1$ for disentanglement, Higgins et al. 2017). KL warm-up is the simpler practical fix.</li>
+      <li><strong>Free bits.</strong> Apply KL term only when above a threshold per latent dim (Kingma et al., 2016). Stops dims that <em>could</em> be informative from collapsing.</li>
+      <li><strong>Stronger decoder family.</strong> Use PixelCNN / autoregressive decoder so the latent has somewhere useful to live. Or stronger prior (VQ-VAE 2017, Vamp-prior).</li>
+    </ul>
+
+    <h2>VAE family in 2026</h2>
+    <ul style="margin: 0 0 24px 1.4em; padding: 0;">
+      <li><strong>VQ-VAE</strong>. Discrete latent via vector-quantised codebook. Standard image tokeniser; powers most discrete-token image / audio models.</li>
+      <li><strong>NVAE / VDM</strong>. Hierarchical VAEs that match diffusion quality on smaller scales.</li>
+      <li><strong>Latent-Diffusion VAE</strong>. The tiny VAE inside Stable Diffusion (KL-f8): pixels → 4-channel latent at $1/8$ resolution. Trained once, frozen.</li>
+      <li><strong>Conditional VAEs</strong>. $q_\phi(z\mid x, c)$ for class-conditional generation; or for tabular / time-series with structured context.</li>
+    </ul>
+
     <p style="margin-top: 48px; color: var(--muted); font-size: 14px;">
-      Part of the ES 667 Deep Learning course · IIT Gandhinagar · Aug 2026.
+      Companion: <a href="../diffusion-denoise/index.html">diffusion</a> · <a href="../bayesian-posterior/index.html">Bayesian posterior</a> · <a href="../info-theory/index.html">info theory (KL refresher)</a>.
     </p>
 
     <script>
