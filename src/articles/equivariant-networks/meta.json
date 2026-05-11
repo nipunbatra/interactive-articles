@@ -1,0 +1,19 @@
+{
+  "slug": "equivariant-networks",
+  "title": "Equivariant Networks, Live",
+  "date": "2026-05-11",
+  "tagline": "Rotate the input — the right architecture rotates the output too. Vanilla CNNs don't.",
+  "summary": "Rotate a synthetic input image; compare the responses of a vanilla CNN, an augmented CNN, and a rotation-equivariant network. Watch the rotation-equivariant net produce a clean orbit while the vanilla CNN's response thrashes. Cross-link to satellite + molecular DL applications.",
+  "readingTime": "16 min",
+  "difficulty": "Advanced",
+  "collection": "Computer Vision",
+  "order": 37,
+  "status": "published",
+  "tags": ["Equivariance", "Group Convolutions", "Steerable CNN", "Rotation", "Interactive"],
+  "highlights": [
+    "Slide the input rotation θ; watch the three architectures' responses to a rotated airplane silhouette.",
+    "Vanilla CNN: response jumps. Augmented CNN: smooths but still wobbles. C4 group conv: clean orbit.",
+    "Equivariance vs invariance: when you need each.",
+    "Beyond rotations: scale, gauge, SE(3), spherical, graph automorphisms."
+  ]
+}

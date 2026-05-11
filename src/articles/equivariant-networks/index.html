@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Equivariant Networks, Live</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../vendor/katex/katex.min.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <article class="article">
+      <header class="article-header">
+        <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+        <p class="kicker">Interactive Explainer</p>
+        <h1>Equivariant Networks, Live</h1>
+        <p class="abstract">
+          A neural network is <em>equivariant</em> to a transformation
+          when rotating the input rotates the output the same way.
+          For satellite imagery, molecules, point clouds, and any
+          system without a privileged orientation, this is what you
+          want and most vanilla networks don't deliver it.
+        </p>
+        <div class="byline">
+          <span>~16 min</span>
+          <span>Inductive Bias &middot; Symmetry &middot; CNN</span>
+        </div>
+      </header>
+
+      <section class="step-section" id="step-1">
+        <div class="step-badge">Step 1</div>
+        <h2>Equivariance vs invariance</h2>
+        <div class="math-block" id="math-equiv"></div>
+        <p>
+          $f$ is <strong>equivariant</strong> to a transformation $T_g$
+          if applying $T_g$ to the input has the same effect as
+          applying some (possibly different) transformation to the
+          output. <strong>Invariance</strong> is the special case
+          where the output doesn't change at all.
+        </p>
+        <ul class="explanation-list">
+          <li><strong>Translation equivariance.</strong> Move an object
+            sideways — feature maps shift the same way. Standard
+            CNN convolution gives you this for free (modulo padding).</li>
+          <li><strong>Rotation equivariance.</strong> Rotate the input
+            by 90° — feature maps rotate by 90° too. Standard CNNs
+            <em>don't</em> have this; you'd need C4 group convolutions
+            (Cohen &amp; Welling, 2016).</li>
+          <li><strong>Scale equivariance.</strong> Zoom in — features
+            scale. Mostly approximated via pyramids; true equivariant
+            architectures exist but are rare.</li>
+          <li><strong>SE(3) equivariance.</strong> 3-D rigid-body
+            symmetries. Critical for molecules / point clouds (E(3)NN,
+            SE(3)-Transformer).</li>
+          <li><strong>Permutation equivariance.</strong> Sets and
+            graphs. Self-attention is permutation-equivariant; GNN
+            aggregations are too.</li>
+        </ul>
+      </section>
+
+      <section class="step-section" id="step-2">
+        <div class="step-badge">Step 2</div>
+        <h2>Why a vanilla CNN can't rotate</h2>
+        <p>
+          A standard 3×3 convolution filter is a fixed pattern in pixel
+          space. Rotating the input does not rotate the filter; the
+          response thrashes. Three classical fixes:
+        </p>
+        <ul class="explanation-list">
+          <li><strong>Data augmentation.</strong> Train with random
+            rotations. Cheap; nearly works for classification; the
+            response is approximately invariant but not equivariant,
+            and the model still has to learn each rotation
+            redundantly.</li>
+          <li><strong>Group convolutions (G-CNN).</strong> Apply $k$
+            rotated copies of the same filter at each layer; the
+            feature map has an extra "rotation" axis. Cohen &amp;
+            Welling 2016; provably equivariant.</li>
+          <li><strong>Steerable CNNs.</strong> Use filters that
+            transform continuously under rotation (linear combinations
+            of circular harmonics). Equivariant to the continuous
+            $\mathrm{SO}(2)$ group, not just discrete.</li>
+        </ul>
+        <div class="math-block" id="math-gcnn"></div>
+      </section>
+
+      <section class="step-section" id="step-3">
+        <div class="step-badge">Step 3</div>
+        <h2>Live: rotate the input, watch three architectures respond</h2>
+        <p>
+          A synthetic airplane-silhouette input is rotated by θ. Three
+          tiny networks emit a feature vector. Plot the L2 distance
+          between the feature at θ=0 and the feature at the current θ.
+          A perfectly invariant network would output a flat line at
+          zero; a perfectly equivariant one would show a clean orbit
+          shape. The vanilla CNN responds erratically.
+        </p>
+        <div class="train-controls">
+          <label>rotation θ &nbsp;<span id="eq-theta-val">0°</span> <input type="range" id="eq-theta" min="0" max="360" step="2" value="0"></label>
+          <button class="action-btn action-btn--ghost" id="eq-newshape">New shape</button>
+        </div>
+        <div class="eq-grid">
+          <div class="eq-panel">
+            <div class="panel-label">input at θ</div>
+            <canvas id="eq-input" width="160" height="160"></canvas>
+          </div>
+          <div class="eq-panel">
+            <div class="panel-label">vanilla CNN response</div>
+            <canvas id="eq-vanilla" width="160" height="160"></canvas>
+          </div>
+          <div class="eq-panel">
+            <div class="panel-label">augmented CNN response</div>
+            <canvas id="eq-aug" width="160" height="160"></canvas>
+          </div>
+          <div class="eq-panel">
+            <div class="panel-label">C4 group conv response</div>
+            <canvas id="eq-c4" width="160" height="160"></canvas>
+          </div>
+        </div>
+        <div class="eq-grid">
+          <div class="eq-panel" style="grid-column: 1 / -1;">
+            <div class="panel-label">Feature distance from θ=0, swept over θ</div>
+            <canvas id="eq-curve" width="880" height="280"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <section class="step-section" id="step-4">
+        <div class="step-badge">Step 4</div>
+        <h2>Where to use what</h2>
+        <ul class="explanation-list">
+          <li><strong>Satellite / aerial imagery.</strong> Sentinel
+            and Landsat tiles have no canonical "up"; aerial / drone
+            footage rotates with the platform. C4 / C8 group
+            convolutions on the backbone, or rotation augmentation +
+            test-time average-of-rotations.</li>
+          <li><strong>Molecular & atomic systems.</strong> Energies are
+            invariant to rigid rotations; forces are equivariant. Use
+            E(3)NN, SE(3)-Transformer, MACE for molecular ML; AlphaFold-2's
+            invariant point attention is in this family.</li>
+          <li><strong>Point clouds.</strong> 3-D LiDAR / scans need
+            SE(3) equivariance for object detection that respects how
+            you mounted the sensor.</li>
+          <li><strong>Sets and graphs.</strong> Permutation equivariance
+            is non-negotiable: GNNs, Deep Sets, transformers (without
+            positional encoding) all sit here.</li>
+          <li><strong>Medical 3-D volumes.</strong> CT / MRI / PET
+            with rotated patient pose. Rotation equivariance helps
+            small-data fine-tunes generalise.</li>
+        </ul>
+        <div class="callout callout--key">
+          <strong>The slogan.</strong>
+          Equivariance is data efficiency in disguise. A network that
+          can't rotate has to learn every rotation separately; an
+          equivariant network sees the rotation as a symmetry and
+          spends its capacity on the parts that actually matter.
+        </div>
+      </section>
+
+      <section class="step-section" id="step-5">
+        <div class="step-badge">Step 5</div>
+        <h2>Practical gotchas</h2>
+        <ul class="explanation-list">
+          <li><strong>Discrete vs continuous group.</strong> C4 (90°)
+            and C8 (45°) are easy to implement; continuous SO(2)
+            requires steerable filters or harmonic networks.</li>
+          <li><strong>Cost.</strong> A C4 group conv has 4× the
+            channels of a vanilla conv; train and inference cost
+            scale accordingly. Modern hardware tolerates it.</li>
+          <li><strong>Combine with augmentation, don't replace it.</strong>
+            Equivariant ≠ no augmentation; you still want crops, brightness,
+            noise. The equivariant axis takes <em>one</em> source of
+            variation off the table.</li>
+          <li><strong>Don't equivary the wrong thing.</strong> If your
+            task <em>depends</em> on orientation (text recognition,
+            scene understanding with "up"), rotation equivariance
+            is wrong. Use it where symmetry truly exists.</li>
+          <li><strong>Libraries.</strong> <code>escnn</code> /
+            <code>e2cnn</code> (PyTorch), <code>se3-transformer</code>
+            (PyTorch), <code>e3nn</code> (PyTorch for molecules),
+            <code>jaxon</code> / <code>JAX-MD</code> for SE(3)
+            equivariant work in JAX.</li>
+        </ul>
+      </section>
+    </article>
+
+    <script src="../vendor/katex/katex.min.js"></script>
+    <script type="module" src="main.js"></script>
+  </body>
+</html>
