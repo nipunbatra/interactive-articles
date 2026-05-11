@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Quantization &amp; Pruning, Side by Side</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../vendor/katex/katex.min.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <article class="article">
+      <header class="article-header">
+        <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+        <p class="kicker">Interactive Explainer</p>
+        <h1>Quantization &amp; Pruning, Side by Side</h1>
+        <p class="abstract">
+          Two ways to shrink a model. Quantization reduces bit-width
+          per weight; pruning zeroes weights out entirely. Slide
+          both, see accuracy hold, then crack at predictable
+          thresholds.
+        </p>
+        <div class="byline">
+          <span>~18 min</span>
+          <span>Compression &middot; Edge ML</span>
+        </div>
+      </header>
+
+      <section class="step-section" id="step-1">
+        <div class="step-badge">Step 1</div>
+        <h2>The compression menu</h2>
+        <ul class="explanation-list">
+          <li><strong>Quantization.</strong> Replace 32-bit floats with
+            fewer bits (16, 8, 4, 2, 1). 2× to 32× smaller; faster
+            inference; accuracy varies. Two recipes:
+            <em>post-training quantization (PTQ)</em> applies
+            after training (cheap, sometimes lossy);
+            <em>quantization-aware training (QAT)</em> simulates the
+            rounding during training (recovers most of the loss).</li>
+          <li><strong>Pruning.</strong> Zero out weights below some
+            magnitude threshold; remove them. Two flavours:
+            <em>unstructured</em> (random sparsity, needs sparse
+            kernels to actually speed up) and <em>structured</em>
+            (drop whole channels / heads / blocks, plays well with
+            standard kernels).</li>
+          <li><strong>Knowledge distillation</strong> (separate
+            <a href="../knowledge-distillation/index.html">article</a>)
+            trains a small student to imitate a large teacher.
+            Complementary to both above.</li>
+          <li><strong>Low-rank / LoRA factorisation.</strong> Replace a
+            $W$ with $BA$ where $\mathrm{rank}(BA) \ll \mathrm{rank}(W)$.
+            Adapts to less-than-full-rank weight matrices.</li>
+          <li><strong>Mixed precision.</strong> Most layers int8;
+            a few sensitive layers FP16. The 2026 production default.</li>
+        </ul>
+        <div class="math-block" id="math-quant"></div>
+      </section>
+
+      <section class="step-section" id="step-2">
+        <div class="step-badge">Step 2</div>
+        <h2>Live: slide bits and sparsity</h2>
+        <p>
+          A trained 2-hidden-layer MLP on a 3-class 2-D dataset.
+          The base weights are trained to convergence; we apply
+          quantization (PTQ) and magnitude-pruning at inference time
+          and report the accuracy.
+        </p>
+        <div class="train-controls">
+          <label>quantization bits &nbsp;<span id="qp-bits-val">8</span> <input type="range" id="qp-bits" min="1" max="16" step="1" value="8"></label>
+          <label>pruning ratio &nbsp;<span id="qp-prune-val">0.00</span> <input type="range" id="qp-prune" min="0" max="0.99" step="0.01" value="0"></label>
+          <label>recipe
+            <select id="qp-recipe">
+              <option value="ptq" selected>PTQ (post-training)</option>
+              <option value="qat">QAT (simulated during retraining)</option>
+            </select>
+          </label>
+          <button class="action-btn action-btn--ghost" id="qp-newdata">New data</button>
+          <span class="train-stat">size <strong id="qp-size">—</strong></span>
+          <span class="train-stat">acc <strong id="qp-acc">—</strong></span>
+        </div>
+        <div class="qp-grid">
+          <div class="qp-panel">
+            <div class="panel-label">Original FP32 model</div>
+            <canvas id="qp-orig" width="380" height="380"></canvas>
+          </div>
+          <div class="qp-panel">
+            <div class="panel-label">Compressed model</div>
+            <canvas id="qp-comp" width="380" height="380"></canvas>
+          </div>
+          <div class="qp-panel">
+            <div class="panel-label">Size-vs-accuracy curve</div>
+            <canvas id="qp-curve" width="380" height="380"></canvas>
+          </div>
+        </div>
+        <div class="qp-grid">
+          <div class="qp-panel" style="grid-column: 1 / -1;">
+            <div class="panel-label">Weight distribution (FP32 → quantised grid; pruned → 0)</div>
+            <canvas id="qp-hist" width="880" height="200"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <section class="step-section" id="step-3">
+        <div class="step-badge">Step 3</div>
+        <h2>The thresholds you should know</h2>
+        <ul class="explanation-list">
+          <li><strong>int8 with PTQ.</strong> Modern CNNs and small LLMs
+            lose &lt; 1% accuracy. Cheap. The default first try.</li>
+          <li><strong>int8 with QAT.</strong> Recovers the remaining
+            &lt; 0.5%; sometimes <em>better</em> than FP32 because
+            quantization noise acts as regularisation.</li>
+          <li><strong>int4 (PTQ).</strong> 1-3% drop on most CNNs;
+            substantial on LLMs without GPTQ / AWQ / SmoothQuant
+            tricks. Activation outliers are the dominant problem.</li>
+          <li><strong>int4 (QAT or GPTQ-style).</strong> Most LLMs run
+            at int4 in production in 2026 with ~0.5% perplexity
+            increase.</li>
+          <li><strong>int2 / binary.</strong> Big quality drops. Used
+            in specialised hardware (NPUs, ASICs) where the size win
+            is worth the accuracy loss.</li>
+          <li><strong>Magnitude pruning, unstructured, 50%.</strong>
+            Most networks tolerate ~50% sparsity with negligible
+            accuracy loss. Above ~80% the decision boundary cracks.</li>
+          <li><strong>Structured pruning (whole heads / channels).</strong>
+            Stricter limit; ~25-35% before quality drops, but real
+            speed-up on commodity hardware.</li>
+          <li><strong>Mixed precision (FP16 / FP8).</strong> Modern
+            training and inference default. NVIDIA H100 / B200 FP8;
+            Apple Silicon FP16; Tensor cores need FP16 or BF16.</li>
+        </ul>
+      </section>
+
+      <section class="step-section" id="step-4">
+        <div class="step-badge">Step 4</div>
+        <h2>Lottery ticket — pruning's surprise</h2>
+        <p>
+          Frankle &amp; Carbin (2019) showed that within a dense
+          random-initialisation network, there exists a small
+          subnetwork (a "winning ticket") that, when trained from the
+          <em>same</em> initial weights, matches or beats the dense
+          network's accuracy. The recipe:
+        </p>
+        <ol class="explanation-list">
+          <li>Train dense network. Save initial weights.</li>
+          <li>Prune by magnitude (e.g., bottom 80%).</li>
+          <li>Reset surviving weights to their initial values.</li>
+          <li>Retrain. Often hits the same accuracy as the dense
+            network.</li>
+          <li>(Iterate; "iterative magnitude pruning" finds smaller
+            tickets.)</li>
+        </ol>
+        <div class="callout callout--key">
+          <strong>What it tells us.</strong>
+          Most weights in a trained network are unused; pruning
+          finds the useful subset. <em>Initialization</em> matters
+          — random init plus pruning fails; matched init plus
+          pruning succeeds. This is a clue to the implicit bias of
+          SGD that mainstream theory still hasn't fully explained.
+        </div>
+      </section>
+
+      <section class="step-section" id="step-5">
+        <div class="step-badge">Step 5</div>
+        <h2>Practical stack for shipping a small model</h2>
+        <ol class="explanation-list">
+          <li><strong>Start big.</strong> Train the largest model your
+            data supports; you'll compress later.</li>
+          <li><strong>Distil into a smaller architecture.</strong>
+            See the <a href="../knowledge-distillation/index.html">KD article</a>;
+            a smaller student that imitates the teacher's softmax
+            often beats a same-size from-scratch model.</li>
+          <li><strong>Apply structured pruning</strong> for real
+            speed-up on commodity hardware. 25-35% drop without quality loss.</li>
+          <li><strong>QAT at int8</strong> as the production target.
+            Validate on a calibrated test set (see
+            <a href="../calibration/index.html">calibration</a>).</li>
+          <li><strong>Optional: int4 with GPTQ / AWQ</strong> for big
+            LLMs where memory is the bottleneck.</li>
+          <li><strong>Profile + iterate.</strong> Almost all "the model
+            is too slow" complaints are actually data-pipeline / I/O
+            problems, not the model. Always profile first.</li>
+          <li><strong>Deployment runtimes:</strong> ONNX Runtime,
+            TensorRT-LLM, llama.cpp, MLC-LLM, Core ML, TFLite. Each
+            ships its own quantization tools and has its own
+            production gotchas.</li>
+        </ol>
+      </section>
+    </article>
+
+    <script src="../vendor/katex/katex.min.js"></script>
+    <script type="module" src="main.js"></script>
+  </body>
+</html>

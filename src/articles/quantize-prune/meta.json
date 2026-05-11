@@ -1,0 +1,19 @@
+{
+  "slug": "quantize-prune",
+  "title": "Quantization & Pruning, Side by Side",
+  "date": "2026-05-11",
+  "tagline": "Shrink a model to int8 / int4 / sparse — and see exactly when accuracy falls off the cliff",
+  "summary": "Live network on a 2-D classification toy: slide the quantization bit-width from 16 down to 1, and the pruning ratio from 0% to 95%. Watch accuracy vs model size. Then PTQ vs QAT vs lottery-ticket explained with the right cost/benefit per technique.",
+  "readingTime": "18 min",
+  "difficulty": "Intermediate",
+  "collection": "Deep learning",
+  "order": 34,
+  "status": "published",
+  "tags": ["Quantization", "Pruning", "Compression", "Edge", "Interactive"],
+  "highlights": [
+    "Train a small MLP; live quantization slider from FP16 down to 1-bit weights; per-bit-width accuracy.",
+    "Magnitude-pruning ratio slider; see decision boundary crack only above ~80% sparsity.",
+    "Size-vs-accuracy curve with PTQ vs QAT vs structured-pruning markers.",
+    "Lottery ticket panel: prune + reset + retrain; watch the subnetwork train as well as the original."
+  ]
+}
