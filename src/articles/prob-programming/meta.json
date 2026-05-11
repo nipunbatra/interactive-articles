@@ -1,0 +1,19 @@
+{
+  "slug": "prob-programming",
+  "title": "Probabilistic Programming, in Practice",
+  "date": "2026-05-11",
+  "tagline": "PyMC / NumPyro / Stan are the same idea — declare a model, hand it to an inference engine",
+  "summary": "Write a Bayesian model as code; sample it with HMC; check r-hat and ESS; compare with VI. A live coin-bias model + a 2-D regression run NUTS-flavour MCMC and a Gaussian VI in your browser, side-by-side, with trace plots and the diagnostics you'd see in PyMC / NumPyro / Stan.",
+  "readingTime": "20 min",
+  "difficulty": "Intermediate",
+  "collection": "Probability & inference",
+  "order": 36,
+  "status": "published",
+  "tags": ["Probabilistic Programming", "HMC", "VI", "PyMC", "NumPyro", "Interactive"],
+  "highlights": [
+    "PPL recipe: declare model, choose inference (HMC / VI), check diagnostics.",
+    "Live coin-bias model: HMC trace + posterior histogram + analytic Beta posterior.",
+    "2-D Bayesian regression: HMC vs VI fit on a small dataset.",
+    "r-hat, ESS, divergent transitions, posterior predictive checks — what each is for."
+  ]
+}

@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Probabilistic Programming, in Practice</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../vendor/katex/katex.min.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <article class="article">
+      <header class="article-header">
+        <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+        <p class="kicker">Interactive Explainer</p>
+        <h1>Probabilistic Programming, in Practice</h1>
+        <p class="abstract">
+          PyMC, NumPyro, Stan — the productive recipe for Bayesian
+          modelling. Declare the model, pick an inference engine,
+          inspect diagnostics. Two live demos in the browser plus
+          the checklist of what to look at after every run.
+        </p>
+        <div class="byline">
+          <span>~20 min</span>
+          <span>Bayesian &middot; MCMC &middot; VI</span>
+        </div>
+      </header>
+
+      <section class="step-section" id="step-1">
+        <div class="step-badge">Step 1</div>
+        <h2>What a PPL is — and isn't</h2>
+        <p>
+          A probabilistic programming language lets you write a
+          generative model as code. You declare priors, sampling
+          distributions, observations; the runtime takes care of
+          posterior inference. The same model can be run with HMC,
+          NUTS, ADVI, SMC, or Laplace approximation depending on a
+          one-line switch.
+        </p>
+        <div class="examples-table-wrap">
+          <table class="examples-table">
+            <thead><tr><th>Tool</th><th>Backend</th><th>Strengths</th><th>Quirks</th></tr></thead>
+            <tbody>
+              <tr><td><strong>Stan</strong></td><td>Custom + C++</td><td>Best NUTS sampler; rock-solid for hierarchical models</td><td>Different language; slower compile</td></tr>
+              <tr><td><strong>PyMC</strong></td><td>PyTensor / JAX</td><td>Pythonic; large user base; rich tools (ArviZ)</td><td>Compile time on first run</td></tr>
+              <tr><td><strong>NumPyro</strong></td><td>JAX</td><td>Fast NUTS via JAX; GPU-friendly; cleanest deep-learning interop</td><td>Smaller community than PyMC</td></tr>
+              <tr><td><strong>Turing.jl</strong></td><td>Julia</td><td>Composes with Julia's ML stack; flexible</td><td>Julia-only</td></tr>
+              <tr><td><strong>Pyro</strong></td><td>PyTorch</td><td>Stochastic VI on big models; good for BNNs / latent-variable</td><td>HMC less mature than NumPyro's</td></tr>
+              <tr><td><strong>Edward2 / TFP</strong></td><td>TensorFlow</td><td>Scales; ecosystem hooks</td><td>API churn</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout callout--key">
+          <strong>The slogan.</strong>
+          You write the math once. The PPL handles the inference. Switching
+          between HMC and VI is a flag change, not a rewrite.
+        </div>
+      </section>
+
+      <section class="step-section" id="step-2">
+        <div class="step-badge">Step 2</div>
+        <h2>Pseudo-code template</h2>
+        <pre class="ppl-pre">with model:
+    theta = Beta("theta", alpha=1, beta=1)        # prior
+    y = Binomial("y", n=20, p=theta, observed=14) # likelihood + obs
+
+    trace = sample(2000, chains=4)                 # NUTS
+    az.plot_trace(trace)
+    az.summary(trace)                              # r-hat, ESS</pre>
+        <p>
+          Three things every PPL gives you:
+        </p>
+        <ol class="explanation-list">
+          <li><strong>Declarative model.</strong> Variables are named,
+            distributions have priors, observations attach to data.</li>
+          <li><strong>Inference engine.</strong> NUTS / HMC by default;
+            VI / Laplace on demand.</li>
+          <li><strong>Diagnostics.</strong> r-hat (between-chain
+            convergence), ESS (effective sample size), divergent
+            transitions, posterior predictive checks.</li>
+        </ol>
+      </section>
+
+      <section class="step-section" id="step-3">
+        <div class="step-badge">Step 3</div>
+        <h2>Live: coin-bias model — HMC vs analytic</h2>
+        <p>
+          The simplest Bayesian model: $\theta \sim \mathrm{Beta}(1, 1)$,
+          $y \sim \mathrm{Bernoulli}(\theta)$. Beta-Binomial conjugacy
+          gives the analytic posterior; an HMC chain should match it.
+          Add data with the buttons and run HMC live.
+        </p>
+        <div class="train-controls">
+          <button class="action-btn" id="ppl-flipH">+ heads</button>
+          <button class="action-btn action-btn--ghost" id="ppl-flipT">+ tails</button>
+          <button class="action-btn action-btn--ghost" id="ppl-reset">Reset data</button>
+          <button class="action-btn" id="ppl-runHMC">Run HMC chain (500)</button>
+          <span class="train-stat">k / n <strong id="ppl-kn">0/0</strong></span>
+          <span class="train-stat">r-hat <strong id="ppl-rhat">—</strong></span>
+          <span class="train-stat">ESS <strong id="ppl-ess">—</strong></span>
+        </div>
+        <div class="ppl-grid">
+          <div class="ppl-panel">
+            <div class="panel-label">Posterior: HMC samples vs analytic Beta</div>
+            <canvas id="ppl-posterior" width="540" height="320"></canvas>
+          </div>
+          <div class="ppl-panel">
+            <div class="panel-label">HMC trace plot (chain 1)</div>
+            <canvas id="ppl-trace" width="540" height="320"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <section class="step-section" id="step-4">
+        <div class="step-badge">Step 4</div>
+        <h2>Live: 2-D Bayesian regression — HMC vs VI</h2>
+        <p>
+          A Bayesian linear regression with a small dataset. HMC gives
+          honest posterior; mean-field VI fits a factorised Gaussian.
+          Watch the credible bands differ: VI is usually too narrow,
+          especially in directions where the parameters correlate.
+        </p>
+        <div class="train-controls">
+          <button class="action-btn action-btn--ghost" id="bl-newdata">New data</button>
+          <span class="train-stat">n <strong id="bl-n">—</strong></span>
+        </div>
+        <div class="ppl-grid">
+          <div class="ppl-panel">
+            <div class="panel-label">HMC posterior over (slope, intercept)</div>
+            <canvas id="bl-hmc" width="540" height="380"></canvas>
+          </div>
+          <div class="ppl-panel">
+            <div class="panel-label">VI Gaussian fit (mean-field)</div>
+            <canvas id="bl-vi" width="540" height="380"></canvas>
+          </div>
+        </div>
+        <div class="callout callout--warn">
+          <strong>The VI trap.</strong>
+          Mean-field VI factorises across parameters, so it can't
+          represent correlated posteriors. The HMC contours often
+          slant; the VI contours always align with the axes. For
+          credible-interval-quality work, prefer HMC or full-rank VI.
+        </div>
+      </section>
+
+      <section class="step-section" id="step-5">
+        <div class="step-badge">Step 5</div>
+        <h2>The diagnostic checklist</h2>
+        <ul class="explanation-list">
+          <li><strong>r-hat &lt; 1.01.</strong> Between-chain consensus
+            on each parameter. Above 1.05 = chains haven't converged;
+            run longer or reparameterise.</li>
+          <li><strong>ESS &gt; 400.</strong> Effective sample size.
+            Below this, your posterior summary is noisy.</li>
+          <li><strong>Divergent transitions.</strong> NUTS-specific.
+            Even 5 divergences ≥ 0% of the chain means the geometry
+            is too curved — try a non-centred parameterisation or
+            increase <code>target_accept</code>.</li>
+          <li><strong>Posterior predictive checks.</strong> Simulate
+            new data from the posterior and compare to observed.
+            Bad fit here ≫ any single diagnostic.</li>
+          <li><strong>Prior predictive checks.</strong> Sample from
+            the prior alone. If those samples look implausible, your
+            prior is uninformative-in-a-bad-way.</li>
+          <li><strong>LOO / WAIC.</strong> Cross-validated predictive
+            accuracy for model comparison. ArviZ ships both.</li>
+        </ul>
+        <div class="math-block" id="math-rhat"></div>
+      </section>
+
+      <section class="step-section" id="step-6">
+        <div class="step-badge">Step 6</div>
+        <h2>What PPLs are for (and not for)</h2>
+        <ul class="explanation-list">
+          <li><strong>Good fits.</strong> Hierarchical models, small
+            data, calibrated uncertainty, parameter interpretation,
+            scientific models with mechanistic priors.</li>
+          <li><strong>Reach for instead:</strong> deep learning on
+            millions of examples (gradient descent is faster), pure
+            point-estimation (sklearn / XGBoost), production serving
+            (PPLs are great in research, awkward in production).</li>
+          <li><strong>The deep BNN gap.</strong> Bayesian neural nets
+            are hard. PyMC + NUTS chokes past a few thousand parameters;
+            VI on Bayesian-deep is biased. SWAG, Laplace, deep
+            ensembles, and SGLD are the practical compromises.</li>
+          <li><strong>Cross-link.</strong> The <a href="../bayesian-posterior/index.html">Bayesian posterior playground</a>
+            covers MCMC vs VI from a different angle; the
+            <a href="../neural-processes/index.html">Neural Processes</a>
+            article shows the amortised-inference alternative.</li>
+        </ul>
+      </section>
+    </article>
+
+    <script src="../vendor/katex/katex.min.js"></script>
+    <script type="module" src="main.js"></script>
+  </body>
+</html>
