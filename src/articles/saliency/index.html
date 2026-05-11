@@ -33,11 +33,12 @@
         <div class="step-badge">Prelude</div>
         <h2>The 'why' question</h2>
         <p>
-          You hand a thermal frame to a classifier; it says "apnea
-          event, 0.92". The right next question is <em>why</em>.
-          Saliency methods produce a per-pixel "importance" map. They
-          are useful, sometimes deeply misleading, and almost always
-          worth running before publishing or deploying.
+          A classifier outputs "tumor present, p = 0.92" on a scan. The
+          right next question is <em>why</em>. Saliency methods produce
+          a per-pixel "importance" map answering "which pixels of the
+          input most influenced this prediction?". They are useful,
+          sometimes deeply misleading, and almost always worth running
+          before publishing a model or deploying it.
         </p>
         <div class="callout callout--warn">
           <strong>The catch.</strong>
@@ -69,6 +70,34 @@
             map at a chosen conv layer. Coarser (one-pixel-per-CNN-cell)
             but faithful to the network's internal feature space.</li>
         </ul>
+        <div class="math-block" id="math-vg"></div>
+        <div class="math-block" id="math-sg"></div>
+        <div class="math-block" id="math-ig"></div>
+        <div class="math-block" id="math-gcam"></div>
+        <p>
+          For Integrated Gradients, $x^\prime$ is the baseline (often a
+          black image). The integral guarantees <em>completeness</em>:
+          $\sum_i \mathrm{IG}_i = f_c(x) - f_c(x^\prime)$ — every unit
+          of the prediction is attributed to <em>some</em> pixel. No
+          gradient method without an integration path has this property.
+        </p>
+      </section>
+
+      <section class="step-section" id="step-1a">
+        <div class="step-badge">Step 1½</div>
+        <h2>Axioms — why we should care about them</h2>
+        <p>
+          Sundararajan, Taly, Yan (2017) introduced an axiomatic frame for evaluating attribution methods. The four key axioms:
+        </p>
+        <ul class="explanation-list">
+          <li><strong>Sensitivity.</strong> If $x$ and $x^\prime$ differ on a single feature and give different predictions, that feature must get non-zero attribution. Vanilla gradient <em>fails</em> this because of ReLU saturation; IG satisfies it.</li>
+          <li><strong>Implementation invariance.</strong> Two functionally-identical networks should yield identical attributions. Vanilla gradient passes; some methods that hold gradient flow at activations (DeepLIFT, LRP) can fail in pathological cases.</li>
+          <li><strong>Completeness.</strong> Attributions sum to the prediction minus the baseline. Only path-integrated methods (IG, Shapley values) satisfy this.</li>
+          <li><strong>Linearity.</strong> Attribution of $\alpha f + \beta g$ equals $\alpha$ × attribution of $f$ + $\beta$ × attribution of $g$. Satisfied by all linear-in-gradient methods.</li>
+        </ul>
+        <p>
+          The axioms uniquely pick out the path-integrated gradient when you also require Shapley-style symmetry. That's why Integrated Gradients (and its Shapley relatives, like Expected Gradients) are the academically-correct choice when you can afford them.
+        </p>
       </section>
 
       <section class="step-section" id="step-2">
@@ -144,11 +173,63 @@
         </ul>
         <div class="callout callout--think">
           <strong>Final takeaway.</strong>
-          Always show a saliency map next to the prediction in lab
-          paper figures. Use IG with a domain-meaningful baseline +
+          Always show a saliency map next to the prediction in paper
+          figures. Use IG with a domain-meaningful baseline +
           Grad-CAM together &mdash; they fail in different ways and
           their disagreement is informative.
         </div>
+      </section>
+
+      <section class="step-section" id="step-4">
+        <div class="step-badge">Step 4</div>
+        <h2>Beyond gradient-based: perturbation methods</h2>
+        <p>
+          Gradient methods answer "if I changed this pixel infinitesimally, how would the prediction change?". A perturbation method asks the stronger, causal question: "if I removed this pixel <em>entirely</em>, how would the prediction change?". Three families:
+        </p>
+        <ul class="explanation-list">
+          <li><strong>Occlusion (sliding window).</strong> Replace each region with a baseline (gray patch, blur) and measure the drop in $f_c$. Slow ($O(\text{pixels} \times \text{forward passes})$) but model-agnostic; works on black-box APIs.</li>
+          <li><strong>RISE</strong> (Petsiuk et&nbsp;al., 2018). Randomly mask the input many times, weight each mask by the resulting $f_c$, average. A Monte-Carlo perturbation method that's both faster than occlusion and noisier than IG.</li>
+          <li><strong>LIME / KernelSHAP.</strong> Fit a sparse linear surrogate to the model's behaviour on perturbations near $x$. KernelSHAP additionally enforces Shapley-value properties.</li>
+          <li><strong>Causal interpretations.</strong> If you want true counterfactual reasoning ("would the prediction be different had this feature been absent?"), look at the <a href="../concept-bottleneck/index.html">concept bottleneck article</a> — intervention on an explicit concept is closer to what people usually mean by "why".</li>
+        </ul>
+      </section>
+
+      <section class="step-section" id="step-5">
+        <div class="step-badge">Step 5</div>
+        <h2>Sanity checks you should always run</h2>
+        <ul class="explanation-list">
+          <li><strong>Adebayo's randomisation test.</strong> Randomise the model's parameters layer-by-layer. If the saliency map doesn't change, your map is reading the input, not the model — you have a fancy edge detector, not an explanation.</li>
+          <li><strong>Data randomisation.</strong> Train two models, one with shuffled labels. Saliency on the shuffled-label model should be qualitatively different.</li>
+          <li><strong>Sensitivity-N / pointing game.</strong> Mask the top-K pixels by attribution; measure prediction drop. Average over a dataset. Compare methods on the same model.</li>
+          <li><strong>Pixel-flipping / insertion-deletion AUC.</strong> Insert pixels by descending attribution; plot $f_c$ vs fraction inserted; the area-under-curve is a quantitative quality measure (Petsiuk et&nbsp;al., 2018).</li>
+        </ul>
+      </section>
+
+      <section class="step-section" id="step-6">
+        <div class="step-badge">Step 6</div>
+        <h2>Saliency for vision transformers</h2>
+        <p>
+          ViTs don't have convolutional feature maps, so Grad-CAM doesn't apply directly. Three replacements:
+        </p>
+        <ul class="explanation-list">
+          <li><strong>Attention rollout.</strong> Multiply attention matrices across layers (with residual). Coarse but parameter-free; see the <a href="../vision-transformer/index.html">ViT article</a>.</li>
+          <li><strong>Attribution rollout</strong> (Chefer et&nbsp;al., 2021). Combine attention with gradients; outperforms vanilla rollout on most benchmarks.</li>
+          <li><strong>Token-level IG.</strong> Integrate gradients with respect to token embeddings instead of pixels. Native attribution scale = one number per patch.</li>
+        </ul>
+      </section>
+
+      <section class="step-section" id="step-7">
+        <div class="step-badge">Step 7</div>
+        <h2>Reading list</h2>
+        <ul class="explanation-list">
+          <li><strong>Simonyan, Vedaldi, Zisserman (2014)</strong> &mdash; <em>Deep Inside Convolutional Networks: Visualising Image Classification Models and Saliency Maps.</em> The original.</li>
+          <li><strong>Sundararajan, Taly, Yan (2017)</strong> &mdash; <em>Axiomatic Attribution for Deep Networks.</em> The IG paper.</li>
+          <li><strong>Selvaraju et&nbsp;al. (2017)</strong> &mdash; <em>Grad-CAM.</em></li>
+          <li><strong>Smilkov et&nbsp;al. (2017)</strong> &mdash; <em>SmoothGrad.</em></li>
+          <li><strong>Adebayo et&nbsp;al. (2018)</strong> &mdash; <em>Sanity Checks for Saliency Maps.</em></li>
+          <li><strong>Petsiuk et&nbsp;al. (2018)</strong> &mdash; <em>RISE.</em></li>
+          <li><strong>Chefer, Gur, Wolf (2021)</strong> &mdash; <em>Transformer Interpretability Beyond Attention Visualization.</em></li>
+        </ul>
       </section>
     </article>
 

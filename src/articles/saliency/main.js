@@ -238,6 +238,32 @@ function wire() {
   renderAll();
 }
 
-function boot() { wire(); }
+function renderMath() {
+  if (!window.katex) return;
+  const blocks = {
+    'math-vg':
+      '\\text{Vanilla gradient:}\\quad S_i = \\frac{\\partial f_c}{\\partial x_i}\\bigg|_x',
+    'math-sg':
+      '\\text{SmoothGrad:}\\quad S_i = \\frac{1}{n}\\sum_{k=1}^n \\frac{\\partial f_c}{\\partial x_i}\\bigg|_{x + \\epsilon_k},\\quad \\epsilon_k \\sim \\mathcal{N}(0, \\sigma^2 I)',
+    'math-ig':
+      '\\text{Integrated Gradients:}\\quad S_i = (x_i - x_i^\\prime) \\int_0^1 \\frac{\\partial f_c}{\\partial x_i}\\bigg|_{x^\\prime + \\alpha(x - x^\\prime)}\\, d\\alpha',
+    'math-gcam':
+      '\\text{Grad-CAM:}\\quad L^c_{i,j} = \\mathrm{ReLU}\\!\\left(\\sum_k \\alpha_k^c\\, A_{i,j}^k\\right),\\quad \\alpha_k^c = \\frac{1}{HW}\\sum_{i,j} \\frac{\\partial f_c}{\\partial A_{i,j}^k}'
+  };
+  Object.keys(blocks).forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    try { katex.render(blocks[id], el, { displayMode: true, throwOnError: false }); } catch (_) {}
+  });
+}
+
+function boot() {
+  wire();
+  if (window.katex) renderMath();
+  else {
+    const s = document.querySelector('script[src*="katex"]');
+    if (s) s.addEventListener('load', renderMath);
+  }
+}
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
 else boot();

@@ -288,7 +288,15 @@ function renderMath() {
     'math-kernel':
       'k(x, x\') = \\phi(x)^\\top \\phi(x\'),\\qquad \\hat f(x) = \\sum_{i} \\alpha_i\\, k(x_i, x)',
     'math-ntk':
-      'K_{\\text{NTK}}(x, x\') = \\bigl\\langle \\nabla_\\theta f_\\theta(x),\\; \\nabla_\\theta f_\\theta(x\') \\bigr\\rangle\\Big|_{\\theta = \\theta_0}'
+      'K_{\\text{NTK}}(x, x\') = \\bigl\\langle \\nabla_\\theta f_\\theta(x),\\; \\nabla_\\theta f_\\theta(x\') \\bigr\\rangle\\Big|_{\\theta = \\theta_0}',
+    'math-mercer':
+      'k(x, x\') = \\sum_{i \\ge 1} \\lambda_i\\, \\psi_i(x)\\, \\psi_i(x\'),\\qquad \\lambda_i \\ge 0',
+    'math-representer':
+      'f^\\star = \\arg\\min_{f \\in \\mathcal{H}} \\;L\\bigl(\\{f(x_i)\\}, y\\bigr) + \\Omega(\\|f\\|_\\mathcal{H})\\;\\Longrightarrow\\; f^\\star = \\sum_{i=1}^N \\alpha_i\\, k(x_i, \\cdot)',
+    'math-gp':
+      'p(f_* \\mid X, y) = \\mathcal{N}\\bigl(\\mu_*,\\, \\sigma_*^2\\bigr),\\;\\; \\mu_* = k_*^\\top (K + \\sigma^2 I)^{-1} y,\\;\\; \\sigma_*^2 = k(x_*, x_*) - k_*^\\top (K + \\sigma^2 I)^{-1} k_*',
+    'math-dkl':
+      'k_{\\text{DKL}}(x, x\') = k_{\\text{RBF}}\\bigl(\\phi_\\theta(x),\\, \\phi_\\theta(x\')\\bigr)'
   };
   Object.keys(blocks).forEach((id) => {
     const el = document.getElementById(id);

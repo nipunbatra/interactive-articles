@@ -317,7 +317,9 @@ function renderMath() {
     'math-rf':
       '\\hat y(x) = \\mathrm{mode}\\bigl\\{T_b(x)\\bigr\\}_{b=1}^{B},\\qquad T_b\\text{ on bootstrap sample}\\;\\mathcal{B}_b,\\;\\text{splits on a random subset of }m\\le d\\text{ features}',
     'math-oob':
-      '\\mathrm{OOB\\;error} = \\frac{1}{N}\\sum_{i=1}^{N} \\mathbb{1}\\!\\left[\\hat y_i^{\\text{OOB}} \\neq y_i\\right],\\quad \\hat y_i^{\\text{OOB}} = \\mathrm{mode}\\bigl\\{T_b(x_i) : i \\notin \\mathcal{B}_b\\bigr\\}'
+      '\\mathrm{OOB\\;error} = \\frac{1}{N}\\sum_{i=1}^{N} \\mathbb{1}\\!\\left[\\hat y_i^{\\text{OOB}} \\neq y_i\\right],\\quad \\hat y_i^{\\text{OOB}} = \\mathrm{mode}\\bigl\\{T_b(x_i) : i \\notin \\mathcal{B}_b\\bigr\\}',
+    'math-var':
+      '\\operatorname{Var}\\!\\left[\\frac{1}{T}\\sum_{t=1}^T \\hat f_t(x)\\right] = \\rho\\,\\sigma^2 \\;+\\; \\frac{1 - \\rho}{T}\\,\\sigma^2'
   };
   Object.keys(blocks).forEach((id) => {
     const el = document.getElementById(id);

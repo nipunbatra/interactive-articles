@@ -269,6 +269,32 @@ function wire() {
   renderCanvas();
 }
 
-function boot() { wire(); }
+function renderMath() {
+  if (!window.katex) return;
+  const blocks = {
+    'math-newton-taylor':
+      'f(w_t + \\Delta w) \\approx f(w_t) + \\nabla f^\\top \\Delta w + \\tfrac{1}{2} \\Delta w^\\top H \\Delta w',
+    'math-bfgs':
+      'B_{t+1} = \\left(I - \\frac{s_t y_t^\\top}{y_t^\\top s_t}\\right) B_t \\left(I - \\frac{y_t s_t^\\top}{y_t^\\top s_t}\\right) + \\frac{s_t s_t^\\top}{y_t^\\top s_t}',
+    'math-natural':
+      'w_{t+1} = w_t - \\eta\\, F(w_t)^{-1} \\nabla L(w_t),\\qquad F = \\mathbb{E}_x\\,\\nabla \\log p_\\theta(x)\\,\\nabla \\log p_\\theta(x)^\\top',
+    'math-spsa':
+      '\\hat g_t = \\frac{f(w_t + c_t\\Delta_t) - f(w_t - c_t\\Delta_t)}{2c_t}\\, \\Delta_t^{-1}\\qquad (\\Delta_t^{-1} \\text{ elementwise})'
+  };
+  Object.keys(blocks).forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    try { katex.render(blocks[id], el, { displayMode: true, throwOnError: false }); } catch (_) {}
+  });
+}
+
+function boot() {
+  wire();
+  if (window.katex) renderMath();
+  else {
+    const s = document.querySelector('script[src*="katex"]');
+    if (s) s.addEventListener('load', renderMath);
+  }
+}
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
 else boot();

@@ -29,6 +29,21 @@
         </div>
       </header>
 
+      <section class="step-section" id="prelude">
+        <div class="step-badge">Prelude</div>
+        <h2>The variance-reduction argument in two lines</h2>
+        <p>
+          A single deep tree is high-variance: small training perturbations move splits a lot. If we have $T$ trees with pairwise correlation $\rho$ and per-tree variance $\sigma^2$, the variance of the average prediction is
+        </p>
+        <div class="math-block" id="math-var"></div>
+        <p>
+          Two terms: an irreducible part driven by between-tree correlation, and a $1/T$ part driven by independence. <strong>Bagging</strong> lowers $\rho$ by training each tree on a different bootstrap sample. <strong>Random feature subsampling</strong> lowers $\rho$ further by forcing different trees to split on different features. The combination is what makes a random forest stable: $T \to \infty$ drives the $\sigma^2/T$ term to zero, and the residual $\rho\sigma^2$ is much smaller than $\sigma^2$.
+        </p>
+        <p>
+          A single deep tree is unbiased-ish but variance-heavy; averaging hundreds of them keeps the bias and crushes the variance. This is the entire intuition behind every bagged ensemble.
+        </p>
+      </section>
+
       <section class="step-section" id="step-1">
         <div class="step-badge">Step 1</div>
         <h2>Two sources of diversity</h2>
@@ -173,6 +188,59 @@
           the practical implication is that you should never train
           one decision tree when you can train fifty.
         </div>
+      </section>
+
+      <section class="step-section" id="step-6">
+        <div class="step-badge">Step 6</div>
+        <h2>RF vs Gradient Boosting — when to use which</h2>
+        <div class="examples-table-wrap" style="overflow-x:auto;">
+          <table class="examples-table">
+            <thead><tr><th>Axis</th><th>Random Forest</th><th>Gradient Boosting (XGBoost / LightGBM)</th></tr></thead>
+            <tbody>
+              <tr><td>Training</td><td>Trees are independent (parallel)</td><td>Trees are sequential (later trees fix earlier mistakes)</td></tr>
+              <tr><td>Per-tree depth</td><td>Deep (often unlimited)</td><td>Shallow (3–8)</td></tr>
+              <tr><td>Sensitivity to hyperparameters</td><td>Robust — defaults usually work</td><td>Sensitive — must tune learning rate, max_depth, regulariser</td></tr>
+              <tr><td>Risk of overfit</td><td>Low (averaging)</td><td>Higher — need early stopping</td></tr>
+              <tr><td>Calibration</td><td>Poorly calibrated probabilities</td><td>Slightly better, still wrap with Platt / isotonic</td></tr>
+              <tr><td>Best on</td><td>Many features, mild signal, fast prototyping</td><td>Tight accuracy targets, large datasets, Kaggle</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          Mental model: <em>RF averages many trained-from-scratch trees; boosting trains a sequence of small trees on each other's residuals.</em> See <a href="../xgboost/index.html">the XGBoost article</a> for boosting's mechanics.
+        </p>
+      </section>
+
+      <section class="step-section" id="step-7">
+        <div class="step-badge">Step 7</div>
+        <h2>Hyperparameter cheat sheet</h2>
+        <div class="examples-table-wrap" style="overflow-x:auto;">
+          <table class="examples-table">
+            <thead><tr><th>Parameter</th><th>Default</th><th>What to change &amp; when</th></tr></thead>
+            <tbody>
+              <tr><td><code>n_estimators</code></td><td>100</td><td>Increase until OOB error plateaus; cheap upside, no overfit.</td></tr>
+              <tr><td><code>max_depth</code></td><td>None (full)</td><td>Cap at 10–15 if memory matters; small effect on accuracy.</td></tr>
+              <tr><td><code>max_features</code></td><td>$\sqrt d$ (clf) / $d/3$ (reg)</td><td>Lower for redundant features; raise for sparse / weak features.</td></tr>
+              <tr><td><code>min_samples_leaf</code></td><td>1</td><td>Raise to 5 if labels are noisy; smoother boundary.</td></tr>
+              <tr><td><code>bootstrap</code></td><td>True</td><td>Set False to disable bagging (then OOB is undefined).</td></tr>
+              <tr><td><code>class_weight</code></td><td>None</td><td>Use <code>"balanced"</code> for imbalanced classification.</td></tr>
+              <tr><td><code>n_jobs</code></td><td>1</td><td><code>-1</code> to use all CPU cores — embarrassingly parallel.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="step-section" id="step-8">
+        <div class="step-badge">Step 8</div>
+        <h2>Reading list</h2>
+        <ul class="explanation-list">
+          <li><strong>Breiman (2001)</strong> &mdash; <em>Random Forests.</em> The original paper. Highly readable.</li>
+          <li><strong>Geurts, Ernst, Wehenkel (2006)</strong> &mdash; <em>Extremely Randomized Trees.</em></li>
+          <li><strong>Hastie, Tibshirani, Friedman</strong>, <em>The Elements of Statistical Learning</em>, ch. 15.</li>
+          <li><strong>Louppe (2014)</strong> &mdash; <em>Understanding Random Forests: From Theory to Practice.</em> PhD thesis, depth on bias-variance and importance estimators.</li>
+          <li><strong>Strobl et&nbsp;al. (2007)</strong> &mdash; <em>Bias in random forest variable importance measures.</em> The MDI bias paper; canonical reference for "use permutation importance instead".</li>
+          <li><strong>Grinsztajn, Oyallon, Varoquaux (2022)</strong> &mdash; <em>Why do tree-based models still outperform deep learning on tabular data?</em></li>
+        </ul>
       </section>
     </article>
 

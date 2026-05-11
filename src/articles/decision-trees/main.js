@@ -276,7 +276,11 @@ function renderMath() {
   if (!window.katex) return;
   const blocks = {
     'math-impurity':
-      '\\mathrm{Gini}(p) = 1 - p^2 - (1-p)^2,\\qquad H(p) = -p\\log_2 p - (1-p)\\log_2(1-p)'
+      '\\mathrm{Gini}(p) = 1 - p^2 - (1-p)^2,\\qquad H(p) = -p\\log_2 p - (1-p)\\log_2(1-p)',
+    'math-mse':
+      'I_{\\text{reg}}(\\text{node}) = \\frac{1}{N}\\sum_{i \\in \\text{node}} (y_i - \\bar y_{\\text{node}})^2,\\qquad \\hat y(\\text{leaf}) = \\bar y_{\\text{leaf}}',
+    'math-ccp':
+      'C_\\alpha(T) = \\sum_{\\ell \\in \\text{leaves}(T)} N_\\ell \\cdot I(\\ell) \\;+\\; \\alpha \\cdot |\\text{leaves}(T)|'
   };
   Object.keys(blocks).forEach((id) => {
     const el = document.getElementById(id);
@@ -284,6 +288,149 @@ function renderMath() {
     try { katex.render(blocks[id], el, { displayMode: true, throwOnError: false }); } catch (_) {}
   });
 }
+// ---------- Information-gain demo (1D) ----------
+const IG = { t: 0.5, criterion: 'gini', data: null };
+function makeIGDataset() {
+  // 60 points along x ∈ [0,1] with two slightly-overlapping clusters
+  const pts = [];
+  for (let i = 0; i < 30; i++) {
+    pts.push({ x: 0.25 + 0.13 * randn(), label: 0 });
+  }
+  for (let i = 0; i < 30; i++) {
+    pts.push({ x: 0.7 + 0.13 * randn(), label: 1 });
+  }
+  return pts.map((p) => ({ x: Math.max(0, Math.min(1, p.x)), label: p.label }));
+}
+function impurity1D(labels, criterion) {
+  if (labels.length === 0) return 0;
+  let n0 = 0; for (const l of labels) if (l === 0) n0++;
+  const p0 = n0 / labels.length, p1 = 1 - p0;
+  if (criterion === 'gini') return 1 - p0 * p0 - p1 * p1;
+  let h = 0;
+  if (p0 > 0) h -= p0 * Math.log2(p0);
+  if (p1 > 0) h -= p1 * Math.log2(p1);
+  return h;
+}
+function igCurve(data, criterion) {
+  const sorted = data.slice().sort((a, b) => a.x - b.x);
+  const N = sorted.length;
+  const all = sorted.map((p) => p.label);
+  const baseI = impurity1D(all, criterion);
+  // 200 thresholds spanning [0,1]
+  const ts = [], deltas = [];
+  for (let k = 0; k <= 200; k++) {
+    const t = k / 200;
+    const left = [], right = [];
+    for (const p of sorted) {
+      if (p.x <= t) left.push(p.label); else right.push(p.label);
+    }
+    if (left.length === 0 || right.length === 0) {
+      ts.push(t); deltas.push(0); continue;
+    }
+    const Il = impurity1D(left, criterion);
+    const Ir = impurity1D(right, criterion);
+    const d = baseI - (left.length / N) * Il - (right.length / N) * Ir;
+    ts.push(t); deltas.push(d);
+  }
+  return { ts, deltas, baseI };
+}
+function renderIG() {
+  const canvas = document.getElementById('ig-canvas');
+  if (!canvas) return;
+  const W = 880, H = 320;
+  const ctx = setupCanvas(canvas, W, H);
+  ctx.fillStyle = '#fdfcf9'; ctx.fillRect(0, 0, W, H);
+  const m = { l: 60, r: 20, t: 20, b: 30 };
+  const px = W - m.l - m.r;
+  const top = { y: m.t, h: 100 };
+  const bot = { y: m.t + 120, h: H - m.t - 120 - m.b };
+  // Top panel: data
+  ctx.strokeStyle = '#e2d8c6';
+  ctx.strokeRect(m.l, top.y, px, top.h);
+  // axis label
+  for (let i = 0; i <= 5; i++) {
+    const x = m.l + (i / 5) * px;
+    ctx.strokeStyle = '#f0ebe1';
+    ctx.beginPath(); ctx.moveTo(x, top.y); ctx.lineTo(x, top.y + top.h); ctx.stroke();
+    ctx.fillStyle = '#9a917f'; ctx.font = '11px IBM Plex Mono'; ctx.textAlign = 'center';
+    ctx.fillText((i / 5).toFixed(1), x, top.y + top.h + 14);
+  }
+  // points
+  for (const p of IG.data) {
+    const x = m.l + p.x * px;
+    const y = top.y + top.h / 2 + (p.label === 0 ? -20 : 20) + 8 * (Math.random() - 0.5);
+    ctx.fillStyle = p.label === 0 ? '#2c6fb7' : '#d9622b';
+    ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.fill();
+  }
+  // threshold line on top
+  const tx = m.l + IG.t * px;
+  ctx.strokeStyle = '#1a1815'; ctx.lineWidth = 2;
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath(); ctx.moveTo(tx, top.y); ctx.lineTo(tx, top.y + top.h); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#1a1815'; ctx.font = '11px Manrope'; ctx.textAlign = 'center';
+  ctx.fillText(`t = ${IG.t.toFixed(2)}`, tx, top.y - 4);
+  // Bottom panel: IG curve
+  const { ts, deltas, baseI } = igCurve(IG.data, IG.criterion);
+  let hi = 0; for (const d of deltas) hi = Math.max(hi, d);
+  hi = Math.max(0.05, hi);
+  ctx.strokeStyle = '#e2d8c6';
+  ctx.strokeRect(m.l, bot.y, px, bot.h);
+  ctx.fillStyle = '#9a917f'; ctx.font = '11px IBM Plex Mono'; ctx.textAlign = 'right';
+  for (let i = 0; i <= 4; i++) {
+    const v = hi * (1 - i / 4);
+    const y = bot.y + i / 4 * bot.h;
+    ctx.fillText(v.toFixed(3), m.l - 4, y + 3);
+    ctx.strokeStyle = '#f0ebe1';
+    ctx.beginPath(); ctx.moveTo(m.l, y); ctx.lineTo(m.l + px, y); ctx.stroke();
+  }
+  ctx.strokeStyle = '#1e7770'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  ts.forEach((t, i) => {
+    const x = m.l + t * px;
+    const y = bot.y + (1 - deltas[i] / hi) * bot.h;
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+  // Current threshold marker
+  ctx.strokeStyle = '#1a1815';
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath(); ctx.moveTo(tx, bot.y); ctx.lineTo(tx, bot.y + bot.h); ctx.stroke();
+  ctx.setLineDash([]);
+  // Current delta value
+  const idx = Math.round(IG.t * 200);
+  const dCur = deltas[Math.min(200, Math.max(0, idx))];
+  ctx.fillStyle = '#1e7770'; ctx.font = '11px Manrope'; ctx.textAlign = 'left';
+  ctx.fillText(`Δ = ${dCur.toFixed(4)}`, m.l + 8, bot.y + 16);
+  ctx.fillStyle = '#9a917f';
+  ctx.fillText(`I(parent) = ${baseI.toFixed(3)}`, m.l + 120, bot.y + 16);
+  // Best threshold
+  let bestT = 0, bestD = -Infinity;
+  for (let i = 0; i < ts.length; i++) if (deltas[i] > bestD) { bestD = deltas[i]; bestT = ts[i]; }
+  const bx = m.l + bestT * px;
+  ctx.strokeStyle = '#d9622b'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(bx, bot.y); ctx.lineTo(bx, bot.y + bot.h); ctx.stroke();
+  ctx.fillStyle = '#d9622b'; ctx.textAlign = 'center';
+  ctx.fillText(`argmax t* = ${bestT.toFixed(3)}`, bx, bot.y + bot.h - 6);
+}
+function refreshIG() {
+  IG.t = parseFloat(document.getElementById('ig-t').value);
+  IG.criterion = document.getElementById('ig-crit').value;
+  document.getElementById('ig-t-val').textContent = IG.t.toFixed(2);
+  renderIG();
+}
+function wireIG() {
+  IG.data = makeIGDataset();
+  ['ig-t', 'ig-crit'].forEach((id) => {
+    document.getElementById(id).addEventListener('input', refreshIG);
+  });
+  document.getElementById('ig-reseed').addEventListener('click', () => {
+    IG.data = makeIGDataset();
+    refreshIG();
+  });
+  refreshIG();
+}
+
 function boot() {
   if (window.katex) renderMath();
   else {
@@ -291,6 +438,7 @@ function boot() {
     if (s) s.addEventListener('load', renderMath);
   }
   wire();
+  if (document.getElementById('ig-canvas')) wireIG();
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
 else boot();

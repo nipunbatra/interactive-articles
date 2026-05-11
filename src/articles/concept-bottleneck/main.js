@@ -170,13 +170,145 @@ function reroll() {
 function wire() {
   reroll();
   document.getElementById('cb-reroll').addEventListener('click', reroll);
+  const lkSlider = document.getElementById('lk-k');
+  if (lkSlider) wireLeakage();
+}
+
+// ---------- Leakage demo ----------
+const LK = { K: 0, ly: 0.5, data: null };
+function setupLeakCanvas(canvas, w, h) {
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = w * dpr; canvas.height = h * dpr;
+  canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return ctx;
+}
+function makeLeakDataset(N) {
+  // Each example: 4 named concepts c1..c4 + 4 nuisance concepts u1..u4.
+  // Class = c1 XOR c2 (binary, deterministic from named concepts).
+  const data = [];
+  for (let i = 0; i < N; i++) {
+    const c = [Math.random() < 0.5, Math.random() < 0.5, Math.random() < 0.5, Math.random() < 0.5];
+    const u = [Math.random() < 0.5, Math.random() < 0.5, Math.random() < 0.5, Math.random() < 0.5];
+    const y = (c[0] ? 1 : 0) ^ (c[1] ? 1 : 0); // class
+    data.push({ c, u, y });
+  }
+  return data;
+}
+function sigmoid(z) { return 1 / (1 + Math.exp(-z)); }
+
+// Simulate the leakage: a joint CBM with K spare hidden channels trains
+// to predict y. Whenever K >= 1, the model can route around concepts
+// by using spare channels that depend on c1 XOR c2 directly. We model
+// this analytically without doing real SGD.
+function simulateLeakage(K, ly) {
+  // Two metrics:
+  // (1) clean accuracy on a held-out set
+  // (2) intervention accuracy: pick examples where flipping c1 should flip y.
+  // The model uses concept estimates c̃_j (always faithful) PLUS K spare
+  // channels z_k that, with weight proportional to ly/(1+lyfit), encode XOR(c1, c2) directly.
+  // Effective leakage fraction = K / (K + 1/ly) ∈ [0,1)
+  const leakFrac = K === 0 ? 0 : K / (K + 1 / Math.max(0.05, ly));
+  // Clean accuracy: bottleneck + spare both right → high
+  const clean = 0.94 + 0.04 * leakFrac; // spare channels also boost clean acc
+  // Intervention accuracy: flipping c1 should flip y; spare channels still encode old y → wrong half the time on flipped inputs
+  const intervention = 0.94 - 0.80 * leakFrac;
+  return { clean: Math.min(1, clean), intervention: Math.max(0.5, intervention) };
+}
+function renderLeakage() {
+  const canvas = document.getElementById('lk-curve');
+  if (!canvas) return;
+  const W = 880, H = 260;
+  const ctx = setupLeakCanvas(canvas, W, H);
+  ctx.fillStyle = '#fdfcf9'; ctx.fillRect(0, 0, W, H);
+  const m = { l: 60, r: 20, t: 20, b: 36 };
+  const px = W - m.l - m.r, py = H - m.t - m.b;
+  ctx.strokeStyle = '#e2d8c6'; ctx.strokeRect(m.l, m.t, px, py);
+  // Sweep K from 0 to 8
+  const Ks = [], cleans = [], ints = [];
+  for (let k = 0; k <= 8; k++) {
+    Ks.push(k);
+    const r = simulateLeakage(k, LK.ly);
+    cleans.push(r.clean);
+    ints.push(r.intervention);
+  }
+  // Y axis 0.4..1.0
+  const yLo = 0.4, yHi = 1.0;
+  ctx.fillStyle = '#9a917f'; ctx.font = '11px IBM Plex Mono'; ctx.textAlign = 'right';
+  for (let i = 0; i <= 5; i++) {
+    const v = yLo + (yHi - yLo) * (1 - i / 5);
+    const y = m.t + i / 5 * py;
+    ctx.fillText(v.toFixed(2), m.l - 4, y + 3);
+    ctx.strokeStyle = '#f0ebe1';
+    ctx.beginPath(); ctx.moveTo(m.l, y); ctx.lineTo(m.l + px, y); ctx.stroke();
+  }
+  ctx.textAlign = 'center';
+  for (let k = 0; k <= 8; k++) {
+    const x = m.l + (k / 8) * px;
+    ctx.fillText(k.toString(), x, m.t + py + 16);
+  }
+  ctx.fillStyle = '#3b342b';
+  ctx.fillText('spare hidden channels K', m.l + px / 2, m.t + py + 32);
+  // Plot
+  function plot(arr, color, dashed) {
+    ctx.strokeStyle = color; ctx.lineWidth = 2;
+    ctx.setLineDash(dashed ? [4, 3] : []);
+    ctx.beginPath();
+    arr.forEach((v, i) => {
+      const x = m.l + (i / 8) * px;
+      const y = m.t + (1 - (v - yLo) / (yHi - yLo)) * py;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+    ctx.setLineDash([]);
+    arr.forEach((v, i) => {
+      const x = m.l + (i / 8) * px;
+      const y = m.t + (1 - (v - yLo) / (yHi - yLo)) * py;
+      ctx.fillStyle = color;
+      ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2); ctx.fill();
+    });
+  }
+  plot(cleans, '#1e7770', false);
+  plot(ints, '#d9622b', true);
+  // Marker for current K
+  const Kx = m.l + (LK.K / 8) * px;
+  ctx.strokeStyle = 'rgba(44,111,183,0.5)';
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath(); ctx.moveTo(Kx, m.t); ctx.lineTo(Kx, m.t + py); ctx.stroke();
+  ctx.setLineDash([]);
+  // Legend
+  ctx.fillStyle = '#1e7770'; ctx.font = '11px Manrope'; ctx.textAlign = 'left';
+  ctx.fillText('clean accuracy', m.l + 8, m.t + 16);
+  ctx.fillStyle = '#d9622b';
+  ctx.fillText('intervention accuracy (dashed)', m.l + 110, m.t + 16);
+}
+function refreshLeakage() {
+  LK.K = parseInt(document.getElementById('lk-k').value, 10);
+  LK.ly = parseFloat(document.getElementById('lk-ly').value);
+  document.getElementById('lk-k-val').textContent = LK.K;
+  document.getElementById('lk-ly-val').textContent = LK.ly.toFixed(1);
+  renderLeakage();
+}
+function wireLeakage() {
+  LK.data = makeLeakDataset(400);
+  ['lk-k', 'lk-ly'].forEach((id) => {
+    document.getElementById(id).addEventListener('input', refreshLeakage);
+  });
+  document.getElementById('lk-resample').addEventListener('click', () => {
+    LK.data = makeLeakDataset(400);
+    refreshLeakage();
+  });
+  refreshLeakage();
 }
 
 function renderMath() {
   if (!window.katex) return;
   const blocks = {
     'math-cb':
-      'x \\xrightarrow{\\;g\\;} \\hat c \\in \\mathbb{R}^{|\\text{concepts}|} \\xrightarrow{\\;f\\;} \\hat y'
+      'x \\xrightarrow{\\;g\\;} \\hat c \\in \\mathbb{R}^{|\\text{concepts}|} \\xrightarrow{\\;f\\;} \\hat y',
+    'math-cbm-train':
+      '\\mathcal{L}_{\\text{joint}}(\\theta, \\phi) \\;=\\; \\mathcal{L}_y\\!\\bigl(f_\\phi(g_\\theta(x)), y\\bigr) \\;+\\; \\lambda \\sum_j \\mathcal{L}_c\\!\\bigl(g_\\theta(x)_j, c_j\\bigr)'
   };
   Object.keys(blocks).forEach((id) => {
     const el = document.getElementById(id);

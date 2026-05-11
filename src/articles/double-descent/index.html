@@ -33,23 +33,45 @@
         <div class="step-badge">Step 1</div>
         <h2>What you should see</h2>
         <ul class="explanation-list">
-          <li><strong>Under-parameterised regime.</strong> Train and
-            test error both drop as you add parameters &mdash;
+          <li><strong>Under-parameterised regime ($P &lt; N$).</strong> Train
+            and test error both drop as you add parameters &mdash;
             classical bias-variance.</li>
-          <li><strong>Interpolation threshold.</strong> Number of
-            parameters $P$ ≈ number of data points $N$. Train error
-            hits zero; test error spikes.</li>
-          <li><strong>Over-parameterised regime.</strong> Past the
-            spike, test error <em>descends again</em>. This is what
-            modern DL has been quietly relying on.</li>
+          <li><strong>Interpolation threshold ($P \approx N$).</strong>
+            Train error hits zero; test error spikes. The model
+            <em>just barely</em> fits the training data and pays for
+            it with wild oscillations.</li>
+          <li><strong>Over-parameterised regime ($P \gg N$).</strong>
+            Past the spike, test error <em>descends again</em>. This
+            is what modern DL has been quietly relying on.</li>
         </ul>
         <div class="math-block" id="math-dd"></div>
         <p>
           The mechanism (Belkin et al., 2018; Hastie et al., 2019):
-          past the threshold, the model picks the
-          minimum-norm-among-many-zero-train-error solutions. Many
-          of those are smooth, and the implicit bias of gradient
-          descent (and ridge) finds them.
+          past the threshold, infinitely many weight vectors achieve
+          zero training error, and the optimiser picks the
+          <em>minimum-$\ell_2$-norm</em> one. Many of those are smooth,
+          and the implicit bias of gradient descent (and ridge as
+          $\lambda \to 0^+$) finds them.
+        </p>
+      </section>
+
+      <section class="step-section" id="step-1a">
+        <div class="step-badge">Step 1½</div>
+        <h2>Why classical bias-variance predicted the wrong shape</h2>
+        <p>
+          The U-curve from any ML textbook decomposes test error as
+        </p>
+        <div class="math-block" id="math-bv"></div>
+        <p>
+          Up to the threshold, variance dominates the rise. The
+          textbook stops here. <strong>What the textbook missed</strong>
+          is that past $P = N$, both bias <em>and</em> variance can
+          drop because the model now has slack capacity: many feature
+          directions encode noise, and the minimum-norm solution
+          spreads its weights across them so each individual direction
+          carries less of the noise &mdash; the variance is averaged
+          down. Belkin et al. coined this the
+          "<strong>modern interpolating regime</strong>" in 2018.
         </p>
       </section>
 
@@ -59,7 +81,7 @@
         <div class="train-controls">
           <label>data points N &nbsp;<span id="dd-N-val">40</span> <input type="range" id="dd-N" min="10" max="200" step="2" value="40"></label>
           <label>noise σ &nbsp;<span id="dd-sig-val">0.30</span> <input type="range" id="dd-sig" min="0.01" max="1" step="0.01" value="0.3"></label>
-          <label>ridge λ &nbsp;<span id="dd-lam-val">0.0001" <input type="range" id="dd-lam" min="-6" max="0" step="0.1" value="-4"></label>
+          <label>ridge log₁₀λ &nbsp;<span id="dd-lam-val">−4.0</span> <input type="range" id="dd-lam" min="-6" max="0" step="0.1" value="-4"></label>
           <button class="action-btn action-btn--ghost" id="dd-resample">Resample</button>
         </div>
         <div class="dd-figure">
@@ -69,6 +91,83 @@
         <div class="dd-figure">
           <canvas id="dd-fit" width="880" height="280"></canvas>
           <figcaption>Best-fit prediction at three model sizes (small / threshold / very large).</figcaption>
+        </div>
+      </section>
+
+      <section class="step-section" id="step-2a">
+        <div class="step-badge">Step 2½</div>
+        <h2>Why the spike happens, in three lines of algebra</h2>
+        <p>
+          With random feature matrix $\Phi \in \mathbb{R}^{N \times P}$
+          and tiny ridge $\lambda$, the prediction at a test point
+          is $\hat y_* = \phi(x_*)^\top \hat w$. As $P \to N$, the
+          smallest singular value $\sigma_{\min}(\Phi)$ approaches zero,
+          and the ridge inverse blows up:
+        </p>
+        <div class="math-block" id="math-spike"></div>
+        <p>
+          Small $\sigma_i$ correspond to feature directions that the
+          training data barely identifies. Without ridge, those
+          directions soak up huge weight to fit the noise — variance
+          explodes. The spike happens <em>exactly</em> at $P = N$
+          because that's where $\Phi$ becomes square and least-squares
+          is forced to interpolate. Beyond $P = N$, the system is
+          underdetermined; min-norm collapses those weights again.
+        </p>
+        <p>
+          <strong>Stronger ridge ($\lambda \uparrow$) flattens the
+          spike.</strong> Slide ridge log₁₀λ up and watch the peak
+          shrink — that's the variance term being dampened. The cost:
+          slightly higher error far from the threshold.
+        </p>
+      </section>
+
+      <section class="step-section" id="step-2b">
+        <div class="step-badge">Step 2¾</div>
+        <h2>Live: sample-wise double descent</h2>
+        <p>
+          Fix the model size $P$ above the original interpolation
+          threshold. Now sweep the training set size $N$ from small to
+          large. As $N$ approaches $P$ from below, the model is forced
+          out of the over-parameterised regime <em>back through the
+          threshold</em>. Test error can <em>increase</em> with more
+          training data — exactly the opposite of what every intro ML
+          class teaches.
+        </p>
+        <div class="train-controls">
+          <label>features P &nbsp;<span id="sw-P-val">120</span> <input type="range" id="sw-P" min="20" max="300" step="2" value="120"></label>
+          <label>noise σ &nbsp;<span id="sw-sig-val">0.30</span> <input type="range" id="sw-sig" min="0.01" max="1" step="0.01" value="0.3"></label>
+        </div>
+        <div class="dd-figure">
+          <canvas id="sw-curve" width="880" height="300"></canvas>
+          <figcaption>Test RMSE vs training-set size $N$ for fixed $P$. Vertical line marks $N = P$ — adding a sample <em>across</em> that line can make the model worse.</figcaption>
+        </div>
+        <p>
+          Nakkiran et&nbsp;al. (2019, "Deep Double Descent") observed
+          this same shape in CIFAR ResNets when sweeping the training
+          set size with the model fixed. The remedy is more weight
+          decay or much more training data.
+        </p>
+      </section>
+
+      <section class="step-section" id="step-2c">
+        <div class="step-badge">Step 2⅞</div>
+        <h2>Epoch-wise double descent</h2>
+        <p>
+          A third axis: hold $P$ and $N$ fixed, watch test error vs
+          training epoch. Long-running ResNet runs show test error
+          first drop, rise around the epoch where training loss
+          hits zero, then drop again. The mechanism is the same — the
+          network passes through an effective interpolation threshold
+          as its function class "fills out" during training.
+        </p>
+        <div class="callout callout--key">
+          <strong>Three knobs, one phenomenon.</strong>
+          Model size, dataset size, and training duration are each
+          axes along which interpolation can be approached. Any of
+          them can produce a non-monotone test-error curve. The
+          uniting concept is "<em>effective complexity vs effective
+          data</em>" — when those balance, things get bad.
         </div>
       </section>
 
@@ -97,6 +196,88 @@
           you'll never expect "bigger model = more overfitting" the
           same way again.
         </div>
+      </section>
+
+      <section class="step-section" id="step-4">
+        <div class="step-badge">Step 4</div>
+        <h2>Connection to the NTK and infinite width</h2>
+        <p>
+          The Neural Tangent Kernel limit (Jacot et&nbsp;al., 2018) says
+          that an infinitely-wide net trained with gradient descent and
+          vanishing learning rate behaves as a fixed kernel regressor.
+          The "$P = N$" spike is where that kernel's training-data Gram
+          matrix becomes ill-conditioned; the second descent corresponds
+          to the kernel ridgeless limit on an effectively
+          over-determined system.
+        </p>
+        <p>
+          This gives a clean explanation:
+        </p>
+        <ul class="explanation-list">
+          <li>Under the NTK, "more parameters" = more random features.</li>
+          <li>The spike at $P = N$ is exactly the random-feature
+            ridge spike we just plotted.</li>
+          <li>Real neural nets <em>also</em> learn features, so the
+            real shape is a mixture of this and a feature-learning
+            descent on top.</li>
+        </ul>
+        <p>
+          Hastie, Montanari, Rosset &amp; Tibshirani (2019) give the
+          asymptotic risk formula for random-feature ridge regression
+          in closed form: the test risk peaks at exactly $P/N = 1$ for
+          $\lambda \to 0$ and decreases monotonically thereafter, with
+          the rate of descent governed by the spectrum of the feature
+          map.
+        </p>
+      </section>
+
+      <section class="step-section" id="step-5">
+        <div class="step-badge">Step 5</div>
+        <h2>How to avoid getting trapped at the spike</h2>
+        <ul class="explanation-list">
+          <li><strong>Weight decay (or any $\ell_2$).</strong> Almost
+            erases the spike. Cost: very mild test-error increase
+            away from threshold. Practically, this is the default.</li>
+          <li><strong>Don't size your model at $P \approx N$.</strong>
+            If you're scaling a model deliberately, either stay clearly
+            under the threshold or clearly over it. The danger zone is
+            narrow but real.</li>
+          <li><strong>Early stopping</strong> reduces epoch-wise descent
+            by cutting training before the model reaches the
+            interpolating epoch. Less common in modern LLM pretraining
+            (which trains long); essential for small-data fine-tunes.</li>
+          <li><strong>Data augmentation</strong> shifts the threshold by
+            inflating $N$. A solid practical fix that costs nothing in
+            architecture changes.</li>
+          <li><strong>Label noise warning.</strong> Noisy labels make
+            the spike taller and wider. Clean labels first; everything
+            else helps less.</li>
+        </ul>
+      </section>
+
+      <section class="step-section" id="step-6">
+        <div class="step-badge">Step 6</div>
+        <h2>Reading list</h2>
+        <ul class="explanation-list">
+          <li><strong>Belkin, Hsu, Ma, Mandal (2018)</strong> &mdash;
+            <em>Reconciling modern machine-learning practice and the
+            classical bias–variance trade-off.</em> The paper that
+            named "double descent" and connected modern DL to classical
+            kernel theory.</li>
+          <li><strong>Nakkiran, Kaplun, Bansal, Yang, Barak, Sutskever
+            (2019)</strong> &mdash; <em>Deep double descent: where
+            bigger models and more data hurt.</em> The empirical
+            survey on ResNets / Transformers; defined epoch-wise and
+            sample-wise variants.</li>
+          <li><strong>Hastie, Montanari, Rosset, Tibshirani (2019)</strong>
+            &mdash; <em>Surprises in high-dimensional ridgeless least
+            squares interpolation.</em> The clean theoretical paper for
+            random-feature ridge regression with proofs.</li>
+          <li><strong>Bartlett, Long, Lugosi, Tsigler (2020)</strong>
+            &mdash; <em>Benign overfitting in linear regression.</em>
+            Gives precise conditions on the covariance spectrum under
+            which interpolation generalises.</li>
+        </ul>
       </section>
     </article>
 

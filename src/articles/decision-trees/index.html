@@ -29,6 +29,29 @@
         </div>
       </header>
 
+      <section class="step-section" id="prelude">
+        <div class="step-badge">Prelude</div>
+        <h2>Why trees are the boring-and-good default</h2>
+        <p>
+          For tabular data — financial features, sensor logs, survey
+          responses, anything that arrives as columns in a CSV — a
+          decision tree (or its ensembles) is almost always either the
+          right answer or the right baseline. They handle missing values,
+          mixed continuous + categorical features, and arbitrary
+          monotone transformations of any feature, without
+          normalisation. Their inductive bias is "constant predictions
+          on axis-aligned regions," which lines up surprisingly well
+          with how human-curated features actually carry information.
+        </p>
+        <p>
+          The catch: a <em>single</em> tree is too greedy and too
+          jagged. The fix — bagging (random forests) and boosting
+          (XGBoost) — is what makes the family dominate tabular
+          competitions. This article focuses on the single-tree
+          mechanism so the ensemble methods make sense.
+        </p>
+      </section>
+
       <section class="step-section" id="step-1">
         <div class="step-badge">Step 1</div>
         <h2>The greedy split rule</h2>
@@ -53,6 +76,50 @@
           <strong>greedy</strong> — a globally-better split sequence
           may exist but won't be found.
         </p>
+      </section>
+
+      <section class="step-section" id="step-1a">
+        <div class="step-badge">Step 1½</div>
+        <h2>Live: information gain across thresholds</h2>
+        <p>
+          Drag the slider to pick a candidate threshold on a single
+          feature. The two histograms show how the parent (top) splits
+          into left/right children, and the curve below shows the
+          impurity-decrease $\Delta$ over every possible threshold. The
+          tree picks the argmax.
+        </p>
+        <div class="train-controls">
+          <label>threshold &nbsp;<span id="ig-t-val">0.50</span> <input type="range" id="ig-t" min="0" max="1" step="0.005" value="0.5"></label>
+          <label>criterion
+            <select id="ig-crit">
+              <option value="gini" selected>Gini</option>
+              <option value="entropy">entropy</option>
+            </select>
+          </label>
+          <button class="action-btn action-btn--ghost" id="ig-reseed">New 1-D dataset</button>
+        </div>
+        <div class="dt-grid">
+          <div class="dt-panel" style="grid-column: 1 / -1;">
+            <div class="panel-label">Top: data on the feature axis. Middle: impurity curve. Marker = current threshold.</div>
+            <canvas id="ig-canvas" width="880" height="320"></canvas>
+          </div>
+        </div>
+        <p>
+          Three things to notice:
+        </p>
+        <ul class="explanation-list">
+          <li>The curve is <em>piecewise-constant</em>: between two
+            adjacent training points, no information is gained or lost
+            by moving the threshold. Practical CART implementations
+            only evaluate the midpoints between adjacent sorted
+            feature values.</li>
+          <li>Entropy and Gini agree almost always on the argmax — they
+            differ by at most ~2% on real data. Gini is the default in
+            sklearn because it's slightly cheaper to compute.</li>
+          <li>The argmax can be very close to a tie. Tiny changes in
+            training data flip which feature wins — this is the
+            <em>instability</em> that motivates random forests.</li>
+        </ul>
       </section>
 
       <section class="step-section" id="step-2">
@@ -127,6 +194,80 @@
         </ul>
       </section>
 
+      <section class="step-section" id="step-3a">
+        <div class="step-badge">Step 3½</div>
+        <h2>Regression trees</h2>
+        <p>
+          The same recipe works for regression: replace Gini/entropy
+          with squared-error impurity
+        </p>
+        <div class="math-block" id="math-mse"></div>
+        <p>
+          At each leaf, predict the <em>mean</em> of the training $y$
+          values that fell there. The result is a piecewise-constant
+          function of $x$ — terrible for smooth signals (use a GP), but
+          excellent for tabular features where the right level set is
+          itself piecewise-constant.
+        </p>
+        <p>
+          A subtlety: the split criterion for regression is equivalent
+          to maximising the <em>between-group variance</em> at the
+          split — i.e. an axis-aligned ANOVA. This explains why
+          regression trees can find threshold-effects (e.g. "above 65 mph,
+          fuel economy drops sharply") that linear models miss.
+        </p>
+      </section>
+
+      <section class="step-section" id="step-3b">
+        <div class="step-badge">Step 3¾</div>
+        <h2>Pruning &amp; the cost-complexity path</h2>
+        <p>
+          Pre-pruning (depth limit, min-samples-per-leaf) is cheap but
+          coarse. Post-pruning is principled: grow a full tree, then
+          collapse subtrees that don't pay for themselves. CART's
+          cost-complexity criterion:
+        </p>
+        <div class="math-block" id="math-ccp"></div>
+        <p>
+          As $\alpha$ increases from 0 to $\infty$, the optimal tree
+          shrinks from the full tree to the root. The
+          <em>cost-complexity path</em> is the sequence of trees you
+          pass through; the recommended way to pick $\alpha$ is
+          cross-validation on this path.
+        </p>
+        <ul class="explanation-list">
+          <li>scikit-learn exposes this via
+            <code>DecisionTreeClassifier(ccp_alpha=α)</code> and
+            <code>cost_complexity_pruning_path</code>.</li>
+          <li>Boosted trees rarely use post-pruning — small depth +
+            many trees gives a similar effect with simpler bookkeeping.</li>
+        </ul>
+      </section>
+
+      <section class="step-section" id="step-3c">
+        <div class="step-badge">Step 3⅞</div>
+        <h2>Feature importance &amp; its pitfalls</h2>
+        <p>
+          Two ways to score feature importance from a fitted tree:
+        </p>
+        <ul class="explanation-list">
+          <li><strong>MDI (Mean Decrease in Impurity).</strong> Sum the
+            weighted impurity decrease over every node that split on
+            that feature. Cheap, default in sklearn — but
+            <em>biased</em> towards high-cardinality features (more
+            possible thresholds = more chances to find a spurious
+            split).</li>
+          <li><strong>Permutation importance.</strong> Shuffle a feature
+            on the validation set, measure the accuracy drop. Slower
+            but unbiased; recommended for any "which features matter"
+            claim that leaves the lab.</li>
+          <li><strong>SHAP TreeExplainer.</strong> Exact Shapley values
+            for tree ensembles in polynomial time (Lundberg et&nbsp;al.,
+            2018). The right tool for per-prediction attribution; works
+            for XGBoost / LightGBM out of the box.</li>
+        </ul>
+      </section>
+
       <section class="step-section" id="step-4">
         <div class="step-badge">Step 4</div>
         <h2>What trees are good at — and what they're not</h2>
@@ -157,6 +298,48 @@
           <a href="../xgboost/index.html">XGBoost article</a> covers
           next.
         </div>
+      </section>
+
+      <section class="step-section" id="step-5">
+        <div class="step-badge">Step 5</div>
+        <h2>CART, ID3, C4.5 — the family</h2>
+        <ul class="explanation-list">
+          <li><strong>ID3 (Quinlan, 1986)</strong> — entropy criterion;
+            categorical features only; one node per category value.
+            Historical; rarely used directly today.</li>
+          <li><strong>C4.5 (Quinlan, 1993)</strong> — adds continuous
+            features (split = threshold); replaces information gain
+            with <em>gain ratio</em> to fight bias toward
+            high-cardinality features; built-in missing-value handling.</li>
+          <li><strong>CART (Breiman et&nbsp;al., 1984)</strong> — binary
+            splits only; Gini for classification, squared error for
+            regression; cost-complexity pruning. The default in
+            scikit-learn and most modern libraries.</li>
+          <li><strong>Conditional inference trees</strong> (Hothorn et&nbsp;al.,
+            2006) — replace the impurity criterion with statistical
+            tests of independence; eliminates the bias toward many-level
+            features. The R <code>party</code> package.</li>
+        </ul>
+      </section>
+
+      <section class="step-section" id="step-6">
+        <div class="step-badge">Step 6</div>
+        <h2>Reading list</h2>
+        <ul class="explanation-list">
+          <li><strong>Breiman, Friedman, Olshen, Stone (1984)</strong>
+            &mdash; <em>Classification and Regression Trees.</em>
+            The original CART book.</li>
+          <li><strong>Quinlan (1993)</strong> &mdash; <em>C4.5: Programs
+            for Machine Learning.</em></li>
+          <li><strong>Hastie, Tibshirani, Friedman</strong>, <em>The
+            Elements of Statistical Learning</em>, ch. 9 — best
+            intro-with-math.</li>
+          <li><strong>Lundberg &amp; Lee (2017); Lundberg et&nbsp;al.
+            (2018)</strong> &mdash; SHAP and TreeSHAP for explanation.</li>
+          <li><strong>Grinsztajn, Oyallon, Varoquaux (2022)</strong>
+            &mdash; <em>Why do tree-based models still outperform deep
+            learning on tabular data?</em> The empirical reference.</li>
+        </ul>
       </section>
     </article>
 

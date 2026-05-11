@@ -41,6 +41,68 @@
           $k(x, x') = \phi(x)^\top \phi(x')$. That's the kernel trick.
         </p>
         <div class="math-block" id="math-kernel"></div>
+        <p>
+          Two consequences. First, the runtime depends on the number
+          of training points $N$, not the (often infinite) feature
+          dimension. Second, you can use kernels whose feature maps
+          have <em>no closed form</em> — the RBF kernel
+          $k(x, x') = \exp(-\|x-x'\|^2 / 2h^2)$ corresponds to an
+          infinite-dimensional Gaussian feature map.
+        </p>
+      </section>
+
+      <section class="step-section" id="step-1a">
+        <div class="step-badge">Step 1½</div>
+        <h2>Mercer's theorem &amp; what counts as a valid kernel</h2>
+        <p>
+          Not every symmetric function $k(x, x')$ is a kernel. The
+          requirement: for any finite set of points $\{x_1, \dots,
+          x_N\}$, the Gram matrix $K_{ij} = k(x_i, x_j)$ must be
+          positive semi-definite. Mercer's theorem (1909) says such
+          kernels admit a spectral decomposition
+        </p>
+        <div class="math-block" id="math-mercer"></div>
+        <p>
+          where $\{\lambda_i, \psi_i\}$ are eigenvalues and eigenfunctions
+          of the integral operator
+          $(T_k f)(x) = \int k(x, x') f(x') \, d\mu(x')$. The map
+          $\phi(x) = (\sqrt{\lambda_i}\,\psi_i(x))_i$ <em>is</em> the
+          implicit feature map you never had to compute. Two practical
+          rules follow:
+        </p>
+        <ul class="explanation-list">
+          <li><strong>Closure properties.</strong> Sums, products, and
+            positive scalar multiples of kernels are kernels. So is
+            $k_1(x, x')\,k_2(z, z')$ on a product space. This is how
+            you build expressive kernels from primitive ones
+            (spectral mixture kernels, additive GPs).</li>
+          <li><strong>Constructing new kernels.</strong> If $\phi$ is
+            <em>any</em> map into a Hilbert space, $k(x, x') = \langle
+            \phi(x), \phi(x')\rangle$ is automatically a valid kernel.
+            Graph kernels, string kernels, and convolutional kernels
+            all follow this template.</li>
+        </ul>
+      </section>
+
+      <section class="step-section" id="step-1b">
+        <div class="step-badge">Step 1¾</div>
+        <h2>The representer theorem</h2>
+        <p>
+          Why are all kernel-method solutions of the form
+          $f^\star = \sum_i \alpha_i k(x_i, \cdot)$? The
+          <strong>representer theorem</strong> (Kimeldorf &amp; Wahba,
+          1971): for any loss $L$ depending only on
+          $\{f(x_i)\}$ and any monotone regulariser $\Omega(\|f\|_\mathcal{H})$,
+          the minimiser of
+        </p>
+        <div class="math-block" id="math-representer"></div>
+        <p>
+          over the RKHS $\mathcal{H}$ associated with kernel $k$ lies in
+          the finite-dimensional subspace
+          $\mathrm{span}\{k(x_i, \cdot)\}_{i=1}^N$. So the infinite-dimensional
+          variational problem reduces to an $N$-dimensional one in
+          $\alpha$ — that's why kernel methods are tractable.
+        </p>
       </section>
 
       <section class="step-section" id="step-2">
@@ -69,6 +131,66 @@
           <canvas id="km-canvas" width="640" height="380"></canvas>
           <figcaption>Left-click adds class-A (blue), right-click / shift-click adds class-B (orange). The boundary recomputes live.</figcaption>
         </div>
+      </section>
+
+      <section class="step-section" id="step-2a">
+        <div class="step-badge">Step 2½</div>
+        <h2>Kernel design — pick the right symmetry</h2>
+        <div class="km-table-wrap">
+          <table class="km-table">
+            <thead>
+              <tr><th>Kernel</th><th>Formula</th><th>Implicit feature map</th><th>Use when</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Linear</td><td>$x^\top x'$</td><td>Identity</td><td>High-dim sparse data (text BoW)</td></tr>
+              <tr><td>Polynomial, deg $d$</td><td>$(x^\top x' + c)^d$</td><td>All monomials of degree $\le d$</td><td>You expect feature interactions of bounded order</td></tr>
+              <tr><td>RBF / Gaussian</td><td>$\exp(-\|x - x'\|^2 / 2h^2)$</td><td>Infinite-dim</td><td>Smooth signals, default</td></tr>
+              <tr><td>Laplacian</td><td>$\exp(-\|x - x'\| / h)$</td><td>Infinite-dim, rougher</td><td>Sparse signals, less smooth</td></tr>
+              <tr><td>Matérn-$\nu$</td><td>tunable smoothness</td><td>$\nu$-times differentiable functions</td><td>You want to control smoothness exactly</td></tr>
+              <tr><td>Periodic</td><td>$\exp(-2\sin^2(\pi\|x-x'\|/p)/h^2)$</td><td>Fourier basis</td><td>Seasonal time series</td></tr>
+              <tr><td>String / WL graph</td><td>histogram of subsequences / subtrees</td><td>combinatorial features</td><td>Sequences, molecules, graphs</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          A practical rule of thumb: <strong>bandwidth $h$ ≈ median
+          distance between points</strong>. The "median heuristic" is
+          a strong default and the starting point for hyperparameter
+          search. For the polynomial kernel, prefer the explicit feature
+          expansion if you actually want feature interactions; for
+          neural-net-like nonlinearities, prefer RBF or Matérn.
+        </p>
+      </section>
+
+      <section class="step-section" id="step-2b">
+        <div class="step-badge">Step 2¾</div>
+        <h2>The kernel-GP-SVM trinity</h2>
+        <p>
+          The same kernel gives you three different methods.
+        </p>
+        <ul class="explanation-list">
+          <li><strong>Kernel ridge regression.</strong>
+            $\hat\alpha = (K + \lambda I)^{-1} y$; prediction
+            $\hat f(x) = \sum_i \hat\alpha_i k(x_i, x)$. Closed form,
+            $O(N^3)$ to fit, $O(N)$ to predict.</li>
+          <li><strong>Gaussian process regression.</strong> Same point
+            estimate as kernel ridge with $\lambda = \sigma^2$ (noise
+            variance), <em>plus</em> a closed-form predictive
+            variance $\sigma_*^2 = k(x_*, x_*) - k_*^\top (K + \sigma^2
+            I)^{-1} k_*$. That's the "calibrated uncertainty for free"
+            people talk about.</li>
+          <li><strong>SVM.</strong> Same kernel, different loss
+            (hinge instead of squared error). The dual reduces to a
+            QP in $\alpha$; the active constraints pick out the
+            "support vectors" — usually a sparse subset of the
+            training set.</li>
+        </ul>
+        <div class="math-block" id="math-gp"></div>
+        <p>
+          Mental model: <em>kernel ridge = MAP GP. SVM = max-margin
+          variant.</em> Each adds a different ingredient (Bayesian
+          posterior, sparsity) on top of the same kernel.
+        </p>
       </section>
 
       <section class="step-section" id="step-3">
@@ -105,6 +227,61 @@
         </div>
       </section>
 
+      <section class="step-section" id="step-3a">
+        <div class="step-badge">Step 3½</div>
+        <h2>Scaling kernels past $N \approx 10^4$</h2>
+        <p>
+          The $O(N^3)$ fit and $O(N^2)$ memory of vanilla kernel methods
+          stop being practical above ~10k points. Four standard
+          escapes:
+        </p>
+        <ul class="explanation-list">
+          <li><strong>Random Fourier features.</strong> Approximate
+            shift-invariant kernels by sampling frequencies from the
+            kernel's Fourier transform: $k(x, x') \approx z(x)^\top
+            z(x')$ with $z(x) \in \mathbb{R}^D$ for small $D$
+            (Rahimi &amp; Recht, 2007). Reduces to ordinary ridge in
+            $D$ dimensions — $O(NDB)$ to fit.</li>
+          <li><strong>Nyström approximation.</strong> Pick $M \ll N$
+            landmark points; approximate $K$ by a low-rank
+            factorisation. Used in scikit-learn's
+            <code>Nystroem</code>.</li>
+          <li><strong>Inducing-point GPs (SVGP).</strong> Variational
+            sparse GPs with $M$ inducing locations; $O(NM^2)$
+            training. Default for GP libraries (GPflow, GPyTorch).</li>
+          <li><strong>KeOps / structured kernel interpolation.</strong>
+            GPU-friendly exact kernel evaluations on millions of points;
+            mature in 2022–2024 for "exact" GPs on large data.</li>
+        </ul>
+      </section>
+
+      <section class="step-section" id="step-3b">
+        <div class="step-badge">Step 3¾</div>
+        <h2>Deep kernel learning</h2>
+        <p>
+          Why not the best of both worlds — let a neural net learn a
+          feature map $\phi_\theta$ and feed that into a kernel?
+        </p>
+        <div class="math-block" id="math-dkl"></div>
+        <p>
+          Train $\theta$ jointly with the GP marginal likelihood
+          (Wilson et&nbsp;al., 2016). The neural part learns
+          representations; the GP part gives calibrated uncertainty.
+          In 2024–2026 this is the default for tabular and small-data
+          regression tasks where well-calibrated error bars matter — beats
+          deep ensembles in head-to-head benchmarks on most small tabular
+          regression datasets.
+        </p>
+        <ul class="explanation-list">
+          <li><strong>Watch out for collapsing $\phi_\theta$.</strong>
+            If the feature dimension is very small, $\phi_\theta$ can
+            collapse to a constant; regularise with a fixed-norm
+            output layer or use SVGP-style variational training.</li>
+          <li><strong>Library:</strong> GPyTorch's <code>DKL</code>
+            example.</li>
+        </ul>
+      </section>
+
       <section class="step-section" id="step-4">
         <div class="step-badge">Step 4</div>
         <h2>Where kernel methods are still the right tool</h2>
@@ -128,6 +305,55 @@
             kernels for molecule property prediction, citation
             networks, sensor topologies. Often beat GNNs on small
             graph datasets.</li>
+        </ul>
+      </section>
+
+      <section class="step-section" id="step-5">
+        <div class="step-badge">Step 5</div>
+        <h2>Practical gotchas</h2>
+        <ul class="explanation-list">
+          <li><strong>Standardise the inputs.</strong> RBF / Matérn are
+            extremely scale-sensitive. Standardise each feature to
+            unit variance before computing pairwise distances or your
+            bandwidth tuning will be wrong.</li>
+          <li><strong>Tune the regulariser.</strong> $\lambda$ in
+            kernel ridge / $\sigma^2$ in GP / $C$ in SVM matter as much
+            as the kernel choice. Use cross-validation on log-spaced
+            grids.</li>
+          <li><strong>Nyström samples should be diverse.</strong>
+            Uniform-random landmark selection wastes capacity on a
+            cluster. k-means landmarks or leverage-score sampling are
+            better.</li>
+          <li><strong>Numerical stability.</strong> $K + \lambda I$ can
+            be ill-conditioned; jitter with $\varepsilon I$
+            ($\varepsilon \sim 10^{-6}$) before Cholesky.</li>
+          <li><strong>When to <em>not</em> use kernels.</strong> Large
+            datasets ($\ge 10^5$ raw points), image / audio / language
+            inputs where representation learning matters more than
+            uncertainty calibration — go with deep nets and accept the
+            calibration cost (or post-hoc temperature-scale).</li>
+        </ul>
+      </section>
+
+      <section class="step-section" id="step-6">
+        <div class="step-badge">Step 6</div>
+        <h2>Reading list</h2>
+        <ul class="explanation-list">
+          <li><strong>Schölkopf &amp; Smola</strong>, <em>Learning with
+            Kernels</em> — the canonical textbook.</li>
+          <li><strong>Rasmussen &amp; Williams</strong>, <em>Gaussian
+            Processes for Machine Learning</em> — free online; the
+            standard GP reference.</li>
+          <li><strong>Jacot, Gabriel, Hongler (2018)</strong> &mdash;
+            <em>Neural Tangent Kernel.</em> The infinite-width-net /
+            kernel correspondence.</li>
+          <li><strong>Rahimi &amp; Recht (2007)</strong> &mdash;
+            <em>Random features for large-scale kernel machines.</em>
+            How to scale RBF kernels to millions of points.</li>
+          <li><strong>Wilson, Hu, Salakhutdinov, Xing (2016)</strong>
+            &mdash; <em>Deep kernel learning.</em></li>
+          <li><strong>Cohen, Sridharan, Daume (2022)</strong> &mdash;
+            survey of when GPs beat deep nets on tabular regression.</li>
         </ul>
       </section>
     </article>

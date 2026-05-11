@@ -27,6 +27,41 @@
         </div>
       </header>
 
+      <section class="step-section" id="prelude">
+        <div class="step-badge">Prelude</div>
+        <h2>Why bother going beyond SGD?</h2>
+        <p>
+          SGD with momentum is the workhorse of deep learning because
+          (a) it scales — one gradient evaluation per step is cheap,
+          (b) noise is a feature, not a bug, on a single-pass training
+          run, and (c) the implicit regularisation of small batches
+          gives free generalisation. Adam and its cousins (AdamW, Lion,
+          Sophia) inherit those advantages and add adaptive per-parameter
+          learning rates.
+        </p>
+        <p>
+          But: SGD throws away two things.
+        </p>
+        <ul class="explanation-list">
+          <li><strong>Curvature.</strong> The Hessian tells you the
+            local geometry — directions where the loss is steep
+            (small step) vs flat (big step). SGD ignores it entirely.
+            On a quadratic with condition number $\kappa$, SGD needs
+            $O(\kappa \log \tfrac{1}{\varepsilon})$ steps; Newton needs
+            $\log\log \tfrac{1}{\varepsilon}$.</li>
+          <li><strong>Cross-parameter geometry.</strong> Adam's diagonal
+            preconditioner ignores correlations. Natural-gradient
+            methods (K-FAC, Shampoo) recover them block-wise.</li>
+        </ul>
+        <p>
+          When are these worth paying for? When (i) you can afford
+          full-batch or large-batch gradients, (ii) the dimensionality
+          is small enough to store/invert curvature, or (iii) you have
+          no gradient at all and must fall back to function-value
+          methods like CMA-ES and SPSA.
+        </p>
+      </section>
+
       <section class="step-section" id="step-1">
         <div class="step-badge">Step 1</div>
         <h2>The five contenders</h2>
@@ -56,6 +91,92 @@
         </ul>
       </section>
 
+      <section class="step-section" id="step-1a">
+        <div class="step-badge">Step 1½</div>
+        <h2>Newton's method, in two lines</h2>
+        <p>
+          Taylor-expand the loss around the current iterate $w_t$:
+        </p>
+        <div class="math-block" id="math-newton-taylor"></div>
+        <p>
+          Minimise this quadratic in $\Delta w$ by setting its
+          gradient to zero. Solving gives $\Delta w = -H^{-1}\nabla f$,
+          which is the Newton step. On a perfect quadratic, one step
+          reaches the optimum; on a smooth function, the rate is
+          quadratic — the error squares each iteration. In practice
+          you must damp: $w_{t+1} = w_t - \alpha_t H^{-1}\nabla f$
+          with $\alpha_t$ from a line search, and stabilise the Hessian
+          with $H + \lambda I$ when it's not positive-definite
+          (Levenberg–Marquardt).
+        </p>
+      </section>
+
+      <section class="step-section" id="step-1b">
+        <div class="step-badge">Step 1¾</div>
+        <h2>BFGS — the rank-2 secret to L-BFGS</h2>
+        <p>
+          BFGS maintains a Hessian-inverse approximation $B$ that gets
+          better every step. After observing the step
+          $s_t = w_{t+1} - w_t$ and gradient change $y_t = \nabla f_{t+1}
+          - \nabla f_t$, it updates $B$ by a rank-2 perturbation:
+        </p>
+        <div class="math-block" id="math-bfgs"></div>
+        <p>
+          Two properties make this magical:
+        </p>
+        <ul class="explanation-list">
+          <li><strong>Secant condition.</strong> The update satisfies
+            $B_{t+1} y_t = s_t$ — i.e. it correctly predicts the
+            curvature you just observed.</li>
+          <li><strong>Positive-definiteness preserved.</strong> If
+            $B_t \succ 0$ and $s_t^\top y_t &gt; 0$ (curvature
+            condition), then $B_{t+1} \succ 0$.</li>
+        </ul>
+        <p>
+          <strong>L-BFGS</strong> stores only the last $m$ pairs $(s_t,
+          y_t)$ (typically $m=10$) instead of the full matrix, applying
+          $B \nabla f$ via a two-loop recursion in $O(md)$ time. That's
+          why it scales to millions of parameters when full Newton
+          can't.
+        </p>
+      </section>
+
+      <section class="step-section" id="step-1c">
+        <div class="step-badge">Step 1⅞</div>
+        <h2>Natural gradient — geometry of probability</h2>
+        <p>
+          For a probabilistic model $p_\theta(x)$, the natural gradient
+          preconditions the ordinary gradient with the inverse Fisher
+          information matrix:
+        </p>
+        <div class="math-block" id="math-natural"></div>
+        <p>
+          The Fisher $F$ is the Hessian of the KL divergence to the
+          current model. Stepping along $-F^{-1}\nabla L$ keeps the
+          KL change between consecutive iterates bounded — the step
+          becomes <em>geometry-aware in the manifold of distributions</em>.
+          Concrete consequences:
+        </p>
+        <ul class="explanation-list">
+          <li><strong>Reparameterisation invariance.</strong> If you
+            change the parameter coordinates, the natural-gradient
+            update transforms the same way the parameters do, so the
+            actual update on the distribution is the same. Vanilla
+            gradient is <em>not</em> invariant; this is why SGD is
+            so sensitive to choice of activation scales.</li>
+          <li><strong>K-FAC.</strong> Approximates $F$ as block-diagonal
+            with Kronecker-factored blocks, making the inverse
+            tractable for big nets. Adopted in older DeepMind RL
+            papers; <em>Shampoo</em> (Anil et&nbsp;al., 2020) is the
+            modern descendant, used in some 2024–2025 LLM pretraining
+            runs.</li>
+          <li><strong>TRPO / NPG.</strong> Trust-region policy
+            optimisation is natural-gradient policy improvement —
+            still the cleanest derivation of why on-policy RL needs
+            a KL constraint.</li>
+        </ul>
+      </section>
+
       <section class="step-section" id="step-2">
         <div class="step-badge">Step 2</div>
         <h2>Race them on a 2-D loss</h2>
@@ -76,6 +197,50 @@
           <canvas id="op-canvas" width="880" height="440"></canvas>
           <figcaption>Loss surface contour + each optimiser's trajectory. Final loss values shown in the legend.</figcaption>
         </div>
+      </section>
+
+      <section class="step-section" id="step-2a">
+        <div class="step-badge">Step 2½</div>
+        <h2>Gradient-free: CMA-ES and SPSA</h2>
+        <p>
+          Suppose you can compute $f(w)$ but not $\nabla f(w)$. This
+          is the regime for RL hyperparameter search, simulator-based
+          design, hardware-in-the-loop tuning, and certain quantum
+          experiments. Two algorithms dominate.
+        </p>
+        <p>
+          <strong>CMA-ES (Covariance Matrix Adaptation Evolution
+          Strategy).</strong> Maintain a Gaussian search distribution
+          $\mathcal{N}(m_t, \sigma_t^2 C_t)$. At each generation:
+        </p>
+        <ul class="explanation-list">
+          <li>Sample a population of $\lambda$ candidates;</li>
+          <li>Evaluate $f$ at each; sort by fitness;</li>
+          <li>Recombine the top $\mu$ to form the new mean $m_{t+1}$;</li>
+          <li>Adapt $\sigma_t$ (step size) based on the cumulative
+            evolution path's length;</li>
+          <li>Adapt $C_t$ to align with successful directions.</li>
+        </ul>
+        <p>
+          The adaptive covariance is what makes CMA-ES competitive —
+          it learns the local conditioning from successes and failures
+          without computing a Hessian.
+        </p>
+        <p>
+          <strong>SPSA (Simultaneous Perturbation Stochastic
+          Approximation).</strong> Pick a random $\pm 1$ vector
+          $\Delta_t$ (Rademacher); evaluate $f$ at $w_t \pm c_t \Delta_t$;
+          estimate the gradient with a <em>single</em> 2-point
+          finite difference:
+        </p>
+        <div class="math-block" id="math-spsa"></div>
+        <p>
+          Two function evaluations per step, regardless of dimension.
+          That's the magic: where ordinary finite differences cost $2d$
+          evaluations, SPSA pays a fixed 2. The trade-off is variance:
+          you need many steps and shrinking $a_t, c_t$ to converge,
+          but the per-step cost is dimension-independent.
+        </p>
       </section>
 
       <section class="step-section" id="step-3">
@@ -108,6 +273,80 @@
           step <em>and</em> ignore gradients but win when there
           aren't any to use.
         </div>
+      </section>
+
+      <section class="step-section" id="step-4">
+        <div class="step-badge">Step 4</div>
+        <h2>Comparison table</h2>
+        <div class="op-table-wrap">
+          <table class="op-table">
+            <thead>
+              <tr><th>Method</th><th>Info used</th><th>Per-step cost</th><th>Convergence</th><th>Sweet spot</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>SGD + momentum</td><td>$\nabla f$</td><td>$O(d)$</td><td>$O(\kappa \log \tfrac{1}{\varepsilon})$</td><td>DL pretraining, mini-batch</td></tr>
+              <tr><td>Adam / AdamW</td><td>$\nabla f$, $|\nabla f|^2$ (diag)</td><td>$O(d)$</td><td>$O(\kappa \log \tfrac{1}{\varepsilon})$ (diag-precond)</td><td>Transformers, mixed scales</td></tr>
+              <tr><td>L-BFGS</td><td>$\nabla f$, history $m$ pairs</td><td>$O(md)$</td><td>Superlinear</td><td>Smooth full-batch losses</td></tr>
+              <tr><td>Newton</td><td>$\nabla f$, $H$</td><td>$O(d^3)$</td><td>Quadratic</td><td>$d \lesssim 10^4$, smooth</td></tr>
+              <tr><td>K-FAC / Shampoo</td><td>$\nabla f$, Fisher block-diag</td><td>$O(\text{block}^3)$</td><td>Faster than Adam in practice</td><td>Large nets where stability matters</td></tr>
+              <tr><td>CMA-ES</td><td>$f$ only (population)</td><td>$O(\lambda d^2)$ per gen</td><td>Linear, robust</td><td>$d \lesssim 10^3$, noisy black box</td></tr>
+              <tr><td>SPSA</td><td>$f$ only (2 evals)</td><td>$O(d)$ per step</td><td>Slow but dimension-independent per step</td><td>Hardware / simulator loops</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="step-section" id="step-5">
+        <div class="step-badge">Step 5</div>
+        <h2>Practical recipes</h2>
+        <ul class="explanation-list">
+          <li><strong>Physics-informed nets, neural PDEs.</strong>
+            Use L-BFGS for the final tightening after a few thousand
+            Adam steps — Adam reaches the basin, L-BFGS finishes the
+            descent inside it. This is the standard PINN recipe.</li>
+          <li><strong>Large-scale RL.</strong> Natural-gradient TRPO
+            for stability; PPO is the cheaper first-order approximation
+            with a clipped KL surrogate. Use Shampoo if you can afford
+            it on the policy network.</li>
+          <li><strong>Hyperparameter / architecture search.</strong>
+            CMA-ES if you have a few dozen continuous hyperparameters
+            and can afford $\sim 100$ evaluations. Bayesian
+            optimisation for fewer evaluations on cheaper-to-evaluate
+            spaces.</li>
+          <li><strong>Quantum / analog hardware.</strong> SPSA is the
+            standard variational-quantum-eigensolver (VQE) optimiser
+            precisely because each "evaluation" requires running a
+            quantum circuit.</li>
+          <li><strong>LLM pretraining.</strong> Stay with AdamW
+            (or Lion) unless you've measured a real benefit from
+            Shampoo. The bookkeeping for second-order methods at LLM
+            scale is non-trivial.</li>
+        </ul>
+      </section>
+
+      <section class="step-section" id="step-6">
+        <div class="step-badge">Step 6</div>
+        <h2>Reading list</h2>
+        <ul class="explanation-list">
+          <li><strong>Nocedal &amp; Wright</strong>, <em>Numerical
+            Optimization</em>, 2nd ed. The standard reference for
+            Newton, BFGS, line search, trust regions.</li>
+          <li><strong>Amari (1998)</strong> &mdash; <em>Natural Gradient
+            Works Efficiently in Learning.</em> The paper that started
+            the natural-gradient line.</li>
+          <li><strong>Martens &amp; Grosse (2015)</strong> &mdash;
+            <em>Optimizing Neural Networks with Kronecker-factored
+            Approximate Curvature (K-FAC).</em></li>
+          <li><strong>Anil, Gupta, Koren, Singer (2020)</strong> &mdash;
+            <em>Shampoo: Preconditioned Stochastic Tensor
+            Optimization.</em> Modern second-order for big nets.</li>
+          <li><strong>Hansen (2016)</strong> &mdash; <em>The CMA
+            Evolution Strategy: A Tutorial.</em> The reference for
+            CMA-ES.</li>
+          <li><strong>Spall (1992)</strong> &mdash; <em>Multivariate
+            Stochastic Approximation Using a Simultaneous Perturbation
+            Gradient Approximation.</em> The original SPSA paper.</li>
+        </ul>
       </section>
     </article>
 

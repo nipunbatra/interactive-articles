@@ -58,6 +58,46 @@
         <div class="math-block" id="math-quant"></div>
       </section>
 
+      <section class="step-section" id="step-1a">
+        <div class="step-badge">Step 1½</div>
+        <h2>Quantization, with the math you actually need</h2>
+        <p>
+          The simplest scheme — affine (asymmetric) uniform quantisation
+          — maps a float tensor $x \in [x_{\min}, x_{\max}]$ to a
+          $b$-bit integer:
+        </p>
+        <div class="math-block" id="math-affine"></div>
+        <p>
+          where $s$ is the scale and $z$ the zero-point. Dequantisation:
+          $\hat x = s \cdot (q - z)$. Round-trip error per element is
+          uniformly distributed in $[-s/2, s/2]$, with variance $s^2 /
+          12$. Halving the bit-width halves $\log_2(\text{levels})$ —
+          so each bit saves $\sim$1× memory and adds $\sim$6 dB of
+          quantisation noise.
+        </p>
+        <p>
+          Two practical choices that matter more than they sound:
+        </p>
+        <ul class="explanation-list">
+          <li><strong>Symmetric vs asymmetric.</strong> Symmetric forces
+            $z = 0$, so $\hat x = sq$ — saves a subtraction per multiply,
+            at the cost of wasting half the range when $x$ is one-sided
+            (e.g. ReLU activations). Most weight quantisers are
+            symmetric; many activation quantisers are asymmetric.</li>
+          <li><strong>Per-tensor vs per-channel.</strong> Per-tensor uses
+            one $s$ for the whole weight matrix; per-channel uses one
+            $s_c$ per output channel. Per-channel costs nothing extra
+            at inference (the scale folds into the bias) and is
+            essential for matrices with wide cross-channel dynamic
+            range. Default everywhere in 2024+.</li>
+          <li><strong>Outliers.</strong> A single 100× outlier weight
+            stretches the range and crushes the resolution of all
+            other weights. Per-channel hides this for weights;
+            <em>activation</em> outliers (one large attention head in
+            an LLM) are why SmoothQuant exists.</li>
+        </ul>
+      </section>
+
       <section class="step-section" id="step-2">
         <div class="step-badge">Step 2</div>
         <h2>Live: slide bits and sparsity</h2>
@@ -132,6 +172,24 @@
         </ul>
       </section>
 
+      <section class="step-section" id="step-3a">
+        <div class="step-badge">Step 3½</div>
+        <h2>GPTQ, AWQ, SmoothQuant — the LLM quantisation family</h2>
+        <p>
+          Naively running PTQ on a 70B LLM at int4 obliterates accuracy. Three techniques restore most of it; all are post-training, all are calibration-driven (use a few hundred unlabelled prompts), and all ship in popular runtimes.
+        </p>
+        <ul class="explanation-list">
+          <li><strong>GPTQ</strong> (Frantar et&nbsp;al., 2022). Quantise columns of a weight matrix one at a time, propagating the residual error into the remaining (still-float) columns via a Hessian update. Close in spirit to Optimal Brain Quantisation. Quantises a 70B model to int4 in a few hours on one GPU; near-FP16 perplexity at int4.</li>
+          <li><strong>AWQ</strong> (Lin et&nbsp;al., 2023). Scale weights and activations <em>before</em> quantising so the most "salient" weights (those interacting with large-magnitude activations) get more resolution. Cheaper than GPTQ; often matches or beats it for int4 LLMs.</li>
+          <li><strong>SmoothQuant</strong> (Xiao et&nbsp;al., 2022). Migrates the quantisation difficulty from activations to weights — multiply weights by $s$, divide activations by $s$, equivalent computation, much better quantisation behaviour. The fix for activation-outlier-driven failures.</li>
+          <li><strong>K/V cache quantisation.</strong> Beyond weights, the KV cache dominates LLM memory at long context. INT8 K/V cache is now a default in vLLM, llama.cpp; FP8 K/V is appearing in 2025+.</li>
+        </ul>
+        <div class="callout callout--key">
+          <strong>The 2026 LLM quantisation recipe.</strong>
+          For inference: <em>weights at int4 via AWQ or GPTQ, activations at int8 via SmoothQuant, K/V cache at int8</em>. Total: ~4× memory reduction vs fp16 with &lt; 1% perplexity hit on most 7B–70B chat models.
+        </div>
+      </section>
+
       <section class="step-section" id="step-4">
         <div class="step-badge">Step 4</div>
         <h2>Lottery ticket — pruning's surprise</h2>
@@ -186,6 +244,33 @@
             ships its own quantization tools and has its own
             production gotchas.</li>
         </ol>
+      </section>
+
+      <section class="step-section" id="step-6">
+        <div class="step-badge">Step 6</div>
+        <h2>Structured sparsity that actually speeds up hardware</h2>
+        <p>
+          Unstructured 90% sparsity rarely speeds up inference on a GPU — the dense matmul kernel still runs over the zeros. Two patterns the hardware actually likes:
+        </p>
+        <ul class="explanation-list">
+          <li><strong>2:4 sparsity.</strong> NVIDIA Ampere+ supports a hardware-accelerated 2:4 structured sparsity: every group of 4 consecutive weights has at most 2 non-zero. Effective 50% sparsity with ~2× speed-up at no accuracy loss after fine-tune. Now the default for production inference.</li>
+          <li><strong>Block / N:M sparsity.</strong> Larger blocks of zeros line up with tensor-core tile sizes. Block-sparse attention, block-sparse MLP are how 2024–2026 MoEs and sparse-attention transformers (Mixtral, Llama 4) get cheap forward passes.</li>
+          <li><strong>Head / channel pruning.</strong> Drop whole attention heads or feed-forward channels. Trivially speeds up but coarser; tools: HuggingFace <code>optimum</code>, <code>nn_pruning</code>.</li>
+        </ul>
+      </section>
+
+      <section class="step-section" id="step-7">
+        <div class="step-badge">Step 7</div>
+        <h2>Reading list</h2>
+        <ul class="explanation-list">
+          <li><strong>Jacob et&nbsp;al. (2018)</strong> &mdash; <em>Quantization and training of neural networks for efficient integer-arithmetic-only inference.</em> The Google paper that defined modern int8 quantisation.</li>
+          <li><strong>Frantar, Ashkboos, Hoefler, Alistarh (2022)</strong> &mdash; <em>GPTQ: Accurate post-training quantization for generative pre-trained transformers.</em></li>
+          <li><strong>Lin et&nbsp;al. (2023)</strong> &mdash; <em>AWQ: Activation-aware Weight Quantization.</em></li>
+          <li><strong>Xiao et&nbsp;al. (2022)</strong> &mdash; <em>SmoothQuant.</em></li>
+          <li><strong>Frankle &amp; Carbin (2019)</strong> &mdash; <em>The Lottery Ticket Hypothesis.</em></li>
+          <li><strong>Han, Mao, Dally (2016)</strong> &mdash; <em>Deep Compression.</em> The combined pruning + quantisation + Huffman paper.</li>
+          <li><strong>Mishra, Latorre, Pool, Stosic, Stosic, Venkatesh, Yu, Micikevicius (2021)</strong> &mdash; the 2:4 hardware-sparsity paper.</li>
+        </ul>
       </section>
     </article>
 

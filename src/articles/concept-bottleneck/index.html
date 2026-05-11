@@ -82,25 +82,63 @@
       <section class="step-section" id="step-2">
         <div class="step-badge">Step 2</div>
         <h2>Three training recipes</h2>
+        <p>
+          Let $g_\theta$ map image → concept vector and $f_\phi$ map
+          concept vector → label. With per-concept loss
+          $\mathcal{L}_c$ and label loss $\mathcal{L}_y$, the three
+          standard recipes are:
+        </p>
         <ul class="explanation-list">
-          <li><strong>Sequential.</strong> Train the bottleneck $g$
-            to predict concepts; freeze; then train the head $f$ on
-            the predicted concepts. Most interpretable; concepts
-            cannot leak label information.</li>
+          <li><strong>Sequential.</strong> Fit
+            $\theta^\star = \arg\min \mathcal{L}_c(g_\theta(x), c)$
+            first; freeze; then fit
+            $\phi^\star = \arg\min \mathcal{L}_y(f_\phi(g_{\theta^\star}(x)),
+            y)$. Most interpretable: concepts cannot leak label
+            information because the label signal never touches $g$.</li>
           <li><strong>Joint.</strong> Train $g$ and $f$ together with
-            a weighted loss $\mathcal{L}_c + \lambda \mathcal{L}_y$.
+            $\mathcal{L} = \mathcal{L}_y + \lambda \mathcal{L}_c$.
             Slightly higher accuracy but the bottleneck can encode
-            spurious info to help $f$ &mdash; called <em>leakage</em>.</li>
+            spurious info to help $f$ &mdash; called <em>leakage</em>.
+            $\lambda$ controls the trade-off: $\lambda \to \infty$
+            recovers sequential.</li>
           <li><strong>Independent.</strong> Train $f$ on
             <em>ground-truth</em> concepts during training; at test
             use predicted concepts. Best test accuracy when concepts
             are hard to predict.</li>
         </ul>
+        <div class="math-block" id="math-cbm-train"></div>
+      </section>
+
+      <section class="step-section" id="step-2a">
+        <div class="step-badge">Step 2½</div>
+        <h2>Why interventions matter</h2>
+        <p>
+          A CBM lets you do something no neural net usually allows: run
+          a counterfactual. "If <em>striped</em> were 0 instead of 1,
+          would the prediction change?" — and the answer is computed
+          by a single forward pass through $f$ on the edited concept
+          vector.
+        </p>
+        <ul class="explanation-list">
+          <li><strong>Test-time auditing.</strong> Domain expert disagrees
+            with the predicted "is-tumor" concept. They override; the
+            CBM still produces a class prediction, but now from the
+            expert's concept value, not the model's.</li>
+          <li><strong>Mistake debugging.</strong> Run intervention
+            sweeps on the failing examples; the concept whose flip
+            <em>fixes</em> the prediction tells you exactly where
+            $g$ is mispredicting.</li>
+          <li><strong>Causality, sort of.</strong> Under the
+            assumption that the named concepts mediate the
+            image→label relationship, interventions on $\hat c$
+            yield the do-operator on $c$. The mediation assumption is
+            often wrong, hence the leakage trap below.</li>
+        </ul>
       </section>
 
       <section class="step-section" id="step-3">
         <div class="step-badge">Step 3</div>
-        <h2>The leakage trap</h2>
+        <h2>The leakage trap, with a live demonstration</h2>
         <p>
           If the concept layer has more channels than the
           ground-truth concept count, the model can use the spare
@@ -110,6 +148,31 @@
           Several recent papers (Margeloiu et&nbsp;al., 2021;
           Mahinpei et&nbsp;al., 2021) document this.
         </p>
+        <p>
+          Below: same 4 named concepts, but the model has $K$ extra
+          "spare" channels that get trained jointly on the label loss
+          (joint recipe with high $\lambda_y$). As $K$ rises, the
+          accuracy under intervention drops — the spare channels
+          have stolen the predictive signal.
+        </p>
+        <div class="train-controls">
+          <label>spare hidden channels K &nbsp;<span id="lk-k-val">0</span> <input type="range" id="lk-k" min="0" max="8" step="1" value="0"></label>
+          <label>label-loss weight λ<sub>y</sub> &nbsp;<span id="lk-ly-val">0.5</span> <input type="range" id="lk-ly" min="0" max="3" step="0.1" value="0.5"></label>
+          <button class="action-btn action-btn--ghost" id="lk-resample">Resample dataset</button>
+        </div>
+        <div class="cb-grid">
+          <div class="cb-panel cb-panel-wide" style="grid-column: 1 / -1;">
+            <div class="panel-label">Intervention faithfulness vs spare channels</div>
+            <canvas id="lk-curve" width="880" height="260"></canvas>
+            <div class="panel-meta">
+              "Clean accuracy" = label correctly predicted on held-out
+              data. "Intervention accuracy" = on inputs where flipping
+              one concept <em>should</em> change the class, does the
+              CBM's prediction flip too? If yes, the bottleneck is
+              faithful. When spare channels exist, the gap widens.
+            </div>
+          </div>
+        </div>
         <div class="callout callout--warn">
           <strong>The fix.</strong>
           Use the concept layer dimension equal to the number of
@@ -120,31 +183,80 @@
         </div>
       </section>
 
+      <section class="step-section" id="step-3a">
+        <div class="step-badge">Step 3½</div>
+        <h2>2023–2026 follow-ups</h2>
+        <ul class="explanation-list">
+          <li><strong>Probabilistic Concept Bottleneck Models</strong>
+            (Kim et&nbsp;al., 2023) — concept values are distributions,
+            so the head can express uncertainty over interventions.</li>
+          <li><strong>Label-free CBMs</strong> (Oikarinen et&nbsp;al.,
+            2023) — derive concept vocabulary from CLIP text embeddings
+            instead of human labelling. Lower accuracy than supervised
+            CBMs but no annotation burden.</li>
+          <li><strong>Concept Embedding Models (CEMs)</strong>
+            (Espinosa-Zarlenga et&nbsp;al., 2022) — replace scalar
+            concept values with low-dim concept embeddings, restoring
+            most of the accuracy gap to a black-box net.</li>
+          <li><strong>Intervention training</strong> — at train time,
+            randomly intervene on concept values; teaches $f$ to
+            actually <em>use</em> the bottleneck instead of routing
+            around it.</li>
+        </ul>
+      </section>
+
       <section class="step-section" id="step-4">
         <div class="step-badge">Step 4</div>
-        <h2>Where this fits the lab</h2>
+        <h2>Where CBMs are the right tool</h2>
         <ul class="explanation-list">
-          <li><strong>Apnea detection.</strong> Concepts: chest
-            motion strength, nostril breathing rate, body posture,
-            ambient lighting. The doctor can intervene on
-            "ambient lighting" and confirm the apnea claim is robust.</li>
-          <li><strong>Air-quality alerting.</strong> Concepts:
-            sensor reading band, weather pattern, traffic density,
-            satellite cloudiness. The community-relations conversation
-            becomes "we predicted a high-pollution alert because
-            sensor band was high <em>and</em> traffic was elevated"
-            instead of "the model said 0.97".</li>
-          <li><strong>Satellite kilns.</strong> Concepts: shape
-            (oval / rectangular), thermal signature, vegetation
-            ring, smokestack. Reviewers can intervene on each.</li>
+          <li><strong>Medical imaging.</strong> Radiology concepts
+            (lesion size, edge type, surrounding tissue density) are
+            already in the doctor's vocabulary. Predicting them
+            explicitly lets the clinician interrogate the model in
+            their own language; original CBM paper used CUB-200 birds
+            and OAI knee X-rays.</li>
+          <li><strong>Bioacoustics &amp; ecology.</strong> Bird-call
+            classifier with concepts like "pitch range", "trill
+            present", "burst rate". Domain experts can audit
+            mispredictions by intervening on the wrong concept.</li>
+          <li><strong>Auditable policy decisions.</strong> Any model
+            whose output feeds a high-stakes decision (credit scoring,
+            disease screening, fairness audits) benefits more from
+            "the prediction was X because concepts $c_1, c_3$ fired"
+            than from a raw probability with no interpretable
+            structure.</li>
+          <li><strong>Concept-conditioned generation.</strong> The
+            "concept" interface generalises beyond classifiers — CBMs
+            for image generators let you steer outputs by toggling
+            human-named attributes.</li>
         </ul>
         <div class="callout callout--think">
           <strong>Final takeaway.</strong>
           Concept bottlenecks trade a small amount of accuracy for a
           large amount of accountability. For any model whose
           predictions feed a policy decision, this trade is usually
-          a bargain.
+          a bargain &mdash; <em>provided you guard against leakage</em>
+          and verify interventions actually steer the prediction.
         </div>
+      </section>
+
+      <section class="step-section" id="step-5">
+        <div class="step-badge">Step 5</div>
+        <h2>Reading list</h2>
+        <ul class="explanation-list">
+          <li><strong>Koh, Nguyen, Tang, Mussmann, Pierson, Kim, Liang
+            (2020)</strong> &mdash; <em>Concept Bottleneck Models.</em>
+            The original paper.</li>
+          <li><strong>Margeloiu et&nbsp;al. (2021)</strong> &mdash;
+            <em>Do Concept Bottleneck Models Learn as Intended?</em>
+            The leakage paper.</li>
+          <li><strong>Mahinpei et&nbsp;al. (2021)</strong> &mdash;
+            <em>Promises and Pitfalls of Black-Box Concept Learning.</em></li>
+          <li><strong>Espinosa-Zarlenga et&nbsp;al. (2022)</strong>
+            &mdash; <em>Concept Embedding Models.</em></li>
+          <li><strong>Oikarinen et&nbsp;al. (2023)</strong> &mdash;
+            <em>Label-Free Concept Bottleneck Models.</em></li>
+        </ul>
       </section>
     </article>
 

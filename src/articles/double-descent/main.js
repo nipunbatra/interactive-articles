@@ -272,10 +272,113 @@ function refresh() {
   STATE.lam = Math.pow(10, lamLog);
   document.getElementById('dd-N-val').textContent = STATE.N;
   document.getElementById('dd-sig-val').textContent = STATE.sigma.toFixed(2);
-  document.getElementById('dd-lam-val').textContent = STATE.lam.toExponential(0);
+  document.getElementById('dd-lam-val').textContent = lamLog.toFixed(1);
   if (!STATE.Xtrain || STATE.Xtrain.length !== STATE.N) regen();
   renderCurve();
   renderFit();
+}
+
+// ---------- Sample-wise double descent ----------
+const SW = { P: 120, sigma: 0.3, lam: 1e-4, F: null, Xfull: null, Yfull: null };
+function swRegen() {
+  // Make a generous training pool; subsample for each N.
+  const Nmax = 300;
+  SW.Xfull = []; SW.Yfull = [];
+  for (let i = 0; i < Nmax; i++) {
+    const x = -3 + 6 * Math.random();
+    SW.Xfull.push(x);
+    SW.Yfull.push(trueFn(x) + SW.sigma * randn());
+  }
+  // Fix features so the curve is comparable across N.
+  SW.F = makeFeatures(SW.P);
+}
+function swTestError(N) {
+  const Xtr = []; const Ytr = [];
+  for (let i = 0; i < N; i++) {
+    Xtr.push(phi(SW.Xfull[i], SW.F));
+    Ytr.push(SW.Yfull[i]);
+  }
+  const w = ridgeFit(Xtr, Ytr, SW.lam);
+  // Test on 400 clean points.
+  let te = 0; const Nt = 400;
+  for (let i = 0; i < Nt; i++) {
+    const x = -3 + 6 * (i / (Nt - 1));
+    const ph = phi(x, SW.F);
+    let pred = 0;
+    for (let p = 0; p < SW.P; p++) pred += ph[p] * w[p];
+    te += (pred - trueFn(x)) ** 2;
+  }
+  return Math.sqrt(te / Nt);
+}
+function renderSampleWise() {
+  const canvas = document.getElementById('sw-curve');
+  if (!canvas) return;
+  const W = 880, H = 300;
+  const ctx = setupCanvas(canvas, W, H);
+  ctx.fillStyle = '#fdfcf9'; ctx.fillRect(0, 0, W, H);
+  const m = { l: 60, r: 14, t: 18, b: 30 };
+  const px = W - m.l - m.r, py = H - m.t - m.b;
+  ctx.strokeStyle = '#e2d8c6'; ctx.strokeRect(m.l, m.t, px, py);
+  // Sweep N from 4 to 2*P (so we go across the threshold P=N from both sides).
+  const Nmax = Math.min(300, 2 * SW.P + 20);
+  const Ns = [], errs = [];
+  for (let i = 0; i < 40; i++) {
+    const N = Math.max(4, Math.round(Nmax * (i + 1) / 40));
+    Ns.push(N); errs.push(swTestError(N));
+  }
+  let lo = Infinity, hi = -Infinity;
+  for (const v of errs) { lo = Math.min(lo, v); hi = Math.max(hi, v); }
+  hi = Math.min(hi, lo + 6);
+  ctx.fillStyle = '#9a917f'; ctx.font = '11px IBM Plex Mono'; ctx.textAlign = 'right';
+  for (let i = 0; i <= 4; i++) {
+    const v = lo + (hi - lo) * (1 - i / 4);
+    const y = m.t + i / 4 * py;
+    ctx.fillText(v.toFixed(2), m.l - 4, y + 3);
+    ctx.strokeStyle = '#f0ebe1';
+    ctx.beginPath(); ctx.moveTo(m.l, y); ctx.lineTo(m.l + px, y); ctx.stroke();
+  }
+  ctx.textAlign = 'center';
+  for (let i = 0; i <= 5; i++) {
+    const v = Math.round(Nmax * i / 5);
+    const x = m.l + (i / 5) * px;
+    ctx.fillText(v.toString(), x, m.t + py + 16);
+  }
+  // Threshold line at N = P
+  const Nx = m.l + (SW.P / Nmax) * px;
+  ctx.strokeStyle = 'rgba(217,98,43,0.6)';
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath(); ctx.moveTo(Nx, m.t); ctx.lineTo(Nx, m.t + py); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#9c3f15'; ctx.font = '11px Manrope'; ctx.textAlign = 'left';
+  ctx.fillText('N = P', Nx + 4, m.t + 14);
+  // Plot
+  ctx.strokeStyle = '#2c6fb7'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  errs.forEach((v, i) => {
+    const x = m.l + (Ns[i] / Nmax) * px;
+    const y = m.t + (1 - (Math.min(hi, v) - lo) / (hi - lo)) * py;
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+  // Markers
+  errs.forEach((v, i) => {
+    const x = m.l + (Ns[i] / Nmax) * px;
+    const y = m.t + (1 - (Math.min(hi, v) - lo) / (hi - lo)) * py;
+    ctx.fillStyle = '#2c6fb7';
+    ctx.beginPath(); ctx.arc(x, y, 2, 0, Math.PI * 2); ctx.fill();
+  });
+  ctx.fillStyle = '#3b342b'; ctx.font = '11px Manrope'; ctx.textAlign = 'left';
+  ctx.fillText('test RMSE', m.l + 8, m.t + 16);
+  ctx.fillStyle = '#9a917f';
+  ctx.fillText('training set size N →', m.l + px - 130, m.t + py + 16);
+}
+function refreshSW() {
+  SW.P = parseInt(document.getElementById('sw-P').value, 10);
+  SW.sigma = parseFloat(document.getElementById('sw-sig').value);
+  document.getElementById('sw-P-val').textContent = SW.P;
+  document.getElementById('sw-sig-val').textContent = SW.sigma.toFixed(2);
+  swRegen();
+  renderSampleWise();
 }
 
 function wire() {
@@ -287,13 +390,25 @@ function wire() {
     refresh();
   });
   refresh();
+  // Sample-wise demo
+  const swP = document.getElementById('sw-P');
+  if (swP) {
+    ['sw-P', 'sw-sig'].forEach((id) => {
+      document.getElementById(id).addEventListener('input', refreshSW);
+    });
+    refreshSW();
+  }
 }
 
 function renderMath() {
   if (!window.katex) return;
   const blocks = {
     'math-dd':
-      '\\hat w = \\arg\\min_w \\,\\|\\Phi w - y\\|^2 + \\lambda\\|w\\|^2,\\qquad \\Phi \\in \\mathbb{R}^{N \\times P}'
+      '\\hat w = \\arg\\min_w \\,\\|\\Phi w - y\\|^2 + \\lambda\\|w\\|^2,\\qquad \\Phi \\in \\mathbb{R}^{N \\times P}',
+    'math-bv':
+      '\\mathbb{E}\\,[(\\hat f(x) - f(x))^2] \\;=\\; \\underbrace{(\\mathbb{E}\\hat f - f)^2}_{\\text{bias}^2} \\;+\\; \\underbrace{\\operatorname{Var}(\\hat f)}_{\\text{variance}} \\;+\\; \\sigma^2',
+    'math-spike':
+      '\\hat w = (\\Phi^\\top\\Phi + \\lambda I)^{-1}\\Phi^\\top y = \\sum_i \\frac{\\sigma_i}{\\sigma_i^2 + \\lambda}\\, v_i\\, (u_i^\\top y)'
   };
   Object.keys(blocks).forEach((id) => {
     const el = document.getElementById(id);

@@ -355,7 +355,9 @@ function renderMath() {
   if (!window.katex) return;
   const blocks = {
     'math-quant':
-      'q(w) = \\mathrm{round}\\!\\left(\\frac{w}{\\Delta}\\right)\\Delta,\\qquad \\Delta = \\frac{|w|_{\\max}}{2^{b-1} - 1}'
+      'q(w) = \\mathrm{round}\\!\\left(\\frac{w}{\\Delta}\\right)\\Delta,\\qquad \\Delta = \\frac{|w|_{\\max}}{2^{b-1} - 1}',
+    'math-affine':
+      'q = \\mathrm{clip}\\!\\left(\\mathrm{round}\\!\\left(\\frac{x}{s}\\right) + z,\\; 0,\\; 2^b - 1\\right),\\qquad s = \\frac{x_{\\max} - x_{\\min}}{2^b - 1},\\qquad z = -\\mathrm{round}(x_{\\min}/s)'
   };
   Object.keys(blocks).forEach((id) => {
     const el = document.getElementById(id);
