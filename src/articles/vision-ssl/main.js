@@ -366,7 +366,13 @@ function renderMath() {
   if (!window.katex) return;
   const blocks = {
     'math-mae':
-      '\\mathcal{L}_{\\text{MAE}} = \\frac{1}{|\\mathcal{M}|} \\sum_{i \\in \\mathcal{M}} \\bigl\\lVert \\mathrm{Dec}\\!\\left(\\mathrm{Enc}(x_{\\overline{\\mathcal{M}}})\\right)_i - x_i \\bigr\\rVert^2'
+      '\\mathcal{L}_{\\text{MAE}} = \\frac{1}{|\\mathcal{M}|} \\sum_{i \\in \\mathcal{M}} \\bigl\\lVert \\mathrm{Dec}\\!\\left(\\mathrm{Enc}(x_{\\overline{\\mathcal{M}}})\\right)_i - x_i \\bigr\\rVert^2',
+    'math-infonce':
+      '\\mathcal{L}_{\\text{InfoNCE}} = -\\log \\frac{\\exp(\\mathrm{sim}(z_i, z_j) / \\tau)}{\\sum_{k=1}^{2N} \\mathbb{1}[k \\neq i] \\exp(\\mathrm{sim}(z_i, z_k) / \\tau)}',
+    'math-dino':
+      '\\mathcal{L}_{\\text{DINO}} = -\\sum_x p_t(x) \\log p_s(x),\\quad p_t = \\mathrm{softmax}\\!\\left(\\frac{f_t(x) - c}{\\tau_t}\\right),\\quad p_s = \\mathrm{softmax}\\!\\left(\\frac{f_s(x)}{\\tau_s}\\right)',
+    'math-jepa':
+      '\\mathcal{L}_{\\text{JEPA}} = \\bigl\\lVert g\\bigl(f(x_{\\text{context}}), \\text{loc}_{\\text{target}}\\bigr) - \\mathrm{sg}\\bigl[f(x_{\\text{target}})\\bigr] \\bigr\\rVert^2'
   };
   Object.keys(blocks).forEach((id) => {
     const el = document.getElementById(id);

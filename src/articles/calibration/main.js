@@ -615,7 +615,9 @@ function renderMath() {
     'math-cal':
       '\\mathrm{ECE} = \\sum_{m=1}^{M} \\frac{|B_m|}{N} \\, \\bigl|\\; \\mathrm{acc}(B_m) - \\mathrm{conf}(B_m) \\;\\bigr|',
     'math-temp':
-      'p^{(T)}_c = \\frac{e^{z_c / T}}{\\sum_{c\'} e^{z_{c\'} / T}}, \\qquad T^* = \\arg\\min_T \\;\\mathrm{NLL}(T)\\text{ on val}'
+      'p^{(T)}_c = \\frac{e^{z_c / T}}{\\sum_{c\'} e^{z_{c\'} / T}}, \\qquad T^* = \\arg\\min_T \\;\\mathrm{NLL}(T)\\text{ on val}',
+    'math-reg-cal':
+      '\\text{Regression calibration:}\\quad \\Pr\\!\\bigl(y \\le \\hat F^{-1}(\\alpha | x) \\bigr) \\stackrel{!}{=} \\alpha \\;\\;\\;\\text{for all}\\;\\alpha \\in [0,1]'
   };
   Object.keys(blocks).forEach((id) => {
     const el = document.getElementById(id);

@@ -151,33 +151,48 @@
 
       <section class="step-section" id="step-4">
         <div class="step-badge">Step 4</div>
-        <h2>Where this hits practice</h2>
+        <h2>Where active learning is the right tool</h2>
         <ul class="explanation-list">
-          <li><strong>Sensor placement.</strong> Choose where to put
-            the next air-quality sensor (or thermal camera, or PM2.5
-            buoy) by maximum predictive uncertainty under your current
-            field model.</li>
-          <li><strong>Labelling thermal frames for thermal-imaging respiration monitoring.</strong>
-            Frame-level annotation is expensive; AL targets the frames
-            where the current breathing-pattern model is least
-            confident.</li>
-          <li><strong>Satellite tile selection (satellite kiln-detection).</strong>
-            Out of millions of unlabeled tiles, AL surfaces the few
-            hundred that the kiln detector is least sure about,
-            multiplying labelling efficiency.</li>
-          <li><strong>Sleep-stage / activity recognition.</strong>
-            For SSL-pretrained models, AL on labelled fine-tuning
-            set lets you pick which transitions and atypical events
-            to send to the human labeller.</li>
+          <li><strong>Sensor / measurement placement.</strong> Pick the next location/sensor/probe by maximum predictive uncertainty under your current field model. Classical Bayesian experimental design — see the BO article for the related expected-improvement framing.</li>
+          <li><strong>Image / video annotation.</strong> Frame-level annotation is expensive; AL targets frames where the current model is least confident. Standard for medical imaging, autonomous driving datasets, surveillance video labelling.</li>
+          <li><strong>Satellite tile selection.</strong> Out of millions of unlabelled tiles, AL surfaces the few hundred that the detector is least sure about, multiplying labelling efficiency.</li>
+          <li><strong>NLP fine-tuning.</strong> Choose which texts a human annotator should label next; particularly valuable for span / entity annotation where each item is slow.</li>
+          <li><strong>Drug discovery.</strong> Pick which molecules to assay next — a wet-lab experiment costs hundreds of dollars per data point, AL is essential.</li>
         </ul>
         <div class="callout callout--think">
           <strong>Final takeaway.</strong>
           Active learning is one of the cheapest ways to multiply
           labelling budget. It costs only a model retrain per
-          query and a small bit of book-keeping. For sensor and
-          satellite work in a lab with finite annotation budget, it
-          should be the default, not the optional add-on.
+          query and a small bit of book-keeping. For any annotation pipeline with a finite budget, it should be the default rather than the optional add-on.
         </div>
+      </section>
+
+      <section class="step-section" id="step-5">
+        <div class="step-badge">Step 5</div>
+        <h2>Why active learning often fails in deep learning</h2>
+        <p>
+          The literature is full of "active learning works" papers and the production lore is full of "AL didn't beat random sampling for us". Both are right; the reconciling observation comes from a 2021–22 wave of careful empirical work (Munjal et&nbsp;al., 2022; Lüth et&nbsp;al., 2024):
+        </p>
+        <ul class="explanation-list">
+          <li><strong>Random is a strong baseline.</strong> When your pool is i.i.d. with the test set and your model is well-tuned, random sampling is hard to beat. Most reported AL wins disappear under careful seed averaging.</li>
+          <li><strong>The model matters more than the acquisition.</strong> Switching from logistic regression to a calibrated deep net often moves accuracy more than swapping between BALD and entropy.</li>
+          <li><strong>Class imbalance is where AL wins.</strong> When some classes are 100× rarer, random sampling under-represents them; uncertainty-based AL (especially with class-aware acquisition) recovers them faster.</li>
+          <li><strong>Bad calibration kills AL.</strong> Acquisition functions read confidences. If your model is wildly miscalibrated (see the <a href="../calibration/index.html">calibration article</a>), the acquisition function reads garbage.</li>
+          <li><strong>Batch-mode AL is hard.</strong> Single-query AL is well-studied; batch-mode (acquire $B$ samples per round to keep GPUs busy) has been an open problem until BatchBALD (Kirsch et&nbsp;al., 2019) and CORESET-based methods. Use these for any practical pipeline that retrains in batches.</li>
+        </ul>
+      </section>
+
+      <section class="step-section" id="step-6">
+        <div class="step-badge">Step 6</div>
+        <h2>Reading list</h2>
+        <ul class="explanation-list">
+          <li><strong>Settles (2009)</strong> &mdash; <em>Active Learning Literature Survey.</em> The historical reference.</li>
+          <li><strong>Gal, Islam, Ghahramani (2017)</strong> &mdash; <em>Deep Bayesian Active Learning with Image Data.</em> The BALD-with-MC-dropout paper.</li>
+          <li><strong>Sener &amp; Savarese (2018)</strong> &mdash; <em>Active Learning for Convolutional Neural Networks: A Core-Set Approach.</em> The diversity-first paper.</li>
+          <li><strong>Kirsch, van Amersfoort, Gal (2019)</strong> &mdash; <em>BatchBALD.</em> The batch-mode BALD paper.</li>
+          <li><strong>Munjal et&nbsp;al. (2022)</strong> &mdash; <em>Towards Robust and Reproducible Active Learning Using Neural Networks.</em></li>
+          <li><strong>Lüth, Bungert, Klein, Maier-Hein (2024)</strong> &mdash; <em>Navigating the Pitfalls of Active Learning Evaluation.</em></li>
+        </ul>
       </section>
     </article>
 

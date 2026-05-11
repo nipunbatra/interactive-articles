@@ -174,13 +174,8 @@
         <div class="step-badge">Step 4</div>
         <h2>Why this matters</h2>
         <ul class="explanation-list">
-          <li><strong>Deployed AQ models.</strong> A "high PM2.5" alert
-            with 0.95 calibrated confidence is actionable; the same
-            number from an over-confident model is just noise.</li>
-          <li><strong>Apnea detection.</strong> A medical-adjacent
-            decision <em>must</em> ship calibrated probabilities
-            &mdash; otherwise downstream care decisions are made on
-            the wrong basis.</li>
+          <li><strong>Deployed alerting.</strong> A "high-risk" alert with 0.95 calibrated confidence is actionable; the same number from an over-confident model is just noise.</li>
+          <li><strong>Medical / safety-critical decisions.</strong> A model whose outputs feed treatment or operational choices <em>must</em> ship calibrated probabilities — otherwise downstream decisions are made on the wrong basis.</li>
           <li><strong>Active learning + Bayes-Opt.</strong>
             Acquisition functions (BALD, EI) read confidence; broken
             calibration breaks every uncertainty-aware downstream
@@ -199,6 +194,52 @@
           whether the confidences mean anything. Temperature scaling
           is the cheapest possible repair if they don't.
         </div>
+      </section>
+
+      <section class="step-section" id="step-5">
+        <div class="step-badge">Step 5</div>
+        <h2>Why neural nets miscalibrate in the first place</h2>
+        <p>
+          Guo et&nbsp;al. (2017) traced modern over-confidence to three things:
+        </p>
+        <ul class="explanation-list">
+          <li><strong>Capacity.</strong> Bigger models can drive training NLL to zero by pushing logits to $\pm \infty$. That fits the training set perfectly with maximally-confident softmaxes; the held-out distribution lags. Test confidence ends up systematically too high.</li>
+          <li><strong>Weight decay reduction.</strong> Modern training uses much less weight decay than older models; without that implicit regulariser, logits drift larger.</li>
+          <li><strong>BatchNorm.</strong> Empirically correlated with worse calibration, possibly because per-batch statistics introduce stochasticity in logits that the model compensates by overcommitting on average.</li>
+        </ul>
+        <p>
+          The good news: temperature scaling fixes essentially all of this on i.i.d. test sets. The bad news: <strong>under distribution shift, temperature scaling alone is no longer enough</strong> — the optimal $T$ on the in-distribution validation set is wrong for the shifted test distribution. Ovadia et&nbsp;al. (2019) showed this empirically. Mitigations: train with mixup / label smoothing (intrinsic calibration), or use conformal prediction (which has a coverage guarantee under exchangeability assumptions that are still violated by shift, but less catastrophically).
+        </p>
+      </section>
+
+      <section class="step-section" id="step-6">
+        <div class="step-badge">Step 6</div>
+        <h2>Beyond classification — regression calibration</h2>
+        <p>
+          For regression, "calibrated" means: a 90% predictive interval should cover the true value 90% of the time. The reliability diagram is replaced by a coverage-vs-nominal plot:
+        </p>
+        <div class="math-block" id="math-reg-cal"></div>
+        <p>
+          The expected calibration error for regression is $\int_0^1 |\mathrm{coverage}(\alpha) - \alpha|\, d\alpha$. Tools to fix regression miscalibration:
+        </p>
+        <ul class="explanation-list">
+          <li><strong>Quantile regression with pinball loss</strong> directly learns conditional quantiles without distributional assumptions.</li>
+          <li><strong>Conformalised quantile regression (CQR)</strong> wraps the quantile model in conformal prediction for a distribution-free coverage guarantee.</li>
+          <li><strong>Isotonic regression on the CDF.</strong> Fit a monotone transformation $\hat F(y|x) \mapsto F(y|x)$ that maps the model's CDF to the empirical one.</li>
+        </ul>
+      </section>
+
+      <section class="step-section" id="step-7">
+        <div class="step-badge">Step 7</div>
+        <h2>Reading list</h2>
+        <ul class="explanation-list">
+          <li><strong>Guo, Pleiss, Sun, Weinberger (2017)</strong> &mdash; <em>On Calibration of Modern Neural Networks.</em> Defined ECE; introduced temperature scaling.</li>
+          <li><strong>Platt (1999)</strong> &mdash; <em>Probabilistic outputs for SVMs.</em> Platt scaling.</li>
+          <li><strong>Zadrozny &amp; Elkan (2002)</strong> &mdash; <em>Transforming Classifier Scores into Accurate Multiclass Probability Estimates.</em> Isotonic.</li>
+          <li><strong>Ovadia et&nbsp;al. (2019)</strong> &mdash; <em>Can You Trust Your Model's Uncertainty?</em> The OOD calibration paper.</li>
+          <li><strong>Kuleshov, Fenner, Ermon (2018)</strong> &mdash; <em>Accurate Uncertainties for Deep Learning Using Calibrated Regression.</em></li>
+          <li><strong>Niculescu-Mizil &amp; Caruana (2005)</strong> &mdash; <em>Predicting Good Probabilities With Supervised Learning.</em> The classical calibrator-comparison paper.</li>
+        </ul>
       </section>
     </article>
 
