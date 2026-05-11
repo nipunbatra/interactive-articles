@@ -1,0 +1,19 @@
+{
+  "slug": "random-forest",
+  "title": "Random Forests, Tree by Tree",
+  "date": "2026-05-11",
+  "tagline": "Bagging + random feature sampling — why a forest of weak trees beats a strong one",
+  "summary": "Watch trees enter a forest one at a time on a 2-D classification problem; the boundary smooths out, the out-of-bag error converges, feature-importance bars stabilise. Compare bagging-only, RF (= bagging + random features), and Extra-Trees side-by-side; tune n_estimators and max_features and see the bias-variance trade play out live.",
+  "readingTime": "16 min",
+  "difficulty": "Beginner",
+  "collection": "Classical ML",
+  "order": 32,
+  "status": "published",
+  "tags": ["Random Forest", "Bagging", "OOB", "Ensembles", "Interactive"],
+  "highlights": [
+    "Click 'Add tree' and watch the forest boundary smooth tree-by-tree.",
+    "OOB error tracked live as trees enter; converges to a held-out test error you don't have to leave out.",
+    "Side-by-side bagging-only vs RF vs Extra-Trees on the same dataset.",
+    "Feature-importance bars + partial-dependence panel so 'why this prediction' has an honest answer."
+  ]
+}

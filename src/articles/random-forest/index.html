@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Random Forests, Tree by Tree</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../vendor/katex/katex.min.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <article class="article">
+      <header class="article-header">
+        <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+        <p class="kicker">Interactive Explainer</p>
+        <h1>Random Forests, Tree by Tree</h1>
+        <p class="abstract">
+          Bagging + random feature sampling — the simplest tabular
+          ensemble that still wins half the time. Add trees one at a
+          time; watch the boundary smooth, OOB error fall, feature
+          importance stabilise. Compare RF to bagging-only and
+          Extra-Trees on the same dataset.
+        </p>
+        <div class="byline">
+          <span>~16 min</span>
+          <span>Classical ML &middot; Ensembles &middot; Bagging</span>
+        </div>
+      </header>
+
+      <section class="step-section" id="step-1">
+        <div class="step-badge">Step 1</div>
+        <h2>Two sources of diversity</h2>
+        <p>
+          A single deep decision tree is high-variance — small
+          training-set perturbations move the splits a lot.
+          Random Forest (Breiman, 2001) averages many such trees, each
+          de-correlated from the others by two tricks:
+        </p>
+        <ul class="explanation-list">
+          <li><strong>Bagging.</strong> Each tree sees a bootstrap
+            sample of the training data (sampled with replacement,
+            same size as the original). About 63% of unique points
+            appear in each bootstrap; the other 37% are the
+            <em>out-of-bag</em> samples for that tree — a free held-out
+            set per tree.</li>
+          <li><strong>Random feature subsampling.</strong> At each
+            split, only $m$ of the $d$ features are eligible to be
+            picked. Defaults: $m = \sqrt d$ for classification,
+            $m = d/3$ for regression. Forces different trees to look
+            at different features and beats bagging-on-features-alone.</li>
+        </ul>
+        <div class="math-block" id="math-rf"></div>
+        <p>
+          Extra-Trees (Geurts et al., 2006) goes further: at each
+          split, pick the threshold <em>randomly</em> rather than
+          optimally. Trades a little bias for even more variance
+          reduction; often slightly worse on signal-rich data,
+          slightly better on noisy data.
+        </p>
+      </section>
+
+      <section class="step-section" id="step-2">
+        <div class="step-badge">Step 2</div>
+        <h2>Watch the forest grow</h2>
+        <p>
+          Click <em>Add tree</em> to add one tree at a time. The
+          forest's predicted class is the majority vote of its trees.
+          The boundary smooths quickly in the first 10 trees and
+          gradually after that. OOB error is reported only once
+          $\ge$ 3 trees exist.
+        </p>
+        <div class="train-controls">
+          <button class="action-btn" id="rf-add">Add tree</button>
+          <button class="action-btn" id="rf-add10">+10 trees</button>
+          <button class="action-btn action-btn--ghost" id="rf-reset">Reset forest</button>
+          <button class="action-btn action-btn--ghost" id="rf-newdata">New data</button>
+          <label>max depth &nbsp;<span id="rf-depth-val">6</span> <input type="range" id="rf-depth" min="2" max="12" step="1" value="6"></label>
+          <label>features per split (m) &nbsp;<span id="rf-mtry-val">1</span> <input type="range" id="rf-mtry" min="1" max="2" step="1" value="1"></label>
+          <span class="train-stat">trees <strong id="rf-n">0</strong></span>
+          <span class="train-stat">OOB error <strong id="rf-oob">—</strong></span>
+        </div>
+        <div class="dt-grid">
+          <div class="dt-panel">
+            <div class="panel-label">Bagging only (m = d = 2)</div>
+            <canvas id="rf-bag" width="380" height="380"></canvas>
+          </div>
+          <div class="dt-panel">
+            <div class="panel-label">Random Forest (m via slider)</div>
+            <canvas id="rf-rf" width="380" height="380"></canvas>
+          </div>
+          <div class="dt-panel">
+            <div class="panel-label">Extra-Trees (random splits)</div>
+            <canvas id="rf-extra" width="380" height="380"></canvas>
+          </div>
+        </div>
+        <div class="dt-grid">
+          <div class="dt-panel" style="grid-column: 1 / -1;">
+            <div class="panel-label">OOB error + feature importance, tree by tree</div>
+            <canvas id="rf-stats" width="880" height="260"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <section class="step-section" id="step-3">
+        <div class="step-badge">Step 3</div>
+        <h2>OOB error — the free held-out set</h2>
+        <p>
+          Each training point is "out-of-bag" for the ~37% of trees
+          whose bootstrap didn't include it. To get its OOB
+          prediction: vote across just those trees. The OOB error is
+          the misclassification rate over all training points using
+          their respective OOB predictions.
+        </p>
+        <div class="math-block" id="math-oob"></div>
+        <p>
+          Properties: (1) no leakage; (2) you don't have to split into
+          train/test for tuning; (3) converges to the true test error
+          as trees grow. The OOB curve in Step 2 should match the
+          slope of a held-out test curve within noise.
+        </p>
+      </section>
+
+      <section class="step-section" id="step-4">
+        <div class="step-badge">Step 4</div>
+        <h2>Feature importance — three ways, none perfect</h2>
+        <ul class="explanation-list">
+          <li><strong>Mean decrease in impurity (MDI).</strong> Sum
+            up the impurity drop a feature contributed at every split
+            in every tree; normalise. Fast, biased toward
+            high-cardinality features.</li>
+          <li><strong>Permutation importance.</strong> Shuffle one
+            feature in the OOB set; measure the drop in OOB accuracy;
+            larger drop = more important. Unbiased, expensive.</li>
+          <li><strong>SHAP / TreeSHAP.</strong> Per-prediction
+            contributions with Shapley-value guarantees. The standard
+            modern way to explain RF / boosting predictions.</li>
+        </ul>
+        <p>
+          MDI is what the live demo shows. Always cross-check with
+          permutation importance on real datasets — MDI can flag a
+          random-noise high-cardinality feature as "important".
+        </p>
+      </section>
+
+      <section class="step-section" id="step-5">
+        <div class="step-badge">Step 5</div>
+        <h2>What RF is good at — and what trips it up</h2>
+        <ul class="explanation-list">
+          <li><strong>Strengths.</strong> Mixed-type tabular data,
+            many features, mild interactions, robust to outliers,
+            handles missing values, parallel training, OOB tuning.</li>
+          <li><strong>Weaknesses.</strong> Extrapolation outside
+            training range (zero by construction); smooth low-dim
+            regression (a GP is better); highly imbalanced classes
+            (use class-weighted sampling); very high-dim sparse
+            (XGBoost / LightGBM tend to win); cannot capture rotated
+            decision boundaries efficiently.</li>
+          <li><strong>Where it sits in 2026.</strong> Still the
+            default first-try on any tabular task you can throw 10
+            lines of sklearn at. If you want one more lap of accuracy,
+            switch to <a href="../xgboost/index.html">XGBoost /
+            LightGBM</a> and tune. If you need probabilistic outputs,
+            wrap with <a href="../conformal/index.html">conformal
+            prediction</a> or use NGBoost.</li>
+        </ul>
+        <div class="callout callout--key">
+          <strong>The slogan.</strong>
+          Wisdom-of-crowds, but each crowd-member sees a different
+          slice of the world. The math behind it is one line
+          (averaging i.i.d. weak learners reduces variance by 1/n);
+          the practical implication is that you should never train
+          one decision tree when you can train fifty.
+        </div>
+      </section>
+    </article>
+
+    <script src="../vendor/katex/katex.min.js"></script>
+    <script type="module" src="main.js"></script>
+  </body>
+</html>
