@@ -147,6 +147,44 @@
         </div>
       </section>
 
+      <section class="step-section" id="step-3b">
+        <div class="step-badge">Step 3¾</div>
+        <h2>Expressivity — the Weisfeiler-Lehman ceiling</h2>
+        <p>
+          A natural question: which graphs can a GNN tell apart? The classical answer (Xu et&nbsp;al., 2019; Morris et&nbsp;al., 2019): a message-passing GNN is <em>at most as expressive as</em> the 1-dimensional Weisfeiler-Lehman graph-isomorphism test (1-WL). That test:
+        </p>
+        <ol class="explanation-list">
+          <li>Label every node with its degree (or any consistent feature).</li>
+          <li>Replace each label with a hash of (own label, multiset of neighbour labels).</li>
+          <li>Repeat. If two graphs ever produce different label multisets, they're not isomorphic.</li>
+        </ol>
+        <p>
+          1-WL fails on regular graphs with the same degree sequence (e.g. two non-isomorphic 6-cycles). So does any vanilla message-passing GNN. Two ways forward:
+        </p>
+        <ul class="explanation-list">
+          <li><strong>GIN</strong> (Xu et&nbsp;al., 2019) — provably attains the 1-WL bound with the right aggregator: $h_v = \mathrm{MLP}\bigl((1+\epsilon) h_v + \sum_{u \in \mathcal{N}(v)} h_u\bigr)$. Use this when you suspect graph distinguishability matters.</li>
+          <li><strong>Higher-order GNNs / k-WL.</strong> Aggregate over $k$-tuples of nodes instead of single neighbours. More expressive but $O(N^k)$ cost. PPGN, $k$-GNN.</li>
+          <li><strong>Subgraph GNNs / positional encodings.</strong> Augment each node with structural features (Laplacian eigenvectors, random walk encodings). Cheap and often enough in practice.</li>
+        </ul>
+      </section>
+
+      <section class="step-section" id="step-3c">
+        <div class="step-badge">Step 3⅞</div>
+        <h2>Scaling to million-node graphs</h2>
+        <p>
+          A full-batch GNN forward pass on a graph with $|V|$ nodes and average degree $d$ touches every edge — $O(|V| d)$ memory and compute. Beyond ~10⁶ nodes that's prohibitive. Three escapes:
+        </p>
+        <ul class="explanation-list">
+          <li><strong>Neighbour sampling</strong> (GraphSAGE, Hamilton et&nbsp;al., 2017). For each target node, sample a fixed number $S$ of neighbours per layer. Cost becomes $O(B \cdot S^K)$ per batch instead of $O(|V| d)$.</li>
+          <li><strong>Subgraph sampling</strong> (Cluster-GCN, GraphSAINT). Partition or sample subgraphs and train on them; full message passing within, ignoring inter-subgraph edges. Much higher throughput at a small accuracy cost.</li>
+          <li><strong>Layer-wise sampling</strong> (FastGCN, LADIES). Sample nodes per layer independently. Variance-reduction tricks (importance sampling) keep gradient bias low.</li>
+          <li><strong>Frontier methods (2024+):</strong> NeurIPS-era graph transformers with linear-attention; pre-computed positional encodings; GNN distillation into MLP for serving.</li>
+        </ul>
+        <p>
+          Library defaults: PyG and DGL ship all of the above; the practical first try at scale is GraphSAGE with neighbour sampling $S = 25, 10$ for two layers.
+        </p>
+      </section>
+
       <section class="step-section" id="step-4">
         <div class="step-badge">Step 4</div>
         <h2>The variants worth knowing</h2>
@@ -171,23 +209,14 @@
 
       <section class="step-section" id="step-5">
         <div class="step-badge">Step 5</div>
-        <h2>Where this matters in practice</h2>
+        <h2>Where GNNs are the right tool</h2>
         <ul class="explanation-list">
-          <li><strong>Cross-station air quality.</strong> Edges
-            between stations within a wind-corridor; node features
-            are PM2.5 and weather; predict missing-station readings
-            via message passing.</li>
-          <li><strong>Satellite-tile graphs.</strong> Each tile a
-            node; edges to spatial neighbours and same-class
-            historical tiles; predict cropping / kiln presence
-            jointly.</li>
-          <li><strong>Sensor-failure detection.</strong> Build the
-            sensor co-correlation graph; train a GNN that flags a
-            sensor whose readings disagree with its
-            neighbourhood (anomaly).</li>
-          <li><strong>Traffic + road network for emissions.</strong>
-            Traffic-counter graph + emission models; useful for
-            combined urban-air-quality / energy work.</li>
+          <li><strong>Molecular property prediction.</strong> Atoms = nodes, bonds = edges. GNNs (MPNN, SchNet, DimeNet, ChemProp) routinely top MoleculeNet leaderboards; the inductive bias matches chemistry's locality.</li>
+          <li><strong>Recommender systems.</strong> User-item bipartite graph; node embeddings learnt by message passing. PinSage (Pinterest), GraphSAGE-based pipelines power production recommenders.</li>
+          <li><strong>Traffic forecasting.</strong> Road network + traffic counters; spatio-temporal GNNs (DCRNN, STGCN, Graph WaveNet) outperform pure time-series models for citywide forecasting.</li>
+          <li><strong>Knowledge graphs.</strong> Relational GNNs (R-GCN, CompGCN) for link prediction in heterogeneous knowledge bases.</li>
+          <li><strong>Power-grid / sensor networks.</strong> Nodes = sensors/stations; edges = physical connections or spatial proximity. GNNs interpolate missing readings, flag anomalous sensors, propagate alerts.</li>
+          <li><strong>Social and citation networks.</strong> The Cora / Citeseer / Pubmed benchmarks that started the field; still standard baselines.</li>
         </ul>
         <div class="callout callout--think">
           <strong>Final takeaway.</strong>
@@ -195,6 +224,20 @@
           MLP. The inductive bias is free; the expressive ceiling is
           higher; and over-smoothing is the only real footgun.
         </div>
+      </section>
+
+      <section class="step-section" id="step-6">
+        <div class="step-badge">Step 6</div>
+        <h2>Reading list</h2>
+        <ul class="explanation-list">
+          <li><strong>Kipf &amp; Welling (2017)</strong> &mdash; <em>Semi-Supervised Classification with Graph Convolutional Networks.</em> The GCN paper.</li>
+          <li><strong>Hamilton, Ying, Leskovec (2017)</strong> &mdash; <em>Inductive Representation Learning on Large Graphs.</em> GraphSAGE.</li>
+          <li><strong>Veličković et&nbsp;al. (2018)</strong> &mdash; <em>Graph Attention Networks.</em></li>
+          <li><strong>Xu, Hu, Leskovec, Jegelka (2019)</strong> &mdash; <em>How Powerful are Graph Neural Networks?</em> GIN + WL connection.</li>
+          <li><strong>Li, Han, Wu (2018)</strong> &mdash; the oversmoothing paper.</li>
+          <li><strong>Hamilton (2020)</strong> — <em>Graph Representation Learning</em> textbook. Free online.</li>
+          <li><strong>PyG &amp; DGL</strong> — the two production libraries. Both ship every model above and the sampling methods.</li>
+        </ul>
       </section>
     </article>
 

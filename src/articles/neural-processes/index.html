@@ -122,6 +122,25 @@
         </div>
       </section>
 
+      <section class="step-section" id="step-2a">
+        <div class="step-badge">Step 2½</div>
+        <h2>The training objective — meta-learning, formally</h2>
+        <p>
+          NPs are trained by <em>meta-learning</em>: simulate many small datasets and ask the NP to predict held-out points within each. For one task with context $\mathcal{C} = \{(x_i, y_i)\}$ and target $\mathcal{T} = \{(x_j, y_j)\}$ the deterministic CNP minimises
+        </p>
+        <div class="math-block" id="math-cnp-loss"></div>
+        <p>
+          where $\mu, \sigma^2$ come from the decoder conditioned on the aggregated representation $r_\mathcal{C}$. The expectation is over many sampled $(\mathcal{C}, \mathcal{T})$ pairs from a task distribution.
+        </p>
+        <p>
+          The <strong>Latent NP</strong> introduces a global latent $z$ and uses an ELBO:
+        </p>
+        <div class="math-block" id="math-lnp-loss"></div>
+        <p>
+          $q(z|\mathcal{C} \cup \mathcal{T})$ is the variational posterior (encoder over context + target); $p(z|\mathcal{C})$ is the prior (encoder over context only). Sampling $z$ gives function-consistent samples across queries — drawing whole functions, like a GP. The CNP is the degenerate case where $z$ collapses to a point estimate.
+        </p>
+      </section>
+
       <section class="step-section" id="step-3">
         <div class="step-badge">Step 3</div>
         <h2>The variants and what each adds</h2>
@@ -155,10 +174,7 @@
         <h2>When to reach for an NP vs a GP</h2>
         <ul class="explanation-list">
           <li><strong>Many similar tasks, each with little data.</strong>
-            Per-sensor calibration; per-location air-quality
-            extrapolation; per-patient breathing-pattern model. NPs
-            shine: train once across all sensors / locations /
-            patients; predict on the next one in milliseconds.</li>
+            Per-sensor calibration, per-patient personalisation, per-image few-shot regression. NPs shine: train once across the family; predict on the next instance in milliseconds.</li>
           <li><strong>One task with a lot of data.</strong> A GP with
             inducing points (SVGP) or an exact GP if $N \le 10^4$
             usually beats an NP. The NP's amortisation premium
@@ -166,12 +182,8 @@
           <li><strong>Online streaming.</strong> NPs handle "context
             grows over time" naturally because each prediction is a
             forward pass. GPs need to refit (or use online updates).</li>
-          <li><strong>Where this matters in practice applications.</strong>
-            (a) mobile air-quality data mobile sensor extrapolation with per-route
-            context; (b) thermal-imaging energy estimation per-subject calibration with a
-            short paired session; (c) satellite kiln-detection per-region
-            classifier prior; (d) thermal-imaging respiration monitoring per-patient adaptation
-            with a few minutes of recording.</li>
+          <li><strong>Image / 2-D completion.</strong> Conditional-NP variants do CelebA image completion with one forward pass from $k$ pixels to the full image — a use case where the meta-training distribution over images is natural.</li>
+          <li><strong>Bayesian optimisation.</strong> Transformer Neural Processes (TNP) are competitive surrogates for BO, with the same kind of amortisation: train once on a family of objective functions, deploy without per-objective hyperparameter fitting.</li>
         </ul>
         <div class="callout callout--think">
           <strong>Final takeaway.</strong>
@@ -181,6 +193,30 @@
           big task and want crisp probabilistic semantics, a GP (or
           deep kernel learning) still wins.
         </div>
+      </section>
+
+      <section class="step-section" id="step-5">
+        <div class="step-badge">Step 5</div>
+        <h2>Failure modes and how to spot them</h2>
+        <ul class="explanation-list">
+          <li><strong>Underconfidence.</strong> CNPs trained with Gaussian likelihood often produce too-wide intervals — the model hedges against the meta-train distribution. Diagnose with reliability diagrams; fix with attention (ANP), more expressive likelihoods, or post-hoc calibration.</li>
+          <li><strong>Posterior collapse in LNPs.</strong> If the decoder is too strong, the latent $z$ becomes uninformative and the LNP degenerates to a CNP. Fix with $\beta$-VAE-style annealing or free-bits.</li>
+          <li><strong>Out-of-distribution context.</strong> If the test context comes from a function family not seen in meta-training, the NP extrapolates badly. A real GP would just widen its bands; the NP can confidently make up a wrong answer.</li>
+          <li><strong>Permutation invariance break.</strong> Make sure the aggregator (mean / attention) is truly permutation-invariant. A subtle bug to test for: shuffle context order and check the prediction is bit-identical.</li>
+        </ul>
+      </section>
+
+      <section class="step-section" id="step-6">
+        <div class="step-badge">Step 6</div>
+        <h2>Reading list</h2>
+        <ul class="explanation-list">
+          <li><strong>Garnelo et&nbsp;al. (2018)</strong> &mdash; <em>Conditional Neural Processes.</em></li>
+          <li><strong>Garnelo et&nbsp;al. (2018)</strong> &mdash; <em>Neural Processes.</em> (Latent-variable variant.)</li>
+          <li><strong>Kim et&nbsp;al. (2019)</strong> &mdash; <em>Attentive Neural Processes.</em></li>
+          <li><strong>Gordon et&nbsp;al. (2020)</strong> &mdash; <em>Convolutional Conditional Neural Processes.</em></li>
+          <li><strong>Nguyen &amp; Grover (2022)</strong> &mdash; <em>Transformer Neural Processes.</em></li>
+          <li><strong>Bruinsma et&nbsp;al. (2023)</strong> &mdash; <em>The Neural Process Family</em> textbook chapter; the standard pedagogical reference.</li>
+        </ul>
       </section>
     </article>
 

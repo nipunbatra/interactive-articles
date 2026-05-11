@@ -106,6 +106,34 @@
         </div>
       </section>
 
+      <section class="step-section" id="step-2a">
+        <div class="step-badge">Step 2½</div>
+        <h2>Channel independence — the unintuitive choice</h2>
+        <p>
+          PatchTST predicts each variate $v$ using the same shared transformer, with no cross-variate attention until a final projection. Reasoning:
+        </p>
+        <ul class="explanation-list">
+          <li><strong>Overfitting protection.</strong> Cross-variate attention has $V^2$ parameters per layer; in benchmarks with $V \sim 10$ variates and a few thousand training windows, it overfits aggressively.</li>
+          <li><strong>Transferability.</strong> A channel-independent model can train on series with different variate counts (one model, many tasks). This is what enables foundation-style pretraining.</li>
+          <li><strong>The trade-off.</strong> You lose the ability to learn that "channel A leads channel B by 3 steps". When that cross-channel signal matters, use <strong>iTransformer</strong> (each variate = one token, attention is over variates not over time).</li>
+        </ul>
+        <p>
+          Empirically the two cover different regimes: PatchTST wins on univariate-ish panels with many time steps; iTransformer wins when cross-variate structure dominates.
+        </p>
+      </section>
+
+      <section class="step-section" id="step-2b">
+        <div class="step-badge">Step 2¾</div>
+        <h2>RevIN — the instance normalisation that fixes distribution drift</h2>
+        <p>
+          A time series usually has a non-stationary mean and variance. The classical fix is differencing or log-transforming; PatchTST's modern fix is <strong>Reversible Instance Normalization</strong> (Kim et&nbsp;al., 2022):
+        </p>
+        <div class="math-block" id="math-revin"></div>
+        <p>
+          Standardise the input window using its own mean/variance. Run the model on the normalised series. Un-normalise the forecast with the same statistics. Three lines of code; consistently +1–2% horizon-RMSE improvement on benchmark splits. Critical for chartof-the-decade-quality results.
+        </p>
+      </section>
+
       <section class="step-section" id="step-3">
         <div class="step-badge">Step 3</div>
         <h2>Race the four models live</h2>
@@ -157,10 +185,34 @@
           to seasonal-naive" punchline. PatchTST and Mamba make
           long-horizon forecasting practical with modest compute, and
           foundation models change the data-budget equation entirely.
-          For work &mdash; air quality, energy,
-          breathing &mdash; this is the most practical 2026 update to
-          your forecasting stack.
+          The most practical 2026 update to any forecasting stack.
         </div>
+      </section>
+
+      <section class="step-section" id="step-5">
+        <div class="step-badge">Step 5</div>
+        <h2>How to set up a forecasting evaluation that doesn't lie</h2>
+        <ul class="explanation-list">
+          <li><strong>Backtesting, not random splits.</strong> Use rolling-origin evaluation: train up to time $t$, forecast $[t+1, t+H]$, advance $t$. Random splits over time leak information.</li>
+          <li><strong>Multiple metrics.</strong> Report MSE and MAE (different sensitivity to outliers), plus a scale-free metric (sMAPE or MASE) so you can aggregate across datasets.</li>
+          <li><strong>Compare against the seasonal-naive.</strong> Always. A model that doesn't beat $\hat y_{t+h} = y_{t+h-S}$ isn't a forecasting model.</li>
+          <li><strong>Interval coverage, not just point forecast.</strong> Report 90%-CI coverage and width — a tight interval that misses 30% of the time is worse than a wider one that hits 90%. Wrap with <a href="../conformal/index.html">conformal prediction</a> for cheap distribution-free intervals.</li>
+          <li><strong>Long horizon = horizon ≥ context.</strong> The standard benchmarks (ETT, Weather, Traffic, ECL) all evaluate H ∈ {96, 192, 336, 720}. Anything shorter is a different problem.</li>
+        </ul>
+      </section>
+
+      <section class="step-section" id="step-6">
+        <div class="step-badge">Step 6</div>
+        <h2>Reading list</h2>
+        <ul class="explanation-list">
+          <li><strong>Nie, Nguyen, Sinthong, Kalagnanam (2023)</strong> &mdash; <em>A Time Series is Worth 64 Words: Long-term Forecasting with Transformers.</em> The PatchTST paper.</li>
+          <li><strong>Kim et&nbsp;al. (2022)</strong> &mdash; <em>Reversible Instance Normalization.</em></li>
+          <li><strong>Liu et&nbsp;al. (2024)</strong> &mdash; <em>iTransformer.</em></li>
+          <li><strong>Gu &amp; Dao (2023)</strong> &mdash; <em>Mamba.</em></li>
+          <li><strong>Das et&nbsp;al. (2024)</strong> &mdash; <em>TimesFM.</em></li>
+          <li><strong>Ansari et&nbsp;al. (2024)</strong> &mdash; <em>Chronos.</em></li>
+          <li><strong>Hyndman &amp; Athanasopoulos</strong> &mdash; <em>Forecasting: Principles and Practice.</em> The classical baseline-and-method reference.</li>
+        </ul>
       </section>
     </article>
 

@@ -173,20 +173,14 @@
         <h2>Where MoE shows up beyond LLMs</h2>
         <ul class="explanation-list">
           <li><strong>Multi-task and multi-domain models.</strong>
-            One expert per task domain; the gate learns the routing.
-            Useful when practice has multiple sensor modalities feeding
-            one shared backbone.</li>
-          <li><strong>Time-series SSL with MoE.</strong> Different
-            experts for different temporal patterns (HHAR vs sleep vs
-            PPG-DaLia). The gate becomes a soft regime classifier.
-            Direct fit for the M.Tech thesis direction.</li>
+            One expert per task domain; the gate learns the routing. Useful when many sensor modalities or task types share a backbone.</li>
+          <li><strong>Time-series with MoE.</strong> Different
+            experts for different temporal patterns (activity recognition vs sleep vs heart-rate). The gate becomes a soft regime classifier.</li>
           <li><strong>Multimodal models.</strong> Image vs text vs
             audio expert blocks; gate routes per modality (often hard
             top-1).</li>
           <li><strong>Conditional computation in vision.</strong>
-            Different experts for different scales / regions in
-            satellite images. Plays nicely with your satellite kiln-detection
-            line of work.</li>
+            Different experts for different scales / regions in satellite or medical images.</li>
         </ul>
         <div class="callout callout--think">
           <strong>Final takeaway.</strong>
@@ -195,6 +189,55 @@
           place, you get capacity without flops. Once you have it,
           dense scaling looks wasteful.
         </div>
+      </section>
+
+      <section class="step-section" id="step-6">
+        <div class="step-badge">Step 6</div>
+        <h2>Expert parallelism — the systems story</h2>
+        <p>
+          Past ~1B parameters per expert, you can't fit all experts on one GPU. The standard sharding pattern (Lepikhin et&nbsp;al., 2020):
+        </p>
+        <ul class="explanation-list">
+          <li><strong>Expert parallelism.</strong> Place different experts on different devices. Each device holds a subset of experts.</li>
+          <li><strong>All-to-all dispatch.</strong> For each batch of tokens, send tokens to the device hosting their chosen expert; run the expert locally; send outputs back. This is two all-to-all collectives per layer.</li>
+          <li><strong>Expert capacity.</strong> Each expert has a fixed slot count per batch (e.g. $1.25 \times \text{tokens}/E$). Overflowing tokens get <em>dropped</em> (zero-output) or <em>re-routed</em> to the second-choice expert. The capacity factor is a knob between speed (low capacity, more drops) and quality (high capacity, more compute).</li>
+          <li><strong>Pipelining + tensor parallelism.</strong> Stack expert parallelism on top of standard 3D parallelism. Each device runs one stage's experts, sharded.</li>
+        </ul>
+        <p>
+          The all-to-all is what makes MoE training systems hard. Frameworks: GShard, Tutel, Megablocks, DeepSpeed-MoE.
+        </p>
+      </section>
+
+      <section class="step-section" id="step-7">
+        <div class="step-badge">Step 7</div>
+        <h2>Frontier MoE comparison</h2>
+        <div class="examples-table-wrap" style="overflow-x:auto;">
+          <table class="examples-table">
+            <thead><tr><th>Model</th><th>Total params</th><th>Active / token</th><th># experts</th><th>Top-k</th><th>Notable trick</th></tr></thead>
+            <tbody>
+              <tr><td>Switch Transformer (2021)</td><td>up to 1.6T</td><td>~1/E</td><td>up to 2048</td><td>1</td><td>Aux load-balance loss; expert capacity</td></tr>
+              <tr><td>GLaM (2021)</td><td>1.2T</td><td>97B</td><td>64</td><td>2</td><td>Routing balance via aux loss; sparsity at training</td></tr>
+              <tr><td>Mixtral 8×7B (2023)</td><td>47B</td><td>13B</td><td>8</td><td>2</td><td>Open-weight; outperforms Llama-2 70B</td></tr>
+              <tr><td>DeepSeek-V3 (2024)</td><td>671B</td><td>37B</td><td>256 + 1 shared</td><td>8</td><td>Aux-loss-free balancing via per-expert bias</td></tr>
+              <tr><td>Mixtral 8×22B (2024)</td><td>141B</td><td>39B</td><td>8</td><td>2</td><td>Same architecture, scaled experts</td></tr>
+              <tr><td>Qwen2-MoE A14B (2024)</td><td>57B</td><td>14B</td><td>64 + 4 shared</td><td>4</td><td>Shared experts always active</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="step-section" id="step-8">
+        <div class="step-badge">Step 8</div>
+        <h2>Reading list</h2>
+        <ul class="explanation-list">
+          <li><strong>Jacobs, Jordan, Nowlan, Hinton (1991)</strong> — <em>Adaptive Mixtures of Local Experts.</em> The original MoE paper.</li>
+          <li><strong>Shazeer et&nbsp;al. (2017)</strong> — <em>Outrageously Large Neural Networks.</em> Top-k gating, MoE inside Transformers.</li>
+          <li><strong>Lepikhin et&nbsp;al. (2020)</strong> — <em>GShard.</em> The expert-parallelism systems paper.</li>
+          <li><strong>Fedus, Zoph, Shazeer (2021)</strong> — <em>Switch Transformer.</em></li>
+          <li><strong>Du et&nbsp;al. (2022)</strong> — <em>GLaM.</em></li>
+          <li><strong>DeepSeek-AI (2024)</strong> — <em>DeepSeek-V3 Technical Report.</em> Aux-loss-free MoE.</li>
+          <li><strong>Mistral AI (2024)</strong> — <em>Mixtral of Experts.</em></li>
+        </ul>
       </section>
     </article>
 

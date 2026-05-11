@@ -372,7 +372,9 @@ function renderMath() {
   if (!window.katex) return;
   const blocks = {
     'math-patch':
-      'X \\in \\mathbb{R}^L \\;\\to\\; \\bigl[\\,X[1{:}P],\\, X[P{+}1{:}2P],\\,\\dots\\,\\bigr] \\;\\to\\; \\text{Embed} \\;\\to\\; \\text{Transformer} \\;\\to\\; \\text{Linear head} \\;\\to\\; \\hat X \\in \\mathbb{R}^H'
+      'X \\in \\mathbb{R}^L \\;\\to\\; \\bigl[\\,X[1{:}P],\\, X[P{+}1{:}2P],\\,\\dots\\,\\bigr] \\;\\to\\; \\text{Embed} \\;\\to\\; \\text{Transformer} \\;\\to\\; \\text{Linear head} \\;\\to\\; \\hat X \\in \\mathbb{R}^H',
+    'math-revin':
+      '\\tilde X = \\frac{X - \\mu_X}{\\sigma_X + \\epsilon},\\qquad \\hat X = f_\\theta(\\tilde X),\\qquad \\hat Y = \\hat X \\cdot (\\sigma_X + \\epsilon) + \\mu_X'
   };
   Object.keys(blocks).forEach((id) => {
     const el = document.getElementById(id);

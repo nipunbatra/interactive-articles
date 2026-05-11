@@ -403,7 +403,11 @@ function renderMath() {
   if (!window.katex) return;
   const blocks = {
     'math-cnp':
-      'r_i = h(x_i, y_i),\\quad r = \\frac{1}{N}\\sum_{i=1}^{N} r_i,\\quad p(y_* \\mid x_*, \\mathcal{D}) = \\mathcal{N}\\!\\bigl(\\mu_g(x_*, r),\\, \\sigma_g^2(x_*, r)\\bigr)'
+      'r_i = h(x_i, y_i),\\quad r = \\frac{1}{N}\\sum_{i=1}^{N} r_i,\\quad p(y_* \\mid x_*, \\mathcal{D}) = \\mathcal{N}\\!\\bigl(\\mu_g(x_*, r),\\, \\sigma_g^2(x_*, r)\\bigr)',
+    'math-cnp-loss':
+      '\\mathcal{L}_{\\text{CNP}} = -\\mathbb{E}_{(\\mathcal{C}, \\mathcal{T})} \\sum_{(x_j, y_j) \\in \\mathcal{T}} \\log \\mathcal{N}\\!\\bigl(y_j \\mid \\mu(x_j, r_\\mathcal{C}),\\, \\sigma^2(x_j, r_\\mathcal{C})\\bigr)',
+    'math-lnp-loss':
+      '\\mathcal{L}_{\\text{LNP}} = -\\mathbb{E}_{q(z|\\mathcal{C}\\cup\\mathcal{T})}\\!\\!\\left[\\sum_{j \\in \\mathcal{T}} \\log p(y_j | x_j, z)\\right] + \\mathrm{KL}\\!\\bigl(q(z|\\mathcal{C}\\cup\\mathcal{T}) \\,\\|\\, p(z|\\mathcal{C})\\bigr)'
   };
   Object.keys(blocks).forEach((id) => {
     const el = document.getElementById(id);
