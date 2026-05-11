@@ -331,7 +331,9 @@ function renderMath() {
     'math-conf':
       '\\hat q = \\mathrm{Quantile}_{(1-\\alpha)(N+1)/N}\\!\\bigl(\\{\\,|y_i - \\hat f(x_i)|\\,\\}_{i=1}^{N}\\bigr),\\quad C(x) = [\\hat f(x) - \\hat q,\\, \\hat f(x) + \\hat q]',
     'math-aps':
-      's_i = \\sum_{c \\in \\pi(x_i,\\,\\le y_i)} \\hat p_c(x_i),\\quad \\hat q = \\mathrm{Quantile}_{1-\\alpha}\\{s_i\\},\\quad C(x) = \\bigl\\{\\,c : \\sum_{c\' \\in \\pi(x,\\,\\le c)} \\hat p_{c\'}(x) \\le \\hat q\\,\\bigr\\}'
+      's_i = \\sum_{c \\in \\pi(x_i,\\,\\le y_i)} \\hat p_c(x_i),\\quad \\hat q = \\mathrm{Quantile}_{1-\\alpha}\\{s_i\\},\\quad C(x) = \\bigl\\{\\,c : \\sum_{c\' \\in \\pi(x,\\,\\le c)} \\hat p_{c\'}(x) \\le \\hat q\\,\\bigr\\}',
+    'math-cov-thm':
+      '1 - \\alpha \\;\\le\\; \\Pr\\!\\bigl(Y_{\\text{test}} \\in \\hat C(X_{\\text{test}})\\bigr) \\;\\le\\; 1 - \\alpha + \\tfrac{1}{n+1}'
   };
   Object.keys(blocks).forEach((id) => {
     const el = document.getElementById(id);

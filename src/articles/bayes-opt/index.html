@@ -188,18 +188,18 @@
 
       <section class="step-section" id="step-5">
         <div class="step-badge">Step 5</div>
-        <h2>Where this lives in practice</h2>
+        <h2>Where Bayesian optimisation is the right tool</h2>
         <ul class="explanation-list">
           <li><strong>Hyperparameter tuning of expensive models.</strong>
             Anything that takes &gt; 30 minutes to train per config.
             Use BoTorch / Ax / Optuna's TPE.</li>
-          <li><strong>Sensor placement under uncertainty.</strong>
+          <li><strong>Sensor / experiment placement under uncertainty.</strong>
             Maximise expected reduction in posterior variance over a
-            field model. Direct fit for mobile air-quality data / satellite kiln-detection
-            extensions.</li>
+            field model.</li>
           <li><strong>Wet-lab / hardware experimental design.</strong>
             Each experiment is a real-time evaluation. BO chooses
             the next concentration / temperature / dose.</li>
+          <li><strong>Molecule and materials discovery.</strong> BO over a learned latent space of chemistry / crystals. The 2024 frontier — BOLT, ChemBO, AlphaFold-Design pipelines all use a BO loop on top of a learned surrogate.</li>
           <li><strong>Active learning on a budget.</strong> Pick the
             next batch of points that maximises expected information
             gain &mdash; the BO-active-learning hybrid called BALD or
@@ -214,6 +214,51 @@
           using the same posterior machinery from the Bayesian
           playground article.
         </div>
+      </section>
+
+      <section class="step-section" id="step-6">
+        <div class="step-badge">Step 6</div>
+        <h2>Acquisition function deep dive</h2>
+        <p>
+          The four most-used acquisitions, with their closed forms and trade-offs:
+        </p>
+        <div class="math-block" id="math-acq-ei"></div>
+        <div class="math-block" id="math-acq-ucb"></div>
+        <ul class="explanation-list">
+          <li><strong>Expected Improvement (EI).</strong> Closed-form (above), no hyperparameters, balanced exploration. The default when the surrogate is a GP; greedy-exploit early in the run, more exploratory once the best point has plateaued.</li>
+          <li><strong>Upper Confidence Bound (UCB).</strong> $\mu(x) + \beta \sigma(x)$. One knob ($\beta$) controls exploitation vs exploration. Provably has $O(\sqrt{T \gamma_T})$ regret (Srinivas et&nbsp;al., 2010). Use when you want deterministic, knob-tunable behaviour.</li>
+          <li><strong>Probability of Improvement (PI).</strong> $\Pr(f(x) &gt; f^* + \xi)$. Easy to compute but greedy; tends to under-explore. Mostly historical interest.</li>
+          <li><strong>Thompson Sampling.</strong> Draw $f \sim p(f|D)$ once, optimise it, evaluate. Naturally parallelisable (each parallel worker draws its own sample). Strong in batched / asynchronous settings.</li>
+          <li><strong>Knowledge Gradient.</strong> Expected one-step lookahead value of the posterior. Expensive but optimal for the one-step Bayesian objective; the modern frontier in BoTorch.</li>
+        </ul>
+      </section>
+
+      <section class="step-section" id="step-7">
+        <div class="step-badge">Step 7</div>
+        <h2>Batch and async BO</h2>
+        <p>
+          Real BO loops rarely evaluate one point at a time — you have $B$ parallel workers (GPUs, lab benches, simulator instances). Batch BO picks $B$ points per round.
+        </p>
+        <ul class="explanation-list">
+          <li><strong>q-Expected Improvement (qEI).</strong> Joint EI over $B$ points; intractable in closed form; computed by Monte Carlo via sampling from the GP posterior (Wilson et&nbsp;al., 2018). Default in BoTorch.</li>
+          <li><strong>Hallucinated batches (Kriging Believer).</strong> Pick the first point greedily; pretend you observed $\mu(x)$; refit; pick the next; repeat. Cheap but suboptimal.</li>
+          <li><strong>Thompson sampling.</strong> Each parallel worker draws its own sample. Trivially parallelisable; provably good regret.</li>
+          <li><strong>Asynchronous BO.</strong> When workers return at different times, you can't pause; instead, condition on pending points (their posterior mean is your best guess of their unknown outcome).</li>
+        </ul>
+      </section>
+
+      <section class="step-section" id="step-8">
+        <div class="step-badge">Step 8</div>
+        <h2>Reading list</h2>
+        <ul class="explanation-list">
+          <li><strong>Shahriari, Swersky, Wang, Adams, de Freitas (2016)</strong> &mdash; <em>Taking the Human out of the Loop: A Review of Bayesian Optimization.</em> Standard survey.</li>
+          <li><strong>Snoek, Larochelle, Adams (2012)</strong> &mdash; <em>Practical Bayesian Optimization of Machine Learning Algorithms.</em></li>
+          <li><strong>Srinivas, Krause, Kakade, Seeger (2010)</strong> &mdash; <em>Gaussian Process Optimization in the Bandit Setting.</em> The UCB-regret paper.</li>
+          <li><strong>Frazier (2018)</strong> &mdash; <em>A Tutorial on Bayesian Optimization.</em></li>
+          <li><strong>Eriksson et&nbsp;al. (2019)</strong> &mdash; <em>TuRBO: Scalable Global Optimization via Local Bayesian Optimization.</em> The high-dimensional-BO trust-region trick.</li>
+          <li><strong>Garnett (2023)</strong> &mdash; <em>Bayesian Optimization</em> textbook. Free draft online; the definitive modern reference.</li>
+          <li><strong>BoTorch / Ax</strong> — the standard modern libraries. Optuna's TPE for cheap categorical search.</li>
+        </ul>
       </section>
     </article>
 

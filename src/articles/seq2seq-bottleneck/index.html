@@ -222,9 +222,17 @@
         </div>
       </section>
 
-      <p style="margin-top:4rem;color:var(--muted);font-size:0.9rem;font-family:var(--sans);text-align:center;">
-        Part of the ES 667 Deep Learning course · IIT Gandhinagar · Aug 2026.
-      </p>
+      <section class="step-section" id="reading">
+        <div class="step-badge">Reading</div>
+        <h2>The trail of papers from bottleneck to Transformer</h2>
+        <ul style="padding-left:1.4em; margin: 0 0 16px 0;">
+          <li style="margin-bottom:6px;"><strong>Sutskever, Vinyals, Le (2014)</strong> — <em>Sequence to Sequence Learning with Neural Networks.</em> The original encoder-decoder.</li>
+          <li style="margin-bottom:6px;"><strong>Cho et&nbsp;al. (2014)</strong> — <em>Learning Phrase Representations using RNN Encoder–Decoder.</em> The GRU-based parallel paper.</li>
+          <li style="margin-bottom:6px;"><strong>Bahdanau, Cho, Bengio (2015)</strong> — <em>Neural Machine Translation by Jointly Learning to Align and Translate.</em> The first attention paper — fixes the bottleneck by letting the decoder look back.</li>
+          <li style="margin-bottom:6px;"><strong>Luong, Pham, Manning (2015)</strong> — <em>Effective Approaches to Attention-based Neural Machine Translation.</em> Dot-product attention, the form most modern systems use.</li>
+          <li style="margin-bottom:6px;"><strong>Vaswani et&nbsp;al. (2017)</strong> — <em>Attention Is All You Need.</em> The Transformer — drops recurrence entirely.</li>
+        </ul>
+      </section>
     </article>
 
     <script src="main.js"></script>

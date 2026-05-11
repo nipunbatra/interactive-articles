@@ -195,35 +195,77 @@
 
       <section class="step-section" id="step-5">
         <div class="step-badge">Step 5</div>
-        <h2>Where this lives in practice</h2>
+        <h2>Where conformal is the right tool</h2>
         <ul class="explanation-list">
-          <li><strong>Deployed sensor models.</strong> Wrap any
-            existing predictor with split-conformal: 200 calibration
-            points, one quantile, you ship a 90% interval.</li>
-          <li><strong>Air-quality forecasting (mobile air-quality data,
-            an LLM data-chat tool).</strong> Conformal-on-PatchTST gives interval
-            forecasts at any horizon with a coverage guarantee &mdash;
-            a much stronger claim than "we used a Bayesian neural
-            network".</li>
-          <li><strong>Thermal regression (thermal-imaging energy estimation, thermal-imaging respiration monitoring).</strong>
-            Heart-rate / respiration estimates with calibrated
-            intervals make safety claims realistic.</li>
-          <li><strong>Energy disaggregation.</strong> Conformal
-            intervals on appliance-level estimates give clear "we
-            are confident this is a fridge" signals to downstream
-            decision systems.</li>
-          <li><strong>Multi-class classification.</strong> APS / RAPS
-            variants produce conformal <em>sets</em> (subsets of
-            class labels), with the same coverage guarantee.</li>
+          <li><strong>Deployed predictor add-on.</strong> Wrap any existing model with split-conformal: 200 calibration points, one quantile, ship a 90% interval. Five lines of code; no retraining.</li>
+          <li><strong>Forecasting.</strong> Conformal-on-PatchTST gives interval forecasts at any horizon with a coverage guarantee — a much stronger claim than "we used a Bayesian neural network".</li>
+          <li><strong>Regression with calibrated uncertainty.</strong> Heart-rate / respiration / blood-glucose estimates with calibrated intervals make safety claims realistic.</li>
+          <li><strong>LLM hallucination control.</strong> Conformal language modelling (Quach et&nbsp;al., 2024) gives sets of candidate completions with marginal coverage — turning a free-form generator into a calibrated set predictor.</li>
+          <li><strong>Multi-class classification with abstention.</strong> APS / RAPS variants produce conformal sets (subsets of class labels). When the set is large, the model is abstaining; route to a human.</li>
         </ul>
         <div class="callout callout--think">
           <strong>Final takeaway.</strong>
           Conformal prediction is the cheapest way to add a
-          guaranteed coverage band to any model practice ships. It
+          guaranteed coverage band to any deployed model. It
           doesn't replace probabilistic methods (Bayesian, NPs, GPs),
           but it's the right safety net to wrap around them &mdash;
           and it costs almost nothing to add.
         </div>
+      </section>
+
+      <section class="step-section" id="step-6">
+        <div class="step-badge">Step 6</div>
+        <h2>The marginal-coverage theorem, with the fine print</h2>
+        <p>
+          Split conformal's guarantee is precise: for any nonconformity score $s$, exchangeable calibration set, and miscoverage $\alpha$,
+        </p>
+        <div class="math-block" id="math-cov-thm"></div>
+        <p>
+          Three subtleties to understand:
+        </p>
+        <ul class="explanation-list">
+          <li><strong>"Marginal" not "conditional".</strong> The guarantee is over the joint distribution of $(X, Y)$, not conditional on $X$. So you get 90% coverage averaged over inputs, but you don't get 90% coverage on every subgroup. A 90% interval can systematically miss on hard inputs and over-cover on easy ones.</li>
+          <li><strong>The randomness is in the calibration set.</strong> Given a fixed calibration set, the coverage on test data is a fixed number — possibly above or below $1 - \alpha$. The theorem says <em>averaged over draws of the calibration set</em>, coverage hits the target.</li>
+          <li><strong>Exchangeability is the only assumption.</strong> Calibration and test data must come from the same distribution (in fact, slightly weaker — they must be exchangeable as a single set). No assumption on the model, no Gaussian noise, no smoothness.</li>
+        </ul>
+        <p>
+          When does this fail in practice?
+        </p>
+        <ul class="explanation-list">
+          <li><strong>Distribution shift.</strong> Exchangeability is broken; coverage can drop arbitrarily. Use <em>weighted conformal</em> (Tibshirani et&nbsp;al., 2019) if you know the covariate-shift weights.</li>
+          <li><strong>Adversarial inputs.</strong> Same problem from a different angle — the adversary has chosen the input to be unlike calibration. Conformal gives no defence.</li>
+          <li><strong>Temporal drift.</strong> If your calibration set is from yesterday and your test set is from today, online conformal (ACI; Gibbs &amp; Candès, 2021) maintains coverage by adapting the threshold over time.</li>
+        </ul>
+      </section>
+
+      <section class="step-section" id="step-7">
+        <div class="step-badge">Step 7</div>
+        <h2>The conformal recipe, step by step</h2>
+        <ol class="explanation-list">
+          <li><strong>Split.</strong> Hold out a calibration set of size $n$. Typical $n = 500–2000$. Larger $n$ → tighter intervals; the relationship is $\sqrt{1/n}$.</li>
+          <li><strong>Score.</strong> Define a nonconformity score $s(x, y)$. For regression: $|y - \hat\mu(x)|$ (vanilla); $|y - \hat\mu(x)| / \hat\sigma(x)$ (normalised); $\max(\hat q_\alpha(x) - y, y - \hat q_{1-\alpha}(x))$ (CQR). For classification: $1 - \hat p_y(x)$ (vanilla); cumulative-rank score (APS / RAPS).</li>
+          <li><strong>Calibrate.</strong> Compute $\hat q$ = the $\lceil (n+1)(1-\alpha) \rceil / n$ quantile of $\{s(x_i, y_i)\}_{i=1}^n$.</li>
+          <li><strong>Predict.</strong> $\hat C(x_{\text{new}}) = \{y : s(x_{\text{new}}, y) \le \hat q\}$.</li>
+          <li><strong>Evaluate.</strong> On a held-out test set, check (a) empirical coverage ≈ $1 - \alpha$, (b) average set size or interval width (informativeness), (c) conditional coverage on important subgroups.</li>
+        </ol>
+        <div class="callout callout--key">
+          <strong>The score is the design knob.</strong>
+          Marginal coverage is automatic for any score. <em>Tight</em> intervals require a score that scales with prediction difficulty — that's why CQR (for regression) and APS (for classification) outperform the vanilla absolute-residual / one-minus-softmax scores.
+        </div>
+      </section>
+
+      <section class="step-section" id="step-8">
+        <div class="step-badge">Step 8</div>
+        <h2>Reading list</h2>
+        <ul class="explanation-list">
+          <li><strong>Vovk, Gammerman, Shafer (2005)</strong> &mdash; <em>Algorithmic Learning in a Random World.</em> The original book on conformal prediction.</li>
+          <li><strong>Lei, Sell, Rinaldo, Tibshirani, Wasserman (2018)</strong> &mdash; <em>Distribution-Free Predictive Inference for Regression.</em> The split-conformal regression paper.</li>
+          <li><strong>Romano, Patterson, Candès (2019)</strong> &mdash; <em>Conformalized Quantile Regression.</em></li>
+          <li><strong>Romano, Sesia, Candès (2020)</strong> &mdash; <em>Classification with Valid and Adaptive Coverage (APS).</em></li>
+          <li><strong>Angelopoulos, Bates (2021)</strong> &mdash; <em>A Gentle Introduction to Conformal Prediction and Distribution-Free Uncertainty Quantification.</em> The most readable modern intro.</li>
+          <li><strong>Tibshirani et&nbsp;al. (2019)</strong> &mdash; <em>Conformal Prediction Under Covariate Shift.</em></li>
+          <li><strong>Gibbs &amp; Candès (2021)</strong> &mdash; <em>Adaptive Conformal Inference.</em> Online conformal for non-stationary data.</li>
+        </ul>
       </section>
     </article>
 

@@ -473,7 +473,11 @@ function renderMath() {
   if (!window.katex) return;
   const blocks = {
     'math-bo':
-      '\\begin{aligned} \\text{EI:}\\quad & a(x) = (\\mu(x) - f^* - \\xi)\\,\\Phi(z) + \\sigma(x)\\,\\phi(z) \\\\ \\text{UCB:}\\quad & a(x) = \\mu(x) + \\kappa\\,\\sigma(x) \\\\ \\text{PI:}\\quad & a(x) = \\Phi\\!\\left(\\tfrac{\\mu(x) - f^* - \\xi}{\\sigma(x)}\\right) \\\\ \\text{Thompson:}\\quad & a(x) = \\tilde f(x)\\sim \\mathcal{GP}\\,\\text{posterior} \\end{aligned}'
+      '\\begin{aligned} \\text{EI:}\\quad & a(x) = (\\mu(x) - f^* - \\xi)\\,\\Phi(z) + \\sigma(x)\\,\\phi(z) \\\\ \\text{UCB:}\\quad & a(x) = \\mu(x) + \\kappa\\,\\sigma(x) \\\\ \\text{PI:}\\quad & a(x) = \\Phi\\!\\left(\\tfrac{\\mu(x) - f^* - \\xi}{\\sigma(x)}\\right) \\\\ \\text{Thompson:}\\quad & a(x) = \\tilde f(x)\\sim \\mathcal{GP}\\,\\text{posterior} \\end{aligned}',
+    'math-acq-ei':
+      '\\mathrm{EI}(x) = \\sigma(x)\\bigl[z\\,\\Phi(z) + \\phi(z)\\bigr],\\qquad z = \\frac{\\mu(x) - f^* - \\xi}{\\sigma(x)}',
+    'math-acq-ucb':
+      '\\mathrm{UCB}(x) = \\mu(x) + \\beta_t\\, \\sigma(x),\\qquad \\beta_t = O(\\sqrt{\\log t})\\;(\\text{theoretical schedule})'
   };
   Object.keys(blocks).forEach((id) => {
     const el = document.getElementById(id);
