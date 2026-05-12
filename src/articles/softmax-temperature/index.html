@@ -697,6 +697,46 @@ footer {
       what the slider in every LLM API is actually doing.
     </div>
   </section>
+
+  <section class="step-section">
+    <div class="step-badge">Bonus</div>
+    <h2>Numerical stability — the &minus;max trick</h2>
+    <p>
+      The naive softmax $e^{z_i} / \sum e^{z_j}$ overflows for $z_i \gtrsim 700$ (float64) and $\gtrsim 88$ (float32). Every production implementation subtracts the max logit before exponentiating:
+    </p>
+    <p style="text-align:center; font-family:'IBM Plex Mono', monospace; font-size:15px;">
+      softmax(z)<sub>i</sub> = exp(z<sub>i</sub> &minus; max(z)) / Σ<sub>j</sub> exp(z<sub>j</sub> &minus; max(z))
+    </p>
+    <p>
+      The mathematical result is identical (the constant cancels), but the largest exponent is now exactly 0, so the sum is between 1 and $n$ and never overflows. Inside torch.softmax / numpy.softmax this is done for you; if you're writing softmax from scratch (e.g. a custom CUDA kernel), this is the first thing you need.
+    </p>
+    <p>
+      The same trick gives <code>logsumexp(z) = max(z) + log Σ exp(z &minus; max(z))</code>, the building block of stable cross-entropy and log-probability computations.
+    </p>
+  </section>
+
+  <section class="step-section">
+    <div class="step-badge">Bonus</div>
+    <h2>Softmax alternatives — sparsemax, entmax, Gumbel</h2>
+    <ul>
+      <li><strong>Sparsemax</strong> (Martins &amp; Astudillo, 2016). Projects logits onto the simplex — produces a sparse probability vector with some exact zeros. Useful in attention heads where you want hard, interpretable choices.</li>
+      <li><strong>Entmax-α</strong> (Peters et&nbsp;al., 2019). Interpolates softmax ($\alpha = 1$) and sparsemax ($\alpha = 2$). One-parameter family.</li>
+      <li><strong>Gumbel-softmax</strong> (Jang et&nbsp;al., 2017; Maddison et&nbsp;al., 2017). Add Gumbel noise to logits, then softmax with low temperature — produces near-one-hot samples that are <em>differentiable</em>. The standard reparameterisation trick for discrete latent variables.</li>
+      <li><strong>Top-k / nucleus (top-p) sampling.</strong> Restrict softmax support to the top-$k$ tokens (or smallest set summing to $p$) before sampling. Standard in modern LLM text generation.</li>
+    </ul>
+  </section>
+
+  <section class="step-section">
+    <div class="step-badge">Reading</div>
+    <h2>Reading list</h2>
+    <ul>
+      <li>Bridle (1990) — first usage of "softmax" for neural-net output normalisation.</li>
+      <li>Hinton, Vinyals, Dean (2015) — Knowledge Distillation, popularised the temperature parameter.</li>
+      <li>Holtzman et&nbsp;al. (2020) — <em>The Curious Case of Neural Text Degeneration.</em> Nucleus sampling.</li>
+      <li>Jang, Gu, Poole (2017) — Gumbel-Softmax.</li>
+      <li>Martins &amp; Astudillo (2016) — sparsemax.</li>
+    </ul>
+  </section>
 </article>
 
 <script>

@@ -255,6 +255,32 @@
       <li><strong>Modern CNNs</strong> — usually 0. BatchNorm + augmentation carry the regularization budget.</li>
       <li><strong>LoRA fine-tuning</strong> — typically 0 or 0.05. Training data is scarce; over-regularizing hurts.</li>
       <li><strong>Classical MLPs</strong> — <code>p = 0.5</code> between hidden layers. The original 2012 regime.</li>
+    </ul>
+
+    <h2>Variants worth knowing</h2>
+    <ul>
+      <li><strong>SpatialDropout / DropBlock.</strong> For CNNs, dropping individual pixels does little because neighbours are correlated. SpatialDropout drops entire feature maps; DropBlock (Ghiasi et&nbsp;al., 2018) drops contiguous square regions. Both are stronger regularisers for CNNs than vanilla dropout.</li>
+      <li><strong>DropPath / stochastic depth (Huang et&nbsp;al., 2016).</strong> Randomly drop <em>entire residual blocks</em> during training. Standard in ResNet-1001, EfficientNet, modern ViTs. Reduces effective depth and acts as ensemble over depth.</li>
+      <li><strong>DropConnect (Wan et&nbsp;al., 2013).</strong> Drop individual weights instead of activations. More variance per minibatch; rarely used in practice because dropout is cheaper.</li>
+      <li><strong>Variational dropout</strong> (Gal &amp; Ghahramani, 2016). Apply the <em>same</em> dropout mask at every time step (for RNNs) or every batch (for Bayesian interpretation). Forms the basis of MC-dropout for uncertainty estimation.</li>
+      <li><strong>Attention dropout.</strong> Apply dropout inside the attention softmax output. Used in original Transformer; mild effect, rarely tuned.</li>
+    </ul>
+
+    <h2>MC dropout — dropout for uncertainty</h2>
+    <p>
+      Gal &amp; Ghahramani (2016) noticed that dropout at <em>inference time</em> turns a deterministic neural net into a Bayesian one — each forward pass with a different mask is a sample from an approximate posterior. Run $K$ forward passes with dropout on; the variance of predictions is an uncertainty estimate.
+    </p>
+    <p>
+      MC dropout is cheap and easy ("just turn off model.eval"), but the resulting uncertainties are usually under-confident and don't compete with deep ensembles. Use it as a baseline; reach for ensembles or BNNs when you need better calibration. Always wrap with the <a href="../calibration/index.html">temperature scaling</a> and <a href="../conformal/index.html">conformal</a> tools for actionable confidence.
+    </p>
+
+    <h2>Reading list</h2>
+    <ul>
+      <li><strong>Srivastava, Hinton, Krizhevsky, Sutskever, Salakhutdinov (2014)</strong> — <em>Dropout: A Simple Way to Prevent Neural Networks from Overfitting.</em></li>
+      <li><strong>Wan et&nbsp;al. (2013)</strong> — <em>Regularization of Neural Networks using DropConnect.</em></li>
+      <li><strong>Huang et&nbsp;al. (2016)</strong> — <em>Deep Networks with Stochastic Depth.</em></li>
+      <li><strong>Gal &amp; Ghahramani (2016)</strong> — <em>Dropout as a Bayesian Approximation.</em></li>
+      <li><strong>Ghiasi, Lin, Le (2018)</strong> — <em>DropBlock.</em></li>
     </ul><script>
       // ---------- Network layout ----------
       const LAYER_X = [140, 350, 560];

@@ -438,7 +438,9 @@ function renderMath() {
     'math-cosine':
       '\\mathrm{cos}(v_I, v_t) = \\frac{v_I \\cdot v_t}{\\|v_I\\|\\,\\|v_t\\|} = v_I \\cdot v_t \\quad (\\text{since both are unit-norm})',
     'math-softmax':
-      'P(\\text{label}_i \\mid I) = \\frac{\\exp(v_I \\cdot v_{t_i} / \\tau)}{\\sum_j \\exp(v_I \\cdot v_{t_j} / \\tau)}'
+      'P(\\text{label}_i \\mid I) = \\frac{\\exp(v_I \\cdot v_{t_i} / \\tau)}{\\sum_j \\exp(v_I \\cdot v_{t_j} / \\tau)}',
+    'math-clip':
+      '\\mathcal{L}_{\\text{CLIP}} = -\\tfrac{1}{2N}\\sum_{i=1}^N \\left[ \\log \\frac{\\exp(z_i^I \\cdot z_i^T / \\tau)}{\\sum_{j=1}^N \\exp(z_i^I \\cdot z_j^T / \\tau)} + \\log \\frac{\\exp(z_i^T \\cdot z_i^I / \\tau)}{\\sum_{j=1}^N \\exp(z_i^T \\cdot z_j^I / \\tau)} \\right]'
   };
   Object.keys(blocks).forEach((id) => {
     const el = document.getElementById(id);

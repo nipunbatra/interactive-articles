@@ -396,6 +396,64 @@
           genuinely does not know in advance what you were going to ask.
         </div>
       </section>
+
+      <section class="step-section" id="step-8">
+        <div class="step-badge">Step 8</div>
+        <h2>The contrastive training objective in detail</h2>
+        <p>
+          CLIP minimises a symmetric InfoNCE loss across image and text:
+        </p>
+        <div class="math-block" id="math-clip"></div>
+        <p>
+          $z_i^I = \mathrm{img\_enc}(I_i) / \|\cdot\|_2$ and $z_i^T = \mathrm{text\_enc}(T_i) / \|\cdot\|_2$ are L2-normalised embeddings; $\tau$ is a learned temperature (CLIP's was initialised to $\log(1/0.07)$). For a batch of $N$ pairs, each $(I_i, T_i)$ is the positive while the other $N-1$ texts are negatives — and the symmetric version also treats the image as a "label" for the text.
+        </p>
+        <p>
+          Two implementation details that mattered enormously in practice:
+        </p>
+        <ul class="explanation-list">
+          <li><strong>Huge batch size.</strong> CLIP trained at batch size 32,768. More negatives ⇒ harder contrastive task ⇒ better representations. Without this, the loss saturates fast.</li>
+          <li><strong>Image and text encoders are not symmetric.</strong> The image side is a ViT or ResNet; the text side is a 12-layer Transformer. The projection heads (post-encoder linear layers) are what make the two embedding spaces actually align.</li>
+        </ul>
+      </section>
+
+      <section class="step-section" id="step-9">
+        <div class="step-badge">Step 9</div>
+        <h2>The CLIP family — what came next</h2>
+        <ul class="explanation-list">
+          <li><strong>OpenCLIP (LAION, 2022).</strong> Open weights and open data; matched CLIP performance with LAION-2B.</li>
+          <li><strong>SigLIP (Google, 2023).</strong> Replaces the softmax cross-entropy with a sigmoid loss. Independent of batch size; better small-batch behaviour. SigLIP-2 (2024) extends with multilingual + dense heads.</li>
+          <li><strong>EVA-CLIP, MetaCLIP, DFN-CLIP.</strong> Scaling + data-curation variants. Larger encoders, better data filtering, ~2–5 points higher zero-shot ImageNet.</li>
+          <li><strong>CLIPA.</strong> Cheap CLIP — train at smaller resolution / token count, then fine-tune at full res. Reduces training cost by ~4×.</li>
+          <li><strong>EVA-02, DINOv2, AIM.</strong> Self-supervised backbones with no language alignment; often used <em>in place of</em> CLIP's image encoder when language isn't needed downstream.</li>
+        </ul>
+      </section>
+
+      <section class="step-section" id="step-10">
+        <div class="step-badge">Step 10</div>
+        <h2>Prompt engineering for CLIP</h2>
+        <p>
+          The classification accuracy of CLIP depends shockingly on prompt wording. "cat" gets one accuracy; "a photo of a cat" gets ~5 points higher; "a photo of a cat, a type of pet" gets higher again. The standard recipe (Radford et&nbsp;al., 2021):
+        </p>
+        <ul class="explanation-list">
+          <li><strong>Prompt ensembling.</strong> Average text embeddings across 80 prompt templates ("a photo of a {}", "a blurry photo of a {}", "a low-resolution photo of a {}", …). Bumps ImageNet zero-shot accuracy by ~2 points.</li>
+          <li><strong>Class-name normalisation.</strong> Use the most common natural-language form ("airplane" not "aeroplane", "ant" not "Formicidae").</li>
+          <li><strong>Context-aware prompts.</strong> For medical / scientific domains, add a domain prefix ("a photo of a tissue slide showing {}").</li>
+          <li><strong>Soft prompt tuning (CoOp, 2022).</strong> Replace the text template with learnable embeddings, fit on a few labelled examples. Useful when the template choice is the dominant uncertainty.</li>
+        </ul>
+      </section>
+
+      <section class="step-section" id="step-11">
+        <div class="step-badge">Step 11</div>
+        <h2>Reading list</h2>
+        <ul class="explanation-list">
+          <li><strong>Radford et&nbsp;al. (2021)</strong> — <em>Learning Transferable Visual Models From Natural Language Supervision.</em> The CLIP paper.</li>
+          <li><strong>Jia et&nbsp;al. (2021)</strong> — <em>ALIGN.</em> Concurrent work, 1.8B image-text pairs.</li>
+          <li><strong>Cherti et&nbsp;al. (2023)</strong> — <em>Reproducible Scaling Laws for Contrastive Language-Image Learning.</em> OpenCLIP at scale.</li>
+          <li><strong>Zhai et&nbsp;al. (2023)</strong> — <em>SigLIP.</em></li>
+          <li><strong>Zhou et&nbsp;al. (2022)</strong> — <em>CoOp.</em> Soft prompt tuning for CLIP.</li>
+          <li><strong>Goh et&nbsp;al. (2021)</strong> — <em>Multimodal Neurons in Artificial Neural Networks.</em> The typographic-attack paper.</li>
+        </ul>
+      </section>
     </article>
 
     <script src="../vendor/katex/katex.min.js"></script>

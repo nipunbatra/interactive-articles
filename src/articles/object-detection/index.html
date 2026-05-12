@@ -414,6 +414,48 @@
           lands on this same scoreboard.
         </div>
       </section>
+
+      <section class="step-section" id="step-8">
+        <div class="step-badge">Step 8</div>
+        <h2>Architecture family tree</h2>
+        <ul class="explanation-list">
+          <li><strong>Two-stage: R-CNN → Fast R-CNN → Faster R-CNN.</strong> First propose regions, then classify and refine. Accurate but slow.</li>
+          <li><strong>One-stage with anchors: SSD, YOLO v1–v5, RetinaNet.</strong> Dense grid of anchor boxes; predict (class, offset) per anchor. Fast, real-time on consumer GPUs.</li>
+          <li><strong>Anchor-free: FCOS, CenterNet.</strong> Predict (class, box) directly at each spatial location, no anchors to tune. Simpler, competitive accuracy.</li>
+          <li><strong>Set-based: DETR (2020), Deformable DETR, DINO, RT-DETR.</strong> Transformer decoder with object queries; no NMS — bipartite matching during training ensures unique predictions per object. The 2024+ default for accuracy-first detection.</li>
+          <li><strong>Open-vocabulary: Grounding DINO, OWL-ViT, OmDet.</strong> Detect any class described in free text. Combines a vision backbone with a language encoder.</li>
+        </ul>
+      </section>
+
+      <section class="step-section" id="step-9">
+        <div class="step-badge">Step 9</div>
+        <h2>The assignment problem — anchors, FCOS, Hungarian</h2>
+        <p>
+          During training, each predicted box must be matched to a ground-truth box (or labelled "background"). This <em>assignment</em> is the largest difference between detector families.
+        </p>
+        <ul class="explanation-list">
+          <li><strong>Anchor-based.</strong> A predicted box at anchor $a$ matches GT $g$ if $\mathrm{IoU}(a, g) &gt; \tau$ (typical $\tau = 0.5$). Simple, but the choice of anchor scales/ratios is a hyperparameter.</li>
+          <li><strong>Centre-based (FCOS).</strong> A spatial location matches GT $g$ if it's inside $g$ and within a per-scale band of its centre. No anchors.</li>
+          <li><strong>Hungarian / bipartite (DETR).</strong> Solve an assignment problem so each GT matches <em>exactly one</em> prediction, minimising a (cost + IoU + class) loss. No duplicates means no NMS post-processing.</li>
+        </ul>
+        <p>
+          Set-based DETR-style assignment was the breakthrough that finally made transformer detectors competitive with one-stage CNNs. Once you remove the assignment hand-crafting, scaling backbones gives clean gains.
+        </p>
+      </section>
+
+      <section class="step-section" id="step-10">
+        <div class="step-badge">Step 10</div>
+        <h2>Reading list</h2>
+        <ul class="explanation-list">
+          <li><strong>Girshick (2014–15)</strong> — R-CNN, Fast R-CNN. The two-stage foundations.</li>
+          <li><strong>Ren et&nbsp;al. (2015)</strong> — <em>Faster R-CNN.</em></li>
+          <li><strong>Liu et&nbsp;al. (2016)</strong> — <em>SSD.</em></li>
+          <li><strong>Redmon et&nbsp;al. (2016+)</strong> — <em>YOLO v1–v5.</em></li>
+          <li><strong>Tian et&nbsp;al. (2019)</strong> — <em>FCOS.</em> Anchor-free.</li>
+          <li><strong>Carion et&nbsp;al. (2020)</strong> — <em>DETR.</em> The transformer-based set predictor.</li>
+          <li><strong>Zhang, Li, Liu et&nbsp;al. (2023)</strong> — <em>DINO / Grounding DINO.</em></li>
+        </ul>
+      </section>
     </article>
 
     <script src="../vendor/katex/katex.min.js"></script>

@@ -278,6 +278,47 @@
           you have to remember it via skips.
         </div>
       </section>
+
+      <section class="step-section" id="step-7">
+        <div class="step-badge">Step 7</div>
+        <h2>Diffusion's U-Net — why an old architecture won the generative race</h2>
+        <p>
+          Every Stable Diffusion checkpoint is a U-Net, lightly modernised: the encoder + bottleneck + decoder structure is the original 2015 design, with three additions:
+        </p>
+        <ul class="explanation-list">
+          <li><strong>Time-step embedding.</strong> A sinusoidal time embedding $t$ is mapped to a per-layer scale + bias (FiLM-style). The same network does denoising at all noise levels by reading $t$.</li>
+          <li><strong>Cross-attention to a text condition.</strong> At a few mid-resolution layers, the spatial feature map attends to a tokenised text prompt's embeddings. This is where "prompt steering" actually happens.</li>
+          <li><strong>Self-attention blocks at low resolution.</strong> The U's bottleneck has full self-attention over the spatial grid (cheap because grid is small there); high-resolution layers stay purely convolutional.</li>
+        </ul>
+        <p>
+          In 2024–2026 the field has moved partially toward <strong>DiT (Diffusion Transformers)</strong> — pure transformer backbones with no U-Net skips. DiTs scale better past ~2B parameters; U-Nets still dominate sub-1B image-generation models because they're much more parameter-efficient on small data.
+        </p>
+      </section>
+
+      <section class="step-section" id="step-8">
+        <div class="step-badge">Step 8</div>
+        <h2>Practical implementation notes</h2>
+        <ul class="explanation-list">
+          <li><strong>Input size must be divisible by $2^D$</strong> where $D$ is the depth. A 4-stage U-Net needs inputs of $H, W$ divisible by 16. Pad before, crop after.</li>
+          <li><strong>Padding choices.</strong> Original used "valid" (no padding); modern implementations use "same" with reflection or zero padding to keep spatial dimensions stable through skips. Reflection padding usually gives slightly cleaner edges.</li>
+          <li><strong>Upsampling: ConvTranspose vs interpolate-then-conv.</strong> ConvTranspose can produce checkerboard artefacts at certain stride / kernel ratios. Most modern U-Nets use bilinear / nearest-neighbour upsampling followed by a 3×3 conv — visually cleaner.</li>
+          <li><strong>Number of stages.</strong> 4–5 stages cover most natural-image tasks. Deeper U's need wider channels (the bottleneck width controls capacity).</li>
+          <li><strong>Loss.</strong> Cross-entropy + Dice for medical / class-imbalanced segmentation; MSE for diffusion denoising; perceptual losses (VGG features) for image-to-image translation.</li>
+        </ul>
+      </section>
+
+      <section class="step-section" id="step-9">
+        <div class="step-badge">Step 9</div>
+        <h2>Reading list</h2>
+        <ul class="explanation-list">
+          <li><strong>Ronneberger, Fischer, Brox (2015)</strong> &mdash; <em>U-Net.</em> The original.</li>
+          <li><strong>Çiçek et&nbsp;al. (2016)</strong> &mdash; <em>3D U-Net.</em></li>
+          <li><strong>Oktay et&nbsp;al. (2018)</strong> &mdash; <em>Attention U-Net.</em></li>
+          <li><strong>Isensee, Jaeger, Kohl, Petersen, Maier-Hein (2021)</strong> &mdash; <em>nnU-Net.</em> Self-configuring U-Net for medical segmentation.</li>
+          <li><strong>Ho, Jain, Abbeel (2020)</strong> &mdash; <em>Denoising Diffusion Probabilistic Models.</em> The U-Net inside diffusion.</li>
+          <li><strong>Peebles &amp; Xie (2022)</strong> &mdash; <em>Scalable Diffusion Models with Transformers (DiT).</em> The eventual transformer-based successor.</li>
+        </ul>
+      </section>
     </article>
 
     <script src="../vendor/katex/katex.min.js"></script>

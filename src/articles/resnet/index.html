@@ -236,6 +236,49 @@
           you're using this trick.
         </div>
       </section>
+
+      <section class="step-section" id="step-7">
+        <div class="step-badge">Step 7</div>
+        <h2>Why the residual stream view unlocks Transformers</h2>
+        <p>
+          Modern transformers are best understood as <em>residual streams</em> (Elhage et&nbsp;al., 2021, Anthropic interpretability). Each layer reads from a high-dimensional residual stream, computes a delta, and writes it back. Layer $\ell$'s output is
+        </p>
+        <div class="math-block" id="math-stream"></div>
+        <p>
+          Three consequences of this view:
+        </p>
+        <ul class="explanation-list">
+          <li><strong>Layers communicate through the stream.</strong> Layer 12 can read what layer 3 wrote because the residual stream carried it through unchanged (modulo whatever later layers added).</li>
+          <li><strong>The stream is a "shared workspace".</strong> Different heads / MLPs specialise in writing different "kinds" of information; downstream layers read what's relevant. Mech-interp papers identify "induction heads", "successor heads", "letter-counting circuits" that span multiple layers.</li>
+          <li><strong>LayerNorm is the gate.</strong> Pre-norm transformers (norm before attention/MLP) work better than post-norm precisely because pre-norm preserves the residual identity path. Post-norm transformers need warmup; pre-norm don't.</li>
+        </ul>
+      </section>
+
+      <section class="step-section" id="step-8">
+        <div class="step-badge">Step 8</div>
+        <h2>Where residuals can hurt</h2>
+        <p>
+          Three failure modes to know:
+        </p>
+        <ul class="explanation-list">
+          <li><strong>Representation rank collapse.</strong> Stacking many residual blocks with similar deltas can push the residual stream into a low-rank manifold (Dong et&nbsp;al., 2021). Symptoms: late-layer attention heads all attending to the same token, slow convergence. Fix: stronger regularisation, depth scaling, or initialisation that biases each block to write something distinct.</li>
+          <li><strong>"Free path" overuse.</strong> If a block consistently outputs near-zero, you've wasted parameters; if every block outputs strongly, the residual stream is dominated by noise. Healthy transformers sit in between, but it's worth checking layer-output norms during training.</li>
+          <li><strong>Skip-connection memory cost.</strong> The original input has to be kept around through the block for the addition; this doubles activation memory in some implementations. Reversible variants (RevNet) recompute activations on the backward pass; rarely needed in practice.</li>
+        </ul>
+      </section>
+
+      <section class="step-section" id="step-9">
+        <div class="step-badge">Step 9</div>
+        <h2>Reading list</h2>
+        <ul class="explanation-list">
+          <li><strong>He, Zhang, Ren, Sun (2015)</strong> &mdash; <em>Deep Residual Learning for Image Recognition.</em> The ResNet paper.</li>
+          <li><strong>He et&nbsp;al. (2016)</strong> &mdash; <em>Identity Mappings in Deep Residual Networks.</em> Pre-activation variant.</li>
+          <li><strong>Huang et&nbsp;al. (2017)</strong> &mdash; <em>DenseNet.</em></li>
+          <li><strong>Veit, Wilber, Belongie (2016)</strong> &mdash; <em>Residual Networks Behave Like Ensembles of Relatively Shallow Networks.</em> The "exponential ensemble of paths" interpretation.</li>
+          <li><strong>Elhage et&nbsp;al. (2021)</strong> &mdash; <em>A Mathematical Framework for Transformer Circuits.</em> The residual stream view.</li>
+          <li><strong>Dong, Cordonnier, Loukas (2021)</strong> &mdash; <em>Attention is Not All You Need: Pure Attention Loses Rank Doubly Exponentially with Depth.</em></li>
+        </ul>
+      </section>
     </article>
 
     <script src="../vendor/katex/katex.min.js"></script>

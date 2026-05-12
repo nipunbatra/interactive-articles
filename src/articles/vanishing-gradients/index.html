@@ -361,6 +361,61 @@
     <div class="insight-label">Key Insight</div>
     <div class="insight-text" id="insightText"></div>
   </div>
+
+  <div class="card">
+    <h2 style="margin:0 0 0.6rem;">The math in one line</h2>
+    <p style="margin:0 0 0.6rem;">
+      Through $L$ layers, the gradient at the input is
+      <code>∂L/∂x ≈ ∏<sub>l=1</sub><sup>L</sup> W<sub>l</sub><sup>T</sup> σ'(z<sub>l</sub>)</code>.
+      The product of $L$ Jacobians either blows up (exploding) or
+      collapses to zero (vanishing) depending on the spectral radius
+      of each factor.
+    </p>
+    <p style="margin:0;">
+      For sigmoid/tanh, $\max \sigma' \le 0.25$, so $L$ stacked sigmoids
+      drop the gradient by at least $4^L$. At $L = 10$, that's $10^6$;
+      at $L = 20$, $10^{12}$. ReLU has $\sigma' \in \{0, 1\}$, so the
+      "vanishing" mode becomes a discrete switch — either the unit is
+      alive (gradient passes) or dead (zero).
+    </p>
+  </div>
+
+  <div class="card">
+    <h2 style="margin:0 0 0.6rem;">Five fixes the field converged on</h2>
+    <ul style="margin:0 0 0 1.2rem;">
+      <li><strong>ReLU and friends</strong> (Glorot &amp; Bengio, 2010;
+        Nair &amp; Hinton, 2010). $\sigma'(z) \in \{0, 1\}$ instead of
+        $\le 0.25$ removes the multiplicative shrink for active units.</li>
+      <li><strong>He / Xavier initialisation.</strong> Scale initial
+        weights so the variance of activations is preserved layer-by-layer:
+        $\mathrm{Var}(W_l) = 2 / \mathrm{fan\_in}$ for ReLU. Without this,
+        a uniform $W \sim \mathcal{N}(0, 1)$ saturates fast.</li>
+      <li><strong>Batch / Layer normalisation.</strong> Normalise
+        activations between layers; keeps the per-layer gradient
+        Jacobian close to identity. Used in essentially every modern
+        deep network.</li>
+      <li><strong>Residual connections</strong> (He et&nbsp;al., 2015).
+        $y = f(x) + x$. The identity path provides a gradient highway
+        that bypasses the vanishing product. See the
+        <a href="../resnet/">ResNet article</a>.</li>
+      <li><strong>LSTM cell state</strong> (Hochreiter &amp; Schmidhuber,
+        1997). Same idea, earlier: the cell-state Jacobian equals the
+        forget gate $\in [0, 1]$, which can be close to 1, so gradients
+        can flow across thousands of timesteps. See the
+        <a href="../lstm-gates/">LSTM article</a>.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2 style="margin:0 0 0.6rem;">Reading list</h2>
+    <ul style="margin:0 0 0 1.2rem;">
+      <li>Hochreiter (1991) — the original "long-term dependencies are hard" thesis.</li>
+      <li>Bengio, Simard, Frasconi (1994) — the formal vanishing-gradient analysis.</li>
+      <li>Glorot &amp; Bengio (2010) — initialisation theory.</li>
+      <li>He et&nbsp;al. (2015) — ReLU-aware initialisation and ResNet.</li>
+      <li>Pascanu, Mikolov, Bengio (2013) — exploding-gradient clipping.</li>
+    </ul>
+  </div>
 </main>
 
 <footer>

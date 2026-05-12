@@ -390,6 +390,62 @@
           smarter decoders.
         </div>
       </section>
+
+      <section class="step-section" id="step-8">
+        <div class="step-badge">Step 8</div>
+        <h2>The three flavours of segmentation</h2>
+        <ul class="explanation-list">
+          <li><strong>Semantic segmentation.</strong> Each pixel gets a <em>class</em>. Two cars next to each other are one "car" blob. The standard task this article focuses on. Datasets: ADE20K, Cityscapes (19 classes), PASCAL VOC.</li>
+          <li><strong>Instance segmentation.</strong> Each pixel gets a class <em>and</em> an instance ID. The two cars become car-1 and car-2. Mask R-CNN is the classical approach: detect bounding boxes, segment within each. Datasets: COCO, LVIS.</li>
+          <li><strong>Panoptic segmentation.</strong> Combines both — "things" (countable: cars, people) get instance IDs; "stuff" (uncountable: sky, road) gets a class only. The COCO-Panoptic and Cityscapes-Panoptic datasets unified the field around this around 2018.</li>
+        </ul>
+        <p>
+          The 2021+ trend has been to unify all three under a single transformer-decoder architecture: Mask2Former, Mask DINO, OneFormer. One model, one set of weights, all three tasks.
+        </p>
+      </section>
+
+      <section class="step-section" id="step-9">
+        <div class="step-badge">Step 9</div>
+        <h2>SAM — the foundation model for segmentation</h2>
+        <p>
+          Segment Anything (Kirillov et&nbsp;al., 2023; SAM-2, 2024) is the segmentation analogue of GPT-3 for text: pretrain a huge model on a billion masks, then have it segment anything from a prompt (point, box, or text). Architecture: ViT image encoder + small prompt encoder + lightweight mask decoder. Output: zero-shot, high-quality masks at interactive latency.
+        </p>
+        <ul class="explanation-list">
+          <li><strong>Strengths.</strong> Zero-shot on novel objects; interactive (click a point and get a mask); production-ready in 2024.</li>
+          <li><strong>Weaknesses.</strong> No class labels (SAM segments, doesn't classify); fine-grained boundaries on small objects still imperfect; needs a separate classifier on top for semantic labels.</li>
+          <li><strong>SAM-2 (2024).</strong> Adds video support — propagate masks across frames with memory.</li>
+        </ul>
+        <p>
+          The right mental model: SAM is the high-recall "find every object" tool; you compose it with a classifier (CLIP, Grounding-DINO) for "find every object of class X" pipelines.
+        </p>
+      </section>
+
+      <section class="step-section" id="step-10">
+        <div class="step-badge">Step 10</div>
+        <h2>Loss functions for segmentation</h2>
+        <ul class="explanation-list">
+          <li><strong>Pixel-wise cross-entropy.</strong> The default. Fast, well-understood, works well when classes are roughly balanced.</li>
+          <li><strong>Weighted cross-entropy.</strong> Reweight rare classes. Important for medical segmentation where the lesion might be 1% of pixels.</li>
+          <li><strong>Dice loss.</strong> $1 - 2|A \cap B| / (|A| + |B|)$. Directly optimises overlap; very effective for imbalanced classes. Most medical segmentation papers use Dice or Dice + CE.</li>
+          <li><strong>Focal loss.</strong> Down-weights easy examples ($(1-p_t)^\gamma$ factor). Helps when many easy negatives dominate gradient.</li>
+          <li><strong>Boundary loss.</strong> Penalises errors near class boundaries more — encourages sharp, accurate edges.</li>
+          <li><strong>Cross-entropy + Dice combo.</strong> Most practical recipes blend the two. CE for stable gradients, Dice for overlap optimisation.</li>
+        </ul>
+      </section>
+
+      <section class="step-section" id="step-11">
+        <div class="step-badge">Step 11</div>
+        <h2>Reading list</h2>
+        <ul class="explanation-list">
+          <li><strong>Long, Shelhamer, Darrell (2015)</strong> — <em>Fully Convolutional Networks for Semantic Segmentation.</em> The paper that defined the field.</li>
+          <li><strong>Ronneberger, Fischer, Brox (2015)</strong> — <em>U-Net.</em> See the dedicated <a href="../unet/index.html">U-Net article</a>.</li>
+          <li><strong>Chen et&nbsp;al. (2017)</strong> — <em>DeepLab.</em> Atrous / dilated convolutions for high-resolution features.</li>
+          <li><strong>He et&nbsp;al. (2017)</strong> — <em>Mask R-CNN.</em> Instance segmentation gold standard.</li>
+          <li><strong>Cheng, Schwing, Kirillov (2022)</strong> — <em>Mask2Former.</em> The unifying transformer architecture.</li>
+          <li><strong>Kirillov et&nbsp;al. (2023)</strong> — <em>Segment Anything.</em></li>
+          <li><strong>Ravi et&nbsp;al. (2024)</strong> — <em>SAM 2.</em> Video extension.</li>
+        </ul>
+      </section>
     </article>
 
     <script src="../vendor/katex/katex.min.js"></script>

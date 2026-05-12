@@ -79,7 +79,44 @@
     </p>
     <p>
       Warmup linearly ramps LR from 0 to peak over 1–10% of training. Once <code>v̂_t</code> has a few steps to stabilize and attention has diffused, you can safely ride the peak LR.
-    </p><script>
+    </p>
+
+    <h2>The four-stage anatomy of a modern LR schedule</h2>
+    <ol>
+      <li><strong>Warmup (0 → peak).</strong> Linear ramp for 1–10% of total steps. Stabilises Adam's moment estimates and gives initialisation time to settle.</li>
+      <li><strong>Peak (constant or near-constant).</strong> The bulk of training. Some recipes (Llama, Chinchilla) hold constant; others (cosine, Noam) start decaying immediately after warmup.</li>
+      <li><strong>Decay (peak → near-zero).</strong> Cosine, linear, or step. The exact shape matters less than the magnitude — what matters is reaching a sufficiently low final LR.</li>
+      <li><strong>Tail (~0).</strong> Optional. Final low-LR steps for last-mile fine-tuning. Standard in LLM pretraining.</li>
+    </ol>
+
+    <h2>Schedule cheatsheet by use case</h2>
+    <ul>
+      <li><strong>Computer vision (ResNet, ViT) on ImageNet.</strong> Cosine decay over 100 epochs, no warmup needed for ResNet, ~5 epochs warmup for ViT. Peak LR ≈ 0.1 (SGD) or 1e-3 (AdamW).</li>
+      <li><strong>LLM pretraining.</strong> Linear warmup ~1% of total tokens, then cosine decay to 10% of peak. Peak LR ~3e-4 (small) down to ~1e-4 (70B+).</li>
+      <li><strong>LLM SFT / instruction tuning.</strong> Short linear warmup (~50 steps), cosine to zero. Peak LR ~2e-5 to ~5e-5. <em>Much</em> lower than pretraining to avoid catastrophic forgetting.</li>
+      <li><strong>LoRA fine-tuning.</strong> Constant or single cosine cycle. Peak LR ~1e-4. Adapter parameters tolerate higher rates than the base.</li>
+      <li><strong>Object detection / segmentation.</strong> Step schedule (multiply by 0.1 at 60%, 80% of training). The classical DETR / Mask R-CNN recipe.</li>
+      <li><strong>Diffusion training.</strong> Constant LR + EMA on weights. The EMA does most of the implicit "decay".</li>
+    </ul>
+
+    <h2>One-cycle vs cosine vs constant</h2>
+    <p>
+      Three regimes you'll see in production:
+    </p>
+    <ul>
+      <li><strong>Constant LR + decay-at-the-end.</strong> Used by Chinchilla, recent Llama runs. Empirically as good as cosine when training duration is well-tuned; simpler to reason about for very long runs.</li>
+      <li><strong>Cosine annealing</strong> (Loshchilov &amp; Hutter, 2017). Smooth decay; the default in HuggingFace Trainer, PyTorch Lightning. Cosine with restarts ("SGDR") periodically resets to peak — was popular pre-2022 for vision, mostly abandoned for LLMs.</li>
+      <li><strong>1-cycle (Leslie Smith, 2018).</strong> LR + momentum sweep — short warmup, long cosine decay, very low tail. Strong for short training runs (fewer than 1000 epochs). Mostly historical for LLMs but still useful for small-scale CNN training.</li>
+    </ul>
+
+    <h2>Reading list</h2>
+    <ul>
+      <li><strong>Loshchilov &amp; Hutter (2017)</strong> — <em>SGDR: Stochastic Gradient Descent with Warm Restarts.</em></li>
+      <li><strong>Smith (2018)</strong> — <em>A Disciplined Approach to Neural Network Hyper-Parameters.</em> The 1-cycle paper.</li>
+      <li><strong>Hoffer et&nbsp;al. (2017)</strong> — <em>Train Longer, Generalize Better.</em></li>
+      <li><strong>Liu et&nbsp;al. (2020)</strong> — <em>On the Variance of the Adaptive Learning Rate and Beyond (RAdam).</em> Why warmup helps Adam.</li>
+      <li><strong>Hoffmann et&nbsp;al. (2022)</strong> — <em>Training Compute-Optimal Large Language Models (Chinchilla).</em> The constant-LR-with-decay recipe.</li>
+    </ul><script>
       const svg = document.getElementById("plot");
       const NS = "http://www.w3.org/2000/svg";
       const TOTAL = 1000;  // steps

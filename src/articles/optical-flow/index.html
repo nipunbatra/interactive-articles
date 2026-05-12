@@ -414,6 +414,46 @@
           from?
         </div>
       </section>
+
+      <section class="step-section" id="step-8">
+        <div class="step-badge">Step 8</div>
+        <h2>From Lucas-Kanade to RAFT — the recent history</h2>
+        <ul class="explanation-list">
+          <li><strong>Lucas-Kanade (1981).</strong> Local, sparse, fast. Solve a 2×2 system per corner.</li>
+          <li><strong>Horn-Schunck (1981).</strong> Dense flow via global smoothness regularisation. Energy minimisation; iterative numerical solution.</li>
+          <li><strong>Coarse-to-fine variational methods (1990s–2000s).</strong> Build an image pyramid; estimate flow at the coarsest level; warp; refine on the next finer level. The classical recipe for handling large motion.</li>
+          <li><strong>FlowNet (2015).</strong> The first end-to-end deep flow estimator. A U-Net-style architecture, trained on synthetic FlyingChairs data.</li>
+          <li><strong>PWC-Net (2018).</strong> Combines deep features with classical pyramid warping and cost-volume construction. State of the art for years; ~25× smaller than FlowNet2.</li>
+          <li><strong>RAFT (2020).</strong> Recurrent All-Pairs Field Transforms. Computes a full 4-D cost volume of all-pairs feature correlations, then a recurrent GRU refines flow iteratively. Still the strongest published-and-published-again baseline.</li>
+          <li><strong>FlowFormer / GMA / unimatch (2022+).</strong> Transformer-based flow with attention over the cost volume. Marginal gains over RAFT at higher cost.</li>
+          <li><strong>SEA-RAFT (2024).</strong> RAFT with a mixture-of-Laplace loss for robustness; current state of the art on Sintel + KITTI benchmarks.</li>
+        </ul>
+      </section>
+
+      <section class="step-section" id="step-9">
+        <div class="step-badge">Step 9</div>
+        <h2>Cost volumes — the heart of modern flow</h2>
+        <p>
+          A cost volume is a 4-D tensor $C(i, j, u, v)$ that scores how well the feature at pixel $(i, j)$ in frame 1 matches the feature at pixel $(i + u, j + v)$ in frame 2. For an image of size $H \times W$ and a search range of $r$ pixels, the cost volume has $H \cdot W \cdot (2r+1)^2$ entries.
+        </p>
+        <div class="math-block" id="math-cost-vol"></div>
+        <p>
+          Modern flow networks (PWC, RAFT, GMFlow) compute this cost volume and then run small neural decoders on it to extract flow. The cost volume <em>is</em> the brightness-constancy/photometric similarity made explicit — but in feature space, where it tolerates lighting changes that pixel-space brightness constancy doesn't.
+        </p>
+      </section>
+
+      <section class="step-section" id="step-10">
+        <div class="step-badge">Step 10</div>
+        <h2>Reading list</h2>
+        <ul class="explanation-list">
+          <li><strong>Horn &amp; Schunck (1981)</strong> — <em>Determining Optical Flow.</em></li>
+          <li><strong>Lucas &amp; Kanade (1981)</strong> — <em>An Iterative Image Registration Technique with an Application to Stereo Vision.</em></li>
+          <li><strong>Dosovitskiy et&nbsp;al. (2015)</strong> — <em>FlowNet.</em> First end-to-end deep flow.</li>
+          <li><strong>Sun et&nbsp;al. (2018)</strong> — <em>PWC-Net.</em></li>
+          <li><strong>Teed &amp; Deng (2020)</strong> — <em>RAFT.</em></li>
+          <li><strong>Wang et&nbsp;al. (2024)</strong> — <em>SEA-RAFT.</em> The current SOTA recipe.</li>
+        </ul>
+      </section>
     </article>
 
     <script src="../vendor/katex/katex.min.js"></script>
