@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Hash Tables, Collision by Collision</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../vendor/katex/katex.min.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <article class="article">
+      <header class="article-header">
+        <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+        <p class="kicker">Interactive Explainer</p>
+        <h1>Hash Tables, Collision by Collision</h1>
+        <p class="abstract">
+          Hash tables look magical from outside: average $O(1)$
+          lookup, no ordering, used in every dictionary and cache.
+          Inside, the magic is collision resolution. Insert keys
+          into a small table and watch them collide; switch between
+          chaining and three open-addressing strategies; watch the
+          load factor creep up and the lookups slow down.
+        </p>
+        <div class="byline">
+          <span>~15 min</span>
+          <span>Data structures &middot; Hashing &middot; Cache</span>
+        </div>
+      </header>
+
+      <section class="step-section" id="prelude">
+        <div class="step-badge">Prelude</div>
+        <h2>The pigeonhole problem</h2>
+        <p>
+          A hash table maps a key — any key — to a slot in a fixed
+          array. The mapping is a hash function $h(\text{key}) \mod
+          m$ for table size $m$. The whole machine depends on this
+          mapping being approximately uniform.
+        </p>
+        <p>
+          It can't be uniform <em>and</em> injective: there are
+          infinitely many possible keys and only $m$ slots. So two
+          different keys will eventually hash to the same slot. The
+          question is what you do when they do.
+        </p>
+        <p>
+          Two big families of answers:
+        </p>
+        <ul class="explanation-list">
+          <li><strong>Separate chaining.</strong> Each slot owns a
+            list. Colliding keys append to the list. Lookup walks
+            the list. Simple to reason about; touches non-local
+            memory.</li>
+          <li><strong>Open addressing.</strong> The colliding key
+            <em>probes</em> for the next empty slot in the array
+            itself. The probing strategy (linear, quadratic, random,
+            robin hood) is the design choice. Cache-friendly; more
+            subtle.</li>
+        </ul>
+        <p>
+          Below: a small 16-slot table you can insert into. Switch
+          between strategies and watch the same insertion produce
+          very different layouts.
+        </p>
+      </section>
+
+      <section class="step-section" id="step-1">
+        <div class="step-badge">Step 1</div>
+        <h2>Insert, watch, probe</h2>
+        <div class="controls">
+          <label>strategy
+            <select id="ht-strategy">
+              <option value="chain">separate chaining</option>
+              <option value="linear" selected>linear probing</option>
+              <option value="quadratic">quadratic probing</option>
+              <option value="robin">robin hood (linear)</option>
+            </select>
+          </label>
+          <label>hash
+            <select id="ht-hash">
+              <option value="fnv" selected>FNV-1a (decent)</option>
+              <option value="bad">first-letter (adversarial)</option>
+            </select>
+          </label>
+          <label>insert
+            <input type="text" id="ht-key" placeholder="word or number" />
+          </label>
+          <button class="btn" id="ht-add">add</button>
+          <button class="btn btn--ghost" id="ht-find">find</button>
+          <button class="btn btn--ghost" id="ht-del">delete</button>
+          <button class="btn btn--ghost" id="ht-burst">burst 10 random</button>
+          <button class="btn btn--warn" id="ht-clear">clear</button>
+        </div>
+        <div class="legend">
+          <span><span class="legend-sw" style="background: var(--slot-empty);"></span>empty</span>
+          <span><span class="legend-sw" style="background: rgba(44,111,183,0.20);"></span>occupied</span>
+          <span><span class="legend-sw" style="background: var(--slot-prob);"></span>probing</span>
+          <span><span class="legend-sw" style="background: var(--slot-active);"></span>just inserted</span>
+          <span><span class="legend-sw" style="background: var(--slot-tomb);"></span>tombstone</span>
+          <span><span class="legend-sw" style="background: var(--slot-rich);"></span>robin-hood evict</span>
+        </div>
+        <div class="ht-table" id="ht-table"></div>
+        <div class="ht-stats">
+          <div class="stat-card">
+            <span class="s-label">size m</span>
+            <span class="s-value" id="ht-size">16</span>
+          </div>
+          <div class="stat-card" id="ht-load-card">
+            <span class="s-label">load factor α</span>
+            <span class="s-value" id="ht-load">0.00</span>
+          </div>
+          <div class="stat-card" id="ht-probe-card">
+            <span class="s-label">avg probe length</span>
+            <span class="s-value" id="ht-probe">0.0</span>
+          </div>
+          <div class="stat-card">
+            <span class="s-label">n keys</span>
+            <span class="s-value" id="ht-count">0</span>
+          </div>
+        </div>
+        <div class="ht-status" id="ht-status">enter a key and press add.</div>
+        <p>
+          Things to try:
+        </p>
+        <ul class="explanation-list">
+          <li>Insert "cat", "dog", "ant", "bat", "ape", "dot" with
+            FNV-1a + linear probing. Watch the average probe length
+            stay near 1. Now switch the hash to first-letter and
+            re-insert — every key hashes to its first letter, so
+            "ant", "ape" pile up on one slot.</li>
+          <li>Switch to chaining with the bad hash and burst 10
+            random keys. The chains grow on a few slots; lookup
+            becomes linear in chain length.</li>
+          <li>Switch to robin-hood probing. Insert keys with a high
+            load factor; watch keys that arrived early get
+            <em>evicted</em> toward later slots when a key with a
+            longer probe distance arrives.</li>
+          <li>Delete a key from a linear-probed table. A tombstone
+            (gray) remains — a normal "empty" would break the
+            search chain for keys that probed past this slot.</li>
+        </ul>
+      </section>
+
+      <section class="step-section" id="step-2">
+        <div class="step-badge">Step 2</div>
+        <h2>What makes a hash function good</h2>
+        <p>
+          Two properties matter:
+        </p>
+        <ul class="explanation-list">
+          <li><strong>Uniformity.</strong> Each slot should be
+            equally likely. A bad hash function (like "first letter")
+            clusters keys; a good one spreads them.</li>
+          <li><strong>Avalanche.</strong> One-bit changes in the
+            input should flip about half the bits of the output.
+            Modern hash functions (FNV-1a, MurmurHash, xxHash,
+            CityHash, SipHash) are designed for this.</li>
+        </ul>
+        <div class="math-block" id="math-mod"></div>
+        <p>
+          For non-cryptographic hashes — FNV-1a, Murmur — the
+          attacker model is "no attacker, just uniform-ish inputs".
+          Fast, good enough. For inputs an attacker controls
+          (HTTP headers, JSON keys, network payloads), you need a
+          <em>keyed</em> hash with a random secret: <strong>SipHash</strong>
+          is the standard. Without it, an attacker who knows your
+          hash function can synthesise keys that all map to one
+          slot, turning your $O(1)$ table into an $O(n^2)$ DoS.
+        </p>
+        <div class="callout callout--warn">
+          <strong>Hash flooding.</strong>
+          The "first-letter" bad hash above is a toy version of
+          a real 2003 attack on PHP, Perl, ASP.NET and the JVM. The
+          fix every language eventually adopted is process-random
+          hash seeding (so two runs of the same program see
+          different hash values) and SipHash for user-controlled
+          input. If you're writing a server in 2026, your runtime
+          probably already does this.
+        </div>
+      </section>
+
+      <section class="step-section" id="step-3">
+        <div class="step-badge">Step 3</div>
+        <h2>Separate chaining — the simple one</h2>
+        <p>
+          Each slot points to a linked list (or small array) of all
+          keys hashing there. Insert: prepend to the list.
+          Lookup: walk the list.
+        </p>
+        <div class="math-block" id="math-chain"></div>
+        <p>
+          With a uniform hash, the expected chain length is
+          $\alpha = n/m$ — the load factor. Lookup is $O(1 + \alpha)$
+          on average. Even at $\alpha = 5$ (a heavily loaded table),
+          you're walking lists of about 5 nodes — far from $O(n)$.
+        </p>
+        <p>
+          What chaining gives up: cache locality. Each list node is
+          a heap allocation; walking it is a cache miss. On modern
+          hardware where main-memory latency is 100× L1, this is
+          the difference between a fast hash table and a slow one.
+        </p>
+      </section>
+
+      <section class="step-section" id="step-4">
+        <div class="step-badge">Step 4</div>
+        <h2>Open addressing — the fast one</h2>
+        <p>
+          Store every key directly in the array. On collision, probe
+          along a sequence of slots until you find empty space.
+          The whole table fits in contiguous memory; lookups touch
+          one cache line.
+        </p>
+        <div class="math-block" id="math-linear"></div>
+        <p>
+          Three classic probe sequences:
+        </p>
+        <ul class="explanation-list">
+          <li><strong>Linear probing.</strong> $h_i = (h(k) + i)
+            \bmod m$. Cache-perfect. Suffers <em>primary clustering</em>:
+            a run of occupied slots tends to grow because any key
+            hashing inside the run probes its end. Once $\alpha
+            \gtrsim 0.7$, performance degrades sharply.</li>
+          <li><strong>Quadratic probing.</strong> $h_i = (h(k) +
+            c_1 i + c_2 i^2) \bmod m$. Breaks primary clustering
+            but introduces <em>secondary clustering</em>: keys with
+            the same initial hash follow identical probe sequences.
+            Slightly less cache-friendly than linear.</li>
+          <li><strong>Double hashing.</strong> $h_i = (h_1(k) + i \,
+            h_2(k)) \bmod m$ with a second independent hash. Avoids
+            both clustering issues; pays a second hash computation
+            per probe.</li>
+        </ul>
+        <p>
+          All open-addressing strategies break down before $\alpha
+          = 1$ (you cannot insert into a full table — there's
+          literally no empty slot). They typically resize when $\alpha$
+          crosses a threshold (0.5, 0.75, or 0.9 depending on the
+          variant). Resize means: allocate a 2× table, rehash every
+          key, free the old one. Amortised $O(1)$ per insert; a
+          single slow insert when the resize fires.
+        </p>
+      </section>
+
+      <section class="step-section" id="step-5">
+        <div class="step-badge">Step 5</div>
+        <h2>Robin Hood hashing — take from the rich</h2>
+        <p>
+          Linear probing with one twist: when a new key probes past
+          an existing one, compare their <em>displacement</em>
+          (probe count). If the incumbent's displacement is shorter
+          than the newcomer's would be at this slot, <em>swap them</em>
+          — kick the incumbent out and continue probing with it.
+          Hence the name: take from the rich (low-displacement keys)
+          and give to the poor (high-displacement keys).
+        </p>
+        <div class="math-block" id="math-robin"></div>
+        <p>
+          The point: it equalises probe distances. After many
+          inserts, every key's probe distance is within a constant
+          factor of the average. Variance shrinks dramatically.
+          Worst-case lookup time becomes proportional to the
+          <em>maximum</em> displacement, which under uniform
+          hashing is $O(\log n)$ rather than the $O(\sqrt n)$ of
+          plain linear probing at high load factors.
+        </p>
+        <p>
+          Robin-hood hashing is the default in modern
+          fast-hash-table libraries (Rust's <code>HashMap</code> via
+          hashbrown until recently; Boost's <code>flat_map</code>;
+          Google's <code>absl::flat_hash_map</code>) precisely
+          because it makes high load factors viable.
+        </p>
+      </section>
+
+      <section class="step-section" id="step-6">
+        <div class="step-badge">Step 6</div>
+        <h2>The cheat sheet</h2>
+        <table class="ht-cmp-table">
+          <thead>
+            <tr>
+              <th>strategy</th>
+              <th>avg lookup</th>
+              <th>worst lookup</th>
+              <th>memory</th>
+              <th>cache</th>
+              <th>delete</th>
+              <th>typical $\alpha_\text{max}$</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>chaining</td>
+              <td>$O(1 + \alpha)$</td>
+              <td>$O(n)$ (degenerate)</td>
+              <td>$m + n$ + node ptrs</td>
+              <td>poor</td>
+              <td>easy (unlink)</td>
+              <td>$\alpha$ unbounded</td>
+            </tr>
+            <tr>
+              <td>linear probing</td>
+              <td>$\frac{1}{1 - \alpha}$</td>
+              <td>$O(\sqrt n)$ at high $\alpha$</td>
+              <td>$m$</td>
+              <td>excellent</td>
+              <td>tombstones</td>
+              <td>$\sim 0.7$</td>
+            </tr>
+            <tr>
+              <td>quadratic probing</td>
+              <td>$-\frac{\ln(1-\alpha)}{\alpha}$</td>
+              <td>$O(\log n)$</td>
+              <td>$m$</td>
+              <td>good</td>
+              <td>tombstones</td>
+              <td>$\sim 0.5$</td>
+            </tr>
+            <tr>
+              <td>robin hood</td>
+              <td>$\frac{1}{1 - \alpha}$</td>
+              <td>$O(\log n)$</td>
+              <td>$m$ + 1 byte/slot</td>
+              <td>excellent</td>
+              <td>backshift</td>
+              <td>$\sim 0.9$</td>
+            </tr>
+            <tr>
+              <td>cuckoo (2 tables)</td>
+              <td>$O(1)$ worst</td>
+              <td>$O(1)$ worst</td>
+              <td>$2m$</td>
+              <td>good</td>
+              <td>easy</td>
+              <td>$\sim 0.5$</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="step-section" id="step-7">
+        <div class="step-badge">Step 7</div>
+        <h2>The advanced wing</h2>
+        <ul class="explanation-list">
+          <li><strong>Cuckoo hashing.</strong> Each key has two
+            candidate slots (via two independent hashes). On
+            collision, evict the incumbent and re-place it at
+            <em>its</em> other slot. Continue. Worst-case $O(1)$
+            lookup; insertions can loop if the load is too high,
+            in which case rehash with new functions.</li>
+          <li><strong>Hopscotch hashing.</strong> Like linear
+            probing but every key is guaranteed to live in a
+            neighbourhood of $H$ slots near its home position.
+            Lookup probes at most $H$ slots (a single cache line).</li>
+          <li><strong>Swiss tables</strong> (Google's
+            <code>absl::flat_hash_map</code>). 1 byte of metadata
+            per slot stores a 7-bit hash signature plus
+            empty/full/tombstone. Probing scans 16 metadata bytes
+            with SIMD at a time, comparing signatures before
+            touching the key. Order-of-magnitude speedup on real
+            workloads.</li>
+          <li><strong>Consistent hashing.</strong> Distributed hash
+            tables (Cassandra, DynamoDB, every CDN) need to
+            survive nodes joining and leaving without rehashing
+            <em>everything</em>. Consistent hashing maps keys and
+            nodes to the same ring; each key goes to its
+            nearest-clockwise node. Adding a node moves only
+            $O(n / N)$ keys.</li>
+          <li><strong>Bloom filters.</strong> When you don't need
+            to store the keys themselves, just answer "have I seen
+            this?". $k$ hashes + a bit array; constant memory,
+            constant lookup, never false negatives, controllable
+            false positives. Probabilistic relatives:
+            count-min sketch, HyperLogLog.</li>
+          <li><strong>Perfect hashing.</strong> If the key set is
+            fixed in advance (a compiler's keyword table, a
+            language's reserved words), you can construct a hash
+            function with <em>zero</em> collisions. Two-level
+            schemes (FKS, CHD) achieve this in expected $O(n)$
+            construction time.</li>
+        </ul>
+      </section>
+
+      <section class="step-section" id="step-8">
+        <div class="step-badge">Step 8</div>
+        <h2>Sharp edges</h2>
+        <ul class="explanation-list">
+          <li><strong>Delete in open addressing is hard.</strong>
+            Marking a slot "empty" breaks probe chains.
+            <em>Tombstones</em> say "was occupied; keep probing".
+            Tombstones accumulate; eventually every probe scans them
+            all. You either rehash periodically or use
+            <em>backshift deletion</em> (robin-hood compatible)
+            which slides subsequent keys into the gap.</li>
+          <li><strong>Iterating order is not defined.</strong> Hash
+            tables make no ordering promises. If you need
+            "iterate in insertion order" (Python's <code>dict</code>
+            since 3.7), the implementation maintains an extra
+            ordered list alongside the table. Don't rely on
+            iteration order in other languages.</li>
+          <li><strong>Resizing is amortised, not worst-case.</strong>
+            A single insert that triggers a 2× resize costs $O(n)$.
+            Most production systems instead use
+            <em>incremental rehashing</em> (Redis): on each
+            operation, move a few entries from the old table to
+            the new one until the migration finishes.</li>
+          <li><strong>Cache lines, not slots.</strong> Modern hash
+            table benchmarks are dominated by L1 cache hits/misses.
+            A "slow" hash table with bad asymptotics can be 3×
+            faster than a "fast" one with better asymptotics if
+            its probes touch fewer cache lines. Benchmark on
+            realistic data; never on uniform random integers.</li>
+          <li><strong>Equality and hash must agree.</strong> If two
+            objects are equal, they must hash to the same value.
+            Override <code>__hash__</code> but not <code>__eq__</code>
+            (or vice versa) and you get a silent data-loss bug
+            that takes weeks to find.</li>
+        </ul>
+      </section>
+
+      <section class="step-section" id="step-9">
+        <div class="step-badge">Step 9</div>
+        <h2>Reading list</h2>
+        <ul class="explanation-list">
+          <li><strong>Knuth, TAOCP Vol&nbsp;3, §6.4.</strong> Hashing.
+            Where most of the modern variants are first analysed.</li>
+          <li><strong>Pagh &amp; Rodler, 2001</strong> &mdash;
+            <em>Cuckoo Hashing.</em></li>
+          <li><strong>Celis, Larson, Munro, 1985</strong> &mdash;
+            <em>Robin Hood Hashing.</em> The original paper, before
+            it became fashionable thirty years later.</li>
+          <li><strong>Aumasson &amp; Bernstein, 2012</strong> &mdash;
+            <em>SipHash: a fast short-input PRF.</em> The default
+            keyed hash for hash-table security.</li>
+          <li><strong>Maier, Sanders, Dementiev, 2019</strong> &mdash;
+            <em>Concurrent Hash Tables: Fast and General(?).</em>
+            Survey of lock-free / wait-free hash table
+            implementations.</li>
+          <li><strong>Karger et&nbsp;al., 1997</strong> &mdash;
+            <em>Consistent Hashing and Random Trees.</em> The
+            foundation of distributed key-value stores.</li>
+          <li><strong>Google abseil / SwissTable design doc.</strong>
+            How to use SIMD to scan metadata 16 bytes at a time —
+            the model for modern fast hash tables.</li>
+        </ul>
+      </section>
+    </article>
+
+    <script src="../vendor/katex/katex.min.js"></script>
+    <script type="module" src="main.js"></script>
+  
+    <!-- katex-auto-render -->
+    <script defer src="../vendor/katex/contrib/auto-render.min.js"></script>
+    <script>
+      document.addEventListener('DOMContentLoaded', function () {
+        var go = function () {
+          if (!window.renderMathInElement) { setTimeout(go, 50); return; }
+          renderMathInElement(document.body, {
+            delimiters: [
+              { left: '$$', right: '$$', display: true },
+              { left: '\\[', right: '\\]', display: true },
+              { left: '$', right: '$', display: false },
+              { left: '\\(', right: '\\)', display: false }
+            ],
+            throwOnError: false,
+            ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code', 'option']
+          });
+        };
+        go();
+      });
+    </script>
+  </body>
+</html>

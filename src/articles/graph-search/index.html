@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Graph Search, Frontier by Frontier</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../vendor/katex/katex.min.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <article class="article">
+      <header class="article-header">
+        <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+        <p class="kicker">Interactive Explainer</p>
+        <h1>Graph Search, Frontier by Frontier</h1>
+        <p class="abstract">
+          BFS finds the shortest path on an unweighted graph but
+          wastes effort exploring blindly. Dijkstra handles edge
+          weights but ignores the goal. A* adds a heuristic and
+          goes straight there — when the heuristic is admissible.
+          Draw walls on a grid, watch four search algorithms expand
+          their frontiers, and see exactly where each one wastes
+          work.
+        </p>
+        <div class="byline">
+          <span>~16 min</span>
+          <span>Data structures &middot; Graph search &middot; A*</span>
+        </div>
+      </header>
+
+      <section class="step-section" id="prelude">
+        <div class="step-badge">Prelude</div>
+        <h2>One scaffold, four algorithms</h2>
+        <p>
+          The four classic single-source shortest-path / reachability
+          algorithms — BFS, DFS, Dijkstra, A* — share a single
+          scaffold. Maintain a <em>frontier</em> of nodes you've
+          discovered but not yet finalised. Pop one off, mark it
+          finalised, add its neighbours to the frontier. Repeat
+          until you reach the goal (or the frontier empties).
+        </p>
+        <p>
+          What changes between them? <strong>The data structure
+          backing the frontier.</strong>
+        </p>
+        <ul class="explanation-list">
+          <li><strong>BFS</strong> uses a FIFO queue → pops the
+            shallowest node first → finds the shortest path on
+            unweighted graphs.</li>
+          <li><strong>DFS</strong> uses a LIFO stack → pops the
+            deepest node first → finds <em>some</em> path, not the
+            shortest, but uses much less memory.</li>
+          <li><strong>Dijkstra</strong> uses a min-priority queue
+            keyed on path cost so far → pops the cheapest-from-start
+            node → optimal on weighted graphs with non-negative
+            edges.</li>
+          <li><strong>A*</strong> uses a min-priority queue keyed on
+            $f(n) = g(n) + h(n)$ (cost so far plus heuristic
+            estimate to goal) → pops the most promising node →
+            optimal whenever $h$ is admissible.</li>
+        </ul>
+        <p>
+          Different priority order, different behaviour, same
+          underlying loop.
+        </p>
+      </section>
+
+      <section class="step-section" id="step-1">
+        <div class="step-badge">Step 1</div>
+        <h2>Draw, run, watch</h2>
+        <p>
+          Pick a tool, click cells to paint. Walls (black) block
+          movement. Mud (brown) is passable but costs 5× a normal
+          step — only Dijkstra and A* will care. Drag the green
+          start or red goal anywhere. Then press <em>run</em>.
+        </p>
+        <div class="gs-controls">
+          <label>algorithm
+            <select id="gs-algo">
+              <option value="bfs">BFS (unweighted shortest path)</option>
+              <option value="dfs">DFS</option>
+              <option value="dijkstra" selected>Dijkstra</option>
+              <option value="astar">A* (Manhattan heuristic)</option>
+              <option value="greedy">greedy best-first</option>
+            </select>
+          </label>
+          <label>speed
+            <select id="gs-speed">
+              <option value="80">slow</option>
+              <option value="20" selected>normal</option>
+              <option value="4">fast</option>
+              <option value="0">instant</option>
+            </select>
+          </label>
+          <button class="btn" id="gs-run">run</button>
+          <button class="btn btn--ghost" id="gs-step">step</button>
+          <button class="btn btn--ghost" id="gs-clear-search">clear search</button>
+          <button class="btn btn--warn" id="gs-clear-walls">clear walls</button>
+          <button class="btn btn--ghost" id="gs-maze">random maze</button>
+        </div>
+        <div class="gs-controls">
+          <span style="font-family: var(--sans); font-size: 0.92rem;">paint:</span>
+          <div class="gs-tools" id="gs-tools">
+            <button class="tool-btn is-active" data-tool="wall">wall</button>
+            <button class="tool-btn" data-tool="mud">mud (cost 5)</button>
+            <button class="tool-btn" data-tool="erase">erase</button>
+            <button class="tool-btn" data-tool="start">move start</button>
+            <button class="tool-btn" data-tool="goal">move goal</button>
+          </div>
+        </div>
+        <div class="gs-legend">
+          <span><span class="gs-legend-sw" style="background: var(--cell-start);"></span>start</span>
+          <span><span class="gs-legend-sw" style="background: var(--cell-goal);"></span>goal</span>
+          <span><span class="gs-legend-sw" style="background: var(--cell-wall);"></span>wall</span>
+          <span><span class="gs-legend-sw" style="background: var(--cell-mud);"></span>mud (cost 5)</span>
+          <span><span class="gs-legend-sw" style="background: var(--cell-frontier);"></span>frontier</span>
+          <span><span class="gs-legend-sw" style="background: var(--cell-explored);"></span>explored</span>
+          <span><span class="gs-legend-sw" style="background: var(--cell-path);"></span>path</span>
+        </div>
+        <div class="gs-stage">
+          <canvas class="gs-canvas" id="gs-canvas"></canvas>
+        </div>
+        <div class="gs-status" id="gs-status">draw walls, then press run.</div>
+        <p>
+          Things worth trying:
+        </p>
+        <ul class="explanation-list">
+          <li>Clear walls, run BFS and A* on the same empty grid.
+            BFS explores a square-ish region of radius equal to the
+            distance to goal. A* draws an oval pointed at the goal.
+            Same shortest path, dramatically different work.</li>
+          <li>Paint a long horizontal mud strip between start and
+            goal. Run BFS — it counts every step the same, so it
+            cuts straight through. Run Dijkstra — it routes around.</li>
+          <li>Draw a C-shaped wall around the goal so the algorithm
+            has to back-track. Run greedy best-first; it dives at
+            the goal and only realises its mistake when blocked.
+            A* recovers; greedy doesn't.</li>
+          <li>Run DFS in an empty grid. It produces a wildly long
+            path, then runs to the end and gives up. DFS is wrong
+            for shortest-path problems and the demo makes it
+            visible.</li>
+        </ul>
+      </section>
+
+      <section class="step-section" id="step-2">
+        <div class="step-badge">Step 2</div>
+        <h2>BFS — the unweighted shortest-path tool</h2>
+        <p>
+          Pop from a FIFO queue. Each pop either is the goal
+          (return) or pushes its unvisited neighbours. Because the
+          queue is FIFO, every node is popped at its <em>shallowest</em>
+          discovery depth — the number of edges from the start.
+        </p>
+        <div class="math-block" id="math-bfs"></div>
+        <p>
+          BFS is <em>optimal</em> on unweighted graphs (or graphs
+          with uniform edge weights) and runs in $O(V + E)$ time.
+          It is <em>not</em> optimal once edges have different
+          weights: BFS treats a mud cell the same as an empty one.
+          That's the problem Dijkstra fixes.
+        </p>
+      </section>
+
+      <section class="step-section" id="step-3">
+        <div class="step-badge">Step 3</div>
+        <h2>DFS — depth-first, useful for the wrong reasons</h2>
+        <p>
+          Pop from a LIFO stack instead of a queue. You dive as
+          deep as possible before backtracking. DFS is the wrong
+          algorithm for shortest paths — but it's the right one for:
+        </p>
+        <ul class="explanation-list">
+          <li><strong>Topological sort.</strong> Post-order DFS on a
+            DAG gives you a reverse topological ordering.</li>
+          <li><strong>Cycle detection.</strong> A back-edge during
+            DFS = cycle.</li>
+          <li><strong>Connected components.</strong> Each top-level
+            DFS call paints one component.</li>
+          <li><strong>Memory.</strong> DFS uses $O(\text{depth})$
+            memory; BFS uses $O(\text{frontier width})$. On wide,
+            shallow graphs, DFS dominates.</li>
+          <li><strong>Articulation points / bridges.</strong>
+            Tarjan's algorithm extracts both from a single DFS pass.</li>
+        </ul>
+        <p>
+          The grid demo above does shortest path, which is the wrong
+          job for DFS — try it and observe the absurd path it
+          finds.
+        </p>
+      </section>
+
+      <section class="step-section" id="step-4">
+        <div class="step-badge">Step 4</div>
+        <h2>Dijkstra — BFS with a priority queue</h2>
+        <p>
+          Replace BFS's FIFO queue with a <em>min-priority queue</em>
+          keyed on the current best-known cost from start. Pop the
+          node with the smallest cost. The first time you pop a
+          node, you have its final shortest-path cost. Update
+          neighbours by <em>relaxation</em>:
+        </p>
+        <div class="math-block" id="math-dijkstra"></div>
+        <p>
+          With a binary heap (see the <a href="../trees/index.html">trees
+          article</a>) Dijkstra runs in $O((V + E) \log V)$. With a
+          Fibonacci heap, $O(V \log V + E)$, because the
+          <code>decrease-key</code> operation becomes $O(1)$
+          amortised.
+        </p>
+        <div class="callout callout--warn">
+          <strong>Non-negative edges only.</strong>
+          The proof of correctness depends on every edge having
+          non-negative weight. If you have negative edges, Dijkstra
+          is unsafe; use Bellman-Ford ($O(VE)$). If your graph is a
+          DAG, you can do better still: relax in topological order
+          for $O(V + E)$.
+        </div>
+      </section>
+
+      <section class="step-section" id="step-5">
+        <div class="step-badge">Step 5</div>
+        <h2>A* — Dijkstra with a hint</h2>
+        <p>
+          Dijkstra has no notion of where the goal is. A* fixes
+          that: change the priority key from "cost from start" to
+          "estimated total cost <em>through this node</em>":
+        </p>
+        <div class="math-block" id="math-astar"></div>
+        <p>
+          where $g(n)$ is the actual cost from start to $n$ and
+          $h(n)$ is a heuristic estimate of the remaining cost from
+          $n$ to goal. Three regimes:
+        </p>
+        <ul class="explanation-list">
+          <li><strong>$h \equiv 0$.</strong> A* reduces exactly to
+            Dijkstra. Slow, optimal.</li>
+          <li><strong>$h$ exactly equals the true remaining cost.</strong>
+            A* expands only the nodes on the shortest path. Optimal,
+            fastest possible.</li>
+          <li><strong>$h$ is anywhere between.</strong> A* expands
+            roughly the band of nodes whose $f$-score is at most
+            the optimum. Tighter $h$ means tighter band.</li>
+        </ul>
+        <p>
+          For correctness we need $h$ to be <strong>admissible</strong>
+          — it must never overestimate the true remaining cost.
+          On a 4-connected grid with uniform-cost steps, the
+          Manhattan distance is admissible. On an 8-connected
+          (diagonal) grid, use Chebyshev or octile distance.
+          Euclidean distance is admissible everywhere but loose on
+          grid graphs.
+        </p>
+        <p>
+          For A* to never re-expand a node we also want $h$ to be
+          <strong>consistent</strong> (a.k.a. monotone):
+          $h(n) \le c(n, n') + h(n')$ for every edge $(n, n')$.
+          Most "obvious" heuristics on grids — Manhattan, Euclidean
+          — are consistent.
+        </p>
+      </section>
+
+      <section class="step-section" id="step-6">
+        <div class="step-badge">Step 6</div>
+        <h2>Greedy best-first — the cautionary tale</h2>
+        <p>
+          What if you priority-order on <em>just</em> $h(n)$,
+          ignoring the cost paid so far? That's <strong>greedy
+          best-first search</strong>. It feels like A* with the
+          $g$-term dropped, and it can find a path very quickly on
+          easy maps. But the moment a wall sits between the
+          greedy direction and the goal, it dives into a dead end
+          and slogs back out.
+        </p>
+        <p>
+          Greedy best-first is <em>not</em> optimal. It produces
+          some path, which may be far from shortest. Useful when
+          (a) you trust the heuristic, (b) you want speed over
+          optimality, and (c) you can re-plan if the path is bad.
+          Otherwise: A*.
+        </p>
+        <p>
+          Try the C-shaped wall trap above with greedy best-first;
+          watch it bounce off the wall before recovering.
+        </p>
+      </section>
+
+      <section class="step-section" id="step-7">
+        <div class="step-badge">Step 7</div>
+        <h2>The cheat sheet</h2>
+        <table class="gs-table">
+          <thead>
+            <tr><th>algorithm</th><th>frontier</th><th>weights?</th><th>optimal?</th><th>time</th><th>typical use</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>BFS</td><td>FIFO queue</td><td>unit only</td><td class="y">yes (unweighted)</td><td>$O(V+E)$</td><td>shortest path on unweighted graphs, breadth-first traversals</td></tr>
+            <tr><td>DFS</td><td>LIFO stack</td><td>any (ignored)</td><td>no</td><td>$O(V+E)$</td><td>topological sort, cycle detection, articulation points</td></tr>
+            <tr><td>Dijkstra</td><td>min-heap on $g$</td><td>non-negative</td><td class="y">yes</td><td>$O((V+E)\log V)$</td><td>weighted shortest path; routing on roads</td></tr>
+            <tr><td>Bellman-Ford</td><td>relax all edges $V$ times</td><td>any (incl. negative)</td><td class="y">yes</td><td>$O(VE)$</td><td>weighted shortest path with negative edges, currency arbitrage</td></tr>
+            <tr><td>A*</td><td>min-heap on $g+h$</td><td>non-negative</td><td class="y">yes (admissible $h$)</td><td>like Dijkstra ×band-width</td><td>game pathfinding, robot navigation, puzzle solving</td></tr>
+            <tr><td>greedy best-first</td><td>min-heap on $h$</td><td>any</td><td>no</td><td>like Dijkstra</td><td>fast approximate routing, anytime planning</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="step-section" id="step-8">
+        <div class="step-badge">Step 8</div>
+        <h2>Sharp edges</h2>
+        <ul class="explanation-list">
+          <li><strong>BFS is iterative deepening's friend, not its
+            replacement.</strong> If your graph is infinite (or
+            effectively so), BFS will blow memory on the frontier
+            before it finishes. Iterative deepening DFS (IDDFS)
+            keeps DFS's $O(\text{depth})$ memory while still
+            finding shortest paths.</li>
+          <li><strong>A* re-expansion.</strong> With a heuristic
+            that is admissible but <em>not consistent</em>, a node
+            can be re-added to the frontier with a better $g$.
+            Handle this by checking if the popped node's $g$ matches
+            the recorded best; if not, skip.</li>
+          <li><strong>Tie-breaking in A* matters.</strong> Two nodes
+            with equal $f$ can be popped in different orders, and
+            the order changes which path A* returns. Standard trick:
+            break ties by preferring the larger $g$ (closer to
+            goal). This often shrinks the explored set dramatically.</li>
+          <li><strong>Bidirectional search.</strong> Run BFS / A*
+            from start <em>and</em> goal simultaneously; stop when
+            the frontiers meet. Squares the work in the best case
+            ($O(b^{d/2})$ instead of $O(b^d)$ for branching factor
+            $b$ and depth $d$).</li>
+          <li><strong>Jump-point search.</strong> On uniform-cost
+            grids, you can skip whole runs of cells when nothing
+            interesting changes. Order-of-magnitude speed-up over
+            A* for game maps.</li>
+          <li><strong>D* and LPA*.</strong> When the graph is
+            changing (obstacles appear, edges close), replanning
+            from scratch is wasteful. D* Lite reuses information
+            from the previous run; the canonical algorithm behind
+            Mars-rover path planners.</li>
+        </ul>
+      </section>
+
+      <section class="step-section" id="step-9">
+        <div class="step-badge">Step 9</div>
+        <h2>Reading list</h2>
+        <ul class="explanation-list">
+          <li><strong>Dijkstra, 1959</strong> &mdash; <em>A note on
+            two problems in connexion with graphs.</em> Two pages.
+            Stays the algorithm of choice for sixty-plus years.</li>
+          <li><strong>Hart, Nilsson, Raphael, 1968</strong> &mdash;
+            <em>A Formal Basis for the Heuristic Determination of
+            Minimum Cost Paths.</em> The original A* paper.</li>
+          <li><strong>Pearl, 1984</strong> &mdash; <em>Heuristics:
+            Intelligent Search Strategies for Computer Problem
+            Solving.</em> The definitive treatment of admissibility,
+            consistency, and the A* family.</li>
+          <li><strong>Koenig &amp; Likhachev, 2002</strong> &mdash;
+            <em>D* Lite.</em> Incremental replanning for dynamic
+            graphs.</li>
+          <li><strong>Harabor &amp; Grastien, 2011</strong> &mdash;
+            <em>Online Graph Pruning for Pathfinding on Grid Maps.</em>
+            Jump-point search; A* on grids without the wasted work.</li>
+          <li><strong>Sturtevant's Moving AI repository</strong> &mdash;
+            standard benchmark maps for pathfinding research,
+            including the Baldur's Gate II and StarCraft maps.</li>
+        </ul>
+      </section>
+    </article>
+
+    <script src="../vendor/katex/katex.min.js"></script>
+    <script type="module" src="main.js"></script>
+  </body>
+</html>

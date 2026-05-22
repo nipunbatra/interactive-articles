@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sorting, Race by Race</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../vendor/katex/katex.min.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <article class="article">
+      <header class="article-header">
+        <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+        <p class="kicker">Interactive Explainer</p>
+        <h1>Sorting, Race by Race</h1>
+        <p class="abstract">
+          Five classic sorts on the same array, stepping in lockstep.
+          Comparisons and writes count up live. Toggle the input
+          distribution to watch quicksort's worst case appear and
+          insertion sort win on tiny arrays. The asymptotics are
+          equal between three of them — the constants are not.
+        </p>
+        <div class="byline">
+          <span>~14 min</span>
+          <span>Data structures &middot; Algorithms &middot; Complexity</span>
+        </div>
+      </header>
+
+      <section class="step-section" id="prelude">
+        <div class="step-badge">Prelude</div>
+        <h2>The asymptotic answer hides the real one</h2>
+        <p>
+          Every algorithms textbook lists the same table:
+          mergesort, quicksort, heapsort — all $O(n \log n)$.
+          Insertion sort, bubble sort, selection sort — all $O(n^2)$.
+          End of story. Yet your standard library's sort is none of
+          those three $n \log n$ algorithms. It's Timsort (Python,
+          Java) or pdqsort (Rust, C++). Both spend a surprising
+          amount of code calling <em>insertion sort</em>.
+        </p>
+        <p>
+          Asymptotics tell you how the cost scales. They don't tell
+          you what the cost <em>is</em>. On 16 elements, insertion
+          sort is faster than quicksort. On a nearly-sorted array of
+          a million, Timsort beats vanilla quicksort by 10× by
+          detecting existing runs. On adversarial input,
+          a naïve quicksort degrades to $O(n^2)$ and a balanced
+          mergesort doesn't.
+        </p>
+        <p>
+          The race below shows all of this directly. Five algorithms
+          start on the same array and step one operation at a time.
+          You can pick the input distribution, count comparisons and
+          writes, and see the constants the big-O notation discards.
+        </p>
+      </section>
+
+      <section class="step-section" id="step-1">
+        <div class="step-badge">Step 1</div>
+        <h2>The race</h2>
+        <p>
+          Each card shows an algorithm's current state: bars are
+          values, the highlighted bar is the position currently
+          being compared, swaps flash, sorted segments turn teal.
+          All cards advance one operation per tick.
+        </p>
+        <div class="controls">
+          <label>distribution
+            <select id="race-dist">
+              <option value="random" selected>random</option>
+              <option value="nearly">nearly sorted</option>
+              <option value="reversed">reversed</option>
+              <option value="sorted">already sorted</option>
+              <option value="few">few unique</option>
+            </select>
+          </label>
+          <label>size
+            <select id="race-size">
+              <option value="24">24</option>
+              <option value="40" selected>40</option>
+              <option value="60">60</option>
+            </select>
+          </label>
+          <label>speed
+            <select id="race-speed">
+              <option value="60">slow</option>
+              <option value="16" selected>normal</option>
+              <option value="4">fast</option>
+              <option value="1">turbo</option>
+            </select>
+          </label>
+          <button class="btn" id="race-play">play</button>
+          <button class="btn btn--ghost" id="race-pause" disabled>pause</button>
+          <button class="btn btn--ghost" id="race-reset">reset</button>
+        </div>
+        <div class="legend">
+          <span><span class="legend-swatch" style="background: var(--bar-fill);"></span>unsorted bar</span>
+          <span><span class="legend-swatch" style="background: var(--bar-cmp);"></span>comparing</span>
+          <span><span class="legend-swatch" style="background: var(--bar-write);"></span>writing</span>
+          <span><span class="legend-swatch" style="background: var(--bar-pivot);"></span>pivot / aux</span>
+          <span><span class="legend-swatch" style="background: var(--bar-sorted);"></span>final position</span>
+        </div>
+        <div class="race-grid" id="race-grid"></div>
+        <p>
+          Things worth trying:
+        </p>
+        <ul class="explanation-list">
+          <li>Set distribution to <em>already sorted</em>. Insertion
+            sort finishes in $n-1$ comparisons — its best case.
+            First-element-pivot quicksort needs $\binom{n}{2}$
+            comparisons — its worst case. Same input, opposite
+            outcomes.</li>
+          <li>Set distribution to <em>reversed</em>. Now bubble sort
+            performs its maximum number of swaps. Mergesort doesn't
+            care.</li>
+          <li>Set size to 24, distribution to <em>random</em>. Watch
+            quicksort and mergesort finish in roughly the same wall-clock
+            time despite different recursion structures.</li>
+          <li>Set size to 60, distribution to <em>random</em>.
+            Insertion and bubble sort visibly lag behind the
+            $n \log n$ contestants.</li>
+        </ul>
+      </section>
+
+      <section class="step-section" id="step-2">
+        <div class="step-badge">Step 2</div>
+        <h2>Insertion sort — small-n champion</h2>
+        <p>
+          Walk through the array. For each new element, slide it
+          leftward past every larger element until it lands.
+        </p>
+        <div class="math-block" id="math-insertion"></div>
+        <p>
+          Two facts that make insertion sort matter beyond textbook
+          examples:
+        </p>
+        <ul class="explanation-list">
+          <li><strong>It is the best you can do on tiny arrays.</strong>
+            Modern hybrid sorts (introsort, pdqsort, Timsort) call
+            insertion sort below a threshold (typically 16 or 32).
+            The asymptotic loss is bounded; the constants are
+            unbeatable.</li>
+          <li><strong>It is <em>adaptive</em>.</strong> On a
+            $k$-nearly-sorted input ($k$ inversions), insertion sort
+            runs in $O(n + k)$. On already-sorted, $O(n)$. Mergesort
+            and heapsort don't speed up on adaptive input.</li>
+          <li><strong>It is stable and in-place.</strong> Equal keys
+            keep their relative order; no auxiliary memory.</li>
+        </ul>
+      </section>
+
+      <section class="step-section" id="step-3">
+        <div class="step-badge">Step 3</div>
+        <h2>Mergesort — the deterministic n log n</h2>
+        <p>
+          Split the array in half, sort each half recursively, merge
+          the two sorted halves in linear time. The merge is the
+          heart of it:
+        </p>
+        <div class="math-block" id="math-merge"></div>
+        <p>
+          Mergesort's guarantees:
+        </p>
+        <ul class="explanation-list">
+          <li><strong>$O(n \log n)$ worst case</strong> — no
+            adversarial input slows it down.</li>
+          <li><strong>Stable</strong> (with the standard
+            implementation).</li>
+          <li><strong>Pays $O(n)$ extra memory</strong> for the
+            merge buffer. This is the reason mergesort lost the
+            in-place fight to quicksort despite the better worst
+            case.</li>
+          <li><strong>External-sort friendly.</strong> Mergesort is
+            the algorithm you use when the data doesn't fit in
+            memory: split into RAM-sized runs, sort each, merge from
+            disk. This is how databases sort terabytes.</li>
+        </ul>
+      </section>
+
+      <section class="step-section" id="step-4">
+        <div class="step-badge">Step 4</div>
+        <h2>Quicksort — and the pivot question</h2>
+        <p>
+          Pick a pivot. Partition the array into "less than pivot",
+          "equal", "greater than pivot". Recurse on the two outer
+          partitions. The maths is similar to mergesort —
+          a divide-and-conquer recursion that costs $O(n \log n)$
+          on average — but the implementation has one painful
+          decision: <em>which pivot?</em>
+        </p>
+        <div class="math-block" id="math-quick"></div>
+        <p>
+          Pivot strategies, ranked from "easy to break" to
+          "production":
+        </p>
+        <ul class="explanation-list">
+          <li><strong>First element.</strong> The textbook
+            introduction. On already-sorted or reverse-sorted input,
+            partition is maximally unbalanced and quicksort
+            collapses to $O(n^2)$.</li>
+          <li><strong>Random pivot.</strong> Pick a uniformly random
+            index per partition. Expected $O(n \log n)$ regardless
+            of input distribution. An adversary who can see your
+            random source can still hurt you, so use a real PRNG.</li>
+          <li><strong>Median-of-three.</strong> Pivot = median of
+            first, middle, last. Defeats sorted and reverse-sorted
+            inputs (median-of-three on a sorted array picks the
+            middle, which is the true median); doesn't defeat a
+            crafted "killer" input. Cheap and very common.</li>
+          <li><strong>Introsort.</strong> Start with quicksort;
+            switch to heapsort if recursion depth exceeds $2 \log n$.
+            Guarantees $O(n \log n)$ worst case while keeping
+            quicksort's cache-friendly average. Used by
+            <code>std::sort</code> in C++.</li>
+          <li><strong>Three-way partition</strong> (Bentley-McIlroy).
+            Handles arrays with many duplicates in $O(n)$ — the
+            "few unique" distribution above collapses quicksort to
+            linear time when you partition into "$&lt;$, $=$, $&gt;$"
+            instead of "$\le$, $&gt;$".</li>
+        </ul>
+        <div class="callout">
+          <strong>Why quicksort wins on real data despite a worse worst case.</strong>
+          Cache locality. Each partition step touches contiguous
+          memory; recursion descends into smaller and smaller
+          contiguous ranges that fit in L1 / L2 cache. Heapsort and
+          mergesort have access patterns that thrash the cache.
+          Asymptotics don't see this — your CPU does.
+        </div>
+      </section>
+
+      <section class="step-section" id="step-5">
+        <div class="step-badge">Step 5</div>
+        <h2>Heapsort — guaranteed n log n, in place</h2>
+        <p>
+          Build a max-heap from the array in $O(n)$ (Floyd's bottom-up
+          heapify — see the <a href="../trees/index.html">Trees
+          article</a>). Then repeatedly extract-max into the last
+          slot of the array, shrinking the heap by one. The
+          extracted maxes accumulate in sorted order at the tail.
+        </p>
+        <div class="math-block" id="math-heapsort"></div>
+        <p>
+          The combination is rare and useful: $O(n \log n)$ worst
+          case, in place, no auxiliary memory. Why isn't it the
+          standard? Cache. The implicit binary tree's array indices
+          $i, 2i+1, 2i+2$ scatter accesses across memory; each
+          sift-down is a series of cache misses. Quicksort touches
+          contiguous regions; heapsort jumps. On real hardware
+          quicksort wins by 2–3× for the same $n$.
+        </p>
+      </section>
+
+      <section class="step-section" id="step-6">
+        <div class="step-badge">Step 6</div>
+        <h2>The big-O table — and what it leaves out</h2>
+        <table class="cmp-table">
+          <thead>
+            <tr>
+              <th>algorithm</th>
+              <th>best</th>
+              <th>average</th>
+              <th>worst</th>
+              <th>memory</th>
+              <th>stable</th>
+              <th>in place</th>
+              <th>adaptive</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>insertion</td>
+              <td>$O(n)$</td>
+              <td>$O(n^2)$</td>
+              <td>$O(n^2)$</td>
+              <td>$O(1)$</td>
+              <td class="y">yes</td>
+              <td class="y">yes</td>
+              <td class="y">yes</td>
+            </tr>
+            <tr>
+              <td>bubble</td>
+              <td>$O(n)$</td>
+              <td>$O(n^2)$</td>
+              <td>$O(n^2)$</td>
+              <td>$O(1)$</td>
+              <td class="y">yes</td>
+              <td class="y">yes</td>
+              <td class="y">yes</td>
+            </tr>
+            <tr>
+              <td>merge</td>
+              <td>$O(n \log n)$</td>
+              <td>$O(n \log n)$</td>
+              <td>$O(n \log n)$</td>
+              <td>$O(n)$</td>
+              <td class="y">yes</td>
+              <td class="n">no</td>
+              <td class="n">no</td>
+            </tr>
+            <tr>
+              <td>quick (random pivot)</td>
+              <td>$O(n \log n)$</td>
+              <td>$O(n \log n)$</td>
+              <td>$O(n^2)$</td>
+              <td>$O(\log n)$ stack</td>
+              <td class="n">no</td>
+              <td class="y">yes</td>
+              <td class="n">no</td>
+            </tr>
+            <tr>
+              <td>heap</td>
+              <td>$O(n \log n)$</td>
+              <td>$O(n \log n)$</td>
+              <td>$O(n \log n)$</td>
+              <td>$O(1)$</td>
+              <td class="n">no</td>
+              <td class="y">yes</td>
+              <td class="n">no</td>
+            </tr>
+            <tr>
+              <td>Timsort</td>
+              <td>$O(n)$</td>
+              <td>$O(n \log n)$</td>
+              <td>$O(n \log n)$</td>
+              <td>$O(n)$</td>
+              <td class="y">yes</td>
+              <td class="n">no</td>
+              <td class="y">yes</td>
+            </tr>
+            <tr>
+              <td>introsort (pdqsort)</td>
+              <td>$O(n \log n)$</td>
+              <td>$O(n \log n)$</td>
+              <td>$O(n \log n)$</td>
+              <td>$O(\log n)$ stack</td>
+              <td class="n">no</td>
+              <td class="y">yes</td>
+              <td>partial</td>
+            </tr>
+          </tbody>
+        </table>
+        <p>
+          The columns that the textbook table omits — <em>stable</em>,
+          <em>in place</em>, <em>adaptive</em> — are exactly the
+          ones that decide which sort your standard library actually
+          ships.
+        </p>
+      </section>
+
+      <section class="step-section" id="step-7">
+        <div class="step-badge">Step 7</div>
+        <h2>Beyond the comparison-sort ceiling</h2>
+        <p>
+          Any comparison-based sort must take at least
+          $\Omega(n \log n)$ comparisons in the worst case — every
+          permutation needs to be distinguishable, and a comparison
+          tree of depth $d$ can only distinguish $2^d$ permutations.
+        </p>
+        <div class="math-block" id="math-bound"></div>
+        <p>
+          If you don't need to compare — i.e., your keys are
+          structured — you can do better.
+        </p>
+        <ul class="explanation-list">
+          <li><strong>Counting sort.</strong> Keys in $\{0, \ldots,
+            k\}$? Count occurrences in $O(n + k)$, emit. Linear when
+            $k = O(n)$. The block sort underlying radix.</li>
+          <li><strong>Radix sort.</strong> Sort by least-significant
+            digit, then next, then next. $O(d \cdot n)$ where $d$ is
+            the number of digits. Faster than $n \log n$ on
+            fixed-width integers; loses on cache behaviour for
+            short arrays.</li>
+          <li><strong>Bucket sort.</strong> Hash into $k$ buckets,
+            sort each bucket, concatenate. Expected $O(n + k)$ on
+            uniform input. Adversarial input drives it to $O(n^2)$.</li>
+        </ul>
+        <div class="callout callout--key">
+          <strong>One rule of thumb.</strong>
+          For general-purpose ordering of comparable objects, use
+          your language's built-in sort — it is Timsort or pdqsort
+          and has been carefully tuned. Reach for a custom sort only
+          when (a) you need a guarantee the standard sort doesn't
+          give (worst-case $O(n \log n)$? stable across primitive
+          and object?) or (b) your keys are structured enough for
+          counting / radix / bucket to actually win.
+        </div>
+      </section>
+
+      <section class="step-section" id="step-8">
+        <div class="step-badge">Step 8</div>
+        <h2>Reading list</h2>
+        <ul class="explanation-list">
+          <li><strong>Knuth, TAOCP Vol&nbsp;3</strong> — Sorting and
+            Searching. Still the reference. The merge-network
+            chapter alone is worth the cover price.</li>
+          <li><strong>Sedgewick, 1978</strong> — <em>Implementing
+            Quicksort Programs.</em> The paper that introduced
+            median-of-three and the in-place partitioning trick used
+            for decades.</li>
+          <li><strong>Bentley &amp; McIlroy, 1993</strong> —
+            <em>Engineering a Sort Function.</em> The three-way
+            partition that defeats the duplicates case; the
+            partition-by-pseudo-median for large arrays. The paper
+            that made <code>qsort</code> usable.</li>
+          <li><strong>Peters, 2002</strong> — <em>Timsort original
+            listsort.txt.</em> The design notes of the Python sort.
+            Beautiful engineering writing.</li>
+          <li><strong>Auger, Nicaud, Pivoteau, 2018</strong> —
+            <em>Merge Strategies: from Merge Sort to TimSort.</em>
+            The first thorough complexity analysis of Timsort,
+            including the bug they found in the merge invariant.</li>
+          <li><strong>Edelkamp, Weiss, Wild, 2020</strong> —
+            <em>BlockQuicksort.</em> Branchless partitioning that
+            beats <code>std::sort</code> on modern CPUs by reducing
+            branch mispredictions.</li>
+        </ul>
+      </section>
+    </article>
+
+    <script src="../vendor/katex/katex.min.js"></script>
+    <script type="module" src="main.js"></script>
+  </body>
+</html>

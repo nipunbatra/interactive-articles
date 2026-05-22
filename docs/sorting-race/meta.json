@@ -1,0 +1,20 @@
+{
+  "slug": "sorting-race",
+  "title": "Sorting, Race by Race",
+  "date": "2026-05-22",
+  "tagline": "Five algorithms, one array — watch insertion, bubble, merge, quick, and heap sort run side by side",
+  "summary": "Bar-chart sorting visualisations are everywhere, but few let you race the algorithms head-to-head on identical input. Five classic sorts step in lockstep on the same array; counters track comparisons and writes; toggle the input distribution to see why quicksort's worst case is sorted input, why insertion sort wins on tiny arrays, and why Timsort took over the standard libraries.",
+  "readingTime": "14 min",
+  "difficulty": "Beginner",
+  "collection": "Data structures",
+  "order": 40,
+  "status": "published",
+  "tags": ["Sorting", "Algorithms", "Complexity", "Interactive"],
+  "highlights": [
+    "Five algorithms race in lockstep on the same array: insertion, bubble, mergesort, quicksort, heapsort.",
+    "Live comparison and write counters expose the constant factors that asymptotics hide.",
+    "Toggle distribution (random / nearly-sorted / reversed / sorted) — watch quicksort's worst case appear and insertion sort win on small arrays.",
+    "Pivot strategies side by side: first-element vs random vs median-of-three on the same adversarial input.",
+    "Why Timsort/quicksort beat heapsort despite identical asymptotics: cache locality, branch prediction, run detection."
+  ]
+}

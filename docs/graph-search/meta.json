@@ -1,0 +1,20 @@
+{
+  "slug": "graph-search",
+  "title": "Graph Search, Frontier by Frontier",
+  "date": "2026-05-22",
+  "tagline": "BFS, DFS, Dijkstra, A* — four search strategies racing on the same grid maze",
+  "summary": "BFS finds the shortest path on an unweighted graph but explores blindly. Dijkstra handles weights but ignores the goal. A* adds a heuristic and gets you there straight as an arrow — when the heuristic is admissible. Draw walls and weight zones on a grid, watch four classic search algorithms expand their frontiers, and see exactly where each one wastes work.",
+  "readingTime": "16 min",
+  "difficulty": "Intermediate",
+  "collection": "Data structures",
+  "order": 41,
+  "status": "published",
+  "tags": ["BFS", "DFS", "Dijkstra", "A*", "Graph search", "Interactive"],
+  "highlights": [
+    "Draw walls on a grid by clicking; drag the start or goal; pick BFS / DFS / Dijkstra / A* and watch the frontier expand.",
+    "Side by side: same maze, four searches, see which cells each algorithm needlessly explores.",
+    "Add high-cost terrain (mud) and watch Dijkstra route around it while BFS plows through.",
+    "Toggle the A* heuristic (Manhattan vs Euclidean vs zero) to see the spectrum from Dijkstra to greedy best-first.",
+    "Path length, cells expanded, and optimality reported live."
+  ]
+}

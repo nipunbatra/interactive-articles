@@ -1,0 +1,20 @@
+{
+  "slug": "hash-tables",
+  "title": "Hash Tables, Collision by Collision",
+  "date": "2026-05-22",
+  "tagline": "Chaining, open addressing, robin hood — see where keys actually land",
+  "summary": "Hash tables look magical from outside: average O(1) lookup, no ordering, used in every dictionary, set, and cache. Inside, the magic is collision resolution. Insert keys into a small hash array and watch them collide; toggle between chaining and three open-addressing strategies (linear, quadratic, robin hood); watch the load factor creep up and the lookups slow down.",
+  "readingTime": "15 min",
+  "difficulty": "Beginner",
+  "collection": "Data structures",
+  "order": 42,
+  "status": "published",
+  "tags": ["Hash table", "Hashing", "Open addressing", "Robin Hood", "Interactive"],
+  "highlights": [
+    "Insert keys live into a small hash table; watch them collide and resolve under four strategies.",
+    "Toggle between separate chaining, linear probing, quadratic probing, and robin-hood hashing.",
+    "Load-factor meter and average-probe-length counter make the O(1)-amortised story concrete.",
+    "Watch a degenerate hash function turn O(1) into O(n) on adversarial keys — and why hash randomisation defeats it.",
+    "Cuckoo, hopscotch, and consistent hashing pointers for when you need stronger worst-case or distributed guarantees."
+  ]
+}
