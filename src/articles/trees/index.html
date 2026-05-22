@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Trees, Branch by Branch</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../vendor/katex/katex.min.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <article class="article">
+      <header class="article-header">
+        <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+        <p class="kicker">Interactive Explainer</p>
+        <h1>Trees, Branch by Branch</h1>
+        <p class="abstract">
+          The data structure that quietly powers ordered maps,
+          priority queues, autocomplete, and half the algorithms
+          textbook. Build a binary search tree by typing values, run
+          all four traversals on it, then switch to a heap and watch
+          sift-up and sift-down preserve the heap invariant on every
+          operation.
+        </p>
+        <div class="byline">
+          <span>~16 min</span>
+          <span>Data structures &middot; BST &middot; Heap</span>
+        </div>
+      </header>
+
+      <section class="step-section" id="prelude">
+        <div class="step-badge">Prelude</div>
+        <h2>Why trees keep showing up</h2>
+        <p>
+          A sorted array lets you binary-search in $O(\log n)$ but
+          insertion is $O(n)$ because every element after the
+          insertion point has to shift. A linked list flips the
+          trade: insertion is $O(1)$ at a known position, but search
+          is $O(n)$.
+        </p>
+        <p>
+          A balanced binary tree gives you <em>both</em> in
+          $O(\log n)$. That single fact — that you can support
+          ordered insert and ordered search in the same logarithmic
+          time — is the reason trees show up everywhere from
+          database indexes (B-trees) to the priority queues inside
+          Dijkstra and A* (binary heaps) to the rope structures that
+          back modern text editors.
+        </p>
+        <div class="callout">
+          <strong>Two trees worth knowing well.</strong>
+          The <em>binary search tree</em> (BST) maintains a left-less-than,
+          right-greater invariant — built for ordered queries. The
+          <em>heap</em> maintains a parent-less-than-children
+          invariant — built for "give me the smallest/largest right
+          now". Same shape, completely different invariant. The rest
+          of the tree zoo (AVL, red-black, B-tree, trie, segment
+          tree) are refinements of these two ideas.
+        </div>
+      </section>
+
+      <section class="step-section" id="step-1">
+        <div class="step-badge">Step 1</div>
+        <h2>Anatomy</h2>
+        <p>
+          A binary tree is a collection of <strong>nodes</strong>,
+          each carrying a value and up to two children — left and
+          right. One node is distinguished as the <strong>root</strong>;
+          a node with no children is a <strong>leaf</strong>; the
+          <strong>height</strong> is the longest path from root to
+          leaf.
+        </p>
+        <ul class="explanation-list">
+          <li><strong>$n$ nodes</strong> means $n - 1$ edges. Always.</li>
+          <li><strong>A perfectly balanced tree</strong> on $n$
+            nodes has height $\lceil \log_2(n + 1) \rceil$.</li>
+          <li><strong>A degenerate tree</strong> (every node has at
+            most one child, forming a "list") has height $n - 1$.
+            Every operation degrades to $O(n)$. This is the
+            <em>worst case</em> a BST will hit if you insert sorted
+            data.</li>
+          <li><strong>A <em>complete</em> tree</strong> is filled
+            level by level, left to right. Heaps are always
+            complete — which is why you can store them in an array
+            without wasting space.</li>
+        </ul>
+      </section>
+
+      <section class="step-section" id="step-2">
+        <div class="step-badge">Step 2</div>
+        <h2>Build a BST, search inside it</h2>
+        <p>
+          Type values one at a time. Each goes into the tree by the
+          BST rule: smaller than current → go left; larger → go
+          right; insert when you hit an empty slot. Then type a value
+          to <em>search</em> for; the path is highlighted as it walks
+          down.
+        </p>
+        <div class="tree-controls">
+          <label>insert
+            <input type="text" id="bst-insert" placeholder="e.g. 12" />
+          </label>
+          <button class="btn" id="bst-add">add</button>
+          <label>search
+            <input type="text" id="bst-search" placeholder="e.g. 12" />
+          </label>
+          <button class="btn btn--ghost" id="bst-find">find</button>
+          <button class="btn btn--ghost" id="bst-random">random 8</button>
+          <button class="btn btn--ghost" id="bst-sorted">sorted 1..8</button>
+          <button class="btn btn--warn" id="bst-clear">clear</button>
+        </div>
+        <div class="tree-status" id="bst-status">empty tree.</div>
+        <div class="tree-stage">
+          <svg class="tree-svg" id="bst-svg" preserveAspectRatio="xMidYMid meet"></svg>
+        </div>
+        <p>
+          Things worth trying:
+        </p>
+        <ul class="explanation-list">
+          <li>Click <em>random 8</em> a few times. Most trees come
+            out roughly balanced; height $\approx 3$ for $n = 8$.</li>
+          <li>Click <em>sorted 1..8</em>. You get a right-spine — a
+            linked list in disguise, height 7. This is exactly the
+            worst case a real BST library protects against with
+            balancing (AVL or red-black rotations).</li>
+          <li>Search for a value that isn't there. You'll walk down
+            until you hit a null and stop — the search path tells
+            you where the value <em>would</em> be inserted.</li>
+        </ul>
+      </section>
+
+      <section class="step-section" id="step-3">
+        <div class="step-badge">Step 3</div>
+        <h2>Four traversals, one tree</h2>
+        <p>
+          A traversal visits every node exactly once. Four canonical
+          orders, all defined by where the root sits relative to the
+          recursive calls on its subtrees:
+        </p>
+        <ul class="explanation-list">
+          <li><strong>Pre-order</strong> — root, then left, then right.
+            Used to <em>serialise</em> a tree (knowing pre-order +
+            in-order uniquely reconstructs it).</li>
+          <li><strong>In-order</strong> — left, root, right. On a BST,
+            this yields the values in <em>sorted order</em> — the
+            cleanest possible verification that your BST is correct.</li>
+          <li><strong>Post-order</strong> — left, right, root. Used
+            to free / evaluate bottom-up (every parent waits for its
+            children).</li>
+          <li><strong>Level-order</strong> (BFS) — visit by depth.
+            Implemented with a queue, not recursion.</li>
+        </ul>
+        <p>
+          Pick a traversal below; the nodes light up one at a time in
+          that order. Then look at the trail of values it produces.
+        </p>
+        <div class="tree-controls">
+          <label>traversal
+            <select id="trav-mode">
+              <option value="pre">pre-order (root → L → R)</option>
+              <option value="in" selected>in-order (L → root → R)</option>
+              <option value="post">post-order (L → R → root)</option>
+              <option value="level">level-order (BFS)</option>
+            </select>
+          </label>
+          <button class="btn" id="trav-play">play</button>
+          <button class="btn btn--ghost" id="trav-reset">reset</button>
+          <label>speed
+            <select id="trav-speed">
+              <option value="600">slow</option>
+              <option value="320" selected>normal</option>
+              <option value="120">fast</option>
+            </select>
+          </label>
+        </div>
+        <div class="trail" id="trav-trail"></div>
+        <p>
+          The in-order traversal of a BST is a sorted list — try
+          inserting unsorted values above and then running in-order
+          here. It's the simplest BST sanity check.
+        </p>
+      </section>
+
+      <section class="step-section" id="step-4">
+        <div class="step-badge">Step 4</div>
+        <h2>Why balance matters</h2>
+        <p>
+          The cost of every BST operation — insert, search,
+          predecessor, in-order successor, delete — is proportional
+          to the depth of the node touched. A balanced tree caps
+          depth at $\log_2 n$; an unbalanced one can let it grow to
+          $n$.
+        </p>
+        <div class="math-block" id="math-cost"></div>
+        <p>
+          Self-balancing BSTs solve this by rotating nodes whenever
+          the height of two siblings drifts too far apart:
+        </p>
+        <ul class="explanation-list">
+          <li><strong>AVL trees</strong> (Adelson-Velsky &amp; Landis,
+            1962) keep $|h_{\text{left}} - h_{\text{right}}| \le 1$
+            at every node. Strict balance → fastest lookups, more
+            rotations on insert.</li>
+          <li><strong>Red-black trees</strong> use a colour
+            invariant that gives weaker balance but cheaper updates.
+            This is what most standard libraries ship as their
+            ordered map: C++ <code>std::map</code>, Java
+            <code>TreeMap</code>, Linux kernel's process scheduler.</li>
+          <li><strong>B-trees</strong> generalise the idea to nodes
+            with many children, tuned to disk-block sizes. Every
+            relational database index you have ever used is a
+            B-tree variant.</li>
+          <li><strong>Treaps and skip lists</strong> randomise to get
+            balance in expectation without rotations — simpler to
+            implement, comparable performance.</li>
+        </ul>
+        <div class="callout callout--warn">
+          <strong>The trap.</strong>
+          A plain BST without balancing is a <em>terrible</em> general-purpose
+          data structure — its worst case is hit by sorted input,
+          which is more common than uniform random in practice.
+          Always reach for a balanced variant in production. Reach
+          for the plain BST only when implementing it for teaching
+          (like this article) or when input order is guaranteed
+          adversarial-free.
+        </div>
+      </section>
+
+      <section class="step-section" id="step-5">
+        <div class="step-badge">Step 5</div>
+        <h2>Heaps — parent dominates children</h2>
+        <p>
+          A binary heap is a <em>complete</em> binary tree with a
+          single invariant: every parent is $\le$ both its children
+          (min-heap) or $\ge$ both (max-heap). It is most naturally
+          stored as an array — for a node at index $i$:
+        </p>
+        <div class="math-block" id="math-heap-index"></div>
+        <p>
+          Because the tree is always complete, no array slots are
+          wasted. Two operations preserve the invariant:
+        </p>
+        <ul class="explanation-list">
+          <li><strong>Insert (sift-up).</strong> Append at the end;
+            walk up swapping with parent while the invariant is
+            violated. $O(\log n)$.</li>
+          <li><strong>Extract root (sift-down).</strong> Take the
+            root (the min or max). Move the last element into the
+            root slot. Walk down swapping with the smaller (or larger)
+            child while the invariant is violated. $O(\log n)$.</li>
+        </ul>
+        <p>
+          Below: insert values into a heap and watch them sift up;
+          extract the root and watch the last element sift down. Both
+          the tree view and the array view stay synchronised.
+        </p>
+        <div class="tree-controls">
+          <label>kind
+            <select id="heap-kind">
+              <option value="min" selected>min-heap</option>
+              <option value="max">max-heap</option>
+            </select>
+          </label>
+          <label>insert
+            <input type="text" id="heap-insert" placeholder="e.g. 7" />
+          </label>
+          <button class="btn" id="heap-add">add</button>
+          <button class="btn btn--ghost" id="heap-extract">extract root</button>
+          <button class="btn btn--ghost" id="heap-random">random 8</button>
+          <button class="btn btn--ghost" id="heap-heapify">heapify random 12</button>
+          <button class="btn btn--warn" id="heap-clear">clear</button>
+        </div>
+        <div class="tree-status" id="heap-status">empty heap.</div>
+        <div class="heap-stage">
+          <div class="tree-stage">
+            <svg class="tree-svg" id="heap-svg" preserveAspectRatio="xMidYMid meet"></svg>
+          </div>
+          <div>
+            <div class="panel-label" style="font-family:var(--sans); font-weight:600; font-size:0.86rem; margin-bottom:0.3rem;">array view</div>
+            <div class="heap-array" id="heap-array"></div>
+            <p style="font-size:0.9rem; color: var(--muted); margin-top: 0.4rem; font-family: var(--sans);">
+              Index 0 is the root. Indices $2i+1$ and $2i+2$ are its
+              children. The two views are the same tree.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="step-section" id="step-6">
+        <div class="step-badge">Step 6</div>
+        <h2>Heapify — building a heap in O(n)</h2>
+        <p>
+          The obvious way to build a heap of $n$ items is to call
+          <code>insert</code> $n$ times. That's $n \log n$ work.
+          Floyd's heapify does it in $O(n)$ by working bottom-up.
+        </p>
+        <div class="math-block" id="math-heapify-sum"></div>
+        <p>
+          Why $O(n)$ instead of $O(n \log n)$? Sift-down on a node at
+          depth $d$ costs at most $h - d$ where $h = \lfloor \log_2
+          n \rfloor$ is the tree's height. Half the nodes are
+          leaves (cost 0); a quarter are one level up (cost 1); an
+          eighth are two levels up (cost 2); the sum collapses to a
+          constant times $n$. Press <em>heapify random 12</em> above
+          and watch the bottom-up passes.
+        </p>
+        <p>
+          Heapify is also the building block of <strong>heap sort</strong>:
+          build a max-heap in place ($O(n)$), then repeatedly
+          extract-max into the last array slot ($n \log n$). Total
+          $O(n \log n)$, in-place, no auxiliary memory. The reason
+          it isn't the default sort in most languages is cache
+          behaviour — quicksort and Timsort dominate in practice
+          despite the same asymptotic.
+        </p>
+      </section>
+
+      <section class="step-section" id="step-7">
+        <div class="step-badge">Step 7</div>
+        <h2>Where this gets used</h2>
+        <table class="tree-table">
+          <thead>
+            <tr><th>Use case</th><th>Structure</th><th>Why</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Ordered map / set (C++ <code>std::map</code>, Java <code>TreeMap</code>)</td>
+              <td>red-black BST</td>
+              <td>$O(\log n)$ insert + ordered iteration; in-order traversal yields the sorted keys for free.</td>
+            </tr>
+            <tr>
+              <td>Database / filesystem index</td>
+              <td>B-tree, B+-tree</td>
+              <td>Wide nodes minimise disk reads; same logarithmic guarantee as a binary tree but with $\log_B n$ depth.</td>
+            </tr>
+            <tr>
+              <td>Priority queue (Dijkstra, A*, event simulation)</td>
+              <td>binary heap, Fibonacci heap</td>
+              <td>$O(\log n)$ extract-min; Fibonacci heaps amortise <code>decrease-key</code> to $O(1)$ which is the bottleneck inside Dijkstra.</td>
+            </tr>
+            <tr>
+              <td>Top-k streaming (top trending tweets, top-k logs)</td>
+              <td>min-heap of size $k$</td>
+              <td>Compare each new element to the heap root; replace and sift if larger. $O(n \log k)$ total.</td>
+            </tr>
+            <tr>
+              <td>Heap sort, partial sort</td>
+              <td>binary heap</td>
+              <td>In-place sort; partial sort gives the top-k in $O(n + k \log n)$.</td>
+            </tr>
+            <tr>
+              <td>Autocomplete, prefix matching</td>
+              <td>trie</td>
+              <td>Tree keyed on string characters; prefix lookup in $O(|\text{prefix}|)$ regardless of dictionary size.</td>
+            </tr>
+            <tr>
+              <td>Range queries (sum / min on arrays)</td>
+              <td>segment tree, Fenwick tree</td>
+              <td>$O(\log n)$ range-query and point-update. The competitive-programming workhorse.</td>
+            </tr>
+            <tr>
+              <td>Decision trees, random forests, XGBoost</td>
+              <td>tree of split predicates</td>
+              <td>Tree as a function from feature vector to label. Different problem, same scaffolding.</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="step-section" id="step-8">
+        <div class="step-badge">Step 8</div>
+        <h2>Sharp edges</h2>
+        <ul class="explanation-list">
+          <li><strong>BST delete is the awkward operation.</strong>
+            Inserting and searching are five lines each; deletion
+            has three cases (leaf, one-child, two-children) and the
+            two-children case requires finding the in-order
+            successor. This is why textbooks devote a whole page
+            to delete and a paragraph to insert.</li>
+          <li><strong>Heap does <em>not</em> support fast search.</strong>
+            "Find an element in a heap" is $O(n)$. The heap
+            invariant orders parents w.r.t. children only — not
+            siblings. If you need both ordered iteration and
+            priority extraction, you need two structures or a more
+            elaborate one (indexed heap, treap, or balanced BST).</li>
+          <li><strong>Heap's <code>decrease-key</code> needs a handle.</strong>
+            To decrease the priority of an arbitrary element you
+            need to know its array index — which means a side
+            hashmap keyed on element identity. Forget the side map
+            and Dijkstra silently breaks.</li>
+          <li><strong>Pointer-based vs array-based.</strong> BSTs
+            with explicit node objects pay for pointer chasing and
+            poor cache locality. For small fixed-size trees,
+            storing children in a flat array (left at $2i+1$, right
+            at $2i+2$ — same trick as heaps) is much faster despite
+            the gaps from unbalanced shapes.</li>
+          <li><strong>Recursion depth limits.</strong> A degenerate
+            tree on $n$ nodes will overflow the call stack at $n
+            \approx 10^4$ in most languages if you traverse with
+            naïve recursion. Either balance the tree or use the
+            iterative-with-explicit-stack form.</li>
+          <li><strong>Two heaps for the running median.</strong> A
+            max-heap of the lower half and a min-heap of the upper
+            half, kept balanced in size. Insert and median both
+            cost $O(\log n)$. A classic interview question whose
+            solution is a heap configuration, not a clever new
+            structure.</li>
+        </ul>
+      </section>
+
+      <section class="step-section" id="step-9">
+        <div class="step-badge">Step 9</div>
+        <h2>Reading list</h2>
+        <ul class="explanation-list">
+          <li><strong>Knuth, <em>The Art of Computer Programming, Vol 3</em>.</strong>
+            The reference, still. Trees are chapter 6.2.</li>
+          <li><strong>Cormen, Leiserson, Rivest, Stein — <em>CLRS</em>.</strong>
+            Chapters 6 (heaps), 12 (BSTs), 13 (red-black trees),
+            18 (B-trees). The teaching standard.</li>
+          <li><strong>Sedgewick &amp; Wayne, <em>Algorithms (4th ed.)</em>.</strong>
+            Best presentation of red-black trees as left-leaning
+            2-3 trees.</li>
+          <li><strong>Adelson-Velsky &amp; Landis, 1962</strong> —
+            <em>An algorithm for the organisation of information.</em>
+            The AVL tree, the first balanced BST.</li>
+          <li><strong>Floyd, 1964</strong> —
+            <em>Algorithm 245: Treesort.</em> The bottom-up $O(n)$
+            heapify and heap sort in two pages.</li>
+          <li><strong>Bayer &amp; McCreight, 1972</strong> —
+            <em>Organisation and Maintenance of Large Ordered Indexes.</em>
+            B-trees.</li>
+          <li><strong>Pugh, 1990</strong> —
+            <em>Skip Lists: A Probabilistic Alternative to Balanced Trees.</em>
+            A whole class of structures that argue against trees.</li>
+        </ul>
+      </section>
+    </article>
+
+    <script src="../vendor/katex/katex.min.js"></script>
+    <script type="module" src="main.js"></script>
+  </body>
+</html>

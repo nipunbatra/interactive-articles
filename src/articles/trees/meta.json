@@ -1,0 +1,20 @@
+{
+  "slug": "trees",
+  "title": "Trees, Branch by Branch",
+  "date": "2026-05-22",
+  "tagline": "BSTs, heaps, traversals — build them, query them, watch them sift up and down",
+  "summary": "The data structure that quietly powers ordered maps, priority queues, autocomplete, and half the algorithms textbook. Build a binary search tree by typing values, watch traversals walk through it in four different orders, then switch to a heap and see sift-up/sift-down preserve the heap invariant on every insert and extract.",
+  "readingTime": "16 min",
+  "difficulty": "Beginner",
+  "collection": "Data structures",
+  "order": 39,
+  "status": "published",
+  "tags": ["BST", "Heap", "Priority queue", "Traversal", "Interactive"],
+  "highlights": [
+    "Build a BST by typing values — see search find the matching node in O(log n) when the tree is balanced.",
+    "Animate all four traversals (pre-order, in-order, post-order, level-order) on the same tree.",
+    "Live min-heap and max-heap: insert sifts up, extract-min sifts down, both shown step by step.",
+    "Heapify a random array in O(n) and watch the bottom-up algorithm beat the obvious one.",
+    "Why balance matters: insert sorted values, get a linked list (O(n) search); insert in random order, get O(log n)."
+  ]
+}

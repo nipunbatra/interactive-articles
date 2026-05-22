@@ -1,0 +1,20 @@
+{
+  "slug": "perceptual-metrics",
+  "title": "Perceptual Quality, Pixel by Pixel",
+  "date": "2026-05-22",
+  "tagline": "PSNR, SSIM, MS-SSIM, LPIPS — same images, four numbers, often contradictory",
+  "summary": "Pixel MSE was the workhorse of image-quality measurement for decades; SSIM, MS-SSIM, and LPIPS exist because it lies. Distort a reference image in five ways live, watch the metrics disagree, and see the classic 'same PSNR, very different quality' trap rendered side by side. Plus FID and KID for generative models.",
+  "readingTime": "18 min",
+  "difficulty": "Intermediate",
+  "collection": "Computer Vision",
+  "order": 38,
+  "status": "published",
+  "tags": ["LPIPS", "SSIM", "PSNR", "FID", "Image Quality", "Interactive"],
+  "highlights": [
+    "Live distortion playground: noise, blur, contrast, brightness, JPEG block — watch PSNR, SSIM and a perceptual proxy diverge.",
+    "The classic 'equal-PSNR, different quality' gallery: five distortions calibrated to the same dB, ranked by SSIM and a feature-distance proxy.",
+    "Why SSIM decomposes into luminance · contrast · structure — and why MS-SSIM adds scale.",
+    "What LPIPS is doing (deep feature distance), what FID and KID measure (distribution distance), and when each one is appropriate.",
+    "Lab-aligned: image-quality metrics for thermal/RGB enhancement work, diffusion sample evaluation, and super-resolution pipelines."
+  ]
+}

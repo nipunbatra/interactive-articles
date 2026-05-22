@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Perceptual Quality, Pixel by Pixel</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../vendor/katex/katex.min.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <article class="article">
+      <header class="article-header">
+        <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+        <p class="kicker">Interactive Explainer</p>
+        <h1>Perceptual Quality, Pixel by Pixel</h1>
+        <p class="abstract">
+          PSNR has been the workhorse of image-quality measurement for
+          forty years. SSIM, MS-SSIM, and LPIPS exist because it lies.
+          Distort a reference image in five ways live, watch the
+          metrics disagree, and see the classic "same PSNR, very
+          different perceived quality" trap. Then FID and KID for
+          generative models.
+        </p>
+        <div class="byline">
+          <span>~18 min</span>
+          <span>Computer vision &middot; Evaluation &middot; Image quality</span>
+        </div>
+      </header>
+
+      <section class="step-section" id="prelude">
+        <div class="step-badge">Prelude</div>
+        <h2>Why "MSE was fine, actually" stopped being true</h2>
+        <p>
+          For most of image processing's history, two images were
+          compared by mean squared error (MSE) or its log-scaled
+          cousin PSNR. Compress a photograph; measure the MSE; report
+          a number; ship. The procedure has the virtue of being
+          differentiable, cheap, and uncontroversial.
+        </p>
+        <p>
+          It also has one catastrophic problem: the human visual
+          system does not perceive error pixel-by-pixel. A
+          constant brightness offset of 5/255 across an image is
+          essentially invisible — yet contributes the same MSE as
+          changing every tenth pixel by 50/255, which is glaringly
+          obvious. Same MSE, two visual planets apart.
+        </p>
+        <p>
+          The reaction was a sequence of metrics that try to encode
+          increasingly accurate models of what humans actually see:
+          local structure (SSIM), multi-scale structure (MS-SSIM),
+          mid-level perceptual features (LPIPS), and — for generative
+          models where there is no reference — distribution-level
+          metrics (FID, KID).
+        </p>
+        <div class="callout callout--warn">
+          <strong>The single most useful intuition.</strong>
+          PSNR cares about energy. SSIM cares about correlated
+          structure. LPIPS cares about high-level perceptual content
+          (edges, textures, parts). FID cares whether two image
+          <em>sets</em> were drawn from the same distribution. They
+          are not interchangeable, and the literature is littered
+          with papers whose claims dissolve when you switch metric.
+        </div>
+      </section>
+
+      <section class="step-section" id="step-1">
+        <div class="step-badge">Step 1</div>
+        <h2>PSNR — MSE in decibels</h2>
+        <p>
+          Given a reference image $x$ and a distorted copy $y$, with
+          each pixel in $[0, L]$ (typically $L = 255$ or $L = 1$):
+        </p>
+        <div class="math-block" id="math-mse"></div>
+        <div class="math-block" id="math-psnr"></div>
+        <p>
+          PSNR is just the negative log of MSE, normalised by the
+          dynamic range. The decibel scale compresses several orders
+          of magnitude into a single number you can compare across
+          codecs. As a back-of-envelope:
+        </p>
+        <ul class="explanation-list">
+          <li>$&gt; 40$ dB — visually identical for most content.</li>
+          <li>$30$–$40$ dB — small artefacts, often acceptable.</li>
+          <li>$20$–$30$ dB — visible degradation.</li>
+          <li>$&lt; 20$ dB — heavily distorted.</li>
+        </ul>
+        <p>
+          These thresholds are <em>indicative</em>, not perceptual
+          law. The same 30 dB image can look pristine if the error is
+          uniform brightness, and like garbage if it is salt-and-pepper
+          noise. The interactive cards below make this concrete.
+        </p>
+        <p>
+          PSNR's three honest virtues: it is convex in $y$, it admits
+          a closed-form gradient, and it is what your codec
+          publication will be compared on. Its three honest sins:
+          uniform per-pixel weighting, blindness to spatial
+          structure, and blindness to anything the human visual
+          system actually exploits.
+        </p>
+      </section>
+
+      <section class="step-section" id="step-2">
+        <div class="step-badge">Step 2</div>
+        <h2>SSIM — luminance, contrast, structure</h2>
+        <p>
+          Wang et&nbsp;al. (2004) made a small, brilliant observation:
+          perceived similarity can be decomposed into three local
+          comparisons — does brightness match, does contrast match,
+          does the <em>pattern</em> match? Run each on a small sliding
+          window, multiply, average.
+        </p>
+        <p>
+          On a window with local means $\mu_x, \mu_y$, local
+          variances $\sigma_x^2, \sigma_y^2$, and local covariance
+          $\sigma_{xy}$, define
+        </p>
+        <div class="math-block" id="math-ssim-l"></div>
+        <div class="math-block" id="math-ssim-c"></div>
+        <div class="math-block" id="math-ssim-s"></div>
+        <p>
+          The product $l \cdot c \cdot s$ collapses to the iconic
+          single-line SSIM formula
+        </p>
+        <div class="math-block" id="math-ssim"></div>
+        <p>
+          with stabilisers $C_1 = (0.01 L)^2$, $C_2 = (0.03 L)^2$.
+          Average over all windows to get the image-level SSIM.
+          Range: $[-1, 1]$; identical images give $1$.
+        </p>
+        <p>
+          What this buys you:
+        </p>
+        <ul class="explanation-list">
+          <li><strong>Luminance-invariant under shifts.</strong> If
+            you add a constant to every pixel, $\mu_x$ and $\mu_y$
+            both shift; $l$ stays near 1. PSNR collapses.</li>
+          <li><strong>Contrast-invariant under scaling.</strong> If
+            you multiply by a constant, $c$ stays near 1.</li>
+          <li><strong>Structure is normalised cross-correlation.</strong>
+            The $s$ term is exactly $\sigma_{xy} / (\sigma_x \sigma_y)$
+            — Pearson correlation in a window. This is the part that
+            actually responds to <em>where the edges and textures sit</em>.</li>
+        </ul>
+        <div class="callout">
+          <strong>Why a window matters.</strong>
+          Compute the three terms on the whole image and you'd get
+          a global summary that washes out local patterns. SSIM is
+          essentially a Pearson-correlation filter that operates at
+          the scale of an 8&times;8 or 11&times;11 patch — the scale
+          at which human vision aggregates structure.
+        </div>
+      </section>
+
+      <section class="step-section" id="step-3">
+        <div class="step-badge">Step 3</div>
+        <h2>MS-SSIM — and why one window isn't enough</h2>
+        <p>
+          A single 11&times;11 window has a single spatial frequency
+          band of sensitivity. But human vision is multi-scale: an
+          identical SSIM at 8&times;8 can correspond to two
+          perceptually different images if one preserves coarse
+          structure and the other preserves fine. Multi-Scale SSIM
+          (Wang et&nbsp;al., 2003) computes SSIM at $M$ downsampled
+          levels and combines them as a weighted product:
+        </p>
+        <div class="math-block" id="math-msssim"></div>
+        <p>
+          The weights $\alpha, \beta_j, \gamma_j$ were fitted on
+          human-rated distortions. The headline benefit: MS-SSIM
+          tracks subjective quality better than single-scale SSIM
+          for blurring and compression, and it became the standard
+          for image-compression evaluation.
+        </p>
+        <p>
+          Once you see this, you start asking the bigger question:
+          if multi-scale structure is the right thing to compare, why
+          define structure by hand? Could we let a network learn it?
+        </p>
+      </section>
+
+      <section class="step-section" id="step-4">
+        <div class="step-badge">Step 4</div>
+        <h2>LPIPS — distance in a learned feature space</h2>
+        <p>
+          LPIPS (Zhang et&nbsp;al., 2018, "The Unreasonable
+          Effectiveness of Deep Features as a Perceptual Metric")
+          replaces hand-crafted structure with the activations of a
+          pretrained image classifier. Run both images through, say,
+          AlexNet or VGG-16; extract feature maps $\phi^{(\ell)}(x)$
+          and $\phi^{(\ell)}(y)$ at several layers; compute a
+          per-channel learnt weighting and take the L2 distance.
+        </p>
+        <div class="math-block" id="math-lpips"></div>
+        <p>
+          The weights $w_\ell$ are trained on the BAPPS dataset:
+          human raters were given two distorted versions of the same
+          reference and asked which looked more like the original.
+          LPIPS is the linear combination of per-layer feature
+          distances that best agrees with those 2AFC choices.
+        </p>
+        <p>
+          Three things this gets you that SSIM does not:
+        </p>
+        <ul class="explanation-list">
+          <li><strong>Texture invariance.</strong> Two patches of the
+            same grass texture have small LPIPS even when they have
+            zero pixel overlap — the deep features encode
+            <em>what</em> the texture is, not where each blade is.</li>
+          <li><strong>Robustness to small geometric shifts.</strong>
+            CNN feature maps pool spatially, so a one-pixel shift
+            barely moves LPIPS. SSIM and PSNR both spike.</li>
+          <li><strong>Sensitivity to semantic content.</strong> A
+            cat with a wrong-coloured eye is "close to a cat" in
+            feature space; in pixel space it's whatever the eye
+            patch's MSE happens to be.</li>
+        </ul>
+        <div class="callout callout--warn">
+          <strong>What LPIPS is not.</strong>
+          It is not a ground-truth perception model — it is a regression
+          fit to a particular dataset of 2AFC judgments. It inherits
+          the backbone's biases (ImageNet's texture-heavy worldview),
+          and an image can be made to look bad to humans while keeping
+          LPIPS small (adversarial perceptual attacks). Reporting
+          LPIPS alongside PSNR + SSIM is more informative than any one
+          of them alone.
+        </div>
+      </section>
+
+      <section class="step-section" id="step-5">
+        <div class="step-badge">Step 5</div>
+        <h2>Live: distort a reference, watch the metrics</h2>
+        <p>
+          A small synthetic test image — gradient sky, a circle, a
+          checkered patch, and a striped band. The left panel is the
+          unmodified reference. The right panel is the same image
+          after the distortion you choose. Watch how each metric
+          responds.
+        </p>
+        <p>
+          The "Perceptual proxy" column is a hand-rolled stand-in for
+          LPIPS: a multi-scale gradient-feature L2 distance. It is
+          not LPIPS — a real LPIPS needs a pretrained CNN — but it
+          captures the same spirit (distance in a feature space that
+          weights edges and textures over flat regions).
+        </p>
+        <div class="train-controls">
+          <label>distortion
+            <select id="pm-mode">
+              <option value="noise">Gaussian noise</option>
+              <option value="blur">Gaussian blur</option>
+              <option value="shift">Brightness shift</option>
+              <option value="contrast">Contrast scaling</option>
+              <option value="jpeg">JPEG-like block</option>
+            </select>
+          </label>
+        </div>
+        <div class="pm-controls">
+          <span class="ctrl-label" id="pm-ctrl-label">noise std σ</span>
+          <input type="range" id="pm-strength" min="0" max="100" value="35" />
+          <span class="ctrl-num" id="pm-ctrl-num">0.10</span>
+        </div>
+        <div class="pm-stage">
+          <div class="pm-panel">
+            <div class="panel-label">reference</div>
+            <canvas id="pm-ref" width="256" height="256"></canvas>
+            <div class="panel-sub">64 &times; 64, grayscale, [0, 1]</div>
+          </div>
+          <div class="pm-panel">
+            <div class="panel-label">distorted</div>
+            <canvas id="pm-dist" width="256" height="256"></canvas>
+            <div class="panel-sub" id="pm-dist-sub">noise σ = 0.10</div>
+          </div>
+        </div>
+        <div class="pm-metrics" id="pm-metrics">
+          <div class="metric-card">
+            <span class="m-label">MSE</span>
+            <span class="m-value" id="pm-mse">—</span>
+            <span class="m-hint">lower is better</span>
+          </div>
+          <div class="metric-card">
+            <span class="m-label">PSNR</span>
+            <span class="m-value" id="pm-psnr">—</span>
+            <span class="m-hint">dB, higher is better</span>
+          </div>
+          <div class="metric-card">
+            <span class="m-label">SSIM</span>
+            <span class="m-value" id="pm-ssim">—</span>
+            <span class="m-hint">[0, 1], higher is better</span>
+          </div>
+          <div class="metric-card">
+            <span class="m-label">Perceptual proxy</span>
+            <span class="m-value" id="pm-lpips">—</span>
+            <span class="m-hint">LPIPS-style; lower is better</span>
+          </div>
+        </div>
+        <p>
+          Things worth trying:
+        </p>
+        <ul class="explanation-list">
+          <li>Crank <em>brightness shift</em> to a value that
+            destroys PSNR — and watch SSIM barely move.</li>
+          <li>Add a small <em>blur</em>. SSIM and the perceptual
+            proxy drop hard; PSNR drops less than you'd expect.</li>
+          <li>Heavy <em>JPEG block</em> at strength ≈ 60 produces
+            unmistakeable 8&times;8 boxiness; the perceptual proxy
+            spikes far more than PSNR.</li>
+          <li>Compare <em>noise σ = 0.08</em> with <em>blur σ = 0.8</em>.
+            Both can land near 25 dB but feel very different.</li>
+        </ul>
+      </section>
+
+      <section class="step-section" id="step-6">
+        <div class="step-badge">Step 6</div>
+        <h2>The classic trap: same PSNR, different quality</h2>
+        <p>
+          This is the figure that launched a thousand SSIM citations
+          (essentially Wang &amp; Bovik's original 2002 demo). Below
+          are five distorted versions of the same reference, each
+          with their distortion strength tuned so that PSNR is
+          approximately equal — yet they look obviously different,
+          and SSIM and the perceptual proxy reflect that.
+        </p>
+        <div class="pm-gallery" id="pm-gallery">
+          <div class="pm-card">
+            <canvas id="pm-card-0" width="128" height="128"></canvas>
+            <div class="panel-label">reference</div>
+            <div class="pm-card-stats" id="pm-stats-0"></div>
+          </div>
+          <div class="pm-card">
+            <canvas id="pm-card-1" width="128" height="128"></canvas>
+            <div class="panel-label">brightness shift</div>
+            <div class="pm-card-stats" id="pm-stats-1"></div>
+          </div>
+          <div class="pm-card">
+            <canvas id="pm-card-2" width="128" height="128"></canvas>
+            <div class="panel-label">contrast scale</div>
+            <div class="pm-card-stats" id="pm-stats-2"></div>
+          </div>
+          <div class="pm-card">
+            <canvas id="pm-card-3" width="128" height="128"></canvas>
+            <div class="panel-label">Gaussian noise</div>
+            <div class="pm-card-stats" id="pm-stats-3"></div>
+          </div>
+          <div class="pm-card">
+            <canvas id="pm-card-4" width="128" height="128"></canvas>
+            <div class="panel-label">Gaussian blur</div>
+            <div class="pm-card-stats" id="pm-stats-4"></div>
+          </div>
+          <div class="pm-card">
+            <canvas id="pm-card-5" width="128" height="128"></canvas>
+            <div class="panel-label">JPEG block</div>
+            <div class="pm-card-stats" id="pm-stats-5"></div>
+          </div>
+        </div>
+        <p>
+          The brightness-shift card has the same MSE as the others —
+          but to the eye it is almost indistinguishable from the
+          reference, and SSIM reflects that. The block-quantised card
+          looks the worst; its SSIM and perceptual proxy are the
+          worst by a margin. PSNR cannot tell them apart.
+        </p>
+        <div class="callout callout--key">
+          <strong>The lesson.</strong>
+          When a paper reports only PSNR, distrust the comparison.
+          When a paper reports PSNR + SSIM + LPIPS together, you
+          can begin to triangulate. When they all agree, you have
+          a real result; when they disagree, the disagreement is the
+          finding.
+        </div>
+      </section>
+
+      <section class="step-section" id="step-7">
+        <div class="step-badge">Step 7</div>
+        <h2>When there is no reference: FID, KID, IS</h2>
+        <p>
+          PSNR, SSIM and LPIPS are <em>full-reference</em> metrics —
+          they need a clean ground-truth image. For generative
+          models (GANs, diffusion, VAEs) there is no reference for an
+          individual sample; what we want is "did this model produce
+          samples that <em>collectively</em> match the data
+          distribution?". For that we go to distributional metrics.
+        </p>
+        <ul class="explanation-list">
+          <li><strong>Inception Score (IS).</strong> Salimans
+            et&nbsp;al., 2016. Push samples through Inception-v3,
+            get class probabilities $p(y \mid x)$. Reward "confident
+            classifications" and "diverse marginal" via a KL term.
+            <em>Problem</em>: it ignores the real data distribution
+            entirely.</li>
+          <li><strong>FID (Fréchet Inception Distance).</strong>
+            Heusel et&nbsp;al., 2017. Take Inception-v3
+            pool-3 features for $N$ real samples and $N$ generated
+            samples. Fit a Gaussian to each. Compute the
+            Fréchet distance between them:
+            $\|\mu_r - \mu_g\|^2 + \mathrm{Tr}(\Sigma_r + \Sigma_g - 2(\Sigma_r \Sigma_g)^{1/2})$.
+            Lower is better; identical distributions give 0.</li>
+          <li><strong>KID (Kernel Inception Distance).</strong>
+            Bińkowski et&nbsp;al., 2018. Replace the Gaussian
+            assumption with the unbiased MMD using a polynomial
+            kernel on Inception features. Less biased on small
+            sample sizes (FID is biased and the bias is dataset-size
+            dependent; KID has a tractable unbiased estimator).</li>
+          <li><strong>Precision and Recall.</strong> Sajjadi et&nbsp;al.,
+            2018; Kynkäänniemi et&nbsp;al., 2019. Decompose
+            distribution match into "do generated samples lie in the
+            data manifold" (precision) and "does the data manifold
+            get covered" (recall). Diagnoses mode collapse that FID
+            can hide.</li>
+        </ul>
+        <div class="math-block" id="math-fid"></div>
+        <div class="callout callout--warn">
+          <strong>FID quirks worth knowing.</strong>
+          FID is biased downward as $N$ shrinks — always report it at
+          a fixed sample size (typically 50k). FID is sensitive to
+          image resolution and preprocessing; "FID = 8.4" without
+          knowing the reference set and pipeline is uninterpretable.
+          Different Inception checkpoints give different numbers.
+          Always cite the FID computation library used.
+        </div>
+      </section>
+
+      <section class="step-section" id="step-8">
+        <div class="step-badge">Step 8</div>
+        <h2>When to use what</h2>
+        <table class="pm-table">
+          <thead>
+            <tr>
+              <th>Task</th>
+              <th>Use</th>
+              <th>Why</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Lossless / near-lossless compression</td>
+              <td><code>PSNR</code></td>
+              <td>Differences are sub-perceptual; energy is the right
+                summary, and PSNR is what your competitors will report.</td>
+            </tr>
+            <tr>
+              <td>Lossy compression, super-resolution</td>
+              <td><code>PSNR + SSIM + LPIPS</code></td>
+              <td>SSIM catches structural damage; LPIPS catches
+                texture &amp; mid-level perceptual changes; PSNR
+                anchors the energy.</td>
+            </tr>
+            <tr>
+              <td>Denoising / deblurring</td>
+              <td><code>PSNR + SSIM</code></td>
+              <td>Distortions are local; structural-similarity is
+                the metric the denoising literature converged on.</td>
+            </tr>
+            <tr>
+              <td>GAN / diffusion samples (unconditional)</td>
+              <td><code>FID + KID + Precision/Recall</code></td>
+              <td>No reference image; you need distribution-level
+                metrics. FID alone is not enough — it hides mode
+                collapse.</td>
+            </tr>
+            <tr>
+              <td>Conditional generation (img2img, edit)</td>
+              <td><code>LPIPS + FID + a CLIP score</code></td>
+              <td>LPIPS measures fidelity to the input; FID measures
+                realism; a CLIP score measures alignment with the
+                target caption / class.</td>
+            </tr>
+            <tr>
+              <td>Thermal / scientific imaging</td>
+              <td><code>RMSE on physical units + SSIM</code></td>
+              <td>Pixel values are calibrated measurements
+                (temperature, depth); physical accuracy matters more
+                than perceived prettiness, but SSIM still catches
+                structural artefacts in reconstruction.</td>
+            </tr>
+            <tr>
+              <td>Diffusion training loss</td>
+              <td><code>noise-MSE (the actual loss)</code></td>
+              <td>Don't try to use SSIM/LPIPS as a training signal
+                during diffusion training — they are non-convex, and
+                MSE on the noise has the right variational
+                properties.</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="step-section" id="step-9">
+        <div class="step-badge">Step 9</div>
+        <h2>Sharp edges and lab-aligned notes</h2>
+        <ul class="explanation-list">
+          <li><strong>SSIM on dynamic-range mismatched data is meaningless.</strong>
+            If your reference is [0, 1] float and your prediction is
+            $[0, 255]$ uint8, SSIM will silently rescale and you'll
+            get junk numbers. Always normalise both inputs to the
+            same range, and pass the dynamic-range $L$ explicitly.</li>
+          <li><strong>LPIPS on grayscale needs a backbone choice.</strong>
+            VGG-16 and AlexNet both expect 3-channel inputs.
+            Standard practice: replicate the gray channel three
+            times. For thermal, this means LPIPS is reading
+            ImageNet-shaped features into a thermal image, which is
+            not what the metric was validated on. Treat LPIPS-on-thermal
+            as <em>indicative</em>, never authoritative.</li>
+          <li><strong>SSIM with sliding window can be expensive.</strong>
+            For very large images use the integral-image trick
+            (compute moments via summed-area tables) — $O(\text{pixels})$
+            instead of $O(\text{pixels} \cdot \text{window}^2)$.</li>
+          <li><strong>FID needs ≥ 10k samples.</strong> Below 10k it's
+            dominated by the small-sample bias term. KID is a
+            better choice in the few-thousand regime.</li>
+          <li><strong>Beware metric optimisation.</strong> If you
+            train a model with LPIPS as the loss, the model will
+            learn to game the VGG features that LPIPS reads. The
+            resulting samples can be very low LPIPS and quite ugly.
+            This is the perceptual analogue of Goodhart's law and
+            shows up routinely in super-resolution work — for
+            super-resolution, GAN-based losses combined with LPIPS
+            generally beat pure-LPIPS optimisation.</li>
+          <li><strong>For our lab</strong> (thermal / VLM /
+            super-resolution work): report PSNR + SSIM (with $L = 1$
+            on normalised inputs) as the workhorses, LPIPS as a
+            secondary signal, and FID only when comparing
+            distributions of generated thermal frames. The "same
+            PSNR, different SSIM" gallery above is the trap to keep
+            in mind when ApneaEye / JoulesEye reconstructions are
+            evaluated against ground-truth thermal frames.</li>
+        </ul>
+      </section>
+
+      <section class="step-section" id="step-10">
+        <div class="step-badge">Step 10</div>
+        <h2>Reading list</h2>
+        <ul class="explanation-list">
+          <li><strong>Wang, Bovik, Sheikh, Simoncelli (2004)</strong> &mdash;
+            <em>Image Quality Assessment: From Error Visibility to
+            Structural Similarity.</em> The SSIM paper. Every
+            paragraph still earns its keep.</li>
+          <li><strong>Wang, Simoncelli, Bovik (2003)</strong> &mdash;
+            <em>Multi-scale Structural Similarity for Image Quality
+            Assessment.</em> MS-SSIM weights and method.</li>
+          <li><strong>Zhang, Isola, Efros, Shechtman, Wang (2018)</strong> &mdash;
+            <em>The Unreasonable Effectiveness of Deep Features as a
+            Perceptual Metric.</em> The LPIPS paper, plus the
+            BAPPS dataset.</li>
+          <li><strong>Heusel, Ramsauer, Unterthiner, Nessler, Hochreiter (2017)</strong>
+            &mdash; <em>GANs Trained by a Two Time-Scale Update Rule
+            Converge to a Local Nash Equilibrium.</em> Introduces FID.</li>
+          <li><strong>Bińkowski, Sutherland, Arbel, Gretton (2018)</strong>
+            &mdash; <em>Demystifying MMD GANs.</em> Introduces KID.</li>
+          <li><strong>Kynkäänniemi, Karras, Laine, Lehtinen, Aila (2019)</strong>
+            &mdash; <em>Improved Precision and Recall Metric for
+            Assessing Generative Models.</em></li>
+          <li><strong>Mantiuk et&nbsp;al. (2011)</strong> &mdash;
+            <em>HDR-VDP-2.</em> A more sophisticated, HDR-aware
+            perceptual metric — useful when SSIM/LPIPS feel too
+            blunt.</li>
+          <li><strong>Sara, Akter, Uddin (2019)</strong> &mdash;
+            <em>Image Quality Assessment through FSIM, SSIM, MSE and
+            PSNR — a Comparative Study.</em> Good overview when you
+            want a single survey to point students at.</li>
+        </ul>
+      </section>
+    </article>
+
+    <script src="../vendor/katex/katex.min.js"></script>
+    <script type="module" src="main.js"></script>
+  </body>
+</html>

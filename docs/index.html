@@ -8,105 +8,117 @@
     <link rel="stylesheet" href="assets/site.css" />
     <style>
       .simple-shell {
-        max-width: 800px;
+        max-width: 920px;
         margin: 0 auto;
-        padding: 4rem 1.5rem;
+        padding: 3rem 1.5rem 5rem;
       }
       .simple-header {
-        margin-bottom: 4rem;
+        margin-bottom: 3rem;
         text-align: center;
       }
       .simple-header h1 {
         font-family: var(--font-serif);
-        font-size: clamp(2.5rem, 5vw, 3.5rem);
-        margin: 0 0 1rem;
+        font-size: clamp(2.2rem, 4.5vw, 3rem);
+        margin: 0 0 0.6rem;
         color: var(--ink);
         letter-spacing: -0.02em;
         line-height: 1.1;
       }
       .simple-header p {
-        font-size: 1.15rem;
+        font-size: 1.05rem;
         color: var(--muted);
-        max-width: 600px;
+        max-width: 640px;
         margin: 0 auto;
-        line-height: 1.6;
+        line-height: 1.55;
       }
-      .simple-article-list {
-        display: grid;
-        gap: 2rem;
+      .ix-collection {
+        margin: 2.4rem 0;
       }
-      .simple-article-row {
-        background: var(--panel);
-        padding: 2.5rem;
-        border-radius: var(--radius-lg);
-        border: 1px solid var(--border);
-        box-shadow: 0 8px 30px rgba(31, 38, 48, 0.04);
-        transition: transform 0.3s ease, box-shadow 0.3s ease;
-      }
-      .simple-article-row:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 12px 40px rgba(31, 38, 48, 0.08);
-      }
-      .simple-article-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 1rem;
-      }
-      .simple-article-meta {
-        font-size: 0.85rem;
-        color: var(--muted);
-        text-transform: uppercase;
-        letter-spacing: 0.1em;
-      }
-      .simple-article-difficulty {
-        font-size: 0.8rem;
-        background: var(--panel-soft);
-        padding: 0.3rem 0.8rem;
-        border-radius: 999px;
-        color: var(--muted);
-        border: 1px solid var(--border);
-      }
-      .simple-article-title {
-        margin: 0 0 0.8rem;
-        font-size: 1.8rem;
+      .ix-collection-title {
         font-family: var(--font-serif);
-        line-height: 1.2;
+        font-size: 1.05rem;
+        margin: 0 0 0.7rem;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        color: var(--ink);
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 0.45rem;
       }
-      .simple-article-title a {
+      .ix-collection-count {
+        font-family: var(--font-mono, 'IBM Plex Mono', monospace);
+        font-size: 0.78rem;
+        color: var(--muted);
+        background: var(--panel-soft);
+        border: 1px solid var(--border);
+        padding: 0.05rem 0.5rem;
+        border-radius: 999px;
+        font-weight: 500;
+      }
+      .ix-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        gap: 0;
+      }
+      .ix-row {
+        margin: 0;
+      }
+      .ix-row-link {
+        display: grid;
+        grid-template-columns: 1.4fr 2.2fr auto;
+        gap: 1rem;
+        align-items: baseline;
+        padding: 0.7rem 0.6rem;
+        border-radius: 6px;
         text-decoration: none;
         color: var(--ink);
+        transition: background 120ms ease;
+        border-bottom: 1px solid rgba(0,0,0,0.04);
       }
-      .simple-article-title a:hover {
-        color: var(--accent);
+      .ix-row-link:hover {
+        background: rgba(44, 111, 183, 0.05);
       }
-      .simple-article-summary {
-        color: var(--muted);
-        font-size: 1.05rem;
-        margin: 0 0 1.5rem;
-        line-height: 1.6;
-      }
-      .simple-article-footer {
-        margin-top: 1.5rem;
-      }
-      .simple-article-link {
-        display: inline-block;
-        text-decoration: none;
-        color: var(--accent);
+      .ix-row-title {
+        font-family: var(--font-serif);
         font-weight: 600;
         font-size: 1rem;
-        transition: color 0.2s;
+        color: var(--ink);
       }
-      .simple-article-link:hover {
-        color: var(--accent-2);
+      .ix-row-tag {
+        font-size: 0.92rem;
+        color: var(--muted);
+        line-height: 1.4;
+        font-family: var(--font-serif);
+      }
+      .ix-row-meta {
+        display: flex;
+        gap: 0.7rem;
+        font-family: var(--font-mono, 'IBM Plex Mono', monospace);
+        font-size: 0.74rem;
+        color: var(--muted);
+        white-space: nowrap;
+        text-align: right;
+        justify-content: flex-end;
+      }
+      .ix-row-date { opacity: 0.7; }
+      @media (max-width: 720px) {
+        .ix-row-link {
+          grid-template-columns: 1fr;
+          gap: 0.25rem;
+        }
+        .ix-row-meta { justify-content: flex-start; }
       }
       .simple-footer {
-        margin-top: 5rem;
+        margin-top: 4rem;
         text-align: center;
         color: var(--muted);
-        font-size: 0.95rem;
+        font-size: 0.9rem;
         border-top: 1px solid var(--border);
-        padding-top: 2rem;
+        padding-top: 1.5rem;
       }
     </style>
   </head>
@@ -117,399 +129,777 @@
         <p>Scroll-driven articles that make the mechanism visible: concrete examples first, live figures second, and formal math only when it earns its place.</p>
       </header>
 
-      <div class="simple-article-list">
-        
-      <article class="simple-article-row">
-        <div class="simple-article-header">
-          <span class="simple-article-meta">May 9, 2026 &middot; Deep learning &middot; 30 min</span>
-          <span class="simple-article-difficulty">Intermediate</span>
-        </div>
-        <h2 class="simple-article-title"><a href="attention/">Attention, Calculated</a></h2>
-        <p class="simple-article-summary">Twelve interactive steps from one-word ambiguity to manual backprop on a soft-lookup task — including the matrix-form attention, scaled dot products, causal masking, multi-head, sinusoidal positional encodings, and a permute-the-sentence demo.</p>
-        <div class="simple-article-footer">
-          <a class="simple-article-link" href="attention/">Read interactive explainer &rarr;</a>
-        </div>
-      </article>
-    
-
-      <article class="simple-article-row">
-        <div class="simple-article-header">
-          <span class="simple-article-meta">May 9, 2026 &middot; Probability &amp; inference &middot; 25 min</span>
-          <span class="simple-article-difficulty">Intermediate</span>
-        </div>
-        <h2 class="simple-article-title"><a href="bayesian-posterior/">The Posterior, Built Up</a></h2>
-        <p class="simple-article-summary">Drag a Gaussian prior, click data points onto an axis, and watch the posterior crystallize. Then go conjugate (Beta-Binomial coin), separate posterior predictive from a MAP plug-in, race grid evaluation against MCMC against variational inference on a non-conjugate posterior, and finish with Bayesian linear regression whose uncertainty band bows out away from data — every number computed live in pure JS.</p>
-        <div class="simple-article-footer">
-          <a class="simple-article-link" href="bayesian-posterior/">Read interactive explainer &rarr;</a>
-        </div>
-      </article>
-    
-
-      <article class="simple-article-row">
-        <div class="simple-article-header">
-          <span class="simple-article-meta">May 9, 2026 &middot; Deep learning &middot; 22 min</span>
-          <span class="simple-article-difficulty">Intermediate</span>
-        </div>
-        <h2 class="simple-article-title"><a href="vision-transformer/">Vision Transformers, on Real Photos</a></h2>
-        <p class="simple-article-summary">A pretrained MobileNet runs live in your browser to turn every patch of your photo into a real 1024-dim feature vector. We then compute honest dot-product attention between those real features — not hand-crafted scalars — and paint the result as an overlay. New: a residual-aware multi-layer attention rollout (Abnar &amp; Zuidema 2020) that composes synthetic ViT layers and shows how the receptive field grows with depth.</p>
-        <div class="simple-article-footer">
-          <a class="simple-article-link" href="vision-transformer/">Read interactive explainer &rarr;</a>
-        </div>
-      </article>
-    
-
-      <article class="simple-article-row">
-        <div class="simple-article-header">
-          <span class="simple-article-meta">May 7, 2026 &middot; Deep learning &middot; 18 min</span>
-          <span class="simple-article-difficulty">Intermediate</span>
-        </div>
-        <h2 class="simple-article-title"><a href="clip-zero-shot/">CLIP, Zero-Shot, from the Embeddings Up</a></h2>
-        <p class="simple-article-summary">A real CLIP-ViT-B/32 from OpenAI runs in your browser via transformers.js. Upload a photo, type whatever labels you want, and watch the model embed both sides into a shared 512-dim space, compute real cosine similarities, and softmax the result into live probabilities. Zero fine-tuning required.</p>
-        <div class="simple-article-footer">
-          <a class="simple-article-link" href="clip-zero-shot/">Read interactive explainer &rarr;</a>
-        </div>
-      </article>
-    
-
-      <article class="simple-article-row">
-        <div class="simple-article-header">
-          <span class="simple-article-meta">May 5, 2026 &middot; Computer vision &middot; 16 min</span>
-          <span class="simple-article-difficulty">Intermediate</span>
-        </div>
-        <h2 class="simple-article-title"><a href="optical-flow/">Optical Flow, Frame by Frame</a></h2>
-        <p class="simple-article-summary">Play a real video frame-by-frame and watch a real Lucas-Kanade solver compute the 2-D velocity of every pixel, then colour the result as an HSV heatmap. Upload your own clip, step through frames, and feel the brightness constancy assumption break on fast-moving sports action.</p>
-        <div class="simple-article-footer">
-          <a class="simple-article-link" href="optical-flow/">Read interactive explainer &rarr;</a>
-        </div>
-      </article>
-    
-
-      <article class="simple-article-row">
-        <div class="simple-article-header">
-          <span class="simple-article-meta">May 3, 2026 &middot; Computer vision &middot; 15 min</span>
-          <span class="simple-article-difficulty">Intermediate</span>
-        </div>
-        <h2 class="simple-article-title"><a href="image-segmentation/">Image Segmentation, with a Real Segmenter</a></h2>
-        <p class="simple-article-summary">A pretrained DeepLab v3+ (Pascal VOC, 21 classes) runs live in your browser on whatever photo you give it. Paint your own mask and watch mean-IoU and per-class IoU update against the real model&#39;s output — or run classical region growing and see where it breaks.</p>
-        <div class="simple-article-footer">
-          <a class="simple-article-link" href="image-segmentation/">Read interactive explainer &rarr;</a>
-        </div>
-      </article>
-    
-
-      <article class="simple-article-row">
-        <div class="simple-article-header">
-          <span class="simple-article-meta">May 1, 2026 &middot; Computer vision &middot; 16 min</span>
-          <span class="simple-article-difficulty">Intermediate</span>
-        </div>
-        <h2 class="simple-article-title"><a href="object-detection/">Object Detection, with a Real Detector</a></h2>
-        <p class="simple-article-summary">A pretrained COCO-SSD model loads in your browser and runs on whatever photo you give it. Drag ground-truth boxes to compare against its predictions, sweep the confidence threshold, run NMS, and draw the precision-recall curve — all on the real detector output.</p>
-        <div class="simple-article-footer">
-          <a class="simple-article-link" href="object-detection/">Read interactive explainer &rarr;</a>
-        </div>
-      </article>
-    
-
-      <article class="simple-article-row">
-        <div class="simple-article-header">
-          <span class="simple-article-meta">Apr 28, 2026 &middot; Deep learning &middot; 8 min</span>
-          <span class="simple-article-difficulty">Intermediate</span>
-        </div>
-        <h2 class="simple-article-title"><a href="convolution-visualizer/">Convolution, Step by Step</a></h2>
-        <p class="simple-article-summary">Pick a 3×3 kernel — edge detector, sharpen, blur, or your own — and step through a convolution one position at a time. See the input region highlighted, the element-wise products inside the kernel, and the output feature map building up. Adjust padding and stride live. This is the mechanics of every CNN, laid bare.</p>
-        <div class="simple-article-footer">
-          <a class="simple-article-link" href="convolution-visualizer/">Read interactive explainer &rarr;</a>
-        </div>
-      </article>
-    
-
-      <article class="simple-article-row">
-        <div class="simple-article-header">
-          <span class="simple-article-meta">Apr 25, 2026 &middot; Deep learning &middot; 6 min</span>
-          <span class="simple-article-difficulty">Intermediate</span>
-        </div>
-        <h2 class="simple-article-title"><a href="vanishing-gradients/">Vanishing Gradient Playground</a></h2>
-        <p class="simple-article-summary">Slide network depth from 1 to 50 layers. Toggle the activation between sigmoid, tanh, and ReLU. Watch gradient magnitudes at each layer on a log scale. Sigmoid collapses past 20 layers; ReLU stays alive. One slider, one visceral demo of why we abandoned sigmoid for deep networks.</p>
-        <div class="simple-article-footer">
-          <a class="simple-article-link" href="vanishing-gradients/">Read interactive explainer &rarr;</a>
-        </div>
-      </article>
-    
-
-      <article class="simple-article-row">
-        <div class="simple-article-header">
-          <span class="simple-article-meta">Apr 22, 2026 &middot; Deep learning &middot; 14 min</span>
-          <span class="simple-article-difficulty">Intermediate</span>
-        </div>
-        <h2 class="simple-article-title"><a href="numerical-tricks/">Numerical Tricks of the Trade</a></h2>
-        <p class="simple-article-summary">Float64 overflows at $e^{700}$. Float32 overflows at $e^{88}$. Neural networks routinely compute quantities that blow past both limits. This page shows the four most important numerical tricks in ML — log-sum-exp, log-softmax, BCE-with-logits, and log1p/expm1 — as side-by-side naive-breaks / stable-works comparisons.</p>
-        <div class="simple-article-footer">
-          <a class="simple-article-link" href="numerical-tricks/">Read interactive explainer &rarr;</a>
-        </div>
-      </article>
-    
-
-      <article class="simple-article-row">
-        <div class="simple-article-header">
-          <span class="simple-article-meta">Apr 20, 2026 &middot; Deep learning &middot; 12 min</span>
-          <span class="simple-article-difficulty">Intermediate</span>
-        </div>
-        <h2 class="simple-article-title"><a href="softmax-temperature/">Softmax &amp; Temperature</a></h2>
-        <p class="simple-article-summary">Edit logits live and watch softmax turn them into probabilities. Slide the temperature knob from 0.05 to 5 and see a peaky distribution morph into a uniform one. Draw one sample at a time or 10,000 at once — the same dial that powers ChatGPT creativity, knowledge distillation, and calibration.</p>
-        <div class="simple-article-footer">
-          <a class="simple-article-link" href="softmax-temperature/">Read interactive explainer &rarr;</a>
-        </div>
-      </article>
-    
-
-      <article class="simple-article-row">
-        <div class="simple-article-header">
-          <span class="simple-article-meta">Apr 18, 2026 &middot; Deep learning &middot; 8 min</span>
-          <span class="simple-article-difficulty">Intermediate</span>
-        </div>
-        <h2 class="simple-article-title"><a href="dropout-playground/">Dropout Playground</a></h2>
-        <p class="simple-article-summary">Slide the dropout probability p from 0 to 1 and watch a small network flicker. Every frame is a different sub-network. Over many frames you are training an exponential ensemble with shared weights — the core intuition behind the most influential regularizer of 2012.</p>
-        <div class="simple-article-footer">
-          <a class="simple-article-link" href="dropout-playground/">Read interactive explainer &rarr;</a>
-        </div>
-      </article>
-    
-
-      <article class="simple-article-row">
-        <div class="simple-article-header">
-          <span class="simple-article-meta">Apr 18, 2026 &middot; Deep learning &middot; 7 min</span>
-          <span class="simple-article-difficulty">Intermediate</span>
-        </div>
-        <h2 class="simple-article-title"><a href="receptive-field-grower/">Receptive Field Grower</a></h2>
-        <p class="simple-article-summary">Convolutions are local — a single 3×3 kernel only sees 9 pixels. But stack them, and the receptive field balloons. Drag the depth slider, flip between same-kernel and mixed-kernel stacks, and see exactly which input pixels influence a deep feature. The VGG &#39;stack 3×3 convs&#39; insight becomes obvious.</p>
-        <div class="simple-article-footer">
-          <a class="simple-article-link" href="receptive-field-grower/">Read interactive explainer &rarr;</a>
-        </div>
-      </article>
-    
-
-      <article class="simple-article-row">
-        <div class="simple-article-header">
-          <span class="simple-article-meta">Apr 18, 2026 &middot; Deep learning &middot; 6 min</span>
-          <span class="simple-article-difficulty">Intermediate</span>
-        </div>
-        <h2 class="simple-article-title"><a href="lr-schedule-visualizer/">LR Schedule Visualizer</a></h2>
-        <p class="simple-article-summary">Four schedules, one canvas. Flip between step decay, exponential, cosine annealing, and warmup+cosine. Drag peak LR, warmup fraction, and cycle length. See the training-time LR curve and overlaid loss curves for each schedule — and exactly why cold-starting at peak LR diverges modern architectures.</p>
-        <div class="simple-article-footer">
-          <a class="simple-article-link" href="lr-schedule-visualizer/">Read interactive explainer &rarr;</a>
-        </div>
-      </article>
-    
-
-      <article class="simple-article-row">
-        <div class="simple-article-header">
-          <span class="simple-article-meta">Apr 18, 2026 &middot; Deep learning &middot; 8 min</span>
-          <span class="simple-article-difficulty">Intermediate</span>
-        </div>
-        <h2 class="simple-article-title"><a href="lstm-gates/">LSTM Gates Playground</a></h2>
-        <p class="simple-article-summary">Three sigmoid gates protect an LSTM&#39;s cell state — the forget gate decides what to erase, the input gate what to write, the output gate what to read. Drag each slider, feed in a sequence, and watch the cell state change timestep by timestep. The &#39;conveyor belt&#39; intuition becomes literal.</p>
-        <div class="simple-article-footer">
-          <a class="simple-article-link" href="lstm-gates/">Read interactive explainer &rarr;</a>
-        </div>
-      </article>
-    
-
-      <article class="simple-article-row">
-        <div class="simple-article-header">
-          <span class="simple-article-meta">Apr 18, 2026 &middot; Deep learning &middot; 7 min</span>
-          <span class="simple-article-difficulty">Intermediate</span>
-        </div>
-        <h2 class="simple-article-title"><a href="seq2seq-bottleneck/">The Seq2Seq Bottleneck</a></h2>
-        <p class="simple-article-summary">Seq2Seq compresses every source token into a single context vector, then generates the target from it. Type a source sentence, slide its length, and watch the context vector&#39;s &#39;information density&#39; fall off. This is the exact failure mode that made attention (1 year later) inevitable.</p>
-        <div class="simple-article-footer">
-          <a class="simple-article-link" href="seq2seq-bottleneck/">Read interactive explainer &rarr;</a>
-        </div>
-      </article>
-    
-
-      <article class="simple-article-row">
-        <div class="simple-article-header">
-          <span class="simple-article-meta">Apr 18, 2026 &middot; Deep learning &middot; 10 min</span>
-          <span class="simple-article-difficulty">Intermediate</span>
-        </div>
-        <h2 class="simple-article-title"><a href="bpe-merges/">BPE Tokenizer Step by Step</a></h2>
-        <p class="simple-article-summary">Type a small corpus, press &#39;merge&#39;, watch the most frequent adjacent pair get glued together. Repeat until the vocabulary reaches your target size. This is exactly how GPT-2, Llama, and Claude build their tokenizers — and how a model ends up with tokens like &#39;ization&#39;, &#39;tion&#39;, or &#39; the&#39;.</p>
-        <div class="simple-article-footer">
-          <a class="simple-article-link" href="bpe-merges/">Read interactive explainer &rarr;</a>
-        </div>
-      </article>
-    
-
-      <article class="simple-article-row">
-        <div class="simple-article-header">
-          <span class="simple-article-meta">Apr 18, 2026 &middot; Deep learning &middot; 7 min</span>
-          <span class="simple-article-difficulty">Intermediate</span>
-        </div>
-        <h2 class="simple-article-title"><a href="lora-adapter/">LoRA · Low-Rank Adapter Playground</a></h2>
-        <p class="simple-article-summary">LoRA injects two small matrices A and B next to a frozen base weight. B·A is low-rank by construction — so fine-tuning a 70B model becomes fine-tuning two 32k-param matrices per layer. Slide the rank, see the trade-off between capacity and cost in real numbers.</p>
-        <div class="simple-article-footer">
-          <a class="simple-article-link" href="lora-adapter/">Read interactive explainer &rarr;</a>
-        </div>
-      </article>
-    
-
-      <article class="simple-article-row">
-        <div class="simple-article-header">
-          <span class="simple-article-meta">Apr 18, 2026 &middot; Deep learning &middot; 8 min</span>
-          <span class="simple-article-difficulty">Intermediate</span>
-        </div>
-        <h2 class="simple-article-title"><a href="vae-latent-explorer/">VAE Latent-Space Explorer</a></h2>
-        <p class="simple-article-summary">Slide the KL weight β from 0 (plain autoencoder) to 10 (strong VAE). Watch the 2D latent space of a toy dataset collapse from scattered clumps into a clean unit-Gaussian disc — and watch the reconstruction quality trade off as the prior tightens. The exact knob from β-VAE, visible live.</p>
-        <div class="simple-article-footer">
-          <a class="simple-article-link" href="vae-latent-explorer/">Read interactive explainer &rarr;</a>
-        </div>
-      </article>
-    
-
-      <article class="simple-article-row">
-        <div class="simple-article-header">
-          <span class="simple-article-meta">Apr 18, 2026 &middot; Deep learning &middot; 9 min</span>
-          <span class="simple-article-difficulty">Intermediate</span>
-        </div>
-        <h2 class="simple-article-title"><a href="diffusion-denoise/">Diffusion · Forward Noise &amp;amp; Reverse Denoise</a></h2>
-        <p class="simple-article-summary">DDPM corrupts data into noise over T steps and learns to reverse the corruption. Drag the timestep slider to see a 2D distribution (a spiral) dissolve into an isotropic Gaussian, then press &#39;reverse&#39; to watch it reassemble. The intuition behind Stable Diffusion, one step at a time.</p>
-        <div class="simple-article-footer">
-          <a class="simple-article-link" href="diffusion-denoise/">Read interactive explainer &rarr;</a>
-        </div>
-      </article>
-    
-
-      <article class="simple-article-row">
-        <div class="simple-article-header">
-          <span class="simple-article-meta">Apr 18, 2026 &middot; Deep learning &middot; 6 min</span>
-          <span class="simple-article-difficulty">Intermediate</span>
-        </div>
-        <h2 class="simple-article-title"><a href="cfg-scale-visualizer/">Classifier-Free Guidance Scale</a></h2>
-        <p class="simple-article-summary">Classifier-free guidance extrapolates between unconditional and conditional predictions. Slide the weight w from 0 (no guidance, unconditional) through 7 (Stable Diffusion default) to 30 (over-guided ringing). See the generated shape literally stretch toward the target — and break at high w.</p>
-        <div class="simple-article-footer">
-          <a class="simple-article-link" href="cfg-scale-visualizer/">Read interactive explainer &rarr;</a>
-        </div>
-      </article>
-    
-
-      <article class="simple-article-row">
-        <div class="simple-article-header">
-          <span class="simple-article-meta">Apr 18, 2026 &middot; Deep learning &middot; 12 min</span>
-          <span class="simple-article-difficulty">Intermediate</span>
-        </div>
-        <h2 class="simple-article-title"><a href="gan-minimax-dance/">Feeling GAN training through the forger-and-detective game</a></h2>
-        <p class="simple-article-summary">A pedagogical explainer on how GAN training actually works. You&#39;ll pick a target distribution, tune a manual discriminator with a slider, derive the optimal D*(x) by hand, click to see the generator&#39;s gradient arrow on a single sample, scrub training steps to watch the Nash equilibrium emerge, witness mode collapse on bimodal data, and close with why Wasserstein distance stabilised training in 2017.</p>
-        <div class="simple-article-footer">
-          <a class="simple-article-link" href="gan-minimax-dance/">Read interactive explainer &rarr;</a>
-        </div>
-      </article>
-    
-
-      <article class="simple-article-row">
-        <div class="simple-article-header">
-          <span class="simple-article-meta">Apr 15, 2026 &middot; Deep learning &middot; 14 min</span>
-          <span class="simple-article-difficulty">Intermediate</span>
-        </div>
-        <h2 class="simple-article-title"><a href="universal-approximation/">Watching a Neural Network Become Universal</a></h2>
-        <p class="simple-article-summary">Slide neurons in and out of a tiny network and watch it approximate a target curve live. Train an actual MLP in the browser to feel why one hidden layer can match any shape.</p>
-        <div class="simple-article-footer">
-          <a class="simple-article-link" href="universal-approximation/">Read interactive explainer &rarr;</a>
-        </div>
-      </article>
-    
-
-      <article class="simple-article-row">
-        <div class="simple-article-header">
-          <span class="simple-article-meta">Apr 12, 2026 &middot; Deep learning &middot; 15 min</span>
-          <span class="simple-article-difficulty">Intermediate</span>
-        </div>
-        <h2 class="simple-article-title"><a href="optimizer-race/">The Optimizer Race</a></h2>
-        <p class="simple-article-summary">Drop a starting point on any of four loss landscapes (ravine, saddle, plateau, Rosenbrock) and watch SGD, Momentum, and Adam race to the minimum with live step counters, loss scoreboards, and log-scale loss curves.</p>
-        <div class="simple-article-footer">
-          <a class="simple-article-link" href="optimizer-race/">Read interactive explainer &rarr;</a>
-        </div>
-      </article>
-    
-
-      <article class="simple-article-row">
-        <div class="simple-article-header">
-          <span class="simple-article-meta">Apr 4, 2026 &middot; Astronomy &middot; 8 min</span>
-          <span class="simple-article-difficulty">Ages 6+</span>
-        </div>
-        <h2 class="simple-article-title"><a href="moon-phases/">Why the Moon Changes Shape</a></h2>
-        <p class="simple-article-summary">A kid-friendly interactive explainer where you drag the Moon around Earth, watch the sunlight shift, learn the eight phase names, and test yourself with a simple moon game.</p>
-        <div class="simple-article-footer">
-          <a class="simple-article-link" href="moon-phases/">Read interactive explainer &rarr;</a>
-        </div>
-      </article>
-    
-
-      <article class="simple-article-row">
-        <div class="simple-article-header">
-          <span class="simple-article-meta">Apr 1, 2026 &middot; Probability and statistics &middot; 10 min</span>
-          <span class="simple-article-difficulty">Introductory</span>
-        </div>
-        <h2 class="simple-article-title"><a href="demystifying-p-values/">Feeling p-values through re-splitting</a></h2>
-        <p class="simple-article-summary">Start with two tiny samples, re-split the combined values in all possible ways, and see a p-value as an exact fraction instead of a mysterious ritual.</p>
-        <div class="simple-article-footer">
-          <a class="simple-article-link" href="demystifying-p-values/">Read interactive explainer &rarr;</a>
-        </div>
-      </article>
-    
-
-      <article class="simple-article-row">
-        <div class="simple-article-header">
-          <span class="simple-article-meta">Mar 28, 2026 &middot; Deep learning &middot; 12 min</span>
-          <span class="simple-article-difficulty">Intermediate</span>
-        </div>
-        <h2 class="simple-article-title"><a href="rag/">RAG, From Scratch</a></h2>
-        <p class="simple-article-summary">A step-by-step walkthrough that builds RAG from two things you already know: next-token prediction and k-nearest neighbours. Interactive 2D embeddings, live retrieval, prompt assembly, and examples across air quality, cooking, and history.</p>
-        <div class="simple-article-footer">
-          <a class="simple-article-link" href="rag/">Read interactive explainer &rarr;</a>
-        </div>
-      </article>
-    
-
-      <article class="simple-article-row">
-        <div class="simple-article-header">
-          <span class="simple-article-meta">Mar 22, 2026 &middot; Deep learning &middot; 15 min</span>
-          <span class="simple-article-difficulty">Intermediate</span>
-        </div>
-        <h2 class="simple-article-title"><a href="text-diffusion/">Text Diffusion, Tiny</a></h2>
-        <p class="simple-article-summary">A hands-on explainer that trains a discrete denoising diffusion model on Indian names in your browser, showing how iterative unmasking generates text without predicting one token at a time.</p>
-        <div class="simple-article-footer">
-          <a class="simple-article-link" href="text-diffusion/">Read interactive explainer &rarr;</a>
-        </div>
-      </article>
-    
-
-      <article class="simple-article-row">
-        <div class="simple-article-header">
-          <span class="simple-article-meta">Mar 15, 2026 &middot; Probability and statistics &middot; 24 min</span>
-          <span class="simple-article-difficulty">Intermediate</span>
-        </div>
-        <h2 class="simple-article-title"><a href="multivariate-normal/">Seeing the Multivariate Normal</a></h2>
-        <p class="simple-article-summary">A narrative explainer that starts with the ordinary bell curve, then builds a 2D Gaussian through examples, sampling, parameter learning, marginals, and conditional slices.</p>
-        <div class="simple-article-footer">
-          <a class="simple-article-link" href="multivariate-normal/">Read interactive explainer &rarr;</a>
-        </div>
-      </article>
-    
-
-      <article class="simple-article-row">
-        <div class="simple-article-header">
-          <span class="simple-article-meta">Mar 10, 2026 &middot; Deep learning &middot; 20 min</span>
-          <span class="simple-article-difficulty">Intermediate</span>
-        </div>
-        <h2 class="simple-article-title"><a href="autograd/">Autograd, Seen</a></h2>
-        <p class="simple-article-summary">A visual explainer for automatic differentiation that first distinguishes autodiff from finite differences and symbolic algebra, then walks a single computation graph forward and backward before showing modules and mini-batch training.</p>
-        <div class="simple-article-footer">
-          <a class="simple-article-link" href="autograd/">Read interactive explainer &rarr;</a>
-        </div>
-      </article>
-    
-      </div>
       
+      <section class="ix-collection">
+        <h2 class="ix-collection-title">Deep learning <span class="ix-collection-count">34</span></h2>
+        <ul class="ix-list">
+          
+      <li class="ix-row">
+        <a class="ix-row-link" href="quantize-prune/">
+          <span class="ix-row-title">Quantization &amp; Pruning, Side by Side</span>
+          <span class="ix-row-tag">Shrink a model to int8 / int4 / sparse — and see exactly when accuracy falls off the cliff</span>
+          <span class="ix-row-meta">
+            <span>18 min</span>
+            <span class="ix-row-date">May 11, 2026</span>
+          </span>
+        </a>
+      </li>
+    
+      <li class="ix-row">
+        <a class="ix-row-link" href="in-context-learning/">
+          <span class="ix-row-title">In-Context Learning, From the Inside</span>
+          <span class="ix-row-tag">Why a frozen Transformer learns a new task from a few examples in its prompt</span>
+          <span class="ix-row-meta">
+            <span>20 min</span>
+            <span class="ix-row-date">May 11, 2026</span>
+          </span>
+        </a>
+      </li>
+    
+      <li class="ix-row">
+        <a class="ix-row-link" href="domain-adaptation/">
+          <span class="ix-row-title">Domain Shift, Adapted</span>
+          <span class="ix-row-tag">When the training distribution and the deployment distribution disagree — and what to do about it</span>
+          <span class="ix-row-meta">
+            <span>16 min</span>
+            <span class="ix-row-date">May 10, 2026</span>
+          </span>
+        </a>
+      </li>
+    
+      <li class="ix-row">
+        <a class="ix-row-link" href="gnn/">
+          <span class="ix-row-title">Graph Neural Networks, Step by Step</span>
+          <span class="ix-row-tag">Message passing on a sensor-network graph — every round, watch the signal spread</span>
+          <span class="ix-row-meta">
+            <span>16 min</span>
+            <span class="ix-row-date">May 10, 2026</span>
+          </span>
+        </a>
+      </li>
+    
+      <li class="ix-row">
+        <a class="ix-row-link" href="mamba/">
+          <span class="ix-row-title">Mamba &amp; State-Space Models, Visualised</span>
+          <span class="ix-row-tag">An RNN that scales linearly with sequence length — and beats attention on long contexts</span>
+          <span class="ix-row-meta">
+            <span>18 min</span>
+            <span class="ix-row-date">May 10, 2026</span>
+          </span>
+        </a>
+      </li>
+    
+      <li class="ix-row">
+        <a class="ix-row-link" href="optimizers-beyond/">
+          <span class="ix-row-title">Beyond Gradient Descent</span>
+          <span class="ix-row-tag">Newton, BFGS, natural gradient, evolutionary, gradient-free — five non-SGD ideas, live on a 2D loss</span>
+          <span class="ix-row-meta">
+            <span>16 min</span>
+            <span class="ix-row-date">May 10, 2026</span>
+          </span>
+        </a>
+      </li>
+    
+      <li class="ix-row">
+        <a class="ix-row-link" href="double-descent/">
+          <span class="ix-row-title">Double Descent, Made Concrete</span>
+          <span class="ix-row-tag">More parameters than data points should overfit. They sometimes generalize better instead.</span>
+          <span class="ix-row-meta">
+            <span>14 min</span>
+            <span class="ix-row-date">May 10, 2026</span>
+          </span>
+        </a>
+      </li>
+    
+      <li class="ix-row">
+        <a class="ix-row-link" href="attention/">
+          <span class="ix-row-title">Attention, Calculated</span>
+          <span class="ix-row-tag">From the Q/K/V projections to a tiny attention head trained live in your browser</span>
+          <span class="ix-row-meta">
+            <span>30 min</span>
+            <span class="ix-row-date">May 9, 2026</span>
+          </span>
+        </a>
+      </li>
+    
+      <li class="ix-row">
+        <a class="ix-row-link" href="knowledge-distillation/">
+          <span class="ix-row-title">Knowledge Distillation, Live</span>
+          <span class="ix-row-tag">A small student copies a big teacher&#39;s softened predictions — and beats hard-label training</span>
+          <span class="ix-row-meta">
+            <span>18 min</span>
+            <span class="ix-row-date">May 9, 2026</span>
+          </span>
+        </a>
+      </li>
+    
+      <li class="ix-row">
+        <a class="ix-row-link" href="resnet/">
+          <span class="ix-row-title">Residual Connections, Why They Work</span>
+          <span class="ix-row-tag">Watch a 50-layer net die without skips, then heal in one click</span>
+          <span class="ix-row-meta">
+            <span>20 min</span>
+            <span class="ix-row-date">May 9, 2026</span>
+          </span>
+        </a>
+      </li>
+    
+      <li class="ix-row">
+        <a class="ix-row-link" href="unet/">
+          <span class="ix-row-title">U-Net, Section by Section</span>
+          <span class="ix-row-tag">Why the same architecture wins at biomedical segmentation, satellite parsing, and modern diffusion</span>
+          <span class="ix-row-meta">
+            <span>18 min</span>
+            <span class="ix-row-date">May 9, 2026</span>
+          </span>
+        </a>
+      </li>
+    
+      <li class="ix-row">
+        <a class="ix-row-link" href="mixture-of-experts/">
+          <span class="ix-row-title">Mixture of Experts, Live</span>
+          <span class="ix-row-tag">Why Mixtral and DeepSeek-MoE scale parameters without scaling compute</span>
+          <span class="ix-row-meta">
+            <span>18 min</span>
+            <span class="ix-row-date">May 9, 2026</span>
+          </span>
+        </a>
+      </li>
+    
+      <li class="ix-row">
+        <a class="ix-row-link" href="vision-transformer/">
+          <span class="ix-row-title">Vision Transformers, on Real Photos</span>
+          <span class="ix-row-tag">Patches, positions, self-attention, and multi-layer rollout — all computed over real pretrained features</span>
+          <span class="ix-row-meta">
+            <span>22 min</span>
+            <span class="ix-row-date">May 9, 2026</span>
+          </span>
+        </a>
+      </li>
+    
+      <li class="ix-row">
+        <a class="ix-row-link" href="clip-zero-shot/">
+          <span class="ix-row-title">CLIP, Zero-Shot, from the Embeddings Up</span>
+          <span class="ix-row-tag">Type any labels, see real cosine similarities from a real CLIP model</span>
+          <span class="ix-row-meta">
+            <span>18 min</span>
+            <span class="ix-row-date">May 7, 2026</span>
+          </span>
+        </a>
+      </li>
+    
+      <li class="ix-row">
+        <a class="ix-row-link" href="convolution-visualizer/">
+          <span class="ix-row-title">Convolution, Step by Step</span>
+          <span class="ix-row-tag">Watch a kernel slide across an image, one dot product at a time</span>
+          <span class="ix-row-meta">
+            <span>8 min</span>
+            <span class="ix-row-date">Apr 28, 2026</span>
+          </span>
+        </a>
+      </li>
+    
+      <li class="ix-row">
+        <a class="ix-row-link" href="vanishing-gradients/">
+          <span class="ix-row-title">Vanishing Gradient Playground</span>
+          <span class="ix-row-tag">Watch gradients decay — or survive — through deep networks</span>
+          <span class="ix-row-meta">
+            <span>6 min</span>
+            <span class="ix-row-date">Apr 25, 2026</span>
+          </span>
+        </a>
+      </li>
+    
+      <li class="ix-row">
+        <a class="ix-row-link" href="numerical-tricks/">
+          <span class="ix-row-title">Numerical Tricks of the Trade</span>
+          <span class="ix-row-tag">Log-sum-exp, log-softmax, BCE-with-logits, and the fixes that keep floating point honest</span>
+          <span class="ix-row-meta">
+            <span>14 min</span>
+            <span class="ix-row-date">Apr 22, 2026</span>
+          </span>
+        </a>
+      </li>
+    
+      <li class="ix-row">
+        <a class="ix-row-link" href="softmax-temperature/">
+          <span class="ix-row-title">Softmax &amp; Temperature</span>
+          <span class="ix-row-tag">How temperature reshapes a probability distribution — and samples from it</span>
+          <span class="ix-row-meta">
+            <span>12 min</span>
+            <span class="ix-row-date">Apr 20, 2026</span>
+          </span>
+        </a>
+      </li>
+    
+      <li class="ix-row">
+        <a class="ix-row-link" href="dropout-playground/">
+          <span class="ix-row-title">Dropout Playground</span>
+          <span class="ix-row-tag">Feel why silencing neurons regularizes — live masks, p-slider, ensemble view</span>
+          <span class="ix-row-meta">
+            <span>8 min</span>
+            <span class="ix-row-date">Apr 18, 2026</span>
+          </span>
+        </a>
+      </li>
+    
+      <li class="ix-row">
+        <a class="ix-row-link" href="receptive-field-grower/">
+          <span class="ix-row-title">Receptive Field Grower</span>
+          <span class="ix-row-tag">Stack convolutions, watch the reach of a deep feature spread</span>
+          <span class="ix-row-meta">
+            <span>7 min</span>
+            <span class="ix-row-date">Apr 18, 2026</span>
+          </span>
+        </a>
+      </li>
+    
+      <li class="ix-row">
+        <a class="ix-row-link" href="lr-schedule-visualizer/">
+          <span class="ix-row-title">LR Schedule Visualizer</span>
+          <span class="ix-row-tag">Feel why Transformers need warmup — sliders for every schedule</span>
+          <span class="ix-row-meta">
+            <span>6 min</span>
+            <span class="ix-row-date">Apr 18, 2026</span>
+          </span>
+        </a>
+      </li>
+    
+      <li class="ix-row">
+        <a class="ix-row-link" href="lstm-gates/">
+          <span class="ix-row-title">LSTM Gates Playground</span>
+          <span class="ix-row-tag">Drag the forget/input/output gates, watch the cell state flow</span>
+          <span class="ix-row-meta">
+            <span>8 min</span>
+            <span class="ix-row-date">Apr 18, 2026</span>
+          </span>
+        </a>
+      </li>
+    
+      <li class="ix-row">
+        <a class="ix-row-link" href="seq2seq-bottleneck/">
+          <span class="ix-row-title">The Seq2Seq Bottleneck</span>
+          <span class="ix-row-tag">Watch translation quality collapse as source sentences grow</span>
+          <span class="ix-row-meta">
+            <span>7 min</span>
+            <span class="ix-row-date">Apr 18, 2026</span>
+          </span>
+        </a>
+      </li>
+    
+      <li class="ix-row">
+        <a class="ix-row-link" href="bpe-merges/">
+          <span class="ix-row-title">BPE Tokenizer Step by Step</span>
+          <span class="ix-row-tag">Watch a tokenizer grow its vocabulary, merge by merge</span>
+          <span class="ix-row-meta">
+            <span>10 min</span>
+            <span class="ix-row-date">Apr 18, 2026</span>
+          </span>
+        </a>
+      </li>
+    
+      <li class="ix-row">
+        <a class="ix-row-link" href="lora-adapter/">
+          <span class="ix-row-title">LoRA · Low-Rank Adapter Playground</span>
+          <span class="ix-row-tag">Slide the rank, watch trainable parameters shrink 500×</span>
+          <span class="ix-row-meta">
+            <span>7 min</span>
+            <span class="ix-row-date">Apr 18, 2026</span>
+          </span>
+        </a>
+      </li>
+    
+      <li class="ix-row">
+        <a class="ix-row-link" href="vae-latent-explorer/">
+          <span class="ix-row-title">VAE Latent-Space Explorer</span>
+          <span class="ix-row-tag">See the KL penalty straighten out a noisy 2D latent space</span>
+          <span class="ix-row-meta">
+            <span>8 min</span>
+            <span class="ix-row-date">Apr 18, 2026</span>
+          </span>
+        </a>
+      </li>
+    
+      <li class="ix-row">
+        <a class="ix-row-link" href="diffusion-denoise/">
+          <span class="ix-row-title">Diffusion · Forward Noise &amp;amp; Reverse Denoise</span>
+          <span class="ix-row-tag">Watch a 2D shape dissolve into Gaussian noise and reassemble itself</span>
+          <span class="ix-row-meta">
+            <span>9 min</span>
+            <span class="ix-row-date">Apr 18, 2026</span>
+          </span>
+        </a>
+      </li>
+    
+      <li class="ix-row">
+        <a class="ix-row-link" href="cfg-scale-visualizer/">
+          <span class="ix-row-title">Classifier-Free Guidance Scale</span>
+          <span class="ix-row-tag">Slide the guidance weight w, watch the generated shape stretch toward the prompt</span>
+          <span class="ix-row-meta">
+            <span>6 min</span>
+            <span class="ix-row-date">Apr 18, 2026</span>
+          </span>
+        </a>
+      </li>
+    
+      <li class="ix-row">
+        <a class="ix-row-link" href="gan-minimax-dance/">
+          <span class="ix-row-title">Feeling GAN training through the forger-and-detective game</span>
+          <span class="ix-row-tag">Walk through seven steps of the adversarial game &amp;mdash; manual discriminator, optimal D*, generator gradi</span>
+          <span class="ix-row-meta">
+            <span>12 min</span>
+            <span class="ix-row-date">Apr 18, 2026</span>
+          </span>
+        </a>
+      </li>
+    
+      <li class="ix-row">
+        <a class="ix-row-link" href="universal-approximation/">
+          <span class="ix-row-title">Watching a Neural Network Become Universal</span>
+          <span class="ix-row-tag">Build any function by stacking simple bumps</span>
+          <span class="ix-row-meta">
+            <span>14 min</span>
+            <span class="ix-row-date">Apr 15, 2026</span>
+          </span>
+        </a>
+      </li>
+    
+      <li class="ix-row">
+        <a class="ix-row-link" href="optimizer-race/">
+          <span class="ix-row-title">The Optimizer Race</span>
+          <span class="ix-row-tag">Why we use Adam instead of pure Gradient Descent</span>
+          <span class="ix-row-meta">
+            <span>15 min</span>
+            <span class="ix-row-date">Apr 12, 2026</span>
+          </span>
+        </a>
+      </li>
+    
+      <li class="ix-row">
+        <a class="ix-row-link" href="rag/">
+          <span class="ix-row-title">RAG, From Scratch</span>
+          <span class="ix-row-tag">Retrieve neighbours, condition the LM — how retrieval-augmented generation actually works</span>
+          <span class="ix-row-meta">
+            <span>12 min</span>
+            <span class="ix-row-date">Mar 28, 2026</span>
+          </span>
+        </a>
+      </li>
+    
+      <li class="ix-row">
+        <a class="ix-row-link" href="text-diffusion/">
+          <span class="ix-row-title">Text Diffusion, Tiny</span>
+          <span class="ix-row-tag">Mask, predict, reveal — how diffusion generates text without going left to right</span>
+          <span class="ix-row-meta">
+            <span>15 min</span>
+            <span class="ix-row-date">Mar 22, 2026</span>
+          </span>
+        </a>
+      </li>
+    
+      <li class="ix-row">
+        <a class="ix-row-link" href="autograd/">
+          <span class="ix-row-title">Autograd, Seen</span>
+          <span class="ix-row-tag">What autodiff is, what it is not, and how gradients move through a graph</span>
+          <span class="ix-row-meta">
+            <span>20 min</span>
+            <span class="ix-row-date">Mar 10, 2026</span>
+          </span>
+        </a>
+      </li>
+    
+        </ul>
+      </section>
+    
+
+      <section class="ix-collection">
+        <h2 class="ix-collection-title">Computer Vision <span class="ix-collection-count">6</span></h2>
+        <ul class="ix-list">
+          
+      <li class="ix-row">
+        <a class="ix-row-link" href="perceptual-metrics/">
+          <span class="ix-row-title">Perceptual Quality, Pixel by Pixel</span>
+          <span class="ix-row-tag">PSNR, SSIM, MS-SSIM, LPIPS — same images, four numbers, often contradictory</span>
+          <span class="ix-row-meta">
+            <span>18 min</span>
+            <span class="ix-row-date">May 22, 2026</span>
+          </span>
+        </a>
+      </li>
+    
+      <li class="ix-row">
+        <a class="ix-row-link" href="equivariant-networks/">
+          <span class="ix-row-title">Equivariant Networks, Live</span>
+          <span class="ix-row-tag">Rotate the input — the right architecture rotates the output too. Vanilla CNNs don&#39;t.</span>
+          <span class="ix-row-meta">
+            <span>16 min</span>
+            <span class="ix-row-date">May 11, 2026</span>
+          </span>
+        </a>
+      </li>
+    
+      <li class="ix-row">
+        <a class="ix-row-link" href="saliency/">
+          <span class="ix-row-title">Saliency, Side by Side</span>
+          <span class="ix-row-tag">Which pixels does your classifier actually use? Four attribution methods, one image</span>
+          <span class="ix-row-meta">
+            <span>16 min</span>
+            <span class="ix-row-date">May 10, 2026</span>
+          </span>
+        </a>
+      </li>
+    
+      <li class="ix-row">
+        <a class="ix-row-link" href="concept-bottleneck/">
+          <span class="ix-row-title">Concept Bottleneck Models</span>
+          <span class="ix-row-tag">Make the model predict human-named concepts first, then read off the label — and intervene if it&#39;s wrong</span>
+          <span class="ix-row-meta">
+            <span>14 min</span>
+            <span class="ix-row-date">May 10, 2026</span>
+          </span>
+        </a>
+      </li>
+    
+      <li class="ix-row">
+        <a class="ix-row-link" href="eo-foundation-models/">
+          <span class="ix-row-title">Earth-Observation Foundation Models, in Depth</span>
+          <span class="ix-row-tag">Why satellite-pretrained backbones are different — modalities, recipes, downstream evaluation, and the 2026 mo</span>
+          <span class="ix-row-meta">
+            <span>30 min</span>
+            <span class="ix-row-date">May 10, 2026</span>
+          </span>
+        </a>
+      </li>
+    
+      <li class="ix-row">
+        <a class="ix-row-link" href="vision-ssl/">
+          <span class="ix-row-title">Vision Pretraining, Without Labels</span>
+          <span class="ix-row-tag">Mask 75% of an image, predict the rest — and four cousin recipes that all work</span>
+          <span class="ix-row-meta">
+            <span>20 min</span>
+            <span class="ix-row-date">May 9, 2026</span>
+          </span>
+        </a>
+      </li>
+    
+        </ul>
+      </section>
+    
+
+      <section class="ix-collection">
+        <h2 class="ix-collection-title">Multimodal <span class="ix-collection-count">1</span></h2>
+        <ul class="ix-list">
+          
+      <li class="ix-row">
+        <a class="ix-row-link" href="vlm/">
+          <span class="ix-row-title">Vision-Language Models, End to End</span>
+          <span class="ix-row-tag">From CLIP-style alignment to instruction tuning — the full VLM training stack with a live mini-CLIP</span>
+          <span class="ix-row-meta">
+            <span>22 min</span>
+            <span class="ix-row-date">May 9, 2026</span>
+          </span>
+        </a>
+      </li>
+    
+        </ul>
+      </section>
+    
+
+      <section class="ix-collection">
+        <h2 class="ix-collection-title">Probability &amp; inference <span class="ix-collection-count">9</span></h2>
+        <ul class="ix-list">
+          
+      <li class="ix-row">
+        <a class="ix-row-link" href="prob-programming/">
+          <span class="ix-row-title">Probabilistic Programming, in Practice</span>
+          <span class="ix-row-tag">PyMC / NumPyro / Stan are the same idea — declare a model, hand it to an inference engine</span>
+          <span class="ix-row-meta">
+            <span>20 min</span>
+            <span class="ix-row-date">May 11, 2026</span>
+          </span>
+        </a>
+      </li>
+    
+      <li class="ix-row">
+        <a class="ix-row-link" href="calibration/">
+          <span class="ix-row-title">Calibration &amp; Reliability Diagrams</span>
+          <span class="ix-row-tag">Why a softmax of 0.97 doesn&#39;t mean 97% — and the one-parameter fix that often heals it</span>
+          <span class="ix-row-meta">
+            <span>15 min</span>
+            <span class="ix-row-date">May 10, 2026</span>
+          </span>
+        </a>
+      </li>
+    
+      <li class="ix-row">
+        <a class="ix-row-link" href="kernel-methods/">
+          <span class="ix-row-title">Kernel Methods, and Why DL Cares</span>
+          <span class="ix-row-tag">From SVM kernels to the Neural Tangent Kernel — the through-line that connects classical ML to deep nets</span>
+          <span class="ix-row-meta">
+            <span>20 min</span>
+            <span class="ix-row-date">May 10, 2026</span>
+          </span>
+        </a>
+      </li>
+    
+      <li class="ix-row">
+        <a class="ix-row-link" href="bayesian-posterior/">
+          <span class="ix-row-title">The Posterior, Built Up</span>
+          <span class="ix-row-tag">Prior × likelihood = posterior — eight live experiments that turn Bayesian inference from a formula into a fee</span>
+          <span class="ix-row-meta">
+            <span>25 min</span>
+            <span class="ix-row-date">May 9, 2026</span>
+          </span>
+        </a>
+      </li>
+    
+      <li class="ix-row">
+        <a class="ix-row-link" href="info-theory/">
+          <span class="ix-row-title">Information Theory for ML, by Hand</span>
+          <span class="ix-row-tag">Entropy, cross-entropy, KL divergence and mutual information made visible — every quantity recomputed live as </span>
+          <span class="ix-row-meta">
+            <span>20 min</span>
+            <span class="ix-row-date">May 9, 2026</span>
+          </span>
+        </a>
+      </li>
+    
+      <li class="ix-row">
+        <a class="ix-row-link" href="active-learning/">
+          <span class="ix-row-title">Active Learning, Picked Live</span>
+          <span class="ix-row-tag">Spend your labelling budget on the points the model already finds confusing</span>
+          <span class="ix-row-meta">
+            <span>16 min</span>
+            <span class="ix-row-date">May 9, 2026</span>
+          </span>
+        </a>
+      </li>
+    
+      <li class="ix-row">
+        <a class="ix-row-link" href="bayes-opt/">
+          <span class="ix-row-title">Bayesian Optimization, Step by Step</span>
+          <span class="ix-row-tag">Optimise an expensive black-box function in 10 evaluations — and watch the surrogate update</span>
+          <span class="ix-row-meta">
+            <span>20 min</span>
+            <span class="ix-row-date">May 9, 2026</span>
+          </span>
+        </a>
+      </li>
+    
+      <li class="ix-row">
+        <a class="ix-row-link" href="neural-processes/">
+          <span class="ix-row-title">Neural Processes, Live</span>
+          <span class="ix-row-tag">A neural net that learns &#39;priors over functions&#39; the way a Gaussian process does — but amortised</span>
+          <span class="ix-row-meta">
+            <span>20 min</span>
+            <span class="ix-row-date">May 9, 2026</span>
+          </span>
+        </a>
+      </li>
+    
+      <li class="ix-row">
+        <a class="ix-row-link" href="conformal/">
+          <span class="ix-row-title">Conformal Prediction, by Hand</span>
+          <span class="ix-row-tag">Prediction intervals with a coverage guarantee — assumption-free, and one quantile away</span>
+          <span class="ix-row-meta">
+            <span>18 min</span>
+            <span class="ix-row-date">May 9, 2026</span>
+          </span>
+        </a>
+      </li>
+    
+        </ul>
+      </section>
+    
+
+      <section class="ix-collection">
+        <h2 class="ix-collection-title">Time series <span class="ix-collection-count">1</span></h2>
+        <ul class="ix-list">
+          
+      <li class="ix-row">
+        <a class="ix-row-link" href="ts-transformer/">
+          <span class="ix-row-title">Time-Series Transformers, Patched</span>
+          <span class="ix-row-tag">Why PatchTST cuts a sequence into ViT-style patches and finally beats LSTMs</span>
+          <span class="ix-row-meta">
+            <span>20 min</span>
+            <span class="ix-row-date">May 9, 2026</span>
+          </span>
+        </a>
+      </li>
+    
+        </ul>
+      </section>
+    
+
+      <section class="ix-collection">
+        <h2 class="ix-collection-title">Astronomy <span class="ix-collection-count">1</span></h2>
+        <ul class="ix-list">
+          
+      <li class="ix-row">
+        <a class="ix-row-link" href="moon-phases/">
+          <span class="ix-row-title">Why the Moon Changes Shape</span>
+          <span class="ix-row-tag">A playful, visual guide to new moons, crescents, quarters, and full moons</span>
+          <span class="ix-row-meta">
+            <span>8 min</span>
+            <span class="ix-row-date">Apr 4, 2026</span>
+          </span>
+        </a>
+      </li>
+    
+        </ul>
+      </section>
+    
+
+      <section class="ix-collection">
+        <h2 class="ix-collection-title">Classical ML <span class="ix-collection-count">3</span></h2>
+        <ul class="ix-list">
+          
+      <li class="ix-row">
+        <a class="ix-row-link" href="random-forest/">
+          <span class="ix-row-title">Random Forests, Tree by Tree</span>
+          <span class="ix-row-tag">Bagging + random feature sampling — why a forest of weak trees beats a strong one</span>
+          <span class="ix-row-meta">
+            <span>16 min</span>
+            <span class="ix-row-date">May 11, 2026</span>
+          </span>
+        </a>
+      </li>
+    
+      <li class="ix-row">
+        <a class="ix-row-link" href="decision-trees/">
+          <span class="ix-row-title">Decision Trees, Live</span>
+          <span class="ix-row-tag">Watch a CART tree split a 2-D plane axis-aligned, slice by slice — and see exactly when it overfits</span>
+          <span class="ix-row-meta">
+            <span>16 min</span>
+            <span class="ix-row-date">May 10, 2026</span>
+          </span>
+        </a>
+      </li>
+    
+      <li class="ix-row">
+        <a class="ix-row-link" href="xgboost/">
+          <span class="ix-row-title">XGBoost, Tree by Tree</span>
+          <span class="ix-row-tag">Each new tree fits the residual of the last — watch the regression curve land, click by click</span>
+          <span class="ix-row-meta">
+            <span>18 min</span>
+            <span class="ix-row-date">May 10, 2026</span>
+          </span>
+        </a>
+      </li>
+    
+        </ul>
+      </section>
+    
+
+      <section class="ix-collection">
+        <h2 class="ix-collection-title">Computer vision <span class="ix-collection-count">3</span></h2>
+        <ul class="ix-list">
+          
+      <li class="ix-row">
+        <a class="ix-row-link" href="optical-flow/">
+          <span class="ix-row-title">Optical Flow, Frame by Frame</span>
+          <span class="ix-row-tag">Watch real Lucas-Kanade and dense flow compute live on a sports clip</span>
+          <span class="ix-row-meta">
+            <span>16 min</span>
+            <span class="ix-row-date">May 5, 2026</span>
+          </span>
+        </a>
+      </li>
+    
+      <li class="ix-row">
+        <a class="ix-row-link" href="image-segmentation/">
+          <span class="ix-row-title">Image Segmentation, with a Real Segmenter</span>
+          <span class="ix-row-tag">Upload a photo, run a real DeepLab model, and grade your own mask against it</span>
+          <span class="ix-row-meta">
+            <span>15 min</span>
+            <span class="ix-row-date">May 3, 2026</span>
+          </span>
+        </a>
+      </li>
+    
+      <li class="ix-row">
+        <a class="ix-row-link" href="object-detection/">
+          <span class="ix-row-title">Object Detection, with a Real Detector</span>
+          <span class="ix-row-tag">Upload any photo, run a real COCO-SSD model live, and inspect every decision</span>
+          <span class="ix-row-meta">
+            <span>16 min</span>
+            <span class="ix-row-date">May 1, 2026</span>
+          </span>
+        </a>
+      </li>
+    
+        </ul>
+      </section>
+    
+
+      <section class="ix-collection">
+        <h2 class="ix-collection-title">Data structures <span class="ix-collection-count">1</span></h2>
+        <ul class="ix-list">
+          
+      <li class="ix-row">
+        <a class="ix-row-link" href="trees/">
+          <span class="ix-row-title">Trees, Branch by Branch</span>
+          <span class="ix-row-tag">BSTs, heaps, traversals — build them, query them, watch them sift up and down</span>
+          <span class="ix-row-meta">
+            <span>16 min</span>
+            <span class="ix-row-date">May 22, 2026</span>
+          </span>
+        </a>
+      </li>
+    
+        </ul>
+      </section>
+    
+
+      <section class="ix-collection">
+        <h2 class="ix-collection-title">Distributed ML <span class="ix-collection-count">1</span></h2>
+        <ul class="ix-list">
+          
+      <li class="ix-row">
+        <a class="ix-row-link" href="federated-learning/">
+          <span class="ix-row-title">Federated Learning, Round by Round</span>
+          <span class="ix-row-tag">Train a model across clients that never share data — and watch non-IID drift wreck FedAvg</span>
+          <span class="ix-row-meta">
+            <span>20 min</span>
+            <span class="ix-row-date">May 11, 2026</span>
+          </span>
+        </a>
+      </li>
+    
+        </ul>
+      </section>
+    
+
+      <section class="ix-collection">
+        <h2 class="ix-collection-title">Probability and statistics <span class="ix-collection-count">2</span></h2>
+        <ul class="ix-list">
+          
+      <li class="ix-row">
+        <a class="ix-row-link" href="demystifying-p-values/">
+          <span class="ix-row-title">Feeling p-values through re-splitting</span>
+          <span class="ix-row-tag">A tiny interactive for exact p-values with 10 numbers</span>
+          <span class="ix-row-meta">
+            <span>10 min</span>
+            <span class="ix-row-date">Apr 1, 2026</span>
+          </span>
+        </a>
+      </li>
+    
+      <li class="ix-row">
+        <a class="ix-row-link" href="multivariate-normal/">
+          <span class="ix-row-title">Seeing the Multivariate Normal</span>
+          <span class="ix-row-tag">From one bell curve to clouds, marginals, and slices</span>
+          <span class="ix-row-meta">
+            <span>24 min</span>
+            <span class="ix-row-date">Mar 15, 2026</span>
+          </span>
+        </a>
+      </li>
+    
+        </ul>
+      </section>
+    
+
       <footer class="simple-footer">
         <p>Interactive explainers designed to be manipulated, not skimmed as static notes.</p>
       </footer>
