@@ -1147,6 +1147,27 @@ function drawConditionalStage() {
       ${formatFixed(info.shrinkFactor)}`,
     false
   );
+  // Append a quantitative variance-reduction readout so "shrinkage" becomes
+  // a percentage students can quote.
+  if (!elements.varianceReduction) {
+    const figcap = elements.shrinkageFormula.parentElement;
+    if (figcap) {
+      const span = document.createElement('span');
+      span.className = 'readout readout--reduction';
+      span.id = 'varianceReduction';
+      figcap.appendChild(span);
+      elements.varianceReduction = span;
+    }
+  }
+  if (elements.varianceReduction) {
+    const rho2 = twoDState.rho * twoDState.rho;
+    const varMarginal = twoDState.sigmaY ** 2;
+    const varConditional = (1 - rho2) * varMarginal;
+    const percentReduction = (rho2 * 100).toFixed(1);
+    elements.varianceReduction.innerHTML =
+      `Var(Y) = ${formatFixed(varMarginal)} &rarr; Var(Y&thinsp;|&thinsp;X) = ${formatFixed(varConditional)} ` +
+      `&nbsp;(${percentReduction}% of Y&rsquo;s variance is explained by observing X)`;
+  }
   elements.jointSummary.textContent = Math.abs(twoDState.rho) < 0.05
     ? 'With almost zero correlation, the conditionals nearly sit on top of the marginals.'
     : `At rho = ${formatFixed(twoDState.rho)}, both conditionals are narrower than their marginals by the same factor, and their means slide linearly with the slice lines.`;

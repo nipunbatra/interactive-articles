@@ -632,6 +632,59 @@
         </div>
       </section>
 
+      <!-- ===== VI½. MISCONCEPTIONS ===== -->
+      <section id="misconceptions" data-nav="Myths">
+        <h2><span class="num">VI&frac12;.</span> Three myths students consistently fall for</h2>
+        <p>
+          The Gaussian is so well-behaved that students often generalise its properties to
+          probability at large. Three of those generalisations are wrong; here is the
+          short corrective.
+        </p>
+
+        <div class="misconception">
+          <div class="m-q">Myth 1 — Uncorrelated means independent</div>
+          <p class="m-text">
+            <strong>True only for jointly Gaussian variables.</strong> For other distributions,
+            zero correlation just means no <em>linear</em> relationship. Take Y = X<sup>2</sup>
+            with X &sim; N(0,1): cov(X, Y) = E[X<sup>3</sup>] = 0, but Y is a deterministic
+            function of X — the dependence is total. The Gaussian is special: for it, and only
+            for it, zero correlation forces independence.
+          </p>
+        </div>
+
+        <div class="misconception">
+          <div class="m-q">Myth 2 — Marginals determine the joint</div>
+          <p class="m-text">
+            <strong>The marginals are not enough; you also need the covariance.</strong> A
+            joint Gaussian with &rho; = 0.8 and one with &rho; = &minus;0.8 have <em>identical</em>
+            marginal distributions of X and of Y. The marginals are projections (shadows)
+            of the joint onto each axis; the shadow loses all information about <em>how</em>
+            the two variables co-vary. This is why we cannot recover a 2D distribution from
+            two 1D histograms.
+          </p>
+        </div>
+
+        <div class="misconception">
+          <div class="m-q">Myth 3 — Conditioning always reduces uncertainty</div>
+          <p class="m-text">
+            <strong>True for Gaussians (and many well-behaved distributions); not a universal law.</strong>
+            For a bivariate normal, conditional variance &le; marginal variance always —
+            it is exactly (1 &minus; &rho;<sup>2</sup>)&sigma;<sup>2</sup>. But in general
+            probability, conditioning on a variable can <em>increase</em> the variance of
+            another (Simpson&rsquo;s paradox is the headline example). Don&rsquo;t carry
+            the Gaussian intuition into non-Gaussian settings unchecked.
+          </p>
+        </div>
+
+        <p>
+          Each of these is worth remembering by name, because each one corresponds to a
+          real bug students introduce when modelling. The first two motivate the
+          covariance matrix (the joint structure is not redundant with the marginals).
+          The third motivates careful reasoning whenever you condition on a non-Gaussian
+          covariate.
+        </p>
+      </section>
+
       <!-- ===== VII. TAKEAWAYS ===== -->
       <section id="takeaways" data-nav="Takeaways">
         <h2><span class="num">VII.</span> Summary and connections</h2>
