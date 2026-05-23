@@ -1,0 +1,18 @@
+{
+  "slug": "elbo-decomposition",
+  "title": "ELBO, Decomposed",
+  "date": "2026-05-23",
+  "tagline": "Reconstruction vs KL — see exactly what each term costs you.",
+  "summary": "The VAE objective is two terms: reconstruction NLL and KL to the prior. Train a tiny VAE on MNIST in the browser, watch the two bars race during training, slide β to favour one over the other. The classic β-VAE disentanglement vs reconstruction trade-off, made tactile.",
+  "readingTime": "12 min",
+  "difficulty": "Intermediate",
+  "collection": "Deep learning",
+  "order": 103,
+  "status": "draft",
+  "tags": ["VAE", "ELBO", "Beta-VAE", "Generative Models", "Interactive"],
+  "highlights": [
+    "Two live bars during training: reconstruction NLL and KL(q‖p).",
+    "Slide β from 0 (plain AE) through 1 (vanilla VAE) to 50 (high-disentanglement).",
+    "See the latent-space samples warp as β changes."
+  ]
+}

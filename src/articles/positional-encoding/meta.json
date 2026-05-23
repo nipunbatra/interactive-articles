@@ -1,0 +1,21 @@
+{
+  "slug": "positional-encoding",
+  "title": "Positional Encodings — Sinusoid, RoPE, ALiBi",
+  "date": "2026-05-23",
+  "tagline": "Attention is permutation-invariant. Three ways to break that symmetry — visualized.",
+  "summary": "Transformer attention has no notion of order: 'dog bites man' and 'man bites dog' would receive identical logits. Position has to be injected from outside. Three families have won — sinusoidal (added to embeddings), RoPE (rotated queries and keys), ALiBi (a linear penalty in the attention score). Each one is shown live: heatmap, dot-product similarity matrix, extrapolation curves out to 32k tokens.",
+  "readingTime": "16 min",
+  "difficulty": "Intermediate",
+  "collection": "Deep learning",
+  "order": 14,
+  "status": "published",
+  "tags": ["Transformer", "Positional Encoding", "RoPE", "ALiBi", "Long Context", "Interactive"],
+  "highlights": [
+    "Sinusoidal heatmap with live sliders for sequence length and d_model — see the frequency bands at every dimension.",
+    "Dot-product similarity matrix between every pair of positions; watch the diagonal sharpen as |i − j| grows.",
+    "RoPE as a 2D rotation: drag a position, see q and k rotate by an angle proportional to position; the resulting dot product depends only on relative offset.",
+    "ALiBi linear-bias matrix overlaid on attention; pick a head, watch its slope decide how strongly it penalises distance.",
+    "Extrapolation panel: train at 2k tokens, test at 32k — sinusoidal collapses, RoPE drifts, ALiBi holds.",
+    "ES 667 Lec 14 demo (Transformer architecture); pairs with the attention article for the underlying QKV mechanism."
+  ]
+}

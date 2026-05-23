@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BatchNorm vs LayerNorm vs RMSNorm</title>
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../vendor/katex/katex.min.css" />
+    <link rel="stylesheet" href="../shared.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <article class="article">
+      <header class="article-header">
+        <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+        <p class="kicker">Interactive Explainer</p>
+        <h1>BatchNorm vs LayerNorm vs RMSNorm</h1>
+        <p class="abstract">
+          Three normalizations. Same equation shape: subtract a mean,
+          divide by a std (RMSNorm skips the mean). The only difference is
+          <em>which slice of the tensor</em> the statistics come from. That
+          one design choice is why BN dominated CNNs and LN dominates
+          Transformers.
+        </p>
+        <div class="byline">
+          <span>~12 min</span>
+          <span>Regularization &middot; Normalization</span>
+        </div>
+      </header>
+
+      <section class="step-section">
+        <div class="step-badge">Step 1</div>
+        <h2>One equation, three slices</h2>
+        <p>All three follow: $\hat x = \gamma \cdot (x - \mu)/\sigma + \beta$.</p>
+        <ul class="explanation-list">
+          <li><strong>BatchNorm</strong> &middot; $\mu, \sigma$ from <em>each channel, across batch + spatial</em>.</li>
+          <li><strong>LayerNorm</strong> &middot; $\mu, \sigma$ from <em>each example, across channels</em>.</li>
+          <li><strong>RMSNorm</strong> &middot; like LN but skip the mean: $\hat x = \gamma \cdot x / \text{RMS}(x)$.</li>
+        </ul>
+      </section>
+
+      <section class="step-section">
+        <div class="step-badge">Try it</div>
+        <h2>The widget</h2>
+        <div id="widget-root">
+          <p><em>Interactive tensor viewer with BN / LN / RMSNorm toggle.</em></p>
+          <p><em>Highlights the exact slice each method averages over.</em></p>
+          <p><em>Shows train vs eval running-stat divergence for BN.</em></p>
+          <p style="color:#888"><em>Status: scaffold. Implementation pending.</em></p>
+        </div>
+      </section>
+
+      <section class="step-section">
+        <div class="step-badge">Step 2</div>
+        <h2>Why each wins where it wins</h2>
+        <ul class="explanation-list">
+          <li><strong>CNNs &middot; BN.</strong> Channels are repeated detectors; batch + spatial is a lot of samples.</li>
+          <li><strong>Transformers &middot; LN/RMSNorm.</strong> Sequences vary in length; no batch dependence is essential.</li>
+          <li><strong>2024+ &middot; RMSNorm wins.</strong> One fewer parameter, similar accuracy, $\sim$5% faster.</li>
+        </ul>
+      </section>
+    </article>
+  </body>
+</html>

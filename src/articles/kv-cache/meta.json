@@ -1,0 +1,18 @@
+{
+  "slug": "kv-cache",
+  "title": "The KV-Cache, Made Concrete",
+  "date": "2026-05-23",
+  "tagline": "Why LLM inference is memory-bound — sized in megabytes per token.",
+  "summary": "Why does a 70B LLM need an 80GB GPU even at batch size 1? Not the weights — the KV-cache. Slide model size, context length, batch size, and head sharing (GQA) and watch the cache size dominate. Then toggle PagedAttention to see how vLLM gets back capacity.",
+  "readingTime": "11 min",
+  "difficulty": "Intermediate",
+  "collection": "Deep learning",
+  "order": 104,
+  "status": "draft",
+  "tags": ["LLM", "Inference", "KV-Cache", "GQA", "vLLM", "Interactive"],
+  "highlights": [
+    "Sliders for params, layers, context, batch — total GB of KV-cache shown live.",
+    "Toggle MHA vs GQA(8) vs MQA — see the memory cliff for each.",
+    "PagedAttention demo: contiguous vs paged allocation, fragmentation reclaim."
+  ]
+}

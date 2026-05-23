@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>The KV-Cache, Made Concrete</title>
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../vendor/katex/katex.min.css" />
+    <link rel="stylesheet" href="../shared.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <article class="article">
+      <header class="article-header">
+        <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+        <p class="kicker">Interactive Explainer</p>
+        <h1>The KV-Cache, Made Concrete</h1>
+        <p class="abstract">
+          Every token an LLM generates re-uses every key and value from
+          previous tokens. Caching them is mandatory — and the cache
+          quickly dwarfs the weights. This is why "LLM inference is
+          memory-bound, not compute-bound."
+        </p>
+        <div class="byline">
+          <span>~11 min</span>
+          <span>Inference &middot; LLM systems</span>
+        </div>
+      </header>
+
+      <section class="step-section">
+        <div class="step-badge">Step 1</div>
+        <h2>The formula</h2>
+        <p>
+          Per-token KV bytes $= 2 \cdot L \cdot n_{kv} \cdot d_h \cdot p$
+          where $L$ is layers, $n_{kv}$ is KV-heads, $d_h$ is head dim, $p$ is dtype size.
+        </p>
+        <p>
+          For Llama-3-70B at FP16 with GQA(8) and context $32\text{k}$:
+          $\approx 5\,\text{GB}$ per concurrent user. Run 16 users in
+          parallel and the cache alone needs 80GB. The weights are already there.
+        </p>
+      </section>
+
+      <section class="step-section">
+        <div class="step-badge">Try it</div>
+        <h2>The widget</h2>
+        <div id="widget-root">
+          <p><em>Sliders: model size, layers, context, batch, dtype.</em></p>
+          <p><em>Toggle MHA / GQA / MQA — see the memory cliff.</em></p>
+          <p><em>PagedAttention vs naive: contiguous block grid vs paged pool.</em></p>
+          <p style="color:#888"><em>Status: scaffold. Implementation pending.</em></p>
+        </div>
+      </section>
+
+      <section class="step-section">
+        <div class="step-badge">Step 2</div>
+        <h2>The three escape hatches</h2>
+        <ul class="explanation-list">
+          <li><strong>GQA &middot; share KV across query heads.</strong> 8× reduction with negligible quality drop.</li>
+          <li><strong>PagedAttention &middot; allocate KV in fixed pages.</strong> No contiguous-buffer fragmentation; vLLM's secret.</li>
+          <li><strong>INT8 KV-cache &middot; halve bytes.</strong> Often free; sometimes a small quality nudge.</li>
+        </ul>
+      </section>
+    </article>
+  </body>
+</html>

@@ -1,0 +1,18 @@
+{
+  "slug": "mle-map-coin",
+  "title": "MLE vs MAP, on a Coin Flip",
+  "date": "2026-05-23",
+  "tagline": "Slide the prior, flip some coins, watch the estimate move from MLE toward MAP.",
+  "summary": "A live Beta-Binomial demo. Choose a Beta(α, β) prior, observe a sequence of flips, see the likelihood, prior, and posterior on the same axis. MLE is where the likelihood peaks; MAP is where the posterior peaks. With few flips the prior dominates; with many flips MAP → MLE. The single clearest picture of how Bayesian inference works on a finite sample.",
+  "readingTime": "10 min",
+  "difficulty": "Introductory",
+  "collection": "Deep learning",
+  "order": 100,
+  "status": "draft",
+  "tags": ["Probability", "MLE", "MAP", "Bayes", "Interactive"],
+  "highlights": [
+    "Slide α and β to set a Beta prior; the likelihood + prior + posterior redraw live.",
+    "Flip 1, 10, 100, or 1000 coins of true bias p; watch how the posterior tightens with N.",
+    "Side panel reads off MLE estimate, posterior mean, and KL between posterior and prior."
+  ]
+}

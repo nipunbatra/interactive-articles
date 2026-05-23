@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MLE vs MAP, on a Coin Flip</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../vendor/katex/katex.min.css" />
+    <link rel="stylesheet" href="../shared.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <article class="article">
+      <header class="article-header">
+        <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+        <p class="kicker">Interactive Explainer</p>
+        <h1>MLE vs MAP, on a Coin Flip</h1>
+        <p class="abstract">
+          Frequentists and Bayesians have argued for a century. On a single
+          coin, both estimates are <em>one number you can compute</em>. Slide
+          the prior, flip some coins, and watch the estimate drift from MLE
+          (data-only) toward MAP (data + prior).
+        </p>
+        <div class="byline">
+          <span>~10 min</span>
+          <span>Probability &middot; Bayesian inference</span>
+        </div>
+      </header>
+
+      <section class="step-section">
+        <div class="step-badge">Step 1</div>
+        <h2>The setup</h2>
+        <p>
+          A coin has unknown bias $p$. You flip it $N$ times and observe
+          $h$ heads, $t = N - h$ tails. The likelihood is
+          $\mathcal{L}(p) = p^h (1-p)^t$. MLE peaks at $\hat p_{\text{MLE}} = h/N$.
+        </p>
+        <p>
+          Put a $\text{Beta}(\alpha, \beta)$ prior on $p$. Posterior is
+          $\text{Beta}(\alpha + h,\ \beta + t)$ — same family, just add the
+          counts. MAP peaks at the mode of that Beta.
+        </p>
+      </section>
+
+      <section class="step-section">
+        <div class="step-badge">Try it</div>
+        <h2>The widget</h2>
+        <div id="widget-root">
+          <p><em>Interactive sliders for $\alpha$, $\beta$, true $p$, and $N$ go here.</em></p>
+          <p><em>Plots: likelihood, prior, posterior on the same axis.</em></p>
+          <p><em>Read-out: MLE, posterior mean, MAP, KL(posterior &Vert; prior).</em></p>
+          <p style="color:#888"><em>Status: scaffold. Implementation pending.</em></p>
+        </div>
+      </section>
+
+      <section class="step-section">
+        <div class="step-badge">Step 2</div>
+        <h2>What to look for</h2>
+        <ul class="explanation-list">
+          <li><strong>Small $N$ &middot; prior wins.</strong> Posterior sits close to the prior. MAP $\neq$ MLE.</li>
+          <li><strong>Large $N$ &middot; data wins.</strong> Posterior collapses around $h/N$. MAP $\to$ MLE.</li>
+          <li><strong>Wrong prior &middot; slow correction.</strong> A strong Beta(50, 50) prior pulls MAP toward 0.5 even when the true bias is 0.8.</li>
+        </ul>
+      </section>
+    </article>
+  </body>
+</html>

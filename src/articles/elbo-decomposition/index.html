@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ELBO, Decomposed</title>
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../vendor/katex/katex.min.css" />
+    <link rel="stylesheet" href="../shared.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <article class="article">
+      <header class="article-header">
+        <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+        <p class="kicker">Interactive Explainer</p>
+        <h1>ELBO, Decomposed</h1>
+        <p class="abstract">
+          The Evidence Lower Bound is the VAE's loss — and it's just
+          <em>two things added</em>: reconstruction cost and KL to the
+          prior. Watch them fight as you train.
+        </p>
+        <div class="byline">
+          <span>~12 min</span>
+          <span>VAE &middot; Generative models</span>
+        </div>
+      </header>
+
+      <section class="step-section">
+        <div class="step-badge">Step 1</div>
+        <h2>The loss</h2>
+        <p>$\mathcal{L} = \underbrace{-\mathbb{E}_{q_\phi(z|x)}[\log p_\theta(x|z)]}_{\text{reconstruction}} + \beta \cdot \underbrace{\text{KL}(q_\phi(z|x) \,\Vert\, p(z))}_{\text{regularizer}}$</p>
+        <p>$\beta = 1$ gives the classical VAE; $\beta = 0$ degenerates to a plain AE; large $\beta$ pushes toward disentangled latents at reconstruction cost.</p>
+      </section>
+
+      <section class="step-section">
+        <div class="step-badge">Try it</div>
+        <h2>The widget</h2>
+        <div id="widget-root">
+          <p><em>Train a tiny MNIST VAE in the browser.</em></p>
+          <p><em>Live: two bars (recon + KL), 2D latent scatter, reconstruction grid.</em></p>
+          <p><em>Slider: β from 0 to 50.</em></p>
+          <p style="color:#888"><em>Status: scaffold. Implementation pending.</em></p>
+        </div>
+      </section>
+
+      <section class="step-section">
+        <div class="step-badge">Step 2</div>
+        <h2>What you should see</h2>
+        <ul class="explanation-list">
+          <li><strong>$\beta = 0$ &middot; sharp reconstructions, latent is a mess.</strong></li>
+          <li><strong>$\beta = 1$ &middot; balanced; samples look like digits.</strong></li>
+          <li><strong>$\beta = 50$ &middot; blurry reconstructions, but the latent axes pick up clean factors (stroke width, slant).</strong></li>
+        </ul>
+      </section>
+    </article>
+  </body>
+</html>

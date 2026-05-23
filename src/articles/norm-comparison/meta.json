@@ -1,0 +1,18 @@
+{
+  "slug": "norm-comparison",
+  "title": "BatchNorm vs LayerNorm vs RMSNorm",
+  "date": "2026-05-23",
+  "tagline": "Three normalizations, one tensor — see exactly what each averages over.",
+  "summary": "Pick a 4D tensor (batch, channels, height, width) or a sequence (batch, length, dim). Toggle BN / LN / RMSNorm. Highlights show exactly which slice each method averages over. Critical for understanding why BN dominated CNNs but LayerNorm dominates Transformers — and why RMSNorm is the modern simplification.",
+  "readingTime": "12 min",
+  "difficulty": "Intermediate",
+  "collection": "Deep learning",
+  "order": 101,
+  "status": "draft",
+  "tags": ["Normalization", "BatchNorm", "LayerNorm", "RMSNorm", "Interactive"],
+  "highlights": [
+    "Hover the tensor to see which slice each normalization averages over.",
+    "Compare BN's train/eval discrepancy (running stats) with LN's symmetry across batch.",
+    "Toggle RMSNorm to see what dropping the mean centering changes."
+  ]
+}

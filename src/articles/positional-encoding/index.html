@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Positional Encodings — Sinusoid, RoPE, ALiBi</title>
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../vendor/katex/katex.min.css" />
+    <link rel="stylesheet" href="../shared.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <article class="article">
+      <header class="article-header">
+        <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+        <p class="kicker">Interactive Explainer</p>
+        <h1>Positional Encodings — Sinusoid, RoPE, ALiBi</h1>
+        <p class="abstract">
+          Transformer attention is permutation-invariant. <em>"dog bites man"</em>
+          and <em>"man bites dog"</em> would have identical logits. Position must come
+          from <em>somewhere else</em>. Three families of solutions — pick whichever
+          extrapolates to long context best.
+        </p>
+        <div class="byline">
+          <span>~15 min</span>
+          <span>Transformers &middot; Long Context</span>
+        </div>
+      </header>
+
+      <section class="step-section">
+        <div class="step-badge">Step 1</div>
+        <h2>Sinusoidal (Vaswani 2017)</h2>
+        <p>$\text{PE}_{(\text{pos}, 2i)} = \sin(\text{pos} / 10000^{2i/d})$, $\text{PE}_{(\text{pos}, 2i+1)} = \cos(\ldots)$.</p>
+        <p>Added to the token embedding. Different frequencies in different dimensions; relative position is recoverable by linear combinations.</p>
+      </section>
+
+      <section class="step-section">
+        <div class="step-badge">Step 2</div>
+        <h2>RoPE (Su 2021, Llama default)</h2>
+        <p>Apply a 2-D rotation to query and key, with angle proportional to position. The dot-product $q \cdot k$ then depends only on the <em>relative</em> position.</p>
+      </section>
+
+      <section class="step-section">
+        <div class="step-badge">Step 3</div>
+        <h2>ALiBi (Press 2022)</h2>
+        <p>Skip embeddings entirely. Add a linear bias $-m \cdot |i - j|$ to attention scores. Brutally simple, extrapolates well past training length.</p>
+      </section>
+
+      <section class="step-section">
+        <div class="step-badge">Try it</div>
+        <h2>The widget</h2>
+        <div id="widget-root">
+          <p><em>3-pane view: sinusoidal heatmap; RoPE 2-D rotation; ALiBi bias matrix.</em></p>
+          <p><em>Slider for context length up to 128k; degradation curves below.</em></p>
+          <p style="color:#888"><em>Status: scaffold. Implementation pending.</em></p>
+        </div>
+      </section>
+    </article>
+  </body>
+</html>
