@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Watching a Neural Network Become Universal</title>
+    <title>A Visual Proof That One Layer Can Compute Anything</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&display=swap" rel="stylesheet" />
@@ -15,15 +15,17 @@
       <header class="article-header">
         <a class="back-link" href="../index.html">&larr; Explainer Library</a>
         <p class="kicker">Interactive Explainer</p>
-        <h1>Watching a Neural Network Become Universal</h1>
+        <h1>A Visual Proof That One Layer Can Compute Anything</h1>
         <p class="abstract">
-          The Universal Approximation Theorem says a neural net with <em>one</em>
-          hidden layer can match almost any shape you draw. Most people read that
-          and shrug. This page lets you feel it&mdash;by building the bumps
-          yourself, then training a real network in your browser.
+          The Universal Approximation Theorem says a neural net with a
+          <em>single</em> hidden layer can mimic almost any function. This page
+          rebuilds Michael Nielsen's beautiful visual argument&mdash;you'll
+          flatten a sigmoid into a step, glue two steps into a bump, design a
+          whole function by hand, and then stack <em>towers</em> to fit a
+          surface. No proof, just pictures you can grab.
         </p>
         <div class="byline">
-          <span>~14 min</span>
+          <span>~18 min</span>
           <span>Deep Learning &middot; Neural Networks &middot; Approximation</span>
         </div>
       </header>
@@ -33,529 +35,458 @@
         <div class="step-badge">Prelude</div>
         <h2>The claim that sounds too good</h2>
         <p>
-          In 1989, Cybenko proved something startling: a feed-forward neural
-          network with a <strong>single hidden layer</strong> and enough neurons
-          can approximate any continuous function on a bounded interval to any
-          accuracy you want. Sigmoids, ReLUs, tanh&mdash;the exact activation
-          doesn't matter, as long as it isn't linear.
+          Here is one of the most quoted results in machine learning: a
+          feed-forward network with a <strong>single hidden layer</strong> can
+          approximate <em>any</em> continuous function to <em>any</em> accuracy,
+          given enough neurons. One layer. Any function. People repeat it like a
+          slogan&mdash;but almost nobody can <em>see</em> why it's true.
         </p>
         <p>
-          Read that literally and it sounds absurd. One layer? Any function?
-          How can bending a few straight lines possibly match a wild curve?
+          We're going to make it visible, following Michael Nielsen's
+          construction from
+          <a href="http://neuralnetworksanddeeplearning.com/chap4.html" target="_blank" rel="noopener">Chapter&nbsp;4</a>
+          of <em>Neural Networks and Deep Learning</em>. Two honest caveats
+          first, because the theorem is narrower than the slogan:
         </p>
+        <div class="callout callout--warn">
+          <strong>Caveat 1 &mdash; approximate, not exact.</strong>
+          We won't compute a function perfectly. We'll get <em>arbitrarily
+          close</em>&mdash;and we make the gap smaller by adding more neurons.
+        </div>
+        <div class="callout callout--warn" style="margin-top:0.5rem;">
+          <strong>Caveat 2 &mdash; continuous functions only.</strong>
+          The target has to be continuous (no instantaneous jumps). That's the
+          class one hidden layer can handle.
+        </div>
         <p>
-          The trick is to stop thinking of the hidden layer as "a network" and
-          start thinking of it as a <em>Lego kit of bumps</em>. Each neuron is
-          one Lego brick. Wide enough, any shape can be built. Let's build.
+          With those in hand, the whole trick is to stop thinking of the hidden
+          layer as &ldquo;a network&rdquo; and start thinking of it as a kit of
+          interchangeable <em>bricks</em>. Let's forge the first brick.
         </p>
       </section>
 
       <!-- ─── Step 1 ─── -->
       <section class="step-section" id="step-1">
         <div class="step-badge">Step 1</div>
-        <h2>One neuron is a bent line</h2>
+        <h2>One sigmoid neuron is an S-curve</h2>
         <p>
-          A single hidden neuron computes three simple operations:
+          A single hidden neuron with a sigmoid activation computes
         </p>
-        <div class="math-block" id="math-single-neuron"></div>
+        <div class="math-block" id="math-sigmoid"></div>
         <p>
-          It takes the input $x$, multiplies it by a weight $w$, shifts it by a
-          bias $b$, then passes the whole thing through a non-linear activation
-          $\phi$. With ReLU ($\phi(z) = \max(0, z)$), that produces a
-          <em>hinge</em>&mdash;flat on one side, linear on the other, with the
-          bend at $x = -b / w$.
-        </p>
-        <p>
-          Drag the sliders below. Notice two things: the weight $w$ controls
-          which direction the hinge rises, and the bias $b$ slides it left and
-          right. A single ReLU neuron can only make <strong>one</strong> kink
-          in an otherwise straight line&mdash;it can't do much on its own.
+          where $\sigma(z) = 1/(1 + e^{-z})$ is the smooth S-shaped sigmoid. The
+          <strong>weight $w$</strong> controls how steep the S is, and the
+          <strong>bias $b$</strong> slides it left and right. Drag both and watch.
         </p>
 
         <div class="control-row">
           <div class="control-block">
-            <label>Weight <span>w = <span id="val-single-w">1.0</span></span></label>
-            <input type="range" id="single-w" min="-3" max="3" step="0.1" value="1" />
+            <label>Weight <span>w = <span id="val-n1-w">8</span></span></label>
+            <input type="range" id="n1-w" min="-30" max="30" step="0.5" value="8" />
           </div>
           <div class="control-block">
-            <label>Bias <span>b = <span id="val-single-b">0.0</span></span></label>
-            <input type="range" id="single-b" min="-3" max="3" step="0.1" value="0" />
+            <label>Bias <span>b = <span id="val-n1-b">-4.0</span></span></label>
+            <input type="range" id="n1-b" min="-15" max="15" step="0.5" value="-4" />
           </div>
         </div>
 
         <figure class="interactive-figure">
-          <canvas id="singleCanvas" width="920" height="300"></canvas>
+          <canvas id="neuronCanvas" width="920" height="300"></canvas>
           <figcaption>
-            One ReLU neuron: <span id="single-formula" style="font-family:var(--mono)"></span>
+            One sigmoid neuron: <span id="neuron-formula" style="font-family:var(--mono)"></span>
           </figcaption>
         </figure>
 
         <div class="callout callout--think">
-          <strong>Pause and think.</strong>
-          You just have a hinge. It can tilt, it can shift, but it can never
-          <em>peak</em> and come back down. So how could a pile of these ever
-          match a smooth sine wave?
+          <strong>Notice.</strong>
+          The curve always runs from $0$ on the far left to $1$ on the far
+          right. Bigger $|w|$ makes the transition sharper. What happens if you
+          crank $w$ way up&mdash;say to $30$? Hold that thought.
         </div>
       </section>
 
       <!-- ─── Step 2 ─── -->
       <section class="step-section" id="step-2">
         <div class="step-badge">Step 2</div>
-        <h2>Two neurons make a bump</h2>
+        <h2>Crank the weight &rarr; a step function</h2>
         <p>
-          The secret is <em>subtraction</em>. Take two rising hinges shifted
-          slightly apart, multiply one by a positive output weight and the
-          other by a negative output weight, and add them together. The result
-          is a localized bump: zero far away, rising up at one kink, falling
-          back at the next.
+          When the weight is enormous, the sigmoid stops looking like a gentle
+          S and snaps into a <strong>step function</strong>: $0$ on the left,
+          $1$ on the right, with a near-vertical cliff. That's a huge
+          simplification&mdash;a step is described by a single number: the
+          <strong>position</strong> of its cliff.
         </p>
-        <div class="math-block" id="math-two-neurons"></div>
         <p>
-          Below you control two neurons feeding a single output. The blue
-          dashed lines show each neuron's individual hinge; the solid orange
-          curve is their weighted sum. Slide the second bias to pull the
-          second hinge to the right&mdash;watch a bump appear.
+          The cliff sits where the sigmoid's input is zero, i.e. $wx + b = 0$,
+          which means $x = -b/w$. Nielsen's key move is to <em>rename</em> the
+          neuron by this position. Define the step position
+        </p>
+        <div class="math-block" id="math-step"></div>
+        <p>
+          Now we forget $w$ and $b$ and just say &ldquo;a step at $s$.&rdquo;
+          The slider below sets $s$ <em>directly</em> (it solves for the bias
+          behind the scenes). The steepness slider shows why a big weight is
+          what lets us pretend a sigmoid is a clean step.
         </p>
 
         <div class="control-row">
           <div class="control-block">
-            <label>Bias 1 <span>b&#8321; = <span id="val-b1">-1.0</span></span></label>
-            <input type="range" id="b1" min="-3" max="3" step="0.1" value="-1" />
+            <label>Step position <span>s = <span id="val-step-s">0.40</span></span></label>
+            <input type="range" id="step-s" min="0" max="1" step="0.01" value="0.4" />
           </div>
           <div class="control-block">
-            <label>Bias 2 <span>b&#8322; = <span id="val-b2">1.0</span></span></label>
-            <input type="range" id="b2" min="-3" max="3" step="0.1" value="1" />
-          </div>
-          <div class="control-block">
-            <label>Output 1 <span>c&#8321; = <span id="val-c1">1.0</span></span></label>
-            <input type="range" id="c1" min="-2" max="2" step="0.1" value="1" />
-          </div>
-          <div class="control-block">
-            <label>Output 2 <span>c&#8322; = <span id="val-c2">-1.0</span></span></label>
-            <input type="range" id="c2" min="-2" max="2" step="0.1" value="-1" />
+            <label>Steepness <span>w = <span id="val-step-w">60</span></span></label>
+            <input type="range" id="step-w" min="4" max="200" step="1" value="60" />
           </div>
         </div>
 
         <figure class="interactive-figure">
-          <canvas id="bumpCanvas" width="920" height="320"></canvas>
+          <canvas id="stepCanvas" width="920" height="300"></canvas>
           <figcaption>
-            Two ReLU neurons combining into a bump. Dashed lines: individual
-            neurons. Solid line: weighted sum.
+            A high-weight sigmoid behaving as a step at $x = s$. Pull steepness
+            down to see the cliff soften back into an S.
           </figcaption>
         </figure>
 
         <div class="callout callout--think">
-          <strong>Try this.</strong>
-          Set $c_2$ equal to $-c_1$ and move $b_1$ and $b_2$ close together.
-          You get a narrow, tall spike. Move them far apart: a wide, short
-          plateau. The <em>spacing</em> of the biases sets the width, and the
-          <em>output weights</em> set the height and sign. That's your Lego
-          brick.
+          <strong>The payoff.</strong>
+          From here on, every hidden neuron is just &ldquo;a step at position
+          $s$.&rdquo; One number per neuron. That's the vocabulary we'll build
+          everything else from.
         </div>
       </section>
 
       <!-- ─── Step 3 ─── -->
       <section class="step-section" id="step-3">
         <div class="step-badge">Step 3</div>
-        <h2>Stack hinges into the shape</h2>
+        <h2>Two steps make a bump</h2>
         <p>
-          Here's the whole theorem in plain English: a ReLU network with enough
-          hinges can match any smooth shape arbitrarily well. Every neuron adds
-          <em>one kink</em> to a piecewise-linear fit &mdash; so $N$ neurons give
-          $N-1$ straight segments joined at the kinks. Wide enough, and the
-          segments become dense enough that the fit is indistinguishable from
-          the target.
+          One step is monotone&mdash;it goes up and stays up. To get something
+          <em>local</em>, take two steps and subtract. Put a step at $s_1$ with
+          output weight $+h$, and a step at $s_2 &gt; s_1$ with output weight
+          $-h$. Add them:
         </p>
+        <div class="math-block" id="math-bump"></div>
         <p>
-          Below, pick a target function &mdash; or <strong>draw your own</strong>
-          &mdash; and drag the width slider. The network places $N$ kinks at
-          equally-spaced positions across $[0, 1]$ and picks output weights so
-          the fit passes <em>exactly</em> through the target at every kink; the
-          bits in between are straight lines. This is the classic
-          piecewise-linear interpolant, built entirely from ReLU hinges.
+          To the left of $s_1$ both steps are $0$, so the sum is $0$. Between
+          $s_1$ and $s_2$ the first step is &ldquo;on&rdquo; but the second
+          isn't, so the sum is $h$. After $s_2$ both are on and they cancel back
+          to $0$. The result is a <strong>bump of height $h$</strong> sitting on
+          the interval $[s_1, s_2]$. <em>This is our brick.</em>
         </p>
 
-        <div class="button-row" id="manual-scenario-buttons" role="group" aria-label="Target function">
-          <button class="mode-button is-active" data-target="sine">Sine wave</button>
-          <button class="mode-button" data-target="step">Step</button>
-          <button class="mode-button" data-target="spike">Spike</button>
-          <button class="mode-button" data-target="zigzag">Zigzag</button>
-          <button class="mode-button" data-target="bumpy">Bumpy</button>
-          <button class="mode-button" data-target="chirp">Chirp</button>
-          <button class="mode-button" data-target="stairs">Stairs</button>
-          <button class="mode-button" data-target="wavepacket">Wave packet</button>
-          <button class="mode-button mode-button--draw" data-target="custom">Draw your own</button>
-        </div>
-        <button class="action-btn action-btn--ghost action-btn--small" id="btn-manual-clear-draw" style="display:none; margin-top: 0.5rem;">Clear drawing</button>
-
-        <div class="control-row">
-          <div class="control-block" style="grid-column: 1 / -1;">
-            <label>Hidden neurons <span>N = <span id="val-manual-width">8</span></span></label>
-            <input type="range" id="manual-width" min="1" max="60" step="1" value="8" />
+        <div class="control-row control-row--three">
+          <div class="control-block">
+            <label>Left edge <span>s&#8321; = <span id="val-bump-s1">0.30</span></span></label>
+            <input type="range" id="bump-s1" min="0" max="1" step="0.01" value="0.3" />
+          </div>
+          <div class="control-block">
+            <label>Right edge <span>s&#8322; = <span id="val-bump-s2">0.60</span></span></label>
+            <input type="range" id="bump-s2" min="0" max="1" step="0.01" value="0.6" />
+          </div>
+          <div class="control-block">
+            <label>Height <span>h = <span id="val-bump-h">1.0</span></span></label>
+            <input type="range" id="bump-h" min="-1.5" max="1.5" step="0.05" value="1" />
           </div>
         </div>
 
         <figure class="interactive-figure">
-          <canvas id="manualCanvas" width="920" height="360"></canvas>
+          <canvas id="bumpCanvas" width="920" height="320"></canvas>
           <figcaption>
-            <span style="color:var(--target);font-weight:600">Orange</span> target.
-            <span style="color:var(--network);font-weight:600">Blue</span> piecewise-linear fit.
-            Blue dots mark the $N$ kinks where the fit passes exactly through
-            the target.
+            <span style="color:var(--accent);font-weight:600">Dashed</span>: the
+            two underlying steps ($+h$ and $-h$).
+            <span style="color:var(--warm);font-weight:600">Solid</span>: their
+            sum, a bump of height $h$ on $[s_1, s_2]$.
           </figcaption>
         </figure>
 
-        <div class="stat-strip">
-          <div class="stat-pill">
-            <span class="stat-label">Hidden neurons</span>
-            <span class="stat-value" id="stat-manual-neurons">8</span>
-          </div>
-          <div class="stat-pill stat-pill--accent">
-            <span class="stat-label">Parameters</span>
-            <span class="stat-value" id="stat-manual-params">25</span>
-          </div>
-          <div class="stat-pill stat-pill--warm">
-            <span class="stat-label">Mean squared error</span>
-            <span class="stat-value" id="stat-manual-mse">—</span>
-          </div>
-        </div>
-
         <div class="callout callout--think">
-          <strong>Watch the error drop.</strong>
-          For <em>smooth</em> targets (sine, spike, bumpy), doubling $N$ shrinks
-          the MSE by roughly $16\times$ &mdash; the classic $1/N^2$ rate for
-          piecewise-linear interpolation of a smooth curve, squared. For
-          <em>sharp</em> features (step, zigzag corners), convergence is slower
-          because straight lines can't match corners. That gap between smooth
-          and sharp is one reason modern networks add <em>depth</em>: deep
-          layers can compose hinges into much sharper shapes than a single
-          layer of hinges ever can.
+          <strong>Play.</strong>
+          Move the edges together for a narrow spike, apart for a wide plateau.
+          Push $h$ negative to flip the bump downward. With this one brick&mdash;an
+          adjustable rectangle&mdash;you can already feel where this is going.
         </div>
       </section>
 
       <!-- ─── Step 4 ─── -->
       <section class="step-section" id="step-4">
         <div class="step-badge">Step 4</div>
-        <h2>Why can't a few neurons just do it?</h2>
+        <h2>Design a function by hand</h2>
         <p>
-          The difficulty is geometric. Here's a table of live MSE values for
-          the current target above &mdash; switch targets to see the numbers
-          update:
+          Chop $[0, 1]$ into $N$ adjacent slabs and put one bump on each. The
+          hidden layer's <em>weighted output</em> is then a staircase of plateaus
+          &mdash; bump $i$ contributes its height $h_i$ on slab $i$:
         </p>
-        <div class="examples-table-wrap">
-          <table class="examples-table">
-            <colgroup>
-              <col class="col-n" />
-              <col class="col-desc" />
-              <col class="col-mse" />
-            </colgroup>
-            <thead>
-              <tr>
-                <th>Hidden width $N$</th>
-                <th class="col-desc-cell">What the network can express</th>
-                <th>MSE vs <span id="manual-table-target">sine</span></th>
-              </tr>
-            </thead>
-            <tbody id="manual-table-body">
-              <!-- Populated by JS -->
-            </tbody>
-          </table>
-        </div>
+        <div class="math-block" id="math-design"></div>
         <p>
-          Look at the scaling: for smooth targets (sine, spike, bumpy), doubling
-          $N$ cuts the MSE by roughly $16\times$ &mdash; error shrinks as
-          $1/N^2$, so MSE shrinks as $1/N^4$. For discontinuous targets (step)
-          the rate is much slower, around $1/N$. Cybenko's theorem says
-          convergence continues forever in either case: there's no wall you
-          hit, only a trade-off between width and accuracy.
-        </p>
-      </section>
-
-      <!-- ─── Step 5 ─── -->
-      <section class="step-section" id="step-5">
-        <div class="step-badge">Step 5</div>
-        <h2>Now let gradient descent do the placing</h2>
-        <p>
-          Our hand-placed bumps are evenly spaced. A <em>trained</em> network
-          finds much better placements on its own&mdash;clustering bumps where
-          the target is wiggly, spreading them out where it's flat. Click
-          <strong>Train</strong> and watch it happen. The browser runs actual
-          stochastic gradient descent on a one-hidden-layer MLP.
-        </p>
-        <p>
-          New here: you can <strong>draw any curve</strong> as a target,
-          <strong>tune the learning rate</strong>, toggle <strong>Show
-          neurons</strong> to see each learned bump, and overlay the
-          <strong>hand-placed fit</strong> from Step&nbsp;3 for comparison.
+          Each slider below is one bump's height. Set them to trace the target.
+          Because the plateaus are independent, this is just sketching with bars
+          &mdash; and the more slabs you use, the finer the trace.
         </p>
 
-        <div class="button-row" id="train-scenario-buttons" role="group" aria-label="Train target">
-          <button class="mode-button is-active" data-target="sine">Sine wave</button>
-          <button class="mode-button" data-target="step">Step</button>
-          <button class="mode-button" data-target="spike">Spike</button>
-          <button class="mode-button" data-target="zigzag">Zigzag</button>
-          <button class="mode-button" data-target="bumpy">Bumpy</button>
-          <button class="mode-button" data-target="chirp">Chirp</button>
-          <button class="mode-button" data-target="stairs">Stairs</button>
-          <button class="mode-button" data-target="wavepacket">Wave packet</button>
-          <button class="mode-button mode-button--draw" data-target="custom">Draw your own</button>
+        <div class="button-row" id="design-target-buttons" role="group" aria-label="Target function">
+          <button class="mode-button is-active" data-target="wiggle">Nielsen's wiggle</button>
+          <button class="mode-button" data-target="wave">Sine wave</button>
+          <button class="mode-button" data-target="hill">Single hill</button>
+          <button class="mode-button" data-target="plateaus">Plateaus</button>
         </div>
-        <button class="action-btn action-btn--ghost action-btn--small" id="btn-train-clear-draw" style="display:none; margin-top: 0.5rem;">Clear drawing</button>
 
         <div class="control-row control-row--three">
           <div class="control-block">
-            <label>Hidden neurons <span>N = <span id="val-train-width">16</span></span></label>
-            <input type="range" id="train-width" min="2" max="64" step="1" value="16" />
+            <label>Number of bumps <span>N = <span id="val-design-n">6</span></span></label>
+            <input type="range" id="design-n" min="3" max="14" step="1" value="6" />
           </div>
-          <div class="control-block">
-            <label>Learning rate <span>&eta; = <span id="val-train-lr">0.050</span></span></label>
-            <input type="range" id="train-lr" min="0.005" max="0.2" step="0.005" value="0.05" />
+          <div class="control-block control-block--actions">
+            <label>Shortcut</label>
+            <button class="action-btn action-btn--ghost action-btn--small" id="btn-design-autofit">Auto-fit heights</button>
           </div>
-          <div class="control-block">
-            <label>Activation
-              <span id="val-train-activation">ReLU</span>
-            </label>
-            <div class="chip-row" id="activation-chips">
-              <button class="chip is-active" data-act="relu">ReLU</button>
-              <button class="chip" data-act="tanh">tanh</button>
-              <button class="chip" data-act="sigmoid">sigmoid</button>
-            </div>
+          <div class="control-block control-block--actions">
+            <label>The honest version</label>
+            <button class="toggle-btn" id="btn-design-math">Show the &sigma;&#8315;&sup1; goal</button>
           </div>
         </div>
 
-        <div class="train-row">
-          <button class="action-btn action-btn--primary" id="btn-train">Train</button>
-          <button class="action-btn action-btn--ghost" id="btn-step">Single step</button>
-          <button class="action-btn action-btn--ghost" id="btn-reset">Reset weights</button>
-          <span class="train-row-separator"></span>
-          <button class="toggle-btn" id="btn-show-neurons">Show neurons</button>
-          <button class="toggle-btn" id="btn-show-comparison">vs. Hand-placed</button>
-        </div>
+        <div class="height-bank" id="design-heights" aria-label="Per-bump height sliders"></div>
 
         <figure class="interactive-figure">
-          <canvas id="trainCanvas" width="920" height="340" aria-label="Training fit visualization"></canvas>
-          <figcaption>
-            Live fit while gradient descent runs. Toggle <em>Show neurons</em>
-            to see individual bumps and kink positions.
-          </figcaption>
-        </figure>
-        <figure class="interactive-figure">
-          <canvas id="lossCanvas" width="920" height="180" aria-label="Training loss curve"></canvas>
-          <figcaption>
-            Training loss (log scale). Full history from epoch 0 onward.
+          <canvas id="designCanvas" width="920" height="360"></canvas>
+          <figcaption id="design-caption">
+            <span style="color:var(--warm);font-weight:600">Orange</span>: target.
+            <span style="color:var(--accent);font-weight:600">Blue</span>: your
+            hand-built network output.
           </figcaption>
         </figure>
 
         <div class="stat-strip">
           <div class="stat-pill">
-            <span class="stat-label">Epoch</span>
-            <span class="stat-value" id="stat-epoch">0</span>
+            <span class="stat-label">Bumps (hidden neurons)</span>
+            <span class="stat-value" id="stat-design-neurons">12</span>
           </div>
           <div class="stat-pill stat-pill--accent">
-            <span class="stat-label">Parameters</span>
-            <span class="stat-value" id="stat-train-params">—</span>
+            <span class="stat-label">Slab width</span>
+            <span class="stat-value" id="stat-design-slab">0.17</span>
           </div>
           <div class="stat-pill stat-pill--warm">
-            <span class="stat-label">Train MSE</span>
-            <span class="stat-value" id="stat-train-mse">—</span>
+            <span class="stat-label">Avg. deviation</span>
+            <span class="stat-value" id="stat-design-err">&mdash;</span>
           </div>
         </div>
 
-        <div class="callout callout--think">
-          <strong>Things to try.</strong>
-          <strong>(1)</strong> Train width-2 on sine &mdash; it finds the best two-bump fit.
-          Bump to 32, retrain. <strong>(2)</strong> Switch to <em>tanh</em> on the spike:
-          tanh is bad at sharp corners and you'll see residual wiggle.
-          <strong>(3)</strong> Click <em>Show neurons</em> to see each bump
-          the network learned &mdash; notice how it clusters bumps where the
-          target is wiggly.
-          <strong>(4)</strong> Click <em>vs. Hand-placed</em> to overlay the
-          uniform-spacing fit &mdash; gradient descent finds smarter placements.
-          <strong>(5)</strong> Draw your own wild shape and watch the network
-          attempt to fit it. The theorem guarantees a good fit <em>exists</em>,
-          but can gradient descent <em>find</em> it?
+        <div class="callout callout--warn">
+          <strong>The subtlety hiding in the output (press &ldquo;Show the
+          &sigma;&#8315;&sup1; goal&rdquo;).</strong>
+          A real neuron's output layer squashes its weighted input through one
+          more sigmoid, so the network actually computes $\sigma\!\big(H(x)\big)$,
+          not $H(x)$. To make $\sigma(H(x)) \approx f(x)$ we need
+          $H(x) \approx \sigma^{-1}\!\big(f(x)\big)$, the <em>inverse sigmoid</em>
+          (logit) of the goal. So the heights aren't tracing $f$ directly&mdash;they're
+          tracing $\sigma^{-1}\!\circ f$. Toggle the view to design against the
+          honest target; the bumps still line up one-per-slab.
         </div>
 
-        <div class="callout callout--warn" style="margin-top: 0.5rem;">
-          <strong>Learning rate experiments.</strong>
-          Drag $\eta$ up to 0.2 and watch the loss explode. Drag it to 0.005
-          and watch it crawl. The sweet spot depends on both the target and the
-          width &mdash; one more thing the theorem says nothing about.
-          Press <kbd>Space</kbd> to start/stop training.
+        <div class="callout callout--think" style="margin-top:0.5rem;">
+          <strong>More bumps, smaller gap.</strong>
+          Crank $N$ up and re-fit. The staircase gets finer and the deviation
+          shrinks toward zero. That's the entire theorem in one slider: accuracy
+          is bought with width.
         </div>
       </section>
 
-      <!-- ─── Step 6: Classification ─── -->
-      <section class="step-section" id="step-6">
-        <div class="step-badge">Step 6</div>
-        <h2>What about classification?</h2>
+      <!-- ─── Step 5: two inputs, one tower ─── -->
+      <section class="step-section" id="step-5">
+        <div class="step-badge">Step 5</div>
+        <h2>Two inputs: build a tower</h2>
         <p>
-          Everything so far has been <em>regression</em>: fit a curve to a
-          target value. But the same theorem covers
-          <em>classification</em>: change the output activation to a
-          <strong>sigmoid</strong> and the loss to <strong>binary
-          cross-entropy</strong>, and a one-hidden-layer MLP can carve out
-          <em>any</em> decision boundary in the plane.
+          Real functions usually have more than one input. With inputs $x$ and
+          $y$, a high-weight neuron that only listens to $x$ makes a step
+          <em>wall</em> running along $y$; one that only listens to $y$ makes a
+          wall running along $x$. Pair them up as before and you get a
+          <strong>bump in $x$</strong> (a ridge) and a <strong>bump in
+          $y$</strong> (a perpendicular ridge).
         </p>
         <p>
-          The picture below shows a 2D version of universal approximation in
-          action. Pick a dataset, set a width, and click <strong>Train</strong>.
-          The shaded region is the network's predicted probability; the dark
-          line is the $p = 0.5$ decision boundary. Each ReLU neuron contributes
-          one straight cut to the plane, and gradient descent stitches them
-          together into the boundary.
+          Add the two ridges. Where neither is on, the sum is $0$; on a single
+          ridge it's $h$; where they <em>cross</em>, it's $2h$. That cross is the
+          left panel below. Now apply one more sigmoid with a
+          <strong>threshold</strong> set between $h$ and $2h$: everything below
+          the threshold gets crushed to $0$, only the central $2h$ patch
+          survives. The ridges vanish and you're left with a single
+          <strong>tower</strong> &mdash; a localized 2-D bump (right panel).
         </p>
 
-        <div class="button-row" id="classify-dataset-buttons" role="group" aria-label="Classification dataset">
-          <button class="mode-button is-active" data-dataset="moons">Two moons</button>
-          <button class="mode-button" data-dataset="circles">Concentric circles</button>
-          <button class="mode-button" data-dataset="xor">XOR quadrants</button>
-          <button class="mode-button" data-dataset="spirals">Two spirals</button>
+        <div class="control-row control-row--three">
+          <div class="control-block">
+            <label>Center x <span>= <span id="val-tower-cx">0.50</span></span></label>
+            <input type="range" id="tower-cx" min="0.2" max="0.8" step="0.01" value="0.5" />
+          </div>
+          <div class="control-block">
+            <label>Center y <span>= <span id="val-tower-cy">0.50</span></span></label>
+            <input type="range" id="tower-cy" min="0.2" max="0.8" step="0.01" value="0.5" />
+          </div>
+          <div class="control-block">
+            <label>Tower size <span>= <span id="val-tower-size">0.30</span></span></label>
+            <input type="range" id="tower-size" min="0.1" max="0.5" step="0.01" value="0.3" />
+          </div>
+        </div>
+        <div class="control-row">
+          <div class="control-block">
+            <label>Threshold <span>= <span id="val-tower-thr">1.50</span></span>&middot;h</label>
+            <input type="range" id="tower-thr" min="0.5" max="2.0" step="0.05" value="1.5" />
+          </div>
+          <div class="control-block">
+            <label>Steepness <span>w = <span id="val-tower-w">40</span></span></label>
+            <input type="range" id="tower-w" min="8" max="120" step="1" value="40" />
+          </div>
+        </div>
+
+        <figure class="interactive-figure">
+          <div class="dual-canvas">
+            <div class="dual-canvas-cell">
+              <canvas id="towerSumCanvas" width="440" height="440"></canvas>
+              <span class="dual-canvas-label">Sum of two ridges &mdash; values 0, h, 2h</span>
+            </div>
+            <div class="dual-canvas-cell">
+              <canvas id="towerOutCanvas" width="440" height="440"></canvas>
+              <span class="dual-canvas-label">After thresholding &mdash; a single tower</span>
+            </div>
+          </div>
+          <figcaption>
+            Brighter = higher. Slide the <strong>threshold</strong> from $0.5h$
+            up to $2h$ and watch the cross collapse into a clean tower around
+            $1.5h$.
+          </figcaption>
+        </figure>
+
+        <div class="callout callout--think">
+          <strong>Why $1.5h$?</strong>
+          It's the only level that separates &ldquo;both ridges on&rdquo;
+          ($2h$) from &ldquo;just one&rdquo; ($h$). Set the threshold too low and
+          the ridge arms leak through; too high and even the center dies. The
+          tower is what's left when you keep <em>only</em> the overlap.
+        </div>
+      </section>
+
+      <!-- ─── Step 6: tile towers ─── -->
+      <section class="step-section" id="step-6">
+        <div class="step-badge">Step 6</div>
+        <h2>Tile towers into any surface</h2>
+        <p>
+          A tower is a movable, resizable block of adjustable height. Cover the
+          plane with a grid of them and set each tower's height to the value of
+          the target surface at that spot. The sum is a 3-D &ldquo;staircase&rdquo;
+          that hugs the surface &mdash; and just like in 1-D, a finer grid means a
+          closer fit. That's universal approximation for functions of two
+          variables, and the same move tiles into any number of inputs.
+        </p>
+
+        <div class="button-row" id="surface-target-buttons" role="group" aria-label="Target surface">
+          <button class="mode-button is-active" data-surface="peaks">Two peaks</button>
+          <button class="mode-button" data-surface="ripple">Ripples</button>
+          <button class="mode-button" data-surface="saddle">Saddle</button>
+          <button class="mode-button" data-surface="gauss">Gaussian hill</button>
         </div>
 
         <div class="control-row">
-          <div class="control-block">
-            <label>Hidden neurons <span>N = <span id="val-classify-width">12</span></span></label>
-            <input type="range" id="classify-width" min="2" max="64" step="1" value="12" />
+          <div class="control-block" style="grid-column: 1 / -1;">
+            <label>Grid resolution <span><span id="val-surface-res">6</span> &times; <span id="val-surface-res2">6</span> towers</span></label>
+            <input type="range" id="surface-res" min="2" max="14" step="1" value="6" />
           </div>
-          <div class="control-block">
-            <label>Learning rate <span>&eta; = <span id="val-classify-lr">0.10</span></span></label>
-            <input type="range" id="classify-lr" min="0.01" max="0.5" step="0.01" value="0.1" />
-          </div>
-        </div>
-
-        <div class="train-row">
-          <button class="action-btn action-btn--primary" id="btn-classify-train">Train</button>
-          <button class="action-btn action-btn--ghost" id="btn-classify-step">Single step</button>
-          <button class="action-btn action-btn--ghost" id="btn-classify-reset">Reset weights</button>
         </div>
 
         <figure class="interactive-figure">
-          <canvas id="classifyCanvas" width="920" height="500" aria-label="2D classification with decision boundary"></canvas>
+          <div class="dual-canvas">
+            <div class="dual-canvas-cell">
+              <canvas id="surfaceTargetCanvas" width="440" height="440"></canvas>
+              <span class="dual-canvas-label">Target surface f(x, y)</span>
+            </div>
+            <div class="dual-canvas-cell">
+              <canvas id="surfaceApproxCanvas" width="440" height="440"></canvas>
+              <span class="dual-canvas-label">Tiled towers approximation</span>
+            </div>
+          </div>
           <figcaption>
-            <span style="color:var(--accent);font-weight:600">Blue dots</span>
-            = class 0,
-            <span style="color:var(--warm);font-weight:600">orange dots</span>
-            = class 1. Shading is the network's predicted probability; the dark
-            line is the $p=0.5$ decision boundary.
+            Same colormap on both: dark = low, bright = high. Drag the resolution
+            slider and watch the blocky approximation sharpen into the target.
           </figcaption>
-        </figure>
-        <figure class="interactive-figure">
-          <canvas id="classifyLossCanvas" width="920" height="180" aria-label="Classification loss curve"></canvas>
-          <figcaption>Binary cross-entropy loss across epochs.</figcaption>
         </figure>
 
         <div class="stat-strip">
           <div class="stat-pill">
-            <span class="stat-label">Epoch</span>
-            <span class="stat-value" id="stat-classify-epoch">0</span>
+            <span class="stat-label">Towers</span>
+            <span class="stat-value" id="stat-surface-towers">36</span>
           </div>
           <div class="stat-pill stat-pill--accent">
-            <span class="stat-label">BCE loss</span>
-            <span class="stat-value" id="stat-classify-loss">&mdash;</span>
+            <span class="stat-label">Hidden neurons</span>
+            <span class="stat-value" id="stat-surface-neurons">144</span>
           </div>
           <div class="stat-pill stat-pill--warm">
-            <span class="stat-label">Accuracy</span>
-            <span class="stat-value" id="stat-classify-acc">&mdash;</span>
+            <span class="stat-label">Mean squared error</span>
+            <span class="stat-value" id="stat-surface-mse">&mdash;</span>
           </div>
         </div>
 
         <div class="callout callout--think">
-          <strong>Things to try.</strong>
-          <strong>(1)</strong> Train width-2 on <em>two moons</em> &mdash; one
-          straight cut almost works.
-          <strong>(2)</strong> Try width-2 on <em>XOR</em> &mdash; impossible,
-          since you need at least three lines to separate the four quadrants.
-          Bump it to 4 and watch it click.
-          <strong>(3)</strong> The <em>two spirals</em> dataset is the classic
-          stress test. Try width-8: stuck. Width-32: it gets close. Width-64:
-          almost perfect. Universal approximation works, but the price is
-          width.
-        </div>
-
-        <div class="callout callout--warn" style="margin-top: 0.5rem;">
-          <strong>Same theorem, two faces.</strong>
-          Regression and classification are the <em>same problem</em> for a
-          ReLU network: both are function approximation. The only difference
-          is what the function represents (a value vs. a probability) and how
-          we measure error (MSE vs. cross-entropy). Universal approximation
-          covers both with one statement.
+          <strong>Count the cost.</strong>
+          Each tower needs $4$ hidden neurons (two ridges &times; two steps). A
+          $6\times6$ grid is $36$ towers &mdash; $144$ neurons &mdash; for a coarse
+          fit. Push the resolution up and the neuron count explodes. The theorem
+          guarantees a fit <em>exists</em>; it says nothing about it being cheap.
         </div>
       </section>
 
-      <!-- ─── Step 7: The big number ─── -->
+      <!-- ─── Step 7: caveats ─── -->
       <section class="step-section" id="step-7">
         <div class="step-badge">Step 7</div>
-        <h2>The big number</h2>
+        <h2>What the proof does <em>not</em> say</h2>
         <p>
-          At 16 neurons, a one-hidden-layer MLP already has only a few dozen
-          parameters&mdash;yet it can represent curves that polynomials of the
-          same complexity cannot. Here's the count for the network you're
-          currently training:
-        </p>
-
-        <div class="reveal-card">
-          <h3>Parameters in a single hidden layer of width <span id="reveal-n">16</span></h3>
-          <div class="reveal-number" id="reveal-params">49</div>
-          <p>
-            = <span id="reveal-breakdown">N inputs weights + N biases + N outputs + 1 output bias</span>
-          </p>
-        </div>
-
-        <p>
-          Compare that to what the theorem promises: <em>any</em> continuous
-          function on $[0,1]$, to arbitrary precision, using nothing but these
-          few numbers. The &ldquo;cost&rdquo; is not in complexity but in
-          width&mdash;and in a training procedure that can find the right
-          parameters.
-        </p>
-      </section>
-
-      <!-- ─── Step 8: Myths ─── -->
-      <section class="step-section" id="step-8">
-        <div class="step-badge">Step 8</div>
-        <h2>Three things the theorem does <em>not</em> say</h2>
-        <p>
-          Universal Approximation is often repeated as a slogan ("neural nets
-          can learn anything!"). Three important caveats usually get dropped:
+          You've now built the whole argument: step &rarr; bump &rarr; designed
+          function &rarr; tower &rarr; tiled surface. It's genuinely a proof of
+          universality. But four things get lost when it's flattened into a
+          slogan:
         </p>
         <div class="misconception-grid">
           <div class="misconception-card">
             <span class="misconception-icon">Myth</span>
-            <p><strong>"It means one hidden layer is enough in practice."</strong><br />
-              The theorem says <em>enough width</em> suffices. In practice, the
-              required width can be astronomical for complicated functions.
-              Adding <em>depth</em> lets you build bumps from bumps, cutting
-              the parameter budget dramatically. That's why modern networks
-              are deep, not one layer wide.</p>
+            <p><strong>&ldquo;One hidden layer is enough in practice.&rdquo;</strong><br />
+              Enough <em>width</em> suffices in principle &mdash; but the width can
+              be astronomical. Our tiling used $4$ neurons per tower and still
+              only gave a blocky fit. <em>Depth</em> lets a network build bumps
+              from bumps and reuse parts, which is why real networks are deep,
+              not absurdly wide.</p>
           </div>
           <div class="misconception-card">
             <span class="misconception-icon">Myth</span>
-            <p><strong>"Training is guaranteed to find the approximation."</strong><br />
-              The proof shows a good approximation <em>exists</em>; it says
-              nothing about whether gradient descent can find it. In the demo
-              above you'll see tanh on a spike get stuck&mdash;not a failure of
-              the theorem, but of the optimizer on that loss surface.</p>
+            <p><strong>&ldquo;Training will find this network.&rdquo;</strong><br />
+              We <em>placed</em> every step and height by hand. The proof shows a
+              good network <em>exists</em>; it's silent on whether gradient
+              descent can discover it. Existence and learnability are different
+              questions.</p>
           </div>
           <div class="misconception-card">
             <span class="misconception-icon">Myth</span>
-            <p><strong>"It means networks generalize to unseen inputs."</strong><br />
-              Cybenko's theorem is about fitting training points&mdash;i.e.
-              <em>memorizing</em>. Whether the fit is sensible <em>between</em>
-              training points (generalization) is a completely separate
-              question, handled by regularization, inductive bias, and more
-              data.</p>
+            <p><strong>&ldquo;Sigmoids are special.&rdquo;</strong><br />
+              Nothing here needs the sigmoid in particular &mdash; any non-linear
+              activation that can act like a step (or a hinge, for ReLU) works.
+              The S-curve just made the step picture vivid.</p>
+          </div>
+          <div class="misconception-card">
+            <span class="misconception-icon">Myth</span>
+            <p><strong>&ldquo;It means networks generalize.&rdquo;</strong><br />
+              The construction fits the target on the region you tile &mdash; it's
+              about <em>representing</em> a function, not predicting well on new
+              inputs. Generalization is a separate story told by data and
+              inductive bias.</p>
           </div>
         </div>
 
         <div class="callout callout--warn" style="margin-top: 2rem;">
           <strong>Final takeaway.</strong>
-          A one-hidden-layer network is a bump builder. The theorem says: with
-          enough bumps, you can match any shape. The practice of deep learning
-          is about finding the bumps <em>efficiently</em>&mdash;through depth,
-          better optimizers, and good inductive biases. You now know exactly
-          what &ldquo;universal&rdquo; in Universal Approximation means,
-          because you just watched the bumps stack up one at a time.
+          &ldquo;Universal&rdquo; means a single hidden layer of bumps can be
+          arranged to match any continuous function as closely as you like. You
+          didn't take that on faith&mdash;you flattened the sigmoids, glued the
+          bumps, and stacked the towers yourself. The art of modern deep learning
+          is doing the same thing <em>efficiently</em>: with depth, good
+          optimizers, and the right inductive biases.
         </div>
       </section>
     </article>

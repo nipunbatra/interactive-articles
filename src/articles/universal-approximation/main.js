@@ -1,136 +1,18 @@
 // ============================================================
-// Watching a Neural Network Become Universal — Enhanced
-// All computations are real: live neuron evaluation and a
-// working MLP trained by mini-batch SGD in the browser.
+// A Visual Proof That One Layer Can Compute Anything
+// Nielsen's construction, made interactive. All math is real:
+// sigmoids, steps, bumps, and towers evaluated live in the browser.
 // ============================================================
 
-// ---------- Target functions ----------
-const TARGETS = {
-  sine: {
-    fn: (x) => Math.sin(2 * Math.PI * x),
-    label: 'sin(2\u03c0x)',
-    yRange: [-1.2, 1.2]
-  },
-  step: {
-    fn: (x) => (x < 0.5 ? -0.7 : 0.7),
-    label: 'step at x = 0.5',
-    yRange: [-1.0, 1.0]
-  },
-  spike: {
-    fn: (x) => Math.exp(-60 * Math.pow(x - 0.5, 2)),
-    label: 'Gaussian spike',
-    yRange: [-0.2, 1.2]
-  },
-  zigzag: {
-    fn: (x) => {
-      const t = 4 * x;
-      return 0.8 * (Math.abs((t % 2) - 1) * 2 - 1);
-    },
-    label: 'zigzag (triangle wave)',
-    yRange: [-1.0, 1.0]
-  },
-  bumpy: {
-    fn: (x) => 0.6 * Math.sin(6 * Math.PI * x) * Math.exp(-Math.pow((x - 0.5) * 2.5, 2)),
-    label: 'windowed oscillation',
-    yRange: [-0.8, 0.8]
-  },
-  chirp: {
-    // Sine whose frequency grows linearly with x — smooth on the left,
-    // increasingly wiggly on the right.
-    fn: (x) => Math.sin(2 * Math.PI * x * (1 + 4 * x)),
-    label: 'frequency chirp',
-    yRange: [-1.2, 1.2]
-  },
-  stairs: {
-    // Four-step staircase (sharp discontinuities at every quarter).
-    fn: (x) => {
-      const k = Math.min(3, Math.floor(x * 4));
-      return (k - 1.5) * 0.45;
-    },
-    label: '4-step staircase',
-    yRange: [-1.0, 1.0]
-  },
-  wavepacket: {
-    // High-frequency oscillation under a Gaussian envelope.
-    fn: (x) => Math.sin(20 * Math.PI * x) * Math.exp(-30 * Math.pow(x - 0.5, 2)),
-    label: 'wave packet',
-    yRange: [-1.1, 1.1]
-  },
-  custom: {
-    fn: null,
-    label: 'Your drawing',
-    yRange: [-1.5, 1.5]
-  }
-};
-
-// ---------- Custom drawing system ----------
-const CUSTOM_SAMPLE_COUNT = 400;
-
-function buildCustomTarget(drawnPoints, yRange) {
-  const sorted = [...drawnPoints].sort((a, b) => a.x - b.x);
-  if (sorted.length < 2) return;
-
-  const N = CUSTOM_SAMPLE_COUNT;
-  const samples = new Float64Array(N);
-  for (let i = 0; i < N; i++) {
-    const x = i / (N - 1);
-    // Binary search for surrounding points
-    let lo = 0, hi = sorted.length - 1;
-    if (x <= sorted[0].x) { samples[i] = sorted[0].y; continue; }
-    if (x >= sorted[hi].x) { samples[i] = sorted[hi].y; continue; }
-    while (lo < hi - 1) {
-      const mid = (lo + hi) >> 1;
-      if (sorted[mid].x <= x) lo = mid;
-      else hi = mid;
-    }
-    const t = (x - sorted[lo].x) / (sorted[hi].x - sorted[lo].x + 1e-12);
-    samples[i] = sorted[lo].y * (1 - t) + sorted[hi].y * t;
-  }
-
-  // Compute actual y range with padding
-  let minY = Infinity, maxY = -Infinity;
-  for (let i = 0; i < N; i++) {
-    if (samples[i] < minY) minY = samples[i];
-    if (samples[i] > maxY) maxY = samples[i];
-  }
-  const pad = Math.max(0.3, (maxY - minY) * 0.15);
-  const computedRange = [minY - pad, maxY + pad];
-
-  TARGETS.custom.fn = (x) => {
-    const idx = x * (N - 1);
-    const lo = Math.max(0, Math.floor(idx));
-    const hi = Math.min(lo + 1, N - 1);
-    const t = idx - lo;
-    return samples[lo] * (1 - t) + samples[hi] * t;
-  };
-  TARGETS.custom.yRange = computedRange;
-  TARGETS.custom.samples = samples;
+// ---------- Math primitives ----------
+const sigmoid = (z) => 1 / (1 + Math.exp(-z));
+function logit(p) {
+  const c = Math.min(0.999, Math.max(0.001, p));
+  return Math.log(c / (1 - c));
 }
+const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 
-function pixelToPlot(canvas, event, margin, logicalW, logicalH, xRange, yRange) {
-  const rect = canvas.getBoundingClientRect();
-  const scaleX = logicalW / rect.width;
-  const scaleY = logicalH / rect.height;
-  const px = (event.clientX - rect.left) * scaleX;
-  const py = (event.clientY - rect.top) * scaleY;
-
-  const plotW = logicalW - margin.left - margin.right;
-  const plotH = logicalH - margin.top - margin.bottom;
-
-  const x = xRange[0] + ((px - margin.left) / plotW) * (xRange[1] - xRange[0]);
-  const y = yRange[1] - ((py - margin.top) / plotH) * (yRange[1] - yRange[0]);
-
-  return {
-    x: Math.max(xRange[0], Math.min(xRange[1], x)),
-    y: Math.max(yRange[0], Math.min(yRange[1], y))
-  };
-}
-
-function getTouchPos(canvas, touch) {
-  return { clientX: touch.clientX, clientY: touch.clientY };
-}
-
-// ---------- Canvas helper ----------
+// ---------- Canvas helpers ----------
 function setupCanvas(canvas, logicalWidth, logicalHeight) {
   const dpr = window.devicePixelRatio || 1;
   if (canvas.width !== logicalWidth * dpr) {
@@ -162,7 +44,7 @@ function drawAxes(ctx, margin, w, h, xRange, yRange, xLabel = 'x', yLabel = 'y')
   }
   ctx.stroke();
 
-  // Zero line (y = 0) highlighted
+  // Zero line
   const yZero = margin.top + plotH - ((0 - yRange[0]) / (yRange[1] - yRange[0])) * plotH;
   if (yZero > margin.top && yZero < margin.top + plotH) {
     ctx.strokeStyle = '#d6cdb8';
@@ -178,7 +60,7 @@ function drawAxes(ctx, margin, w, h, xRange, yRange, xLabel = 'x', yLabel = 'y')
   ctx.beginPath();
   ctx.moveTo(margin.left, margin.top);
   ctx.lineTo(margin.left, margin.top + plotH);
-  ctx.moveTo(margin.left, margin.top + plotH);
+  ctx.lineTo(margin.left, margin.top + plotH);
   ctx.lineTo(margin.left + plotW, margin.top + plotH);
   ctx.stroke();
 
@@ -203,9 +85,7 @@ function plotCurve(ctx, xs, ys, margin, w, h, xRange, yRange, color, lineWidth =
   ctx.beginPath();
   for (let i = 0; i < xs.length; i++) {
     const px = margin.left + ((xs[i] - xRange[0]) / (xRange[1] - xRange[0])) * plotW;
-    let yVal = ys[i];
-    if (yVal > yRange[1]) yVal = yRange[1];
-    if (yVal < yRange[0]) yVal = yRange[0];
+    let yVal = clamp(ys[i], yRange[0], yRange[1]);
     const py = margin.top + plotH - ((yVal - yRange[0]) / (yRange[1] - yRange[0])) * plotH;
     if (i === 0) ctx.moveTo(px, py);
     else ctx.lineTo(px, py);
@@ -214,1606 +94,596 @@ function plotCurve(ctx, xs, ys, margin, w, h, xRange, yRange, color, lineWidth =
   ctx.setLineDash([]);
 }
 
-function drawInstructionText(ctx, text, cw, ch) {
-  ctx.save();
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillStyle = 'rgba(154, 145, 127, 0.6)';
-  ctx.font = '600 18px system-ui, sans-serif';
-  ctx.fillText(text, cw / 2, ch / 2);
-  ctx.restore();
+function dataToPixel(x, y, margin, w, h, xRange, yRange) {
+  const plotW = w - margin.left - margin.right;
+  const plotH = h - margin.top - margin.bottom;
+  return [
+    margin.left + ((x - xRange[0]) / (xRange[1] - xRange[0])) * plotW,
+    margin.top + plotH - ((clamp(y, yRange[0], yRange[1]) - yRange[0]) / (yRange[1] - yRange[0])) * plotH,
+  ];
 }
 
-// ---------- Activation functions ----------
-const ACT = {
-  relu: {
-    f: (z) => (z > 0 ? z : 0),
-    df: (z) => (z > 0 ? 1 : 0),
-    label: 'ReLU'
-  },
-  tanh: {
-    f: (z) => Math.tanh(z),
-    df: (z) => 1 - Math.tanh(z) ** 2,
-    label: 'tanh'
-  },
-  sigmoid: {
-    f: (z) => 1 / (1 + Math.exp(-z)),
-    df: (z) => {
-      const s = 1 / (1 + Math.exp(-z));
-      return s * (1 - s);
-    },
-    label: 'sigmoid'
+// ---------- Sequential colormap (dark → blue → orange → cream) ----------
+const CMAP_STOPS = [
+  [0.0, [26, 24, 21]],
+  [0.22, [40, 64, 110]],
+  [0.45, [44, 111, 183]],
+  [0.62, [120, 130, 150]],
+  [0.74, [217, 98, 43]],
+  [0.88, [240, 165, 78]],
+  [1.0, [255, 230, 188]],
+];
+function colormap(t) {
+  t = clamp(t, 0, 1);
+  for (let i = 1; i < CMAP_STOPS.length; i++) {
+    if (t <= CMAP_STOPS[i][0]) {
+      const [t0, c0] = CMAP_STOPS[i - 1];
+      const [t1, c1] = CMAP_STOPS[i];
+      const f = (t - t0) / (t1 - t0 || 1);
+      const r = Math.round(c0[0] + f * (c1[0] - c0[0]));
+      const g = Math.round(c0[1] + f * (c1[1] - c0[1]));
+      const b = Math.round(c0[2] + f * (c1[2] - c0[2]));
+      return `rgb(${r},${g},${b})`;
+    }
   }
-};
+  return 'rgb(255,230,188)';
+}
+
+// Paint a precomputed G×G scalar field as a heatmap. field[gy*G+gx], y up.
+function paintField(canvas, field, G, vmin, vmax, side = 440) {
+  const { ctx, w, h } = setupCanvas(canvas, side, side);
+  ctx.clearRect(0, 0, w, h);
+  const cw = w / G;
+  const ch = h / G;
+  const span = vmax - vmin || 1;
+  for (let gy = 0; gy < G; gy++) {
+    for (let gx = 0; gx < G; gx++) {
+      const t = (field[gy * G + gx] - vmin) / span;
+      ctx.fillStyle = colormap(t);
+      // y up: row 0 (gy=0) at bottom
+      ctx.fillRect(gx * cw, (G - 1 - gy) * ch, cw + 0.6, ch + 0.6);
+    }
+  }
+  // subtle frame
+  ctx.strokeStyle = 'rgba(0,0,0,0.12)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(0.5, 0.5, w - 1, h - 1);
+}
 
 // ============================================================
-// STEP 1: Single neuron
+// STEP 1 — one sigmoid neuron
 // ============================================================
-function initSingleNeuron() {
-  const canvas = document.getElementById('singleCanvas');
-  const wSlider = document.getElementById('single-w');
-  const bSlider = document.getElementById('single-b');
-  const wVal = document.getElementById('val-single-w');
-  const bVal = document.getElementById('val-single-b');
-  const formula = document.getElementById('single-formula');
+function initNeuron() {
+  const canvas = document.getElementById('neuronCanvas');
+  const wS = document.getElementById('n1-w');
+  const bS = document.getElementById('n1-b');
+  const wV = document.getElementById('val-n1-w');
+  const bV = document.getElementById('val-n1-b');
+  const formula = document.getElementById('neuron-formula');
+  const margin = { top: 20, right: 30, bottom: 35, left: 45 };
+  const xRange = [0, 1];
+  const yRange = [-0.08, 1.08];
 
   function draw() {
-    const w = parseFloat(wSlider.value);
-    const b = parseFloat(bSlider.value);
-    wVal.textContent = w.toFixed(1);
-    bVal.textContent = b.toFixed(1);
-    if (formula) {
-      formula.textContent = `y = max(0, ${w.toFixed(1)}\u00b7x + ${b.toFixed(1)})`;
-    }
+    const w = parseFloat(wS.value);
+    const b = parseFloat(bS.value);
+    wV.textContent = w.toFixed(1);
+    bV.textContent = b.toFixed(1);
+    if (formula) formula.textContent = `y = σ(${w.toFixed(1)}·x + ${b.toFixed(1)})`;
 
     const { ctx, w: cw, h: ch } = setupCanvas(canvas, 920, 300);
     ctx.clearRect(0, 0, cw, ch);
-
-    const margin = { top: 20, right: 30, bottom: 35, left: 45 };
-    const xRange = [-3, 3];
-    const yRange = [-0.2, 3.2];
     drawAxes(ctx, margin, cw, ch, xRange, yRange);
 
     const xs = [], ys = [];
-    for (let i = 0; i <= 200; i++) {
-      const x = xRange[0] + ((xRange[1] - xRange[0]) * i) / 200;
+    for (let i = 0; i <= 400; i++) {
+      const x = i / 400;
       xs.push(x);
-      ys.push(ACT.relu.f(w * x + b));
+      ys.push(sigmoid(w * x + b));
     }
     plotCurve(ctx, xs, ys, margin, cw, ch, xRange, yRange, '#2c6fb7', 3);
 
-    // Mark kink position
+    // mark the half-way point x = -b/w
     if (Math.abs(w) > 1e-6) {
-      const kinkX = -b / w;
-      if (kinkX >= xRange[0] && kinkX <= xRange[1]) {
-        const plotW = cw - margin.left - margin.right;
-        const plotH = ch - margin.top - margin.bottom;
-        const px = margin.left + ((kinkX - xRange[0]) / (xRange[1] - xRange[0])) * plotW;
-        const py = margin.top + plotH - ((0 - yRange[0]) / (yRange[1] - yRange[0])) * plotH;
+      const mid = -b / w;
+      if (mid >= 0 && mid <= 1) {
+        const [px, py] = dataToPixel(mid, 0.5, margin, cw, ch, xRange, yRange);
         ctx.fillStyle = '#d9622b';
         ctx.beginPath();
-        ctx.arc(px, py, 6, 0, Math.PI * 2);
+        ctx.arc(px, py, 5, 0, Math.PI * 2);
         ctx.fill();
-        ctx.fillStyle = '#d9622b';
         ctx.font = '600 12px system-ui, sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText(`kink at x = ${kinkX.toFixed(2)}`, px, py - 12);
+        ctx.fillText(`σ = 0.5 at x = ${mid.toFixed(2)}`, px, py - 12);
       }
     }
   }
 
-  wSlider.addEventListener('input', draw);
-  bSlider.addEventListener('input', draw);
+  wS.addEventListener('input', draw);
+  bS.addEventListener('input', draw);
   draw();
 }
 
 // ============================================================
-// STEP 2: Two-neuron bump
+// STEP 2 — high weight → step, parametrized by position s
+// ============================================================
+function initStep() {
+  const canvas = document.getElementById('stepCanvas');
+  const sS = document.getElementById('step-s');
+  const wS = document.getElementById('step-w');
+  const sV = document.getElementById('val-step-s');
+  const wV = document.getElementById('val-step-w');
+  const margin = { top: 20, right: 30, bottom: 35, left: 45 };
+  const xRange = [0, 1];
+  const yRange = [-0.08, 1.08];
+
+  function draw() {
+    const s = parseFloat(sS.value);
+    const w = parseFloat(wS.value);
+    sV.textContent = s.toFixed(2);
+    wV.textContent = w.toFixed(0);
+
+    const { ctx, w: cw, h: ch } = setupCanvas(canvas, 920, 300);
+    ctx.clearRect(0, 0, cw, ch);
+    drawAxes(ctx, margin, cw, ch, xRange, yRange);
+
+    const xs = [], ys = [];
+    for (let i = 0; i <= 600; i++) {
+      const x = i / 600;
+      xs.push(x);
+      ys.push(sigmoid(w * (x - s)));
+    }
+    plotCurve(ctx, xs, ys, margin, cw, ch, xRange, yRange, '#2c6fb7', 3);
+
+    // cliff marker
+    const plotH = ch - margin.top - margin.bottom;
+    const [px] = dataToPixel(s, 0, margin, cw, ch, xRange, yRange);
+    ctx.strokeStyle = 'rgba(217, 98, 43, 0.55)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([5, 4]);
+    ctx.beginPath();
+    ctx.moveTo(px, margin.top);
+    ctx.lineTo(px, margin.top + plotH);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#d9622b';
+    ctx.font = '600 13px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(`step at s = ${s.toFixed(2)}`, px, margin.top + 14);
+  }
+
+  sS.addEventListener('input', draw);
+  wS.addEventListener('input', draw);
+  draw();
+}
+
+// ============================================================
+// STEP 3 — two steps make a bump
 // ============================================================
 function initBump() {
   const canvas = document.getElementById('bumpCanvas');
-  const b1S = document.getElementById('b1');
-  const b2S = document.getElementById('b2');
-  const c1S = document.getElementById('c1');
-  const c2S = document.getElementById('c2');
-  const b1V = document.getElementById('val-b1');
-  const b2V = document.getElementById('val-b2');
-  const c1V = document.getElementById('val-c1');
-  const c2V = document.getElementById('val-c2');
+  const s1S = document.getElementById('bump-s1');
+  const s2S = document.getElementById('bump-s2');
+  const hS = document.getElementById('bump-h');
+  const s1V = document.getElementById('val-bump-s1');
+  const s2V = document.getElementById('val-bump-s2');
+  const hV = document.getElementById('val-bump-h');
+  const margin = { top: 20, right: 30, bottom: 35, left: 45 };
+  const xRange = [0, 1];
+  const yRange = [-1.6, 1.6];
+  const W = 50; // steepness
 
   function draw() {
-    const b1 = parseFloat(b1S.value);
-    const b2 = parseFloat(b2S.value);
-    const c1 = parseFloat(c1S.value);
-    const c2 = parseFloat(c2S.value);
-    b1V.textContent = b1.toFixed(1);
-    b2V.textContent = b2.toFixed(1);
-    c1V.textContent = c1.toFixed(1);
-    c2V.textContent = c2.toFixed(1);
+    let s1 = parseFloat(s1S.value);
+    let s2 = parseFloat(s2S.value);
+    const h = parseFloat(hS.value);
+    if (s1 > s2) [s1, s2] = [s2, s1];
+    s1V.textContent = s1.toFixed(2);
+    s2V.textContent = s2.toFixed(2);
+    hV.textContent = h.toFixed(2);
 
     const { ctx, w: cw, h: ch } = setupCanvas(canvas, 920, 320);
     ctx.clearRect(0, 0, cw, ch);
-
-    const margin = { top: 20, right: 30, bottom: 35, left: 45 };
-    const xRange = [-3, 3];
-    const yRange = [-2.5, 2.5];
     drawAxes(ctx, margin, cw, ch, xRange, yRange);
 
-    const xs = [];
-    const h1s = [], h2s = [], ysum = [];
-    const N = 240;
-    for (let i = 0; i <= N; i++) {
-      const x = xRange[0] + ((xRange[1] - xRange[0]) * i) / N;
+    const xs = [], step1 = [], step2 = [], sum = [];
+    for (let i = 0; i <= 600; i++) {
+      const x = i / 600;
+      const a = h * sigmoid(W * (x - s1));
+      const b = -h * sigmoid(W * (x - s2));
       xs.push(x);
-      const n1 = ACT.relu.f(2 * x + b1);
-      const n2 = ACT.relu.f(2 * x + b2);
-      h1s.push(c1 * n1);
-      h2s.push(c2 * n2);
-      ysum.push(c1 * n1 + c2 * n2);
+      step1.push(a);
+      step2.push(b);
+      sum.push(a + b);
     }
-
-    plotCurve(ctx, xs, h1s, margin, cw, ch, xRange, yRange, 'rgba(44, 111, 183, 0.45)', 2, [6, 4]);
-    plotCurve(ctx, xs, h2s, margin, cw, ch, xRange, yRange, 'rgba(30, 119, 112, 0.45)', 2, [6, 4]);
-    plotCurve(ctx, xs, ysum, margin, cw, ch, xRange, yRange, '#d9622b', 3);
+    plotCurve(ctx, xs, step1, margin, cw, ch, xRange, yRange, 'rgba(44,111,183,0.55)', 2, [6, 4]);
+    plotCurve(ctx, xs, step2, margin, cw, ch, xRange, yRange, 'rgba(30,119,112,0.55)', 2, [6, 4]);
+    plotCurve(ctx, xs, sum, margin, cw, ch, xRange, yRange, '#d9622b', 3.2);
 
     ctx.font = '600 12px system-ui, sans-serif';
     ctx.textAlign = 'left';
-    ctx.fillStyle = 'rgba(44, 111, 183, 0.8)';
-    ctx.fillText('c\u2081\u00b7ReLU(2x + b\u2081)', margin.left + 8, margin.top + 14);
-    ctx.fillStyle = 'rgba(30, 119, 112, 0.8)';
-    ctx.fillText('c\u2082\u00b7ReLU(2x + b\u2082)', margin.left + 8, margin.top + 30);
+    ctx.fillStyle = 'rgba(44,111,183,0.85)';
+    ctx.fillText('+h · step(s₁)', margin.left + 8, margin.top + 14);
+    ctx.fillStyle = 'rgba(30,119,112,0.85)';
+    ctx.fillText('−h · step(s₂)', margin.left + 8, margin.top + 30);
     ctx.fillStyle = '#d9622b';
-    ctx.fillText('Sum', margin.left + 8, margin.top + 46);
+    ctx.fillText('bump = sum', margin.left + 8, margin.top + 46);
   }
 
-  [b1S, b2S, c1S, c2S].forEach((el) => el.addEventListener('input', draw));
+  [s1S, s2S, hS].forEach((el) => el.addEventListener('input', draw));
   draw();
 }
 
 // ============================================================
-// STEP 3: Hand-placed bumps fitting a target
+// STEP 4 — design a 1D function by hand
 // ============================================================
-let manualState = {
-  target: 'sine',
-  width: 8
+const DESIGN_TARGETS = {
+  wiggle: {
+    label: "Nielsen's wiggle",
+    raw: (x) => 0.22 + 0.36 * x * x + 0.32 * x * Math.sin(15 * x) + 0.05 * Math.cos(40 * x),
+  },
+  wave: { label: 'Sine wave', raw: (x) => 0.5 + 0.36 * Math.sin(2 * Math.PI * x) },
+  hill: { label: 'Single hill', raw: (x) => 0.12 + 0.8 * Math.exp(-Math.pow((x - 0.5) / 0.16, 2)) },
+  plateaus: {
+    label: 'Plateaus',
+    raw: (x) => 0.2 + 0.32 * sigmoid(26 * (x - 0.33)) + 0.32 * sigmoid(26 * (x - 0.66)),
+  },
 };
-
-let manualDrawState = {
-  isDrawing: false,
-  points: [],
-  hasDrawn: false
-};
-
-function manualFit(targetKey, width) {
-  // Stack ReLU hinges to form a piecewise-linear interpolant that passes
-  // exactly through the target at N equally-spaced kink points on [0, 1].
-  //
-  // Each neuron is phi(x - k_i) with weight 1. The output weights encode the
-  // slope changes:
-  //   c_0        = slope_0
-  //   c_i        = slope_i - slope_{i-1}   (i = 1 .. N-2)
-  //   c_{N-1}    = -slope_{N-2}            (cancels the tail so x > 1 stays flat)
-  // The output bias equals the target at the first kink, so
-  //   f(k_j) = t(k_j) exactly at every kink, and the fit is piecewise-linear
-  //   between kinks.
-  const t = TARGETS[targetKey];
-  if (!t.fn) return null;
-
-  const kinks = new Array(width);
-  const targetVals = new Array(width);
-  const c = new Array(width);
-  const inputW = 1;
-  let b0;
-
-  if (width === 1) {
-    // One neuron: best we can do is a constant.
-    kinks[0] = 0.5;
-    targetVals[0] = t.fn(0.5);
-    c[0] = 0;
-    b0 = targetVals[0];
-  } else {
-    for (let i = 0; i < width; i++) {
-      kinks[i] = i / (width - 1);
-      targetVals[i] = t.fn(kinks[i]);
-    }
-
-    const slopes = new Array(width - 1);
-    for (let i = 0; i < width - 1; i++) {
-      slopes[i] = (targetVals[i + 1] - targetVals[i]) / (kinks[i + 1] - kinks[i]);
-    }
-
-    b0 = targetVals[0];
-    c[0] = slopes[0];
-    for (let i = 1; i < width - 1; i++) {
-      c[i] = slopes[i] - slopes[i - 1];
-    }
-    c[width - 1] = -slopes[width - 2];
-  }
-
-  function predict(x) {
-    let y = b0;
-    for (let i = 0; i < width; i++) {
-      const z = inputW * (x - kinks[i]);
-      y += c[i] * ACT.relu.f(z);
-    }
-    return y;
-  }
-
-  return { predict, kinks, inputW, c, b0 };
+function targetFn(key) {
+  const raw = DESIGN_TARGETS[key].raw;
+  return (x) => clamp(raw(x), 0.04, 0.96);
 }
 
-function manualMSE(model, targetKey, n = 300) {
-  const t = TARGETS[targetKey];
-  if (!t.fn || !model) return Infinity;
-  let mse = 0;
-  for (let i = 0; i < n; i++) {
-    const x = i / (n - 1);
-    const diff = model.predict(x) - t.fn(x);
-    mse += diff * diff;
+let designState = { target: 'wiggle', N: 6, p: [], view: 'fn' };
+
+function initDesign() {
+  const canvas = document.getElementById('designCanvas');
+  const nS = document.getElementById('design-n');
+  const nV = document.getElementById('val-design-n');
+  const heightsBox = document.getElementById('design-heights');
+  const btnAuto = document.getElementById('btn-design-autofit');
+  const btnMath = document.getElementById('btn-design-math');
+  const targetButtons = document.querySelectorAll('#design-target-buttons [data-target]');
+  const neuronsStat = document.getElementById('stat-design-neurons');
+  const slabStat = document.getElementById('stat-design-slab');
+  const errStat = document.getElementById('stat-design-err');
+  const caption = document.getElementById('design-caption');
+
+  const margin = { top: 22, right: 30, bottom: 35, left: 50 };
+  const xRange = [0, 1];
+
+  function steepness() {
+    return 24 * designState.N; // sharper as slabs get narrower
   }
-  return mse / n;
-}
+  function bumpVal(x, i) {
+    const W = steepness();
+    const left = i / designState.N;
+    const right = (i + 1) / designState.N;
+    return sigmoid(W * (x - left)) - sigmoid(W * (x - right));
+  }
+  function hiddenOutput(x) {
+    let H = 0;
+    for (let i = 0; i < designState.N; i++) H += logit(designState.p[i]) * bumpVal(x, i);
+    return H;
+  }
 
-function initManual() {
-  const canvas = document.getElementById('manualCanvas');
-  const widthSlider = document.getElementById('manual-width');
-  const widthVal = document.getElementById('val-manual-width');
-  const buttons = document.querySelectorAll('#manual-scenario-buttons [data-target]');
-  const neuronsStat = document.getElementById('stat-manual-neurons');
-  const paramsStat = document.getElementById('stat-manual-params');
-  const mseStat = document.getElementById('stat-manual-mse');
-  const tableBody = document.getElementById('manual-table-body');
-  const clearBtn = document.getElementById('btn-manual-clear-draw');
+  function autofit() {
+    const f = targetFn(designState.target);
+    for (let i = 0; i < designState.N; i++) {
+      const mid = (i + 0.5) / designState.N;
+      designState.p[i] = clamp(f(mid), 0.02, 0.98);
+    }
+  }
 
-  const manualLogicalW = 920, manualLogicalH = 360;
-  const manualMargin = { top: 20, right: 30, bottom: 35, left: 50 };
-  const manualXRange = [0, 1];
-
-  function paramCount(N) {
-    return 3 * N + 1;
+  function rebuildSliders() {
+    heightsBox.innerHTML = '';
+    for (let i = 0; i < designState.N; i++) {
+      const slot = document.createElement('div');
+      slot.className = 'height-slot';
+      const input = document.createElement('input');
+      input.type = 'range';
+      input.min = '0.02';
+      input.max = '0.98';
+      input.step = '0.02';
+      input.value = String(designState.p[i]);
+      input.className = 'height-range';
+      input.setAttribute('aria-label', `Bump ${i + 1} height`);
+      input.addEventListener('input', () => {
+        designState.p[i] = parseFloat(input.value);
+        draw();
+      });
+      const tag = document.createElement('span');
+      tag.className = 'height-tag';
+      tag.textContent = i + 1;
+      slot.appendChild(input);
+      slot.appendChild(tag);
+      heightsBox.appendChild(slot);
+    }
   }
 
   function draw() {
-    const { target, width } = manualState;
-    widthVal.textContent = width;
-    neuronsStat.textContent = width;
-    paramsStat.textContent = paramCount(width);
+    const f = targetFn(designState.target);
+    const logitView = designState.view === 'logit';
+    nV.textContent = designState.N;
+    neuronsStat.textContent = designState.N * 2;
+    slabStat.textContent = (1 / designState.N).toFixed(2);
+    btnMath.classList.toggle('is-active', logitView);
+    btnMath.textContent = logitView ? 'Show the function view' : 'Show the σ⁻¹ goal';
 
-    const { ctx, w: cw, h: ch } = setupCanvas(canvas, manualLogicalW, manualLogicalH);
+    const yRange = logitView ? [-6, 6] : [-0.05, 1.05];
+
+    const { ctx, w: cw, h: ch } = setupCanvas(canvas, 920, 360);
     ctx.clearRect(0, 0, cw, ch);
+    drawAxes(ctx, margin, cw, ch, xRange, yRange, 'x', logitView ? 'σ⁻¹(f)' : 'y');
 
-    // Handle custom drawing mode
-    if (target === 'custom') {
-      if (clearBtn) clearBtn.style.display = manualDrawState.hasDrawn ? '' : 'none';
-      canvas.classList.toggle('draw-mode', !manualDrawState.hasDrawn);
+    // slab boundaries
+    const plotH = ch - margin.top - margin.bottom;
+    ctx.strokeStyle = 'rgba(120,110,90,0.18)';
+    ctx.lineWidth = 1;
+    for (let i = 1; i < designState.N; i++) {
+      const [px] = dataToPixel(i / designState.N, 0, margin, cw, ch, xRange, yRange);
+      ctx.beginPath();
+      ctx.moveTo(px, margin.top);
+      ctx.lineTo(px, margin.top + plotH);
+      ctx.stroke();
+    }
 
-      if (!manualDrawState.hasDrawn) {
-        const yRange = [-1.5, 1.5];
-        drawAxes(ctx, manualMargin, cw, ch, manualXRange, yRange);
-
-        if (manualDrawState.isDrawing && manualDrawState.points.length > 1) {
-          // Draw the in-progress stroke
-          const pts = manualDrawState.points;
-          const plotW = cw - manualMargin.left - manualMargin.right;
-          const plotH = ch - manualMargin.top - manualMargin.bottom;
-          ctx.strokeStyle = '#d9622b';
-          ctx.lineWidth = 3;
-          ctx.beginPath();
-          for (let i = 0; i < pts.length; i++) {
-            const px = manualMargin.left + ((pts[i].x - manualXRange[0]) / (manualXRange[1] - manualXRange[0])) * plotW;
-            const py = manualMargin.top + plotH - ((pts[i].y - yRange[0]) / (yRange[1] - yRange[0])) * plotH;
-            if (i === 0) ctx.moveTo(px, py);
-            else ctx.lineTo(px, py);
-          }
-          ctx.stroke();
-        } else {
-          drawInstructionText(ctx, 'Click and drag to draw a curve', cw, ch);
-        }
-        mseStat.textContent = '\u2014';
-        renderManualTable(target);
-        return;
+    const xs = [], goal = [], net = [];
+    let err = 0;
+    const M = 500;
+    for (let i = 0; i <= M; i++) {
+      const x = i / M;
+      const H = hiddenOutput(x);
+      const fv = f(x);
+      xs.push(x);
+      if (logitView) {
+        goal.push(logit(fv));
+        net.push(H);
+      } else {
+        goal.push(fv);
+        net.push(sigmoid(H));
       }
-    } else {
-      if (clearBtn) clearBtn.style.display = 'none';
-      canvas.classList.remove('draw-mode');
+      err += Math.abs(sigmoid(H) - fv);
     }
+    err /= M + 1;
 
-    const t = TARGETS[target];
-    if (!t.fn) { mseStat.textContent = '\u2014'; return; }
+    plotCurve(ctx, xs, goal, margin, cw, ch, xRange, yRange, '#d9622b', 3);
+    plotCurve(ctx, xs, net, margin, cw, ch, xRange, yRange, '#2c6fb7', 2.6);
 
-    const yRange = t.yRange;
-    drawAxes(ctx, manualMargin, cw, ch, manualXRange, yRange);
-
-    const model = manualFit(target, width);
-    const mse = model ? manualMSE(model, target) : Infinity;
-    mseStat.textContent = isFinite(mse) ? mse.toFixed(4) : '\u2014';
-
-    // Target
-    const targetXs = [], targetYs = [];
-    for (let i = 0; i <= 400; i++) {
-      const x = i / 400;
-      targetXs.push(x);
-      targetYs.push(t.fn(x));
+    errStat.textContent = err.toFixed(3);
+    if (caption) {
+      caption.innerHTML = logitView
+        ? '<span style="color:var(--warm);font-weight:600">Orange</span>: the σ⁻¹ goal (logit of the target). <span style="color:var(--accent);font-weight:600">Blue</span>: your weighted hidden output H(x).'
+        : '<span style="color:var(--warm);font-weight:600">Orange</span>: target f(x). <span style="color:var(--accent);font-weight:600">Blue</span>: network output σ(H(x)).';
     }
-    plotCurve(ctx, targetXs, targetYs, manualMargin, cw, ch, manualXRange, yRange, '#d9622b', 3);
-
-    // Network output
-    if (model) {
-      // Sample the piecewise-linear fit densely so the kinks are visible.
-      const netXs = [], netYs = [];
-      for (let i = 0; i <= 400; i++) {
-        const x = i / 400;
-        netXs.push(x);
-        netYs.push(model.predict(x));
-      }
-      plotCurve(ctx, netXs, netYs, manualMargin, cw, ch, manualXRange, yRange, '#2c6fb7', 2.5);
-
-      // Mark kink positions where the fit meets the target exactly.
-      if (width <= 40) {
-        const plotW = cw - manualMargin.left - manualMargin.right;
-        const plotH = ch - manualMargin.top - manualMargin.bottom;
-        for (let i = 0; i < width; i++) {
-          const kx = model.kinks[i];
-          const ky = Math.max(yRange[0], Math.min(yRange[1], t.fn(kx)));
-          const px = manualMargin.left + ((kx - manualXRange[0]) / (manualXRange[1] - manualXRange[0])) * plotW;
-          const py = manualMargin.top + plotH - ((ky - yRange[0]) / (yRange[1] - yRange[0])) * plotH;
-          // Halo
-          ctx.fillStyle = 'rgba(44, 111, 183, 0.15)';
-          ctx.beginPath();
-          ctx.arc(px, py, 6, 0, Math.PI * 2);
-          ctx.fill();
-          // Core dot
-          ctx.fillStyle = '#2c6fb7';
-          ctx.beginPath();
-          ctx.arc(px, py, 3, 0, Math.PI * 2);
-          ctx.fill();
-        }
-      }
-    }
-
-    renderManualTable(target);
   }
 
-  function renderManualTable(target) {
-    if (target === 'custom' && !manualDrawState.hasDrawn) {
-      tableBody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:#9a917f;">Draw a target above to see the table</td></tr>';
-      return;
-    }
-    const t = TARGETS[target];
-    if (!t.fn) return;
-    const rows = [2, 4, 8, 16, 32, 60];
-    const descriptions = {
-      2: 'Just the chord from x=0 to x=1 \u2014 one straight line',
-      4: '3 linear segments \u2014 rough outline',
-      8: '7 linear segments \u2014 recognizable shape',
-      16: '15 segments \u2014 smooth-looking on most targets',
-      32: '31 segments \u2014 nearly exact on sine and spike',
-      60: '59 segments \u2014 indistinguishable from smooth targets'
-    };
-    // Update table header to reflect current target
-    const targetLabel = document.getElementById('manual-table-target');
-    if (targetLabel) targetLabel.textContent = t.label;
-
-    let html = '';
-    for (const N of rows) {
-      const model = manualFit(target, N);
-      const mse = model ? manualMSE(model, target) : Infinity;
-      html += `
-        <tr>
-          <td><strong>N = ${N}</strong></td>
-          <td class="col-desc-cell">${descriptions[N]}</td>
-          <td><code>${isFinite(mse) ? mse.toExponential(2) : '\u2014'}</code></td>
-        </tr>
-      `;
-    }
-    tableBody.innerHTML = html;
-  }
-
-  // --- Drawing handlers for manual canvas ---
-  function handleDrawStart(e) {
-    if (manualState.target !== 'custom' || manualDrawState.hasDrawn) return;
-    e.preventDefault();
-    manualDrawState.isDrawing = true;
-    manualDrawState.points = [];
-    const pos = e.touches ? getTouchPos(canvas, e.touches[0]) : e;
-    const p = pixelToPlot(canvas, pos, manualMargin, manualLogicalW, manualLogicalH, manualXRange, [-1.5, 1.5]);
-    manualDrawState.points.push(p);
-    draw();
-  }
-
-  function handleDrawMove(e) {
-    if (!manualDrawState.isDrawing) return;
-    e.preventDefault();
-    const pos = e.touches ? getTouchPos(canvas, e.touches[0]) : e;
-    const p = pixelToPlot(canvas, pos, manualMargin, manualLogicalW, manualLogicalH, manualXRange, [-1.5, 1.5]);
-    manualDrawState.points.push(p);
-    draw();
-  }
-
-  function handleDrawEnd(e) {
-    if (!manualDrawState.isDrawing) return;
-    manualDrawState.isDrawing = false;
-    if (manualDrawState.points.length > 3) {
-      buildCustomTarget(manualDrawState.points, [-1.5, 1.5]);
-      manualDrawState.hasDrawn = true;
-    }
-    draw();
-  }
-
-  canvas.addEventListener('mousedown', handleDrawStart);
-  canvas.addEventListener('mousemove', handleDrawMove);
-  canvas.addEventListener('mouseup', handleDrawEnd);
-  canvas.addEventListener('mouseleave', handleDrawEnd);
-  canvas.addEventListener('touchstart', handleDrawStart, { passive: false });
-  canvas.addEventListener('touchmove', handleDrawMove, { passive: false });
-  canvas.addEventListener('touchend', handleDrawEnd);
-
-  if (clearBtn) {
-    clearBtn.addEventListener('click', () => {
-      manualDrawState.hasDrawn = false;
-      manualDrawState.points = [];
-      TARGETS.custom.fn = null;
-      draw();
-    });
-  }
-
-  widthSlider.addEventListener('input', () => {
-    manualState.width = parseInt(widthSlider.value, 10);
+  // wiring
+  nS.addEventListener('input', () => {
+    designState.N = parseInt(nS.value, 10);
+    autofit();
+    rebuildSliders();
     draw();
   });
-  buttons.forEach((b) => {
+  btnAuto.addEventListener('click', () => {
+    autofit();
+    rebuildSliders();
+    draw();
+  });
+  btnMath.addEventListener('click', () => {
+    designState.view = designState.view === 'logit' ? 'fn' : 'logit';
+    draw();
+  });
+  targetButtons.forEach((b) => {
     b.addEventListener('click', () => {
-      buttons.forEach((bb) => bb.classList.remove('is-active'));
+      targetButtons.forEach((bb) => bb.classList.remove('is-active'));
       b.classList.add('is-active');
-      manualState.target = b.dataset.target;
-      if (b.dataset.target !== 'custom') {
-        manualDrawState.hasDrawn = false;
-        manualDrawState.points = [];
-      }
+      designState.target = b.dataset.target;
+      autofit();
+      rebuildSliders();
       draw();
     });
   });
+
+  designState.N = parseInt(nS.value, 10);
+  autofit();
+  rebuildSliders();
   draw();
 }
 
 // ============================================================
-// STEP 5: Real trainable MLP
+// STEP 5 — two inputs: build a tower
 // ============================================================
-function createMLP(width, activation) {
-  const act = ACT[activation];
-  const W1 = new Array(width);
-  const b1 = new Array(width);
-  for (let i = 0; i < width; i++) {
-    if (activation === 'relu') {
-      W1[i] = (Math.random() * 2 - 1) * 6;
-      b1[i] = -((i + 0.5) / width) * W1[i] + (Math.random() - 0.5) * 1.5;
-    } else {
-      W1[i] = (Math.random() * 2 - 1) * 4;
-      b1[i] = -((i + 0.5) / width) * W1[i] + (Math.random() - 0.5) * 0.5;
-    }
-  }
-  const W2 = new Array(width);
-  for (let i = 0; i < width; i++) W2[i] = (Math.random() * 2 - 1) * (1 / Math.sqrt(width));
-  let b2 = 0;
+function initTower() {
+  const sumCanvas = document.getElementById('towerSumCanvas');
+  const outCanvas = document.getElementById('towerOutCanvas');
+  const cxS = document.getElementById('tower-cx');
+  const cyS = document.getElementById('tower-cy');
+  const sizeS = document.getElementById('tower-size');
+  const thrS = document.getElementById('tower-thr');
+  const wS = document.getElementById('tower-w');
+  const cxV = document.getElementById('val-tower-cx');
+  const cyV = document.getElementById('val-tower-cy');
+  const sizeV = document.getElementById('val-tower-size');
+  const thrV = document.getElementById('val-tower-thr');
+  const wV = document.getElementById('val-tower-w');
 
-  function forward(x) {
-    const z1 = new Array(width);
-    const h = new Array(width);
-    for (let i = 0; i < width; i++) {
-      z1[i] = W1[i] * x + b1[i];
-      h[i] = act.f(z1[i]);
-    }
-    let yhat = b2;
-    for (let i = 0; i < width; i++) yhat += W2[i] * h[i];
-    return { yhat, z1, h };
-  }
+  const G = 70;
 
-  function predict(x) {
-    return forward(x).yhat;
-  }
+  function draw() {
+    const cx = parseFloat(cxS.value);
+    const cy = parseFloat(cyS.value);
+    const size = parseFloat(sizeS.value);
+    const thr = parseFloat(thrS.value);
+    const W = parseFloat(wS.value);
+    cxV.textContent = cx.toFixed(2);
+    cyV.textContent = cy.toFixed(2);
+    sizeV.textContent = size.toFixed(2);
+    thrV.textContent = thr.toFixed(2);
+    wV.textContent = W.toFixed(0);
 
-  function trainStep(batchX, batchY, lr) {
-    const B = batchX.length;
-    const dW1 = new Array(width).fill(0);
-    const db1 = new Array(width).fill(0);
-    const dW2 = new Array(width).fill(0);
-    let db2 = 0;
-    let loss = 0;
-    for (let k = 0; k < B; k++) {
-      const x = batchX[k];
-      const y = batchY[k];
-      const { yhat, z1, h } = forward(x);
-      const err = yhat - y;
-      loss += err * err;
-      const dY = 2 * err;
-      db2 += dY;
-      for (let i = 0; i < width; i++) {
-        dW2[i] += dY * h[i];
-        const dh = dY * W2[i];
-        const dz = dh * act.df(z1[i]);
-        dW1[i] += dz * x;
-        db1[i] += dz;
+    const x0 = cx - size / 2, x1 = cx + size / 2;
+    const y0 = cy - size / 2, y1 = cy + size / 2;
+    const K = 18; // output sigmoid sharpness for the threshold
+
+    const sumField = new Float32Array(G * G);
+    const outField = new Float32Array(G * G);
+    for (let gy = 0; gy < G; gy++) {
+      const y = (gy + 0.5) / G;
+      const by = sigmoid(W * (y - y0)) - sigmoid(W * (y - y1));
+      for (let gx = 0; gx < G; gx++) {
+        const x = (gx + 0.5) / G;
+        const bx = sigmoid(W * (x - x0)) - sigmoid(W * (x - x1));
+        const s = bx + by; // 0..2
+        sumField[gy * G + gx] = s;
+        outField[gy * G + gx] = sigmoid(K * (s - thr));
       }
     }
-    const inv = 1 / B;
-    for (let i = 0; i < width; i++) {
-      W1[i] -= lr * dW1[i] * inv;
-      b1[i] -= lr * db1[i] * inv;
-      W2[i] -= lr * dW2[i] * inv;
-    }
-    b2 -= lr * db2 * inv;
-    return loss / B;
+    paintField(sumCanvas, sumField, G, 0, 2);
+    paintField(outCanvas, outField, G, 0, 1);
   }
 
-  // Compute each neuron's individual contribution curve
-  function neuronOutputs(xArr) {
-    const results = [];
-    for (let j = 0; j < width; j++) {
-      const ys = new Array(xArr.length);
-      for (let i = 0; i < xArr.length; i++) {
-        const z = W1[j] * xArr[i] + b1[j];
-        ys[i] = W2[j] * act.f(z);
-      }
-      results.push(ys);
-    }
-    return results;
-  }
-
-  // Get kink positions (for ReLU: -b1/W1)
-  function kinkPositions() {
-    const kinks = [];
-    for (let j = 0; j < width; j++) {
-      if (Math.abs(W1[j]) < 1e-8) continue;
-      const kx = -b1[j] / W1[j];
-      kinks.push({ x: kx, weight: W2[j], idx: j });
-    }
-    return kinks;
-  }
-
-  return {
-    get width() { return width; },
-    get activation() { return activation; },
-    get W1() { return W1; },
-    get b1() { return b1; },
-    get W2() { return W2; },
-    get b2() { return b2; },
-    forward,
-    predict,
-    trainStep,
-    neuronOutputs,
-    kinkPositions
-  };
+  [cxS, cyS, sizeS, thrS, wS].forEach((el) => el.addEventListener('input', draw));
+  draw();
 }
 
-let trainState = {
-  target: 'sine',
-  width: 16,
-  activation: 'relu',
-  model: null,
-  epoch: 0,
-  losses: [],
-  running: false,
-  dataX: null,
-  dataY: null,
-  lr: 0.05,
-  showNeurons: false,
-  showComparison: false
+// ============================================================
+// STEP 6 — tile towers into a surface
+// ============================================================
+const SURFACE_TARGETS = {
+  peaks: {
+    label: 'Two peaks',
+    raw: (x, y) =>
+      Math.exp(-(Math.pow(x - 0.32, 2) + Math.pow(y - 0.34, 2)) / 0.025) -
+      0.7 * Math.exp(-(Math.pow(x - 0.7, 2) + Math.pow(y - 0.68, 2)) / 0.03),
+  },
+  ripple: {
+    label: 'Ripples',
+    raw: (x, y) => {
+      const r = Math.sqrt(Math.pow(x - 0.5, 2) + Math.pow(y - 0.5, 2));
+      return Math.cos(16 * r) * Math.exp(-2.2 * r);
+    },
+  },
+  saddle: { label: 'Saddle', raw: (x, y) => Math.pow(x - 0.5, 2) - Math.pow(y - 0.5, 2) },
+  gauss: {
+    label: 'Gaussian hill',
+    raw: (x, y) => Math.exp(-(Math.pow(x - 0.5, 2) + Math.pow(y - 0.5, 2)) / 0.04),
+  },
 };
 
-let trainDrawState = {
-  isDrawing: false,
-  points: [],
-  hasDrawn: false
-};
+let surfaceState = { target: 'peaks', res: 6 };
 
-function buildData(targetKey) {
-  const t = TARGETS[targetKey];
-  if (!t.fn) return { xs: [], ys: [] };
-  const n = 128;
-  const xs = new Array(n);
-  const ys = new Array(n);
-  for (let i = 0; i < n; i++) {
-    xs[i] = i / (n - 1);
-    ys[i] = t.fn(xs[i]);
-  }
-  return { xs, ys };
-}
+function initSurface() {
+  const targetCanvas = document.getElementById('surfaceTargetCanvas');
+  const approxCanvas = document.getElementById('surfaceApproxCanvas');
+  const resS = document.getElementById('surface-res');
+  const resV = document.getElementById('val-surface-res');
+  const resV2 = document.getElementById('val-surface-res2');
+  const towersStat = document.getElementById('stat-surface-towers');
+  const neuronsStat = document.getElementById('stat-surface-neurons');
+  const mseStat = document.getElementById('stat-surface-mse');
+  const buttons = document.querySelectorAll('#surface-target-buttons [data-surface]');
 
-function initTrainer() {
-  const canvas = document.getElementById('trainCanvas');
-  const lossCanvas = document.getElementById('lossCanvas');
-  const widthSlider = document.getElementById('train-width');
-  const widthVal = document.getElementById('val-train-width');
-  const lrSlider = document.getElementById('train-lr');
-  const lrVal = document.getElementById('val-train-lr');
-  const activationChips = document.querySelectorAll('#activation-chips [data-act]');
-  const activationLabel = document.getElementById('val-train-activation');
-  const buttons = document.querySelectorAll('#train-scenario-buttons [data-target]');
-  const btnTrain = document.getElementById('btn-train');
-  const btnStep = document.getElementById('btn-step');
-  const btnReset = document.getElementById('btn-reset');
-  const btnShowNeurons = document.getElementById('btn-show-neurons');
-  const btnShowComparison = document.getElementById('btn-show-comparison');
-  const clearDrawBtn = document.getElementById('btn-train-clear-draw');
-  const epochStat = document.getElementById('stat-epoch');
-  const paramsStat = document.getElementById('stat-train-params');
-  const mseStat = document.getElementById('stat-train-mse');
-  const revealN = document.getElementById('reveal-n');
-  const revealParams = document.getElementById('reveal-params');
-  const revealBreakdown = document.getElementById('reveal-breakdown');
+  const G = 64; // render resolution
 
-  const trainLogicalW = 920, trainLogicalH = 340;
-  const trainMargin = { top: 20, right: 30, bottom: 35, left: 50 };
-  const trainXRange = [0, 1];
-
-  function paramCount(N) { return 3 * N + 1; }
-
-  function resetModel() {
-    trainState.model = createMLP(trainState.width, trainState.activation);
-    trainState.epoch = 0;
-    trainState.losses = [];
-    const data = buildData(trainState.target);
-    trainState.dataX = data.xs;
-    trainState.dataY = data.ys;
-    drawAll();
+  // Normalize a target into [0,1] using its own min/max over the grid.
+  function normalizedTarget(key) {
+    const raw = SURFACE_TARGETS[key].raw;
+    let lo = Infinity, hi = -Infinity;
+    const S = 40;
+    for (let i = 0; i <= S; i++)
+      for (let j = 0; j <= S; j++) {
+        const v = raw(i / S, j / S);
+        if (v < lo) lo = v;
+        if (v > hi) hi = v;
+      }
+    const span = hi - lo || 1;
+    return (x, y) => (raw(x, y) - lo) / span;
   }
 
-  // --- Neuron decomposition colors ---
-  function neuronColor(idx, total, alpha) {
-    const hue = (idx / total) * 300;
-    return `hsla(${hue}, 65%, 50%, ${alpha})`;
-  }
+  function draw() {
+    const R = surfaceState.res;
+    const f = normalizedTarget(surfaceState.target);
+    resV.textContent = R;
+    resV2.textContent = R;
+    towersStat.textContent = R * R;
+    neuronsStat.textContent = 4 * R * R;
 
-  function drawAll() {
-    widthVal.textContent = trainState.width;
-    activationLabel.textContent = ACT[trainState.activation].label;
-    epochStat.textContent = trainState.epoch;
-    paramsStat.textContent = paramCount(trainState.width);
+    const W = clamp(10 * R, 30, 150); // ridge steepness scales with grid
+    const K = 16; // tower threshold sharpness
 
-    if (lrSlider && lrVal) {
-      lrVal.textContent = trainState.lr.toFixed(3);
+    // Precompute per-axis bump values: Bx[i][gx], By[j][gy]
+    const Bx = [], By = [];
+    for (let i = 0; i < R; i++) {
+      const x0 = i / R, x1 = (i + 1) / R;
+      const row = new Float32Array(G);
+      for (let gx = 0; gx < G; gx++) {
+        const x = (gx + 0.5) / G;
+        row[gx] = sigmoid(W * (x - x0)) - sigmoid(W * (x - x1));
+      }
+      Bx.push(row);
+    }
+    for (let j = 0; j < R; j++) {
+      const y0 = j / R, y1 = (j + 1) / R;
+      const row = new Float32Array(G);
+      for (let gy = 0; gy < G; gy++) {
+        const y = (gy + 0.5) / G;
+        row[gy] = sigmoid(W * (y - y0)) - sigmoid(W * (y - y1));
+      }
+      By.push(row);
     }
 
-    revealN.textContent = trainState.width;
-    const N = trainState.width;
-    revealParams.textContent = paramCount(N);
-    revealBreakdown.textContent =
-      `${N} input weights + ${N} hidden biases + ${N} output weights + 1 output bias`;
-
-    // Toggle button states
-    if (btnShowNeurons) {
-      btnShowNeurons.classList.toggle('is-active', trainState.showNeurons);
-    }
-    if (btnShowComparison) {
-      btnShowComparison.classList.toggle('is-active', trainState.showComparison);
-    }
-    if (clearDrawBtn) {
-      clearDrawBtn.style.display = (trainState.target === 'custom' && trainDrawState.hasDrawn) ? '' : 'none';
+    // Tower heights = target at each cell center
+    const heights = [];
+    for (let i = 0; i < R; i++) {
+      const hr = new Float32Array(R);
+      for (let j = 0; j < R; j++) hr[j] = f((i + 0.5) / R, (j + 0.5) / R);
+      heights.push(hr);
     }
 
-    // --- Fit canvas ---
-    const t = TARGETS[trainState.target];
-    const { ctx, w: cw, h: ch } = setupCanvas(canvas, trainLogicalW, trainLogicalH);
-    ctx.clearRect(0, 0, cw, ch);
-
-    // Handle custom draw mode
-    canvas.classList.toggle('draw-mode',
-      trainState.target === 'custom' && !trainDrawState.hasDrawn);
-    if (trainState.target === 'custom' && !trainDrawState.hasDrawn) {
-      const yRange = [-1.5, 1.5];
-      drawAxes(ctx, trainMargin, cw, ch, trainXRange, yRange);
-
-      if (trainDrawState.isDrawing && trainDrawState.points.length > 1) {
-        const pts = trainDrawState.points;
-        const plotW = cw - trainMargin.left - trainMargin.right;
-        const plotH = ch - trainMargin.top - trainMargin.bottom;
-        ctx.strokeStyle = '#d9622b';
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        for (let i = 0; i < pts.length; i++) {
-          const px = trainMargin.left + ((pts[i].x - trainXRange[0]) / (trainXRange[1] - trainXRange[0])) * plotW;
-          const py = trainMargin.top + plotH - ((pts[i].y - yRange[0]) / (yRange[1] - yRange[0])) * plotH;
-          if (i === 0) ctx.moveTo(px, py);
-          else ctx.lineTo(px, py);
+    const targetField = new Float32Array(G * G);
+    const approxField = new Float32Array(G * G);
+    let mse = 0;
+    for (let gy = 0; gy < G; gy++) {
+      const y = (gy + 0.5) / G;
+      for (let gx = 0; gx < G; gx++) {
+        const x = (gx + 0.5) / G;
+        const tv = f(x, y);
+        let acc = 0;
+        for (let i = 0; i < R; i++) {
+          const bxi = Bx[i][gx];
+          if (bxi < 0.01) continue; // skip far cells
+          for (let j = 0; j < R; j++) {
+            const tower = sigmoid(K * (bxi + By[j][gy] - 1.5));
+            if (tower > 0.01) acc += heights[i][j] * tower;
+          }
         }
-        ctx.stroke();
-      } else {
-        drawInstructionText(ctx, 'Click and drag to draw a target curve', cw, ch);
-      }
-      mseStat.textContent = '\u2014';
-      drawLossCurve();
-      return;
-    }
-
-    if (!t.fn) {
-      mseStat.textContent = '\u2014';
-      drawLossCurve();
-      return;
-    }
-
-    const yRange = t.yRange;
-    drawAxes(ctx, trainMargin, cw, ch, trainXRange, yRange);
-
-    // --- Show individual neuron contributions ---
-    if (trainState.showNeurons && trainState.model && trainState.width <= 40) {
-      const xArr = [];
-      for (let i = 0; i <= 300; i++) xArr.push(i / 300);
-      const neuronYs = trainState.model.neuronOutputs(xArr);
-      for (let j = 0; j < trainState.width; j++) {
-        plotCurve(ctx, xArr, neuronYs[j], trainMargin, cw, ch, trainXRange, yRange,
-          neuronColor(j, trainState.width, 0.4), 1.3);
-      }
-    }
-
-    // --- Hand-placed comparison overlay ---
-    if (trainState.showComparison) {
-      const compModel = manualFit(trainState.target, trainState.width);
-      if (compModel) {
-        const compXs = [], compYs = [];
-        for (let i = 0; i <= 400; i++) {
-          const x = i / 400;
-          compXs.push(x);
-          compYs.push(compModel.predict(x));
-        }
-        plotCurve(ctx, compXs, compYs, trainMargin, cw, ch, trainXRange, yRange,
-          'rgba(30, 119, 112, 0.6)', 2.5, [8, 5]);
-      }
-    }
-
-    // Target curve
-    const targetXs = [], targetYs = [];
-    for (let i = 0; i <= 400; i++) {
-      const x = i / 400;
-      targetXs.push(x);
-      targetYs.push(t.fn(x));
-    }
-    plotCurve(ctx, targetXs, targetYs, trainMargin, cw, ch, trainXRange, yRange, '#d9622b', 3);
-
-    // Training data dots
-    if (trainState.dataX) {
-      const plotW = cw - trainMargin.left - trainMargin.right;
-      const plotH = ch - trainMargin.top - trainMargin.bottom;
-      ctx.fillStyle = 'rgba(44, 111, 183, 0.25)';
-      for (let i = 0; i < trainState.dataX.length; i++) {
-        const x = trainState.dataX[i];
-        let y = trainState.dataY[i];
-        if (y > yRange[1]) y = yRange[1];
-        if (y < yRange[0]) y = yRange[0];
-        const px = trainMargin.left + ((x - trainXRange[0]) / (trainXRange[1] - trainXRange[0])) * plotW;
-        const py = trainMargin.top + plotH - ((y - yRange[0]) / (yRange[1] - yRange[0])) * plotH;
-        ctx.beginPath();
-        ctx.arc(px, py, 2.5, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    }
-
-    // Model prediction
-    if (trainState.model) {
-      const xs = [], ys = [];
-      for (let i = 0; i <= 400; i++) {
-        const x = i / 400;
-        xs.push(x);
-        ys.push(trainState.model.predict(x));
-      }
-      plotCurve(ctx, xs, ys, trainMargin, cw, ch, trainXRange, yRange, '#2c6fb7', 2.5);
-
-      // --- Kink position markers ---
-      if (trainState.showNeurons && trainState.activation === 'relu') {
-        const kinks = trainState.model.kinkPositions();
-        const plotW = cw - trainMargin.left - trainMargin.right;
-        const plotH = ch - trainMargin.top - trainMargin.bottom;
-        const axisY = trainMargin.top + plotH;
-
-        for (const k of kinks) {
-          if (k.x < trainXRange[0] || k.x > trainXRange[1]) continue;
-          const px = trainMargin.left + ((k.x - trainXRange[0]) / (trainXRange[1] - trainXRange[0])) * plotW;
-          ctx.fillStyle = neuronColor(k.idx, trainState.width, 0.7);
-          ctx.beginPath();
-          ctx.moveTo(px, axisY);
-          ctx.lineTo(px - 4, axisY + 10);
-          ctx.lineTo(px + 4, axisY + 10);
-          ctx.closePath();
-          ctx.fill();
-        }
-      }
-
-      // Current MSE
-      let mse = 0;
-      for (let i = 0; i < trainState.dataX.length; i++) {
-        const d = trainState.model.predict(trainState.dataX[i]) - trainState.dataY[i];
+        targetField[gy * G + gx] = tv;
+        approxField[gy * G + gx] = acc;
+        const d = acc - tv;
         mse += d * d;
       }
-      mse /= trainState.dataX.length;
-      mseStat.textContent = mse.toFixed(4);
-    } else {
-      mseStat.textContent = '\u2014';
     }
+    mse /= G * G;
 
-    // --- Legend overlay ---
-    const legendX = cw - trainMargin.right - 200;
-    const legendY = trainMargin.top + 8;
-    ctx.font = '600 11px system-ui, sans-serif';
-    ctx.textAlign = 'left';
-    // Target label
-    ctx.strokeStyle = '#d9622b'; ctx.lineWidth = 2.5; ctx.setLineDash([]);
-    ctx.beginPath(); ctx.moveTo(legendX, legendY + 5); ctx.lineTo(legendX + 20, legendY + 5); ctx.stroke();
-    ctx.fillStyle = '#d9622b'; ctx.fillText('Target', legendX + 25, legendY + 9);
-    // Network label
-    ctx.strokeStyle = '#2c6fb7'; ctx.lineWidth = 2.5;
-    ctx.beginPath(); ctx.moveTo(legendX, legendY + 21); ctx.lineTo(legendX + 20, legendY + 21); ctx.stroke();
-    ctx.fillStyle = '#2c6fb7'; ctx.fillText('Trained network', legendX + 25, legendY + 25);
-    if (trainState.showComparison) {
-      ctx.strokeStyle = 'rgba(30, 119, 112, 0.6)'; ctx.lineWidth = 2.5; ctx.setLineDash([8, 5]);
-      ctx.beginPath(); ctx.moveTo(legendX, legendY + 37); ctx.lineTo(legendX + 20, legendY + 37); ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.fillStyle = 'rgba(30, 119, 112, 0.8)'; ctx.fillText('Hand-placed', legendX + 25, legendY + 41);
-    }
-
-    drawLossCurve();
+    paintField(targetCanvas, targetField, G, 0, 1);
+    paintField(approxCanvas, approxField, G, 0, 1);
+    mseStat.textContent = mse.toFixed(4);
   }
 
-  function drawLossCurve() {
-    const { ctx, w: cw, h: ch } = setupCanvas(lossCanvas, 920, 180);
-    ctx.clearRect(0, 0, cw, ch);
-    const margin = { top: 20, right: 30, bottom: 30, left: 50 };
-    const plotW = cw - margin.left - margin.right;
-    const plotH = ch - margin.top - margin.bottom;
-
-    ctx.strokeStyle = '#f0ebe1';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    for (let i = 0; i <= 4; i++) {
-      const y = margin.top + (plotH / 4) * i;
-      ctx.moveTo(margin.left, y);
-      ctx.lineTo(margin.left + plotW, y);
-    }
-    ctx.stroke();
-
-    ctx.strokeStyle = '#c4beb1';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(margin.left, margin.top);
-    ctx.lineTo(margin.left, margin.top + plotH);
-    ctx.lineTo(margin.left + plotW, margin.top + plotH);
-    ctx.stroke();
-
-    ctx.fillStyle = '#9a917f';
-    ctx.font = '11px system-ui, sans-serif';
-    ctx.textAlign = 'left';
-    ctx.fillText('log MSE', margin.left + 4, margin.top + 12);
-
-    if (!trainState.losses.length) {
-      ctx.textAlign = 'center';
-      ctx.fillStyle = '#9a917f';
-      ctx.font = '13px system-ui, sans-serif';
-      ctx.fillText('Click Train to start', margin.left + plotW / 2, margin.top + plotH / 2);
-      return;
-    }
-
-    // Full loss history (no truncation)
-    const logs = trainState.losses.map((v) => Math.log10(Math.max(v, 1e-8)));
-    let minL = logs[0], maxL = logs[0];
-    for (let i = 1; i < logs.length; i++) {
-      if (logs[i] < minL) minL = logs[i];
-      if (logs[i] > maxL) maxL = logs[i];
-    }
-    const pad = 0.2;
-    const loLog = minL - pad;
-    const hiLog = maxL + pad;
-
-    ctx.strokeStyle = '#2c6fb7';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    for (let i = 0; i < logs.length; i++) {
-      const t = i / Math.max(1, logs.length - 1);
-      const px = margin.left + t * plotW;
-      const py = margin.top + plotH - ((logs[i] - loLog) / (hiLog - loLog)) * plotH;
-      if (i === 0) ctx.moveTo(px, py);
-      else ctx.lineTo(px, py);
-    }
-    ctx.stroke();
-
-    // Epoch labels on x-axis
-    ctx.fillStyle = '#9a917f';
-    ctx.font = '11px system-ui, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('0', margin.left, margin.top + plotH + 14);
-    ctx.fillText(String(trainState.losses.length), margin.left + plotW, margin.top + plotH + 14);
-    ctx.fillText('Epoch', margin.left + plotW / 2, ch - 4);
-
-    ctx.textAlign = 'right';
-    ctx.fillText('10^' + hiLog.toFixed(1), margin.left - 6, margin.top + 4);
-    ctx.fillText('10^' + loLog.toFixed(1), margin.left - 6, margin.top + plotH + 4);
-  }
-
-  function shuffleIdx(n) {
-    const arr = Array.from({ length: n }, (_, i) => i);
-    for (let i = arr.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [arr[i], arr[j]] = [arr[j], arr[i]];
-    }
-    return arr;
-  }
-
-  function oneEpoch() {
-    if (!trainState.dataX || !trainState.dataX.length) return;
-    const batchSize = 32;
-    const n = trainState.dataX.length;
-    const idx = shuffleIdx(n);
-    let epochLoss = 0;
-    let batchCount = 0;
-    for (let start = 0; start < n; start += batchSize) {
-      const end = Math.min(start + batchSize, n);
-      const bx = new Array(end - start);
-      const by = new Array(end - start);
-      for (let k = start; k < end; k++) {
-        bx[k - start] = trainState.dataX[idx[k]];
-        by[k - start] = trainState.dataY[idx[k]];
-      }
-      const l = trainState.model.trainStep(bx, by, trainState.lr);
-      epochLoss += l;
-      batchCount++;
-    }
-    trainState.epoch += 1;
-    trainState.losses.push(epochLoss / batchCount);
-    // No truncation — keep full training history
-  }
-
-  let rafId = null;
-  function trainLoop() {
-    if (!trainState.running) return;
-    for (let k = 0; k < 3; k++) {
-      oneEpoch();
-    }
-    drawAll();
-    if (trainState.running) rafId = requestAnimationFrame(trainLoop);
-  }
-
-  // --- Drawing handlers for train canvas ---
-  function handleTrainDrawStart(e) {
-    if (trainState.target !== 'custom' || trainDrawState.hasDrawn) return;
-    e.preventDefault();
-    trainDrawState.isDrawing = true;
-    trainDrawState.points = [];
-    const pos = e.touches ? getTouchPos(canvas, e.touches[0]) : e;
-    const p = pixelToPlot(canvas, pos, trainMargin, trainLogicalW, trainLogicalH, trainXRange, [-1.5, 1.5]);
-    trainDrawState.points.push(p);
-    drawAll();
-  }
-
-  function handleTrainDrawMove(e) {
-    if (!trainDrawState.isDrawing) return;
-    e.preventDefault();
-    const pos = e.touches ? getTouchPos(canvas, e.touches[0]) : e;
-    const p = pixelToPlot(canvas, pos, trainMargin, trainLogicalW, trainLogicalH, trainXRange, [-1.5, 1.5]);
-    trainDrawState.points.push(p);
-    drawAll();
-  }
-
-  function handleTrainDrawEnd(e) {
-    if (!trainDrawState.isDrawing) return;
-    trainDrawState.isDrawing = false;
-    if (trainDrawState.points.length > 3) {
-      buildCustomTarget(trainDrawState.points, [-1.5, 1.5]);
-      trainDrawState.hasDrawn = true;
-      resetModel();
-    }
-    drawAll();
-  }
-
-  canvas.addEventListener('mousedown', handleTrainDrawStart);
-  canvas.addEventListener('mousemove', handleTrainDrawMove);
-  canvas.addEventListener('mouseup', handleTrainDrawEnd);
-  canvas.addEventListener('mouseleave', handleTrainDrawEnd);
-  canvas.addEventListener('touchstart', handleTrainDrawStart, { passive: false });
-  canvas.addEventListener('touchmove', handleTrainDrawMove, { passive: false });
-  canvas.addEventListener('touchend', handleTrainDrawEnd);
-
-  if (clearDrawBtn) {
-    clearDrawBtn.addEventListener('click', () => {
-      trainState.running = false;
-      btnTrain.textContent = 'Train';
-      if (rafId) cancelAnimationFrame(rafId);
-      trainDrawState.hasDrawn = false;
-      trainDrawState.points = [];
-      TARGETS.custom.fn = null;
-      resetModel();
-    });
-  }
-
-  // --- Slider bindings ---
-  widthSlider.addEventListener('input', () => {
-    trainState.width = parseInt(widthSlider.value, 10);
-    resetModel();
+  resS.addEventListener('input', () => {
+    surfaceState.res = parseInt(resS.value, 10);
+    draw();
   });
-
-  if (lrSlider) {
-    lrSlider.addEventListener('input', () => {
-      trainState.lr = parseFloat(lrSlider.value);
-      if (lrVal) lrVal.textContent = trainState.lr.toFixed(3);
-    });
-  }
-
-  // --- Activation chips ---
-  activationChips.forEach((c) => {
-    c.addEventListener('click', () => {
-      activationChips.forEach((cc) => cc.classList.remove('is-active'));
-      c.classList.add('is-active');
-      trainState.activation = c.dataset.act;
-      resetModel();
-    });
-  });
-
-  // --- Target buttons ---
   buttons.forEach((b) => {
     b.addEventListener('click', () => {
       buttons.forEach((bb) => bb.classList.remove('is-active'));
       b.classList.add('is-active');
-      trainState.target = b.dataset.target;
-      if (b.dataset.target !== 'custom') {
-        trainDrawState.hasDrawn = false;
-        trainDrawState.points = [];
-      }
-      trainState.running = false;
-      btnTrain.textContent = 'Train';
-      if (rafId) cancelAnimationFrame(rafId);
-      resetModel();
+      surfaceState.target = b.dataset.surface;
+      draw();
     });
   });
-
-  // --- Toggle buttons ---
-  if (btnShowNeurons) {
-    btnShowNeurons.addEventListener('click', () => {
-      trainState.showNeurons = !trainState.showNeurons;
-      drawAll();
-    });
-  }
-  if (btnShowComparison) {
-    btnShowComparison.addEventListener('click', () => {
-      trainState.showComparison = !trainState.showComparison;
-      drawAll();
-    });
-  }
-
-  // --- Train / Step / Reset ---
-  btnTrain.addEventListener('click', () => {
-    if (trainState.target === 'custom' && !trainDrawState.hasDrawn) return;
-    if (trainState.running) {
-      trainState.running = false;
-      btnTrain.textContent = 'Train';
-      if (rafId) cancelAnimationFrame(rafId);
-    } else {
-      trainState.running = true;
-      btnTrain.textContent = 'Stop';
-      trainLoop();
-    }
-  });
-  btnStep.addEventListener('click', () => {
-    if (trainState.target === 'custom' && !trainDrawState.hasDrawn) return;
-    if (!trainState.model) resetModel();
-    oneEpoch();
-    drawAll();
-  });
-  btnReset.addEventListener('click', () => {
-    trainState.running = false;
-    btnTrain.textContent = 'Train';
-    if (rafId) cancelAnimationFrame(rafId);
-    resetModel();
-  });
-
-  // --- Keyboard shortcut: space to toggle train ---
-  document.addEventListener('keydown', (e) => {
-    if (e.code === 'Space' && document.activeElement === document.body) {
-      const step5 = document.getElementById('step-5');
-      if (!step5) return;
-      const rect = step5.getBoundingClientRect();
-      if (rect.top < window.innerHeight && rect.bottom > 0) {
-        e.preventDefault();
-        btnTrain.click();
-      }
-    }
-  });
-
-  resetModel();
-}
-
-// ============================================================
-// STEP 6: Classification (2D) — same theorem, different loss
-// ============================================================
-function createMLP2D(width) {
-  // 2D input → N hidden ReLU → 1 output (logit, sigmoid applied externally)
-  const W1 = new Array(width);
-  const b1 = new Array(width);
-  for (let i = 0; i < width; i++) {
-    W1[i] = [(Math.random() * 2 - 1) * 3, (Math.random() * 2 - 1) * 3];
-    b1[i] = (Math.random() * 2 - 1) * 1.5;
-  }
-  const W2 = new Array(width);
-  for (let i = 0; i < width; i++) {
-    W2[i] = (Math.random() * 2 - 1) * (1 / Math.sqrt(width));
-  }
-  let b2 = 0;
-
-  function forward(x, y) {
-    const z1 = new Array(width);
-    const h = new Array(width);
-    for (let i = 0; i < width; i++) {
-      z1[i] = W1[i][0] * x + W1[i][1] * y + b1[i];
-      h[i] = z1[i] > 0 ? z1[i] : 0;
-    }
-    let logit = b2;
-    for (let i = 0; i < width; i++) logit += W2[i] * h[i];
-    return { logit, z1, h };
-  }
-
-  function predictProb(x, y) {
-    const { logit } = forward(x, y);
-    // Numerically stable sigmoid
-    if (logit >= 0) {
-      const e = Math.exp(-logit);
-      return 1 / (1 + e);
-    } else {
-      const e = Math.exp(logit);
-      return e / (1 + e);
-    }
-  }
-
-  function trainStep(batchXY, batchLabels, lr) {
-    const B = batchXY.length;
-    const dW1 = new Array(width);
-    const db1 = new Array(width).fill(0);
-    const dW2 = new Array(width).fill(0);
-    for (let i = 0; i < width; i++) dW1[i] = [0, 0];
-    let db2 = 0;
-    let loss = 0;
-
-    for (let k = 0; k < B; k++) {
-      const x = batchXY[k][0];
-      const y = batchXY[k][1];
-      const target = batchLabels[k];
-      const { logit, z1, h } = forward(x, y);
-
-      // Numerically stable BCE: max(z, 0) - z*t + log(1 + exp(-|z|))
-      const z = logit;
-      const absZ = Math.abs(z);
-      const ll = (z > 0 ? z : 0) - z * target + Math.log(1 + Math.exp(-absZ));
-      loss += ll;
-
-      // dL/dlogit = sigmoid(logit) - target
-      const sig = z >= 0 ? 1 / (1 + Math.exp(-z)) : Math.exp(z) / (1 + Math.exp(z));
-      const dLogit = sig - target;
-      db2 += dLogit;
-      for (let i = 0; i < width; i++) {
-        dW2[i] += dLogit * h[i];
-        const dh = dLogit * W2[i];
-        const dz = dh * (z1[i] > 0 ? 1 : 0);
-        dW1[i][0] += dz * x;
-        dW1[i][1] += dz * y;
-        db1[i] += dz;
-      }
-    }
-
-    const inv = 1 / B;
-    for (let i = 0; i < width; i++) {
-      W1[i][0] -= lr * dW1[i][0] * inv;
-      W1[i][1] -= lr * dW1[i][1] * inv;
-      b1[i] -= lr * db1[i] * inv;
-      W2[i] -= lr * dW2[i] * inv;
-    }
-    b2 -= lr * db2 * inv;
-    return loss / B;
-  }
-
-  return {
-    get width() { return width; },
-    get W1() { return W1; },
-    get b1() { return b1; },
-    get W2() { return W2; },
-    get b2() { return b2; },
-    forward,
-    predictProb,
-    trainStep
-  };
-}
-
-// Deterministic-ish PRNG so the same dataset key always generates the same points
-function makeRng(seed) {
-  let s = seed >>> 0;
-  return function () {
-    s = (s * 1664525 + 1013904223) >>> 0;
-    return s / 4294967296;
-  };
-}
-
-const DATASETS_2D = {
-  moons: {
-    label: 'Two moons',
-    generate: () => {
-      const rng = makeRng(7);
-      const data = [];
-      const n = 90;
-      for (let i = 0; i < n; i++) {
-        const t = (i / (n - 1)) * Math.PI;
-        const noise = () => (rng() - 0.5) * 0.18;
-        // Upper moon (class 0)
-        data.push({ x: Math.cos(t) - 0.5 + noise(), y: Math.sin(t) - 0.25 + noise(), c: 0 });
-        // Lower moon (class 1) — flipped + offset
-        data.push({ x: 1 - Math.cos(t) - 0.5 + noise(), y: 0.25 - Math.sin(t) + noise(), c: 1 });
-      }
-      return data;
-    }
-  },
-  circles: {
-    label: 'Concentric circles',
-    generate: () => {
-      const rng = makeRng(11);
-      const data = [];
-      const n = 90;
-      for (let i = 0; i < n; i++) {
-        // Inner disc (class 0)
-        const r0 = 0.35 * Math.sqrt(rng());
-        const a0 = rng() * 2 * Math.PI;
-        data.push({ x: r0 * Math.cos(a0), y: r0 * Math.sin(a0), c: 0 });
-        // Outer ring (class 1)
-        const r1 = 0.75 + (rng() - 0.5) * 0.18;
-        const a1 = rng() * 2 * Math.PI;
-        data.push({ x: r1 * Math.cos(a1), y: r1 * Math.sin(a1), c: 1 });
-      }
-      return data;
-    }
-  },
-  xor: {
-    label: 'XOR quadrants',
-    generate: () => {
-      const rng = makeRng(13);
-      const data = [];
-      const n = 200;
-      for (let i = 0; i < n; i++) {
-        const x = (rng() - 0.5) * 1.8;
-        const y = (rng() - 0.5) * 1.8;
-        const c = (x * y > 0) ? 1 : 0;
-        data.push({ x, y, c });
-      }
-      return data;
-    }
-  },
-  spirals: {
-    label: 'Two spirals',
-    generate: () => {
-      const rng = makeRng(17);
-      const data = [];
-      const n = 90;
-      for (let i = 0; i < n; i++) {
-        const t = (i / (n - 1)) * 3.5 * Math.PI;
-        const r = 0.15 + (t / (3.5 * Math.PI)) * 0.85;
-        const noise = () => (rng() - 0.5) * 0.06;
-        data.push({ x: r * Math.cos(t) + noise(), y: r * Math.sin(t) + noise(), c: 0 });
-        data.push({ x: r * Math.cos(t + Math.PI) + noise(), y: r * Math.sin(t + Math.PI) + noise(), c: 1 });
-      }
-      return data;
-    }
-  }
-};
-
-let classifyState = {
-  dataset: 'moons',
-  width: 12,
-  lr: 0.1,
-  model: null,
-  data: null,
-  epoch: 0,
-  losses: [],
-  running: false
-};
-
-function initClassify() {
-  const canvas = document.getElementById('classifyCanvas');
-  if (!canvas) return; // section not present
-  const lossCanvas = document.getElementById('classifyLossCanvas');
-  const widthSlider = document.getElementById('classify-width');
-  const widthVal = document.getElementById('val-classify-width');
-  const lrSlider = document.getElementById('classify-lr');
-  const lrVal = document.getElementById('val-classify-lr');
-  const datasetButtons = document.querySelectorAll('#classify-dataset-buttons [data-dataset]');
-  const btnTrain = document.getElementById('btn-classify-train');
-  const btnStep = document.getElementById('btn-classify-step');
-  const btnReset = document.getElementById('btn-classify-reset');
-  const epochStat = document.getElementById('stat-classify-epoch');
-  const lossStat = document.getElementById('stat-classify-loss');
-  const accStat = document.getElementById('stat-classify-acc');
-
-  const logicalW = 920, logicalH = 500;
-  const margin = { top: 20, right: 30, bottom: 35, left: 50 };
-  const xRange = [-1.5, 1.5];
-  const yRange = [-1.5, 1.5];
-
-  function resetModel() {
-    classifyState.model = createMLP2D(classifyState.width);
-    classifyState.epoch = 0;
-    classifyState.losses = [];
-    classifyState.data = DATASETS_2D[classifyState.dataset].generate();
-    drawAll();
-  }
-
-  function plotToPixel(px, py, cw, ch) {
-    const plotW = cw - margin.left - margin.right;
-    const plotH = ch - margin.top - margin.bottom;
-    return [
-      margin.left + ((px - xRange[0]) / (xRange[1] - xRange[0])) * plotW,
-      margin.top + plotH - ((py - yRange[0]) / (yRange[1] - yRange[0])) * plotH
-    ];
-  }
-
-  function drawDecisionBoundary(ctx, cw, ch) {
-    const plotW = cw - margin.left - margin.right;
-    const plotH = ch - margin.top - margin.bottom;
-    const grid = 60; // resolution
-    const cellW = plotW / grid;
-    const cellH = plotH / grid;
-
-    for (let i = 0; i < grid; i++) {
-      for (let j = 0; j < grid; j++) {
-        const xData = xRange[0] + ((i + 0.5) / grid) * (xRange[1] - xRange[0]);
-        const yData = yRange[1] - ((j + 0.5) / grid) * (yRange[1] - yRange[0]);
-        const p = classifyState.model.predictProb(xData, yData);
-        // Mix between class-0 (cool blue) and class-1 (warm orange)
-        // p=0 → blue, p=1 → orange
-        const t = p; // 0..1
-        const r = Math.round(44 * (1 - t) + 217 * t);
-        const g = Math.round(111 * (1 - t) + 98 * t);
-        const b = Math.round(183 * (1 - t) + 43 * t);
-        ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.32)`;
-        ctx.fillRect(margin.left + i * cellW, margin.top + j * cellH, cellW + 0.6, cellH + 0.6);
-      }
-    }
-
-    // Boundary contour at p = 0.5 (using marching squares lite — sample lines)
-    ctx.strokeStyle = 'rgba(20, 18, 14, 0.8)';
-    ctx.lineWidth = 2;
-    const linePts = [];
-    for (let i = 0; i < grid; i++) {
-      for (let j = 0; j < grid; j++) {
-        const x0 = xRange[0] + (i / grid) * (xRange[1] - xRange[0]);
-        const x1 = xRange[0] + ((i + 1) / grid) * (xRange[1] - xRange[0]);
-        const y0 = yRange[1] - (j / grid) * (yRange[1] - yRange[0]);
-        const y1 = yRange[1] - ((j + 1) / grid) * (yRange[1] - yRange[0]);
-        const p00 = classifyState.model.predictProb(x0, y0);
-        const p10 = classifyState.model.predictProb(x1, y0);
-        const p01 = classifyState.model.predictProb(x0, y1);
-        const p11 = classifyState.model.predictProb(x1, y1);
-        // Find sign changes across cell edges (p = 0.5)
-        const checks = [
-          [p00, p10, x0, y0, x1, y0],
-          [p10, p11, x1, y0, x1, y1],
-          [p11, p01, x1, y1, x0, y1],
-          [p01, p00, x0, y1, x0, y0]
-        ];
-        const crossings = [];
-        for (const [a, b, ax, ay, bx, by] of checks) {
-          if ((a - 0.5) * (b - 0.5) < 0) {
-            const t = (0.5 - a) / (b - a);
-            crossings.push([ax + t * (bx - ax), ay + t * (by - ay)]);
-          }
-        }
-        if (crossings.length === 2) {
-          const [a, b] = crossings.map(([x, y]) => plotToPixel(x, y, cw, ch));
-          linePts.push([a, b]);
-        }
-      }
-    }
-    ctx.beginPath();
-    for (const [a, b] of linePts) {
-      ctx.moveTo(a[0], a[1]);
-      ctx.lineTo(b[0], b[1]);
-    }
-    ctx.stroke();
-  }
-
-  function computeAccuracy() {
-    if (!classifyState.model || !classifyState.data) return null;
-    let correct = 0;
-    for (const pt of classifyState.data) {
-      const p = classifyState.model.predictProb(pt.x, pt.y);
-      const pred = p > 0.5 ? 1 : 0;
-      if (pred === pt.c) correct++;
-    }
-    return correct / classifyState.data.length;
-  }
-
-  function drawAll() {
-    widthVal.textContent = classifyState.width;
-    if (lrVal) lrVal.textContent = classifyState.lr.toFixed(2);
-    epochStat.textContent = classifyState.epoch;
-
-    const { ctx, w: cw, h: ch } = setupCanvas(canvas, logicalW, logicalH);
-    ctx.clearRect(0, 0, cw, ch);
-    drawAxes(ctx, margin, cw, ch, xRange, yRange);
-
-    if (classifyState.model) {
-      drawDecisionBoundary(ctx, cw, ch);
-    }
-
-    // Data points on top
-    if (classifyState.data) {
-      for (const pt of classifyState.data) {
-        const [px, py] = plotToPixel(pt.x, pt.y, cw, ch);
-        // Halo
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
-        ctx.beginPath();
-        ctx.arc(px, py, 5.5, 0, Math.PI * 2);
-        ctx.fill();
-        // Core
-        ctx.fillStyle = pt.c === 0 ? '#2c6fb7' : '#d9622b';
-        ctx.beginPath();
-        ctx.arc(px, py, 4, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    }
-
-    // Stats
-    if (classifyState.losses.length > 0) {
-      lossStat.textContent = classifyState.losses[classifyState.losses.length - 1].toFixed(3);
-    } else {
-      lossStat.textContent = '\u2014';
-    }
-    const acc = computeAccuracy();
-    accStat.textContent = acc !== null ? (acc * 100).toFixed(1) + '%' : '\u2014';
-
-    drawLossCurve();
-  }
-
-  function drawLossCurve() {
-    const { ctx, w: cw, h: ch } = setupCanvas(lossCanvas, 920, 180);
-    ctx.clearRect(0, 0, cw, ch);
-    const m = { top: 20, right: 30, bottom: 30, left: 50 };
-    const plotW = cw - m.left - m.right;
-    const plotH = ch - m.top - m.bottom;
-
-    ctx.strokeStyle = '#f0ebe1';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    for (let i = 0; i <= 4; i++) {
-      const y = m.top + (plotH / 4) * i;
-      ctx.moveTo(m.left, y);
-      ctx.lineTo(m.left + plotW, y);
-    }
-    ctx.stroke();
-
-    ctx.strokeStyle = '#c4beb1';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(m.left, m.top);
-    ctx.lineTo(m.left, m.top + plotH);
-    ctx.lineTo(m.left + plotW, m.top + plotH);
-    ctx.stroke();
-
-    ctx.fillStyle = '#9a917f';
-    ctx.font = '11px system-ui, sans-serif';
-    ctx.textAlign = 'left';
-    ctx.fillText('BCE loss', m.left + 4, m.top + 12);
-
-    if (!classifyState.losses.length) {
-      ctx.textAlign = 'center';
-      ctx.fillStyle = '#9a917f';
-      ctx.font = '13px system-ui, sans-serif';
-      ctx.fillText('Click Train to start', m.left + plotW / 2, m.top + plotH / 2);
-      return;
-    }
-
-    let minL = classifyState.losses[0], maxL = classifyState.losses[0];
-    for (let i = 1; i < classifyState.losses.length; i++) {
-      if (classifyState.losses[i] < minL) minL = classifyState.losses[i];
-      if (classifyState.losses[i] > maxL) maxL = classifyState.losses[i];
-    }
-    const pad = (maxL - minL) * 0.1 + 0.01;
-    const lo = minL - pad, hi = maxL + pad;
-
-    ctx.strokeStyle = '#d9622b';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    for (let i = 0; i < classifyState.losses.length; i++) {
-      const t = i / Math.max(1, classifyState.losses.length - 1);
-      const px = m.left + t * plotW;
-      const py = m.top + plotH - ((classifyState.losses[i] - lo) / (hi - lo)) * plotH;
-      if (i === 0) ctx.moveTo(px, py);
-      else ctx.lineTo(px, py);
-    }
-    ctx.stroke();
-
-    ctx.fillStyle = '#9a917f';
-    ctx.font = '11px system-ui, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('0', m.left, m.top + plotH + 14);
-    ctx.fillText(String(classifyState.losses.length), m.left + plotW, m.top + plotH + 14);
-    ctx.fillText('Epoch', m.left + plotW / 2, ch - 4);
-    ctx.textAlign = 'right';
-    ctx.fillText(hi.toFixed(2), m.left - 6, m.top + 4);
-    ctx.fillText(lo.toFixed(2), m.left - 6, m.top + plotH + 4);
-  }
-
-  function shuffleIdx(n) {
-    const arr = Array.from({ length: n }, (_, i) => i);
-    for (let i = arr.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [arr[i], arr[j]] = [arr[j], arr[i]];
-    }
-    return arr;
-  }
-
-  function oneEpoch() {
-    if (!classifyState.model || !classifyState.data) return;
-    const data = classifyState.data;
-    const n = data.length;
-    const idx = shuffleIdx(n);
-    const batchSize = 32;
-    let total = 0, batches = 0;
-    for (let s = 0; s < n; s += batchSize) {
-      const e = Math.min(s + batchSize, n);
-      const bx = [], by = [];
-      for (let k = s; k < e; k++) {
-        bx.push([data[idx[k]].x, data[idx[k]].y]);
-        by.push(data[idx[k]].c);
-      }
-      total += classifyState.model.trainStep(bx, by, classifyState.lr);
-      batches++;
-    }
-    classifyState.epoch++;
-    classifyState.losses.push(total / batches);
-  }
-
-  let rafId = null;
-  function trainLoop() {
-    if (!classifyState.running) return;
-    for (let k = 0; k < 2; k++) oneEpoch();
-    drawAll();
-    if (classifyState.running) rafId = requestAnimationFrame(trainLoop);
-  }
-
-  widthSlider.addEventListener('input', () => {
-    classifyState.width = parseInt(widthSlider.value, 10);
-    resetModel();
-  });
-  if (lrSlider) {
-    lrSlider.addEventListener('input', () => {
-      classifyState.lr = parseFloat(lrSlider.value);
-      if (lrVal) lrVal.textContent = classifyState.lr.toFixed(2);
-    });
-  }
-  datasetButtons.forEach((b) => {
-    b.addEventListener('click', () => {
-      datasetButtons.forEach((bb) => bb.classList.remove('is-active'));
-      b.classList.add('is-active');
-      classifyState.dataset = b.dataset.dataset;
-      classifyState.running = false;
-      btnTrain.textContent = 'Train';
-      if (rafId) cancelAnimationFrame(rafId);
-      resetModel();
-    });
-  });
-  btnTrain.addEventListener('click', () => {
-    if (classifyState.running) {
-      classifyState.running = false;
-      btnTrain.textContent = 'Train';
-      if (rafId) cancelAnimationFrame(rafId);
-    } else {
-      classifyState.running = true;
-      btnTrain.textContent = 'Stop';
-      trainLoop();
-    }
-  });
-  btnStep.addEventListener('click', () => {
-    if (!classifyState.model) resetModel();
-    oneEpoch();
-    drawAll();
-  });
-  btnReset.addEventListener('click', () => {
-    classifyState.running = false;
-    btnTrain.textContent = 'Train';
-    if (rafId) cancelAnimationFrame(rafId);
-    resetModel();
-  });
-
-  resetModel();
+  draw();
 }
 
 // ============================================================
@@ -1822,19 +692,19 @@ function initClassify() {
 function renderMath() {
   if (!window.katex) return;
   const blocks = {
-    'math-single-neuron': 'y = \\phi(w\\,x + b)',
-    'math-two-neurons':
-      'y = c_1\\,\\phi(w_1 x + b_1) + c_2\\,\\phi(w_2 x + b_2)'
+    'math-sigmoid': 'a = \\sigma(w\\,x + b)',
+    'math-step': 's = -\\,b / w \\quad\\Longrightarrow\\quad a \\approx \\begin{cases} 0 & x < s \\\\ 1 & x > s \\end{cases}',
+    'math-bump': 'h\\,\\sigma\\!\\big(w(x - s_1)\\big) \\;-\\; h\\,\\sigma\\!\\big(w(x - s_2)\\big)',
+    'math-design': 'H(x) \\;=\\; \\sum_{i=1}^{N} h_i \\,\\big[\\,\\text{bump}_i(x)\\,\\big]',
   };
   Object.keys(blocks).forEach((id) => {
     const el = document.getElementById(id);
     if (!el) return;
     try {
       katex.render(blocks[id], el, { displayMode: true, throwOnError: false });
-    } catch (_) { /* no-op */ }
+    } catch (_) {}
   });
 
-  // Auto-render inline $...$ and $$...$$ math across the whole article
   if (window.renderMathInElement) {
     try {
       renderMathInElement(document.querySelector('.article'), {
@@ -1842,43 +712,37 @@ function renderMath() {
           { left: '$$', right: '$$', display: true },
           { left: '$', right: '$', display: false },
           { left: '\\(', right: '\\)', display: false },
-          { left: '\\[', right: '\\]', display: true }
+          { left: '\\[', right: '\\]', display: true },
         ],
         throwOnError: false,
-        ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code', 'option']
+        ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code', 'option'],
       });
-    } catch (_) { /* no-op */ }
+    } catch (_) {}
   }
 }
 
-// ============================================================
-// Boot
-// ============================================================
 function waitForKatexAndRender() {
   let tries = 0;
   function tick() {
-    if (window.katex && window.renderMathInElement) {
-      renderMath();
-      return;
-    }
-    if (window.katex && tries > 20) {
-      // auto-render didn't show up; render at least the block math
-      renderMath();
-      return;
-    }
+    if (window.katex && window.renderMathInElement) return renderMath();
+    if (window.katex && tries > 20) return renderMath();
     tries++;
     setTimeout(tick, 50);
   }
   tick();
 }
 
+// ============================================================
+// Boot
+// ============================================================
 function init() {
   waitForKatexAndRender();
-  initSingleNeuron();
+  initNeuron();
+  initStep();
   initBump();
-  initManual();
-  initTrainer();
-  initClassify();
+  initDesign();
+  initTower();
+  initSurface();
 }
 
 if (document.readyState === 'loading') {

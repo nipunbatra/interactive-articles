@@ -514,3 +514,53 @@ canvas.draw-mode {
   .train-row-separator { display: none; }
   .toggle-btn { width: 100%; text-align: center; }
 }
+
+/* --- Action buttons inside a control block --- */
+.control-block--actions { display: flex; flex-direction: column; gap: 0.45rem; }
+.control-block--actions .action-btn,
+.control-block--actions .toggle-btn { width: 100%; justify-content: center; text-align: center; }
+
+/* --- Height equalizer (hand-design bumps) --- */
+.height-bank {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  padding: 1.1rem 1rem 0.7rem;
+  margin: 0.75rem 0 0;
+  background: #faf7ef;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+.height-slot { display: flex; flex-direction: column; align-items: center; gap: 0.35rem; }
+.height-range {
+  writing-mode: vertical-lr;
+  direction: rtl;
+  width: 22px;
+  height: 96px;
+  accent-color: var(--accent);
+  cursor: ns-resize;
+}
+.height-tag { font: 600 0.72rem var(--sans); color: var(--muted); }
+
+/* --- Side-by-side 2D heatmaps --- */
+.dual-canvas {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+  align-items: start;
+}
+.dual-canvas-cell { display: flex; flex-direction: column; align-items: center; gap: 0.6rem; }
+.dual-canvas-cell canvas {
+  width: 100%;
+  max-width: 360px;
+  height: auto;
+  aspect-ratio: 1 / 1;
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+}
+.dual-canvas-label { font: 600 0.82rem var(--sans); color: var(--muted); text-align: center; }
+@media (max-width: 680px) {
+  .dual-canvas { grid-template-columns: 1fr; gap: 1.75rem; }
+}

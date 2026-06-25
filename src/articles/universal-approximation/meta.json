@@ -1,18 +1,18 @@
 {
   "slug": "universal-approximation",
-  "title": "Watching a Neural Network Become Universal",
-  "date": "2026-04-15",
-  "tagline": "Build any function by stacking simple bumps",
-  "summary": "Slide neurons in and out of a tiny network and watch it approximate a target curve live. Train an actual MLP in the browser to feel why one hidden layer can match any shape.",
-  "readingTime": "14 min",
+  "title": "A Visual Proof That One Layer Can Compute Anything",
+  "date": "2026-06-25",
+  "tagline": "Flatten sigmoids into steps, glue bumps, stack towers — Nielsen's visual proof of universality, made interactive",
+  "summary": "Rebuild Michael Nielsen's visual proof of the Universal Approximation Theorem by hand: crank a sigmoid into a step, subtract two steps into a bump, design a 1D function with a bank of height sliders (and meet the σ⁻¹ subtlety), then stack thresholded towers to fit a 2D surface.",
+  "readingTime": "18 min",
   "difficulty": "Intermediate",
   "collection": "Deep learning",
   "order": 9,
   "status": "published",
   "tags": ["Neural Networks", "Universal Approximation", "Deep Learning", "Interactive"],
   "highlights": [
-    "Start with a single ReLU neuron and watch its shape, then see how two neurons subtract to make a bump.",
-    "Drag the width slider to add more hidden neurons and watch the fit snap to any of five target shapes.",
-    "Train an actual MLP in your browser on sine, step, spike, or zigzag targets and see the loss curve in real time."
+    "Watch a sigmoid snap into a step function and learn Nielsen's reparametrization by step position s = -b/w.",
+    "Subtract two steps to make a bump, then design a whole function with a bank of per-bump height sliders — including the σ⁻¹∘f twist the output sigmoid hides.",
+    "Build a 2D tower from four sigmoid steps and tile towers across the plane to approximate any surface, watching the fit sharpen with resolution."
   ]
 }
