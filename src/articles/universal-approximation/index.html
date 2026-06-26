@@ -19,13 +19,14 @@
         <p class="abstract">
           The Universal Approximation Theorem says a neural net with a
           <em>single</em> hidden layer can mimic almost any function. This page
-          rebuilds Michael Nielsen's beautiful visual argument&mdash;you'll
-          flatten a sigmoid into a step, glue two steps into a bump, design a
-          whole function by hand, and then stack <em>towers</em> to fit a
-          surface. No proof, just pictures you can grab.
+          rebuilds Michael Nielsen's beautiful visual argument, one grabbable
+          piece at a time&mdash;you'll flatten a sigmoid into a step, glue two
+          steps into a bump, design a whole curve by hand, then stack
+          <em>towers</em> into a 3-D surface. No proof. Just pictures you can
+          drag.
         </p>
         <div class="byline">
-          <span>~18 min</span>
+          <span>~22 min</span>
           <span>Deep Learning &middot; Neural Networks &middot; Approximation</span>
         </div>
       </header>
@@ -46,21 +47,34 @@
           construction from
           <a href="http://neuralnetworksanddeeplearning.com/chap4.html" target="_blank" rel="noopener">Chapter&nbsp;4</a>
           of <em>Neural Networks and Deep Learning</em>. Two honest caveats
-          first, because the theorem is narrower than the slogan:
+          first, because the theorem is a little narrower than the slogan:
         </p>
         <div class="callout callout--warn">
           <strong>Caveat 1 &mdash; approximate, not exact.</strong>
           We won't compute a function perfectly. We'll get <em>arbitrarily
-          close</em>&mdash;and we make the gap smaller by adding more neurons.
+          close</em>&mdash;and we shrink the gap by adding more neurons.
         </div>
         <div class="callout callout--warn" style="margin-top:0.5rem;">
           <strong>Caveat 2 &mdash; continuous functions only.</strong>
           The target has to be continuous (no instantaneous jumps). That's the
           class one hidden layer can handle.
         </div>
+
+        <div class="roadmap">
+          <p class="roadmap-title">The whole plan, in seven moves</p>
+          <ol class="roadmap-list">
+            <li>A sigmoid neuron is an <strong>S-curve</strong>.</li>
+            <li>Crank its weight and the S becomes a <strong>step</strong>.</li>
+            <li>Subtract two steps to get a <strong>bump</strong>.</li>
+            <li>Line up bumps to <strong>design any 1-D curve</strong>.</li>
+            <li>In 2-D, cross two bumps and threshold to get a <strong>tower</strong>.</li>
+            <li><strong>Tile towers</strong> to build any surface.</li>
+            <li>Notice what the proof <strong>doesn't</strong> promise.</li>
+          </ol>
+        </div>
         <p>
-          With those in hand, the whole trick is to stop thinking of the hidden
-          layer as &ldquo;a network&rdquo; and start thinking of it as a kit of
+          The trick the whole way through: stop thinking of the hidden layer as
+          &ldquo;a network&rdquo; and start thinking of it as a kit of
           interchangeable <em>bricks</em>. Let's forge the first brick.
         </p>
       </section>
@@ -75,9 +89,12 @@
         <div class="math-block" id="math-sigmoid"></div>
         <p>
           where $\sigma(z) = 1/(1 + e^{-z})$ is the smooth S-shaped sigmoid. The
-          <strong>weight $w$</strong> controls how steep the S is, and the
-          <strong>bias $b$</strong> slides it left and right. Drag both and watch.
+          <strong>weight $w$</strong> controls how steep the S is; the
+          <strong>bias $b$</strong> slides it left and right. That's the
+          neuron's entire repertoire&mdash;a single soft &ldquo;on/off&rdquo;
+          ramp.
         </p>
+        <p class="try">Drag both sliders and watch the curve tilt and slide.</p>
 
         <div class="control-row">
           <div class="control-block">
@@ -101,7 +118,8 @@
           <strong>Notice.</strong>
           The curve always runs from $0$ on the far left to $1$ on the far
           right. Bigger $|w|$ makes the transition sharper. What happens if you
-          crank $w$ way up&mdash;say to $30$? Hold that thought.
+          crank $w$ all the way to $30$? Hold that thought&mdash;it's the next
+          step.
         </div>
       </section>
 
@@ -112,21 +130,25 @@
         <p>
           When the weight is enormous, the sigmoid stops looking like a gentle
           S and snaps into a <strong>step function</strong>: $0$ on the left,
-          $1$ on the right, with a near-vertical cliff. That's a huge
+          $1$ on the right, with a near-vertical cliff in between. That's a huge
           simplification&mdash;a step is described by a single number: the
           <strong>position</strong> of its cliff.
         </p>
         <p>
           The cliff sits where the sigmoid's input is zero, i.e. $wx + b = 0$,
-          which means $x = -b/w$. Nielsen's key move is to <em>rename</em> the
-          neuron by this position. Define the step position
+          so $x = -b/w$. Nielsen's key move is to <em>rename</em> the neuron by
+          this position. Define the step position
         </p>
         <div class="math-block" id="math-step"></div>
         <p>
-          Now we forget $w$ and $b$ and just say &ldquo;a step at $s$.&rdquo;
-          The slider below sets $s$ <em>directly</em> (it solves for the bias
-          behind the scenes). The steepness slider shows why a big weight is
-          what lets us pretend a sigmoid is a clean step.
+          Now we can forget $w$ and $b$ and just say &ldquo;a step at
+          $s$.&rdquo; The first slider below sets $s$ <em>directly</em> (it
+          solves for the bias behind the scenes). The second shows why a big
+          weight is what lets us pretend a sigmoid is a clean step.
+        </p>
+        <p class="try">
+          Slide the steepness up to make a sharp cliff, then down to watch it
+          melt back into a soft S.
         </p>
 
         <div class="control-row">
@@ -142,16 +164,13 @@
 
         <figure class="interactive-figure">
           <canvas id="stepCanvas" width="920" height="300"></canvas>
-          <figcaption>
-            A high-weight sigmoid behaving as a step at $x = s$. Pull steepness
-            down to see the cliff soften back into an S.
-          </figcaption>
+          <figcaption>A high-weight sigmoid behaving as a step at $x = s$.</figcaption>
         </figure>
 
         <div class="callout callout--think">
           <strong>The payoff.</strong>
           From here on, every hidden neuron is just &ldquo;a step at position
-          $s$.&rdquo; One number per neuron. That's the vocabulary we'll build
+          $s$.&rdquo; One number per neuron. That's the vocabulary we build
           everything else from.
         </div>
       </section>
@@ -161,18 +180,22 @@
         <div class="step-badge">Step 3</div>
         <h2>Two steps make a bump</h2>
         <p>
-          One step is monotone&mdash;it goes up and stays up. To get something
-          <em>local</em>, take two steps and subtract. Put a step at $s_1$ with
-          output weight $+h$, and a step at $s_2 &gt; s_1$ with output weight
-          $-h$. Add them:
+          A single step is monotone&mdash;it goes up and stays up. To get
+          something <em>local</em>, take two steps and subtract. Put a step at
+          $s_1$ with output weight $+h$, and a step at $s_2 &gt; s_1$ with output
+          weight $-h$. Add them:
         </p>
         <div class="math-block" id="math-bump"></div>
         <p>
           To the left of $s_1$ both steps are $0$, so the sum is $0$. Between
           $s_1$ and $s_2$ the first step is &ldquo;on&rdquo; but the second
-          isn't, so the sum is $h$. After $s_2$ both are on and they cancel back
-          to $0$. The result is a <strong>bump of height $h$</strong> sitting on
+          isn't, so the sum is $h$. After $s_2$ both are on and cancel back to
+          $0$. The result is a <strong>bump of height $h$</strong> sitting on
           the interval $[s_1, s_2]$. <em>This is our brick.</em>
+        </p>
+        <p class="try">
+          Move the edges together for a narrow spike, apart for a wide plateau,
+          and push the height below zero to flip it upside-down.
         </p>
 
         <div class="control-row control-row--three">
@@ -201,33 +224,40 @@
         </figure>
 
         <div class="callout callout--think">
-          <strong>Play.</strong>
-          Move the edges together for a narrow spike, apart for a wide plateau.
-          Push $h$ negative to flip the bump downward. With this one brick&mdash;an
-          adjustable rectangle&mdash;you can already feel where this is going.
+          <strong>One brick, three controls.</strong>
+          Width is set by the gap between the edges; height and sign by $h$.
+          That's a movable, stretchable, flippable rectangle. Now we just need a
+          lot of them.
         </div>
       </section>
 
       <!-- ─── Step 4 ─── -->
       <section class="step-section" id="step-4">
         <div class="step-badge">Step 4</div>
-        <h2>Design a function by hand</h2>
+        <h2>Design a curve by hand</h2>
         <p>
-          Chop $[0, 1]$ into $N$ adjacent slabs and put one bump on each. The
-          hidden layer's <em>weighted output</em> is then a staircase of plateaus
-          &mdash; bump $i$ contributes its height $h_i$ on slab $i$:
+          Chop $[0, 1]$ into $N$ adjacent slabs and drop one bump on each. The
+          hidden layer's output becomes a row of independent plateaus&mdash;bump
+          $i$ contributes its height on slab $i$:
         </p>
         <div class="math-block" id="math-design"></div>
         <p>
-          Each slider below is one bump's height. Set them to trace the target.
-          Because the plateaus are independent, this is just sketching with bars
-          &mdash; and the more slabs you use, the finer the trace.
+          Each slider below is one bump's height. The faint shaded blocks are the
+          bumps themselves; the <span style="color:var(--accent);font-weight:600">blue</span>
+          line is what the network actually outputs as it rides along their tops.
+          Set the bars to trace the <span style="color:var(--warm);font-weight:600">orange</span>
+          target&mdash;then add more slabs for a finer trace.
+        </p>
+        <p class="try">
+          Try it by hand, or hit <strong>Auto-fit</strong> to snap every bar to
+          the target. Then drag $N$ up and watch the staircase tighten.
         </p>
 
         <div class="button-row" id="design-target-buttons" role="group" aria-label="Target function">
-          <button class="mode-button is-active" data-target="wiggle">Nielsen's wiggle</button>
-          <button class="mode-button" data-target="wave">Sine wave</button>
+          <button class="mode-button is-active" data-target="wave">Sine wave</button>
+          <button class="mode-button" data-target="wiggle">Nielsen's wiggle</button>
           <button class="mode-button" data-target="hill">Single hill</button>
+          <button class="mode-button" data-target="spike">Sharp spike</button>
           <button class="mode-button" data-target="plateaus">Plateaus</button>
         </div>
 
@@ -238,11 +268,11 @@
           </div>
           <div class="control-block control-block--actions">
             <label>Shortcut</label>
-            <button class="action-btn action-btn--ghost action-btn--small" id="btn-design-autofit">Auto-fit heights</button>
+            <button class="action-btn action-btn--ghost action-btn--small" id="btn-design-autofit">Auto-fit the bars</button>
           </div>
           <div class="control-block control-block--actions">
-            <label>The honest version</label>
-            <button class="toggle-btn" id="btn-design-math">Show the &sigma;&#8315;&sup1; goal</button>
+            <label>Optional / advanced</label>
+            <button class="toggle-btn" id="btn-design-math">Peek: the un-squished goal</button>
           </div>
         </div>
 
@@ -253,7 +283,7 @@
           <figcaption id="design-caption">
             <span style="color:var(--warm);font-weight:600">Orange</span>: target.
             <span style="color:var(--accent);font-weight:600">Blue</span>: your
-            hand-built network output.
+            hand-built output.
           </figcaption>
         </figure>
 
@@ -272,97 +302,142 @@
           </div>
         </div>
 
-        <div class="callout callout--warn">
-          <strong>The subtlety hiding in the output (press &ldquo;Show the
-          &sigma;&#8315;&sup1; goal&rdquo;).</strong>
-          A real neuron's output layer squashes its weighted input through one
-          more sigmoid, so the network actually computes $\sigma\!\big(H(x)\big)$,
-          not $H(x)$. To make $\sigma(H(x)) \approx f(x)$ we need
-          $H(x) \approx \sigma^{-1}\!\big(f(x)\big)$, the <em>inverse sigmoid</em>
-          (logit) of the goal. So the heights aren't tracing $f$ directly&mdash;they're
-          tracing $\sigma^{-1}\!\circ f$. Toggle the view to design against the
-          honest target; the bumps still line up one-per-slab.
-        </div>
-
-        <div class="callout callout--think" style="margin-top:0.5rem;">
+        <div class="callout callout--think">
           <strong>More bumps, smaller gap.</strong>
           Crank $N$ up and re-fit. The staircase gets finer and the deviation
-          shrinks toward zero. That's the entire theorem in one slider: accuracy
-          is bought with width.
+          shrinks toward zero. That's the entire theorem in one slider:
+          <em>accuracy is bought with width.</em>
+        </div>
+
+        <!-- σ⁻¹ aside: optional, gentle -->
+        <div class="aside-card">
+          <p class="aside-tag">One small wrinkle &mdash; safe to skip</p>
+          <p>
+            You may have noticed the bars don't sit at exactly the same heights
+            as the target. Here's why, in one breath: a real output neuron takes
+            the bumps' total and squishes it through <em>one more sigmoid</em>.
+            So to make the final answer land on, say, $0.8$, the bumps don't aim
+            for $0.8$&mdash;they aim for the value that <em>becomes</em> $0.8$
+            after the squish. That value is written $\sigma^{-1}(0.8)$, read
+            &ldquo;sigma-inverse,&rdquo; and it just means <em>undo the
+            sigmoid</em>.
+          </p>
+          <figure class="aside-figure">
+            <canvas id="logitMiniCanvas" width="460" height="220"></canvas>
+            <figcaption>
+              The same target before and after &ldquo;un-squishing.&rdquo; The
+              dashed purple curve, $\sigma^{-1}(f)$, is what the bumps secretly
+              aim at&mdash;it's just the target, stretched out.
+            </figcaption>
+          </figure>
+          <p>
+            You never have to think about this to use the tool above. But if you
+            press <strong>&ldquo;Peek: the un-squished goal,&rdquo;</strong> the
+            plot switches to that stretched-out world&mdash;and there the bumps
+            literally <em>add up</em> to the goal, no squishing in the way.
+          </p>
         </div>
       </section>
 
-      <!-- ─── Step 5: two inputs, one tower ─── -->
+      <!-- ─── Interlude ─── -->
+      <section class="step-section step-section--interlude" id="interlude">
+        <div class="step-badge step-badge--soft">Halfway</div>
+        <h2>So far: bricks on a line</h2>
+        <p>
+          Pause and take stock. We turned a neuron into a step, two steps into a
+          bump, and a row of bumps into any 1-D curve we like. The recipe was:
+          <em>chop the input into slabs, raise a bump to the right height on
+          each.</em>
+        </p>
+        <p>
+          Now we want functions of <strong>two</strong> inputs&mdash;a height
+          for every point on a floor, i.e. a surface. The plan is exactly the
+          same, but our brick has to become a <strong>tower</strong>: something
+          that's tall in one little square of the floor and flat everywhere
+          else. Building that tower is the one genuinely clever step in the whole
+          argument, so we'll take it slowly.
+        </p>
+      </section>
+
+      <!-- ─── Step 5: build a tower ─── -->
       <section class="step-section" id="step-5">
         <div class="step-badge">Step 5</div>
-        <h2>Two inputs: build a tower</h2>
+        <h2>Two inputs: build a tower, step by step</h2>
         <p>
-          Real functions usually have more than one input. With inputs $x$ and
-          $y$, a high-weight neuron that only listens to $x$ makes a step
-          <em>wall</em> running along $y$; one that only listens to $y$ makes a
-          wall running along $x$. Pair them up as before and you get a
-          <strong>bump in $x$</strong> (a ridge) and a <strong>bump in
-          $y$</strong> (a perpendicular ridge).
+          With two inputs $x$ and $y$, a neuron's &ldquo;step&rdquo; becomes a
+          <strong>wall</strong>: it only listens to $x$, so it's a cliff running
+          all the way along $y$. Watch the four panels below&mdash;they're the
+          same construction as before, just lifted into 3-D. Drag any slider;
+          all four update together. <strong>Rotate</strong> to look around.
         </p>
-        <p>
-          Add the two ridges. Where neither is on, the sum is $0$; on a single
-          ridge it's $h$; where they <em>cross</em>, it's $2h$. That cross is the
-          left panel below. Now apply one more sigmoid with a
-          <strong>threshold</strong> set between $h$ and $2h$: everything below
-          the threshold gets crushed to $0$, only the central $2h$ patch
-          survives. The ridges vanish and you're left with a single
-          <strong>tower</strong> &mdash; a localized 2-D bump (right panel).
-        </p>
+        <ol class="stage-legend">
+          <li><strong>1. Wall.</strong> One step in $x$ &mdash; a cliff.</li>
+          <li><strong>2. Ridge.</strong> Two steps subtracted &mdash; a bump in $x$, a long wall-top.</li>
+          <li><strong>3. Cross.</strong> Add a ridge in $x$ and a ridge in $y$. They pile to height $2h$ where they overlap, $h$ on the arms.</li>
+          <li><strong>4. Tower.</strong> Pass the cross through one more sigmoid with a <em>threshold</em> between $h$ and $2h$. Only the $2h$ overlap survives.</li>
+        </ol>
 
         <div class="control-row control-row--three">
           <div class="control-block">
             <label>Center x <span>= <span id="val-tower-cx">0.50</span></span></label>
-            <input type="range" id="tower-cx" min="0.2" max="0.8" step="0.01" value="0.5" />
+            <input type="range" id="tower-cx" min="0.25" max="0.75" step="0.01" value="0.5" />
           </div>
           <div class="control-block">
             <label>Center y <span>= <span id="val-tower-cy">0.50</span></span></label>
-            <input type="range" id="tower-cy" min="0.2" max="0.8" step="0.01" value="0.5" />
+            <input type="range" id="tower-cy" min="0.25" max="0.75" step="0.01" value="0.5" />
           </div>
           <div class="control-block">
-            <label>Tower size <span>= <span id="val-tower-size">0.30</span></span></label>
-            <input type="range" id="tower-size" min="0.1" max="0.5" step="0.01" value="0.3" />
+            <label>Tower size <span>= <span id="val-tower-size">0.34</span></span></label>
+            <input type="range" id="tower-size" min="0.12" max="0.5" step="0.01" value="0.34" />
           </div>
         </div>
-        <div class="control-row">
+        <div class="control-row control-row--three">
           <div class="control-block">
-            <label>Threshold <span>= <span id="val-tower-thr">1.50</span></span>&middot;h</label>
+            <label>Threshold <span>= <span id="val-tower-thr">1.50</span></span>·h</label>
             <input type="range" id="tower-thr" min="0.5" max="2.0" step="0.05" value="1.5" />
           </div>
           <div class="control-block">
             <label>Steepness <span>w = <span id="val-tower-w">40</span></span></label>
             <input type="range" id="tower-w" min="8" max="120" step="1" value="40" />
           </div>
+          <div class="control-block">
+            <label>Rotate <span>↻</span></label>
+            <input type="range" id="tower-angle" min="0.15" max="1.35" step="0.01" value="0.7" />
+          </div>
         </div>
 
         <figure class="interactive-figure">
-          <div class="dual-canvas">
-            <div class="dual-canvas-cell">
-              <canvas id="towerSumCanvas" width="440" height="440"></canvas>
-              <span class="dual-canvas-label">Sum of two ridges &mdash; values 0, h, 2h</span>
+          <div class="quad-canvas">
+            <div class="quad-canvas-cell">
+              <span class="quad-canvas-label">1 · Wall (one step in x)</span>
+              <canvas id="towerWallCanvas" width="320" height="276"></canvas>
             </div>
-            <div class="dual-canvas-cell">
-              <canvas id="towerOutCanvas" width="440" height="440"></canvas>
-              <span class="dual-canvas-label">After thresholding &mdash; a single tower</span>
+            <div class="quad-canvas-cell">
+              <span class="quad-canvas-label">2 · Ridge (bump in x)</span>
+              <canvas id="towerRidgeCanvas" width="320" height="276"></canvas>
+            </div>
+            <div class="quad-canvas-cell">
+              <span class="quad-canvas-label">3 · Cross (x-ridge + y-ridge, peaks at 2h)</span>
+              <canvas id="towerCrossCanvas" width="320" height="276"></canvas>
+            </div>
+            <div class="quad-canvas-cell">
+              <span class="quad-canvas-label">4 · Tower (thresholded)</span>
+              <canvas id="towerTowerCanvas" width="320" height="276"></canvas>
             </div>
           </div>
           <figcaption>
-            Brighter = higher. Slide the <strong>threshold</strong> from $0.5h$
-            up to $2h$ and watch the cross collapse into a clean tower around
-            $1.5h$.
+            Brighter and taller = higher value. Slide the <strong>threshold</strong>
+            from $0.5h$ up to $2h$ and watch the cross in panel&nbsp;3 collapse
+            into the clean tower in panel&nbsp;4.
           </figcaption>
         </figure>
 
         <div class="callout callout--think">
-          <strong>Why $1.5h$?</strong>
-          It's the only level that separates &ldquo;both ridges on&rdquo;
-          ($2h$) from &ldquo;just one&rdquo; ($h$). Set the threshold too low and
-          the ridge arms leak through; too high and even the center dies. The
-          tower is what's left when you keep <em>only</em> the overlap.
+          <strong>Why threshold at $1.5h$?</strong>
+          It's the only level that separates &ldquo;both ridges on&rdquo; ($2h$)
+          from &ldquo;just one&rdquo; ($h$). Set the threshold too low and the
+          ridge arms leak through into a plus-shape; too high and even the center
+          dies. The tower is what's left when you keep <em>only</em> the overlap.
         </div>
       </section>
 
@@ -372,52 +447,64 @@
         <h2>Tile towers into any surface</h2>
         <p>
           A tower is a movable, resizable block of adjustable height. Cover the
-          plane with a grid of them and set each tower's height to the value of
-          the target surface at that spot. The sum is a 3-D &ldquo;staircase&rdquo;
-          that hugs the surface &mdash; and just like in 1-D, a finer grid means a
-          closer fit. That's universal approximation for functions of two
-          variables, and the same move tiles into any number of inputs.
+          floor with a grid of them and set each tower's height to the value of
+          the target surface at that spot. The sum is a 3-D
+          &ldquo;staircase&rdquo; that hugs the surface&mdash;and just like in
+          1-D, a finer grid means a closer fit. That's universal approximation
+          for two inputs, and the same move tiles into any number of inputs.
+        </p>
+        <p class="try">
+          The <strong>Single spike</strong> target makes the towers easy to
+          see&mdash;they stack into a little stepped pyramid. Drag
+          <strong>resolution</strong> up to add towers and watch the blocks
+          shrink toward the smooth target. <strong>Rotate</strong> to admire the
+          skyline.
         </p>
 
         <div class="button-row" id="surface-target-buttons" role="group" aria-label="Target surface">
-          <button class="mode-button is-active" data-surface="peaks">Two peaks</button>
+          <button class="mode-button is-active" data-surface="spike">Single spike</button>
+          <button class="mode-button" data-surface="spikes">Four spikes</button>
+          <button class="mode-button" data-surface="peaks">Peak &amp; pit</button>
           <button class="mode-button" data-surface="ripple">Ripples</button>
-          <button class="mode-button" data-surface="saddle">Saddle</button>
-          <button class="mode-button" data-surface="gauss">Gaussian hill</button>
         </div>
 
         <div class="control-row">
-          <div class="control-block" style="grid-column: 1 / -1;">
-            <label>Grid resolution <span><span id="val-surface-res">6</span> &times; <span id="val-surface-res2">6</span> towers</span></label>
-            <input type="range" id="surface-res" min="2" max="14" step="1" value="6" />
+          <div class="control-block">
+            <label>Grid resolution <span><span id="val-surface-res">7</span> &times; <span id="val-surface-res2">7</span> towers</span></label>
+            <input type="range" id="surface-res" min="2" max="14" step="1" value="7" />
+          </div>
+          <div class="control-block">
+            <label>Rotate <span>↻</span></label>
+            <input type="range" id="surface-angle" min="0.15" max="1.35" step="0.01" value="0.7" />
           </div>
         </div>
 
         <figure class="interactive-figure">
           <div class="dual-canvas">
             <div class="dual-canvas-cell">
-              <canvas id="surfaceTargetCanvas" width="440" height="440"></canvas>
               <span class="dual-canvas-label">Target surface f(x, y)</span>
+              <canvas id="surfaceTargetCanvas" width="430" height="370"></canvas>
             </div>
             <div class="dual-canvas-cell">
-              <canvas id="surfaceApproxCanvas" width="440" height="440"></canvas>
               <span class="dual-canvas-label">Tiled towers approximation</span>
+              <canvas id="surfaceApproxCanvas" width="430" height="370"></canvas>
             </div>
           </div>
           <figcaption>
-            Same colormap on both: dark = low, bright = high. Drag the resolution
-            slider and watch the blocky approximation sharpen into the target.
+            Same colours and heights on both. The right surface is built
+            entirely from sigmoid towers&mdash;raise the resolution and the
+            skyline melts into the target.
           </figcaption>
         </figure>
 
         <div class="stat-strip">
           <div class="stat-pill">
             <span class="stat-label">Towers</span>
-            <span class="stat-value" id="stat-surface-towers">36</span>
+            <span class="stat-value" id="stat-surface-towers">49</span>
           </div>
           <div class="stat-pill stat-pill--accent">
             <span class="stat-label">Hidden neurons</span>
-            <span class="stat-value" id="stat-surface-neurons">144</span>
+            <span class="stat-value" id="stat-surface-neurons">196</span>
           </div>
           <div class="stat-pill stat-pill--warm">
             <span class="stat-label">Mean squared error</span>
@@ -428,9 +515,9 @@
         <div class="callout callout--think">
           <strong>Count the cost.</strong>
           Each tower needs $4$ hidden neurons (two ridges &times; two steps). A
-          $6\times6$ grid is $36$ towers &mdash; $144$ neurons &mdash; for a coarse
+          $7\times7$ grid is $49$ towers&mdash;$196$ neurons&mdash;for a coarse
           fit. Push the resolution up and the neuron count explodes. The theorem
-          guarantees a fit <em>exists</em>; it says nothing about it being cheap.
+          guarantees a fit <em>exists</em>; it never promised it would be cheap.
         </div>
       </section>
 
@@ -439,20 +526,20 @@
         <div class="step-badge">Step 7</div>
         <h2>What the proof does <em>not</em> say</h2>
         <p>
-          You've now built the whole argument: step &rarr; bump &rarr; designed
-          function &rarr; tower &rarr; tiled surface. It's genuinely a proof of
-          universality. But four things get lost when it's flattened into a
-          slogan:
+          You've now built the whole argument with your own hands: step &rarr;
+          bump &rarr; designed curve &rarr; tower &rarr; tiled surface. It's
+          genuinely a proof of universality. But four things quietly get lost
+          when it's flattened into a slogan:
         </p>
         <div class="misconception-grid">
           <div class="misconception-card">
             <span class="misconception-icon">Myth</span>
             <p><strong>&ldquo;One hidden layer is enough in practice.&rdquo;</strong><br />
-              Enough <em>width</em> suffices in principle &mdash; but the width can
-              be astronomical. Our tiling used $4$ neurons per tower and still
-              only gave a blocky fit. <em>Depth</em> lets a network build bumps
-              from bumps and reuse parts, which is why real networks are deep,
-              not absurdly wide.</p>
+              Enough <em>width</em> suffices in principle&mdash;but the width can
+              be astronomical. Our tiling spent $4$ neurons per tower and still
+              gave a blocky fit. <em>Depth</em> lets a network build bumps from
+              bumps and reuse parts, which is why real networks are deep, not
+              absurdly wide.</p>
           </div>
           <div class="misconception-card">
             <span class="misconception-icon">Myth</span>
@@ -465,14 +552,14 @@
           <div class="misconception-card">
             <span class="misconception-icon">Myth</span>
             <p><strong>&ldquo;Sigmoids are special.&rdquo;</strong><br />
-              Nothing here needs the sigmoid in particular &mdash; any non-linear
+              Nothing here needs the sigmoid in particular&mdash;any non-linear
               activation that can act like a step (or a hinge, for ReLU) works.
               The S-curve just made the step picture vivid.</p>
           </div>
           <div class="misconception-card">
             <span class="misconception-icon">Myth</span>
             <p><strong>&ldquo;It means networks generalize.&rdquo;</strong><br />
-              The construction fits the target on the region you tile &mdash; it's
+              The construction fits the target on the region you tile&mdash;it's
               about <em>representing</em> a function, not predicting well on new
               inputs. Generalization is a separate story told by data and
               inductive bias.</p>

@@ -1,7 +1,8 @@
 // ============================================================
 // A Visual Proof That One Layer Can Compute Anything
-// Nielsen's construction, made interactive. All math is real:
-// sigmoids, steps, bumps, and towers evaluated live in the browser.
+// Nielsen's construction, made interactive. Everything is real:
+// sigmoids, steps, bumps and towers evaluated live, with 1D plots
+// and 3D surface plots rendered straight to canvas.
 // ============================================================
 
 // ---------- Math primitives ----------
@@ -44,7 +45,6 @@ function drawAxes(ctx, margin, w, h, xRange, yRange, xLabel = 'x', yLabel = 'y')
   }
   ctx.stroke();
 
-  // Zero line
   const yZero = margin.top + plotH - ((0 - yRange[0]) / (yRange[1] - yRange[0])) * plotH;
   if (yZero > margin.top && yZero < margin.top + plotH) {
     ctx.strokeStyle = '#d6cdb8';
@@ -59,7 +59,6 @@ function drawAxes(ctx, margin, w, h, xRange, yRange, xLabel = 'x', yLabel = 'y')
   ctx.lineWidth = 1.5;
   ctx.beginPath();
   ctx.moveTo(margin.left, margin.top);
-  ctx.lineTo(margin.left, margin.top + plotH);
   ctx.lineTo(margin.left, margin.top + plotH);
   ctx.lineTo(margin.left + plotW, margin.top + plotH);
   ctx.stroke();
@@ -85,7 +84,7 @@ function plotCurve(ctx, xs, ys, margin, w, h, xRange, yRange, color, lineWidth =
   ctx.beginPath();
   for (let i = 0; i < xs.length; i++) {
     const px = margin.left + ((xs[i] - xRange[0]) / (xRange[1] - xRange[0])) * plotW;
-    let yVal = clamp(ys[i], yRange[0], yRange[1]);
+    const yVal = clamp(ys[i], yRange[0], yRange[1]);
     const py = margin.top + plotH - ((yVal - yRange[0]) / (yRange[1] - yRange[0])) * plotH;
     if (i === 0) ctx.moveTo(px, py);
     else ctx.lineTo(px, py);
@@ -105,49 +104,141 @@ function dataToPixel(x, y, margin, w, h, xRange, yRange) {
 
 // ---------- Sequential colormap (dark → blue → orange → cream) ----------
 const CMAP_STOPS = [
-  [0.0, [26, 24, 21]],
+  [0.0, [27, 27, 38]],
   [0.22, [40, 64, 110]],
   [0.45, [44, 111, 183]],
-  [0.62, [120, 130, 150]],
+  [0.6, [126, 134, 150]],
   [0.74, [217, 98, 43]],
-  [0.88, [240, 165, 78]],
-  [1.0, [255, 230, 188]],
+  [0.88, [242, 168, 82]],
+  [1.0, [255, 232, 192]],
 ];
-function colormap(t) {
+function colormapRGB(t) {
   t = clamp(t, 0, 1);
   for (let i = 1; i < CMAP_STOPS.length; i++) {
     if (t <= CMAP_STOPS[i][0]) {
       const [t0, c0] = CMAP_STOPS[i - 1];
       const [t1, c1] = CMAP_STOPS[i];
       const f = (t - t0) / (t1 - t0 || 1);
-      const r = Math.round(c0[0] + f * (c1[0] - c0[0]));
-      const g = Math.round(c0[1] + f * (c1[1] - c0[1]));
-      const b = Math.round(c0[2] + f * (c1[2] - c0[2]));
-      return `rgb(${r},${g},${b})`;
+      return [
+        Math.round(c0[0] + f * (c1[0] - c0[0])),
+        Math.round(c0[1] + f * (c1[1] - c0[1])),
+        Math.round(c0[2] + f * (c1[2] - c0[2])),
+      ];
     }
   }
-  return 'rgb(255,230,188)';
+  return [255, 232, 192];
 }
 
-// Paint a precomputed G×G scalar field as a heatmap. field[gy*G+gx], y up.
-function paintField(canvas, field, G, vmin, vmax, side = 440) {
-  const { ctx, w, h } = setupCanvas(canvas, side, side);
+// ============================================================
+// 3D SURFACE RENDERER
+// Draw a G×G height field as a shaded 3D surface (height field
+// viewed from an azimuth/elevation; painter's algorithm).
+// ============================================================
+function drawSurface(canvas, field, G, opts = {}) {
+  const {
+    side = 360,
+    azimuth = 0.7,
+    elevation = 0.52,
+    vmin = 0,
+    vmax = 1,
+    heightScale = 0.62,
+    edges = true,
+    bg = '#fbfaf6',
+  } = opts;
+
+  const { ctx, w, h } = setupCanvas(canvas, side, Math.round(side * 0.86));
   ctx.clearRect(0, 0, w, h);
-  const cw = w / G;
-  const ch = h / G;
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, w, h);
+
+  const ca = Math.cos(azimuth), sa = Math.sin(azimuth);
+  const ce = Math.cos(elevation), se = Math.sin(elevation);
   const span = vmax - vmin || 1;
-  for (let gy = 0; gy < G; gy++) {
-    for (let gx = 0; gx < G; gx++) {
-      const t = (field[gy * G + gx] - vmin) / span;
-      ctx.fillStyle = colormap(t);
-      // y up: row 0 (gy=0) at bottom
-      ctx.fillRect(gx * cw, (G - 1 - gy) * ch, cw + 0.6, ch + 0.6);
+
+  // Project every grid vertex
+  const sx = new Float32Array(G * G);
+  const sy = new Float32Array(G * G);
+  const dep = new Float32Array(G * G);
+  const zt = new Float32Array(G * G);
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (let j = 0; j < G; j++) {
+    for (let i = 0; i < G; i++) {
+      const x = i / (G - 1) - 0.5;
+      const y = j / (G - 1) - 0.5;
+      const t = clamp((field[j * G + i] - vmin) / span, 0, 1);
+      const z = t * heightScale;
+      const X = x * ca - y * sa;
+      const Y = x * sa + y * ca;
+      const px = X;
+      const py = -z * ce + Y * se;
+      sx[j * G + i] = px;
+      sy[j * G + i] = py;
+      dep[j * G + i] = Y * ce + z * se;
+      zt[j * G + i] = t;
+      if (px < minX) minX = px;
+      if (px > maxX) maxX = px;
+      if (py < minY) minY = py;
+      if (py > maxY) maxY = py;
     }
   }
-  // subtle frame
-  ctx.strokeStyle = 'rgba(0,0,0,0.12)';
-  ctx.lineWidth = 1;
-  ctx.strokeRect(0.5, 0.5, w - 1, h - 1);
+
+  const pad = 14;
+  const scale = Math.min((w - 2 * pad) / (maxX - minX || 1), (h - 2 * pad) / (maxY - minY || 1));
+  const offX = (w - (maxX - minX) * scale) / 2 - minX * scale;
+  const offY = (h - (maxY - minY) * scale) / 2 - minY * scale;
+  const PX = (idx) => sx[idx] * scale + offX;
+  const PY = (idx) => sy[idx] * scale + offY;
+
+  // Light direction for lambert shading
+  const Lx = -0.4, Ly = -0.5, Lz = 0.78;
+  const Llen = Math.sqrt(Lx * Lx + Ly * Ly + Lz * Lz);
+
+  // Build quads with centroid depth, then painter-sort
+  const quads = [];
+  for (let j = 0; j < G - 1; j++) {
+    for (let i = 0; i < G - 1; i++) {
+      const a = j * G + i;
+      const b = j * G + i + 1;
+      const c = (j + 1) * G + i + 1;
+      const d = (j + 1) * G + i;
+      const depth = (dep[a] + dep[b] + dep[c] + dep[d]) * 0.25;
+      const tAvg = (zt[a] + zt[b] + zt[c] + zt[d]) * 0.25;
+
+      // surface normal from height gradient (world units)
+      const cell = 1 / (G - 1);
+      const dzx = (field[b] - field[a]) / span * heightScale;
+      const dzy = (field[d] - field[a]) / span * heightScale;
+      let nx = -dzx * cell, ny = -dzy * cell, nz = cell * cell;
+      const nlen = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1;
+      let lambert = (nx * Lx + ny * Ly + nz * Lz) / (nlen * Llen);
+      lambert = clamp(0.55 + 0.5 * lambert, 0.4, 1.12);
+
+      const [r, g, bl] = colormapRGB(tAvg);
+      quads.push({
+        depth,
+        col: `rgb(${Math.round(r * lambert)},${Math.round(g * lambert)},${Math.round(bl * lambert)})`,
+        a, b, c, d,
+      });
+    }
+  }
+  quads.sort((p, q) => q.depth - p.depth);
+
+  ctx.lineJoin = 'round';
+  for (const q of quads) {
+    ctx.beginPath();
+    ctx.moveTo(PX(q.a), PY(q.a));
+    ctx.lineTo(PX(q.b), PY(q.b));
+    ctx.lineTo(PX(q.c), PY(q.c));
+    ctx.lineTo(PX(q.d), PY(q.d));
+    ctx.closePath();
+    ctx.fillStyle = q.col;
+    ctx.fill();
+    if (edges) {
+      ctx.strokeStyle = 'rgba(20,18,16,0.10)';
+      ctx.lineWidth = 0.5;
+      ctx.stroke();
+    }
+  }
 }
 
 // ============================================================
@@ -155,6 +246,7 @@ function paintField(canvas, field, G, vmin, vmax, side = 440) {
 // ============================================================
 function initNeuron() {
   const canvas = document.getElementById('neuronCanvas');
+  if (!canvas) return;
   const wS = document.getElementById('n1-w');
   const bS = document.getElementById('n1-b');
   const wV = document.getElementById('val-n1-w');
@@ -183,7 +275,6 @@ function initNeuron() {
     }
     plotCurve(ctx, xs, ys, margin, cw, ch, xRange, yRange, '#2c6fb7', 3);
 
-    // mark the half-way point x = -b/w
     if (Math.abs(w) > 1e-6) {
       const mid = -b / w;
       if (mid >= 0 && mid <= 1) {
@@ -209,6 +300,7 @@ function initNeuron() {
 // ============================================================
 function initStep() {
   const canvas = document.getElementById('stepCanvas');
+  if (!canvas) return;
   const sS = document.getElementById('step-s');
   const wS = document.getElementById('step-w');
   const sV = document.getElementById('val-step-s');
@@ -235,7 +327,6 @@ function initStep() {
     }
     plotCurve(ctx, xs, ys, margin, cw, ch, xRange, yRange, '#2c6fb7', 3);
 
-    // cliff marker
     const plotH = ch - margin.top - margin.bottom;
     const [px] = dataToPixel(s, 0, margin, cw, ch, xRange, yRange);
     ctx.strokeStyle = 'rgba(217, 98, 43, 0.55)';
@@ -262,6 +353,7 @@ function initStep() {
 // ============================================================
 function initBump() {
   const canvas = document.getElementById('bumpCanvas');
+  if (!canvas) return;
   const s1S = document.getElementById('bump-s1');
   const s2S = document.getElementById('bump-s2');
   const hS = document.getElementById('bump-h');
@@ -271,7 +363,7 @@ function initBump() {
   const margin = { top: 20, right: 30, bottom: 35, left: 45 };
   const xRange = [0, 1];
   const yRange = [-1.6, 1.6];
-  const W = 50; // steepness
+  const W = 50;
 
   function draw() {
     let s1 = parseFloat(s1S.value);
@@ -315,6 +407,43 @@ function initBump() {
 }
 
 // ============================================================
+// σ⁻¹ mini-illustration (the "undo the squish" aside)
+// ============================================================
+function initLogitMini() {
+  const canvas = document.getElementById('logitMiniCanvas');
+  if (!canvas) return;
+  const margin = { top: 16, right: 16, bottom: 26, left: 30 };
+  const f = (x) => clamp(0.5 + 0.36 * Math.sin(2 * Math.PI * x), 0.04, 0.96);
+  const { ctx, w: cw, h: ch } = setupCanvas(canvas, 460, 220);
+  ctx.clearRect(0, 0, cw, ch);
+  // left axis 0..1, but logit goes wide → use a shared [-4,4] frame with a 0..1 band marked
+  const yRange = [-4, 4];
+  const xRange = [0, 1];
+  drawAxes(ctx, margin, cw, ch, xRange, yRange, 'x', '');
+  // shade the 0..1 band (where the final answer must live)
+  const [, py1] = dataToPixel(0, 1, margin, cw, ch, xRange, yRange);
+  const [, py0] = dataToPixel(0, 0, margin, cw, ch, xRange, yRange);
+  ctx.fillStyle = 'rgba(217,98,43,0.07)';
+  ctx.fillRect(margin.left, py1, cw - margin.left - margin.right, py0 - py1);
+
+  const xs = [], fy = [], gy = [];
+  for (let i = 0; i <= 300; i++) {
+    const x = i / 300;
+    xs.push(x);
+    fy.push(f(x));
+    gy.push(logit(f(x)));
+  }
+  plotCurve(ctx, xs, fy, margin, cw, ch, xRange, yRange, '#d9622b', 3);
+  plotCurve(ctx, xs, gy, margin, cw, ch, xRange, yRange, '#7558a8', 2.6, [7, 4]);
+  ctx.font = '600 12px system-ui, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#d9622b';
+  ctx.fillText('target  f(x)  — lives in 0…1', margin.left + 8, py1 + 16);
+  ctx.fillStyle = '#7558a8';
+  ctx.fillText('σ⁻¹(f) — the un-squished goal (stretched out)', margin.left + 8, margin.top + 14);
+}
+
+// ============================================================
 // STEP 4 — design a 1D function by hand
 // ============================================================
 const DESIGN_TARGETS = {
@@ -324,6 +453,7 @@ const DESIGN_TARGETS = {
   },
   wave: { label: 'Sine wave', raw: (x) => 0.5 + 0.36 * Math.sin(2 * Math.PI * x) },
   hill: { label: 'Single hill', raw: (x) => 0.12 + 0.8 * Math.exp(-Math.pow((x - 0.5) / 0.16, 2)) },
+  spike: { label: 'Sharp spike', raw: (x) => 0.1 + 0.85 * Math.exp(-Math.pow((x - 0.5) / 0.05, 2)) },
   plateaus: {
     label: 'Plateaus',
     raw: (x) => 0.2 + 0.32 * sigmoid(26 * (x - 0.33)) + 0.32 * sigmoid(26 * (x - 0.66)),
@@ -334,10 +464,11 @@ function targetFn(key) {
   return (x) => clamp(raw(x), 0.04, 0.96);
 }
 
-let designState = { target: 'wiggle', N: 6, p: [], view: 'fn' };
+let designState = { target: 'wave', N: 6, p: [], view: 'fn' };
 
 function initDesign() {
   const canvas = document.getElementById('designCanvas');
+  if (!canvas) return;
   const nS = document.getElementById('design-n');
   const nV = document.getElementById('val-design-n');
   const heightsBox = document.getElementById('design-heights');
@@ -352,9 +483,7 @@ function initDesign() {
   const margin = { top: 22, right: 30, bottom: 35, left: 50 };
   const xRange = [0, 1];
 
-  function steepness() {
-    return 24 * designState.N; // sharper as slabs get narrower
-  }
+  const steepness = () => 24 * designState.N;
   function bumpVal(x, i) {
     const W = steepness();
     const left = i / designState.N;
@@ -366,12 +495,10 @@ function initDesign() {
     for (let i = 0; i < designState.N; i++) H += logit(designState.p[i]) * bumpVal(x, i);
     return H;
   }
-
   function autofit() {
     const f = targetFn(designState.target);
     for (let i = 0; i < designState.N; i++) {
-      const mid = (i + 0.5) / designState.N;
-      designState.p[i] = clamp(f(mid), 0.02, 0.98);
+      designState.p[i] = clamp(f((i + 0.5) / designState.N), 0.02, 0.98);
     }
   }
 
@@ -408,7 +535,7 @@ function initDesign() {
     neuronsStat.textContent = designState.N * 2;
     slabStat.textContent = (1 / designState.N).toFixed(2);
     btnMath.classList.toggle('is-active', logitView);
-    btnMath.textContent = logitView ? 'Show the function view' : 'Show the σ⁻¹ goal';
+    btnMath.textContent = logitView ? 'Back to the simple view' : 'Peek: the un-squished goal';
 
     const yRange = logitView ? [-6, 6] : [-0.05, 1.05];
 
@@ -416,7 +543,6 @@ function initDesign() {
     ctx.clearRect(0, 0, cw, ch);
     drawAxes(ctx, margin, cw, ch, xRange, yRange, 'x', logitView ? 'σ⁻¹(f)' : 'y');
 
-    // slab boundaries
     const plotH = ch - margin.top - margin.bottom;
     ctx.strokeStyle = 'rgba(120,110,90,0.18)';
     ctx.lineWidth = 1;
@@ -426,6 +552,38 @@ function initDesign() {
       ctx.moveTo(px, margin.top);
       ctx.lineTo(px, margin.top + plotH);
       ctx.stroke();
+    }
+
+    // --- show the bricks (the individual bumps) ---
+    if (!logitView) {
+      // function view: each bump is the plateau height it sets on its slab
+      const [, pyBase] = dataToPixel(0, 0, margin, cw, ch, xRange, yRange);
+      for (let i = 0; i < designState.N; i++) {
+        const p = designState.p[i];
+        const [px0] = dataToPixel(i / designState.N, 0, margin, cw, ch, xRange, yRange);
+        const [px1] = dataToPixel((i + 1) / designState.N, 0, margin, cw, ch, xRange, yRange);
+        const [, pyTop] = dataToPixel(0, p, margin, cw, ch, xRange, yRange);
+        const [r, g, b] = colormapRGB(p);
+        ctx.fillStyle = `rgba(${r},${g},${b},0.16)`;
+        ctx.fillRect(px0, pyTop, px1 - px0, pyBase - pyTop);
+        ctx.strokeStyle = `rgba(${r},${g},${b},0.55)`;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(px0 + 1, pyTop);
+        ctx.lineTo(px1 - 1, pyTop);
+        ctx.stroke();
+      }
+    } else {
+      // logit view: the bumps add up linearly — draw each additive piece
+      for (let i = 0; i < designState.N; i++) {
+        const xs2 = [], pcs = [];
+        for (let k = 0; k <= 160; k++) {
+          const x = k / 160;
+          xs2.push(x);
+          pcs.push(logit(designState.p[i]) * bumpVal(x, i));
+        }
+        plotCurve(ctx, xs2, pcs, margin, cw, ch, xRange, yRange, 'rgba(44,111,183,0.28)', 1.5);
+      }
     }
 
     const xs = [], goal = [], net = [];
@@ -453,12 +611,11 @@ function initDesign() {
     errStat.textContent = err.toFixed(3);
     if (caption) {
       caption.innerHTML = logitView
-        ? '<span style="color:var(--warm);font-weight:600">Orange</span>: the σ⁻¹ goal (logit of the target). <span style="color:var(--accent);font-weight:600">Blue</span>: your weighted hidden output H(x).'
-        : '<span style="color:var(--warm);font-weight:600">Orange</span>: target f(x). <span style="color:var(--accent);font-weight:600">Blue</span>: network output σ(H(x)).';
+        ? '<span style="color:var(--warm);font-weight:600">Orange</span>: the un-squished goal σ⁻¹(f). <span style="color:var(--accent);font-weight:600">Blue</span>: the bumps&rsquo; total H(x). Same bars, just shown before the final squish.'
+        : '<span style="color:var(--warm);font-weight:600">Orange</span>: target f(x). <span style="color:var(--accent);font-weight:600">Blue</span>: your network&rsquo;s output. Drag the bars to make blue hug orange.';
     }
   }
 
-  // wiring
   nS.addEventListener('input', () => {
     designState.N = parseInt(nS.value, 10);
     autofit();
@@ -492,25 +649,31 @@ function initDesign() {
 }
 
 // ============================================================
-// STEP 5 — two inputs: build a tower
+// STEP 5 — two inputs: build a tower (staged, in 3D)
 // ============================================================
 function initTower() {
-  const sumCanvas = document.getElementById('towerSumCanvas');
-  const outCanvas = document.getElementById('towerOutCanvas');
+  const wallC = document.getElementById('towerWallCanvas');
+  if (!wallC) return;
+  const ridgeC = document.getElementById('towerRidgeCanvas');
+  const crossC = document.getElementById('towerCrossCanvas');
+  const towerC = document.getElementById('towerTowerCanvas');
+
   const cxS = document.getElementById('tower-cx');
   const cyS = document.getElementById('tower-cy');
   const sizeS = document.getElementById('tower-size');
   const thrS = document.getElementById('tower-thr');
   const wS = document.getElementById('tower-w');
+  const angS = document.getElementById('tower-angle');
   const cxV = document.getElementById('val-tower-cx');
   const cyV = document.getElementById('val-tower-cy');
   const sizeV = document.getElementById('val-tower-size');
   const thrV = document.getElementById('val-tower-thr');
   const wV = document.getElementById('val-tower-w');
 
-  const G = 70;
+  const G = 44;
+  let wall, ridge, cross, tower; // cached fields
 
-  function draw() {
+  function compute() {
     const cx = parseFloat(cxS.value);
     const cy = parseFloat(cyS.value);
     const size = parseFloat(sizeS.value);
@@ -524,38 +687,72 @@ function initTower() {
 
     const x0 = cx - size / 2, x1 = cx + size / 2;
     const y0 = cy - size / 2, y1 = cy + size / 2;
-    const K = 18; // output sigmoid sharpness for the threshold
+    const K = 18;
 
-    const sumField = new Float32Array(G * G);
-    const outField = new Float32Array(G * G);
-    for (let gy = 0; gy < G; gy++) {
-      const y = (gy + 0.5) / G;
-      const by = sigmoid(W * (y - y0)) - sigmoid(W * (y - y1));
-      for (let gx = 0; gx < G; gx++) {
-        const x = (gx + 0.5) / G;
-        const bx = sigmoid(W * (x - x0)) - sigmoid(W * (x - x1));
-        const s = bx + by; // 0..2
-        sumField[gy * G + gx] = s;
-        outField[gy * G + gx] = sigmoid(K * (s - thr));
+    wall = new Float32Array(G * G);
+    ridge = new Float32Array(G * G);
+    cross = new Float32Array(G * G);
+    tower = new Float32Array(G * G);
+    for (let j = 0; j < G; j++) {
+      const y = j / (G - 1);
+      const byBump = sigmoid(W * (y - y0)) - sigmoid(W * (y - y1));
+      for (let i = 0; i < G; i++) {
+        const x = i / (G - 1);
+        const wallV = sigmoid(W * (x - x0)); // single step in x
+        const bxBump = sigmoid(W * (x - x0)) - sigmoid(W * (x - x1));
+        const s = bxBump + byBump; // 0..2
+        const idx = j * G + i;
+        wall[idx] = wallV;
+        ridge[idx] = bxBump;
+        cross[idx] = s;
+        tower[idx] = sigmoid(K * (s - thr));
       }
     }
-    paintField(sumCanvas, sumField, G, 0, 2);
-    paintField(outCanvas, outField, G, 0, 1);
   }
 
-  [cxS, cyS, sizeS, thrS, wS].forEach((el) => el.addEventListener('input', draw));
-  draw();
+  function render() {
+    const az = parseFloat(angS.value);
+    const common = { side: 320, azimuth: az, elevation: 0.5, edges: true };
+    drawSurface(wallC, wall, G, { ...common, vmin: 0, vmax: 1 });
+    drawSurface(ridgeC, ridge, G, { ...common, vmin: 0, vmax: 1 });
+    drawSurface(crossC, cross, G, { ...common, vmin: 0, vmax: 2 });
+    drawSurface(towerC, tower, G, { ...common, vmin: 0, vmax: 1 });
+  }
+
+  [cxS, cyS, sizeS, thrS, wS].forEach((el) =>
+    el.addEventListener('input', () => {
+      compute();
+      render();
+    })
+  );
+  angS.addEventListener('input', render);
+
+  compute();
+  render();
 }
 
 // ============================================================
-// STEP 6 — tile towers into a surface
+// STEP 6 — tile towers into a surface (in 3D)
 // ============================================================
 const SURFACE_TARGETS = {
+  spike: {
+    label: 'Single spike',
+    raw: (x, y) => Math.exp(-(Math.pow(x - 0.5, 2) + Math.pow(y - 0.5, 2)) / 0.008),
+  },
+  spikes: {
+    label: 'Four spikes',
+    raw: (x, y) => {
+      const c = [[0.3, 0.3], [0.7, 0.3], [0.3, 0.7], [0.7, 0.7]];
+      let v = 0;
+      for (const [a, b] of c) v += Math.exp(-(Math.pow(x - a, 2) + Math.pow(y - b, 2)) / 0.006);
+      return v;
+    },
+  },
   peaks: {
-    label: 'Two peaks',
+    label: 'Peak & pit',
     raw: (x, y) =>
-      Math.exp(-(Math.pow(x - 0.32, 2) + Math.pow(y - 0.34, 2)) / 0.025) -
-      0.7 * Math.exp(-(Math.pow(x - 0.7, 2) + Math.pow(y - 0.68, 2)) / 0.03),
+      Math.exp(-(Math.pow(x - 0.32, 2) + Math.pow(y - 0.34, 2)) / 0.02) -
+      0.8 * Math.exp(-(Math.pow(x - 0.7, 2) + Math.pow(y - 0.68, 2)) / 0.025),
   },
   ripple: {
     label: 'Ripples',
@@ -564,33 +761,30 @@ const SURFACE_TARGETS = {
       return Math.cos(16 * r) * Math.exp(-2.2 * r);
     },
   },
-  saddle: { label: 'Saddle', raw: (x, y) => Math.pow(x - 0.5, 2) - Math.pow(y - 0.5, 2) },
-  gauss: {
-    label: 'Gaussian hill',
-    raw: (x, y) => Math.exp(-(Math.pow(x - 0.5, 2) + Math.pow(y - 0.5, 2)) / 0.04),
-  },
 };
 
-let surfaceState = { target: 'peaks', res: 6 };
+let surfaceState = { target: 'spike', res: 7 };
 
 function initSurface() {
   const targetCanvas = document.getElementById('surfaceTargetCanvas');
+  if (!targetCanvas) return;
   const approxCanvas = document.getElementById('surfaceApproxCanvas');
   const resS = document.getElementById('surface-res');
   const resV = document.getElementById('val-surface-res');
   const resV2 = document.getElementById('val-surface-res2');
+  const angS = document.getElementById('surface-angle');
   const towersStat = document.getElementById('stat-surface-towers');
   const neuronsStat = document.getElementById('stat-surface-neurons');
   const mseStat = document.getElementById('stat-surface-mse');
   const buttons = document.querySelectorAll('#surface-target-buttons [data-surface]');
 
-  const G = 64; // render resolution
+  const G = 52;
+  let targetField, approxField;
 
-  // Normalize a target into [0,1] using its own min/max over the grid.
   function normalizedTarget(key) {
     const raw = SURFACE_TARGETS[key].raw;
     let lo = Infinity, hi = -Infinity;
-    const S = 40;
+    const S = 60;
     for (let i = 0; i <= S; i++)
       for (let j = 0; j <= S; j++) {
         const v = raw(i / S, j / S);
@@ -601,7 +795,7 @@ function initSurface() {
     return (x, y) => (raw(x, y) - lo) / span;
   }
 
-  function draw() {
+  function compute() {
     const R = surfaceState.res;
     const f = normalizedTarget(surfaceState.target);
     resV.textContent = R;
@@ -609,16 +803,15 @@ function initSurface() {
     towersStat.textContent = R * R;
     neuronsStat.textContent = 4 * R * R;
 
-    const W = clamp(10 * R, 30, 150); // ridge steepness scales with grid
-    const K = 16; // tower threshold sharpness
+    const W = clamp(12 * R, 36, 170);
+    const K = 18;
 
-    // Precompute per-axis bump values: Bx[i][gx], By[j][gy]
     const Bx = [], By = [];
     for (let i = 0; i < R; i++) {
       const x0 = i / R, x1 = (i + 1) / R;
       const row = new Float32Array(G);
       for (let gx = 0; gx < G; gx++) {
-        const x = (gx + 0.5) / G;
+        const x = gx / (G - 1);
         row[gx] = sigmoid(W * (x - x0)) - sigmoid(W * (x - x1));
       }
       Bx.push(row);
@@ -627,13 +820,12 @@ function initSurface() {
       const y0 = j / R, y1 = (j + 1) / R;
       const row = new Float32Array(G);
       for (let gy = 0; gy < G; gy++) {
-        const y = (gy + 0.5) / G;
+        const y = gy / (G - 1);
         row[gy] = sigmoid(W * (y - y0)) - sigmoid(W * (y - y1));
       }
       By.push(row);
     }
 
-    // Tower heights = target at each cell center
     const heights = [];
     for (let i = 0; i < R; i++) {
       const hr = new Float32Array(R);
@@ -641,21 +833,21 @@ function initSurface() {
       heights.push(hr);
     }
 
-    const targetField = new Float32Array(G * G);
-    const approxField = new Float32Array(G * G);
+    targetField = new Float32Array(G * G);
+    approxField = new Float32Array(G * G);
     let mse = 0;
     for (let gy = 0; gy < G; gy++) {
-      const y = (gy + 0.5) / G;
+      const y = gy / (G - 1);
       for (let gx = 0; gx < G; gx++) {
-        const x = (gx + 0.5) / G;
+        const x = gx / (G - 1);
         const tv = f(x, y);
         let acc = 0;
         for (let i = 0; i < R; i++) {
           const bxi = Bx[i][gx];
-          if (bxi < 0.01) continue; // skip far cells
+          if (bxi < 0.01) continue;
           for (let j = 0; j < R; j++) {
-            const tower = sigmoid(K * (bxi + By[j][gy] - 1.5));
-            if (tower > 0.01) acc += heights[i][j] * tower;
+            const tw = sigmoid(K * (bxi + By[j][gy] - 1.5));
+            if (tw > 0.01) acc += heights[i][j] * tw;
           }
         }
         targetField[gy * G + gx] = tv;
@@ -665,25 +857,34 @@ function initSurface() {
       }
     }
     mse /= G * G;
-
-    paintField(targetCanvas, targetField, G, 0, 1);
-    paintField(approxCanvas, approxField, G, 0, 1);
     mseStat.textContent = mse.toFixed(4);
+  }
+
+  function render() {
+    const az = parseFloat(angS.value);
+    const common = { side: 430, azimuth: az, elevation: 0.5, vmin: 0, vmax: 1, edges: true };
+    drawSurface(targetCanvas, targetField, G, common);
+    drawSurface(approxCanvas, approxField, G, common);
   }
 
   resS.addEventListener('input', () => {
     surfaceState.res = parseInt(resS.value, 10);
-    draw();
+    compute();
+    render();
   });
+  angS.addEventListener('input', render);
   buttons.forEach((b) => {
     b.addEventListener('click', () => {
       buttons.forEach((bb) => bb.classList.remove('is-active'));
       b.classList.add('is-active');
       surfaceState.target = b.dataset.surface;
-      draw();
+      compute();
+      render();
     });
   });
-  draw();
+
+  compute();
+  render();
 }
 
 // ============================================================
@@ -740,6 +941,7 @@ function init() {
   initNeuron();
   initStep();
   initBump();
+  initLogitMini();
   initDesign();
   initTower();
   initSurface();

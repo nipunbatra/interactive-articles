@@ -3,8 +3,8 @@
   "title": "A Visual Proof That One Layer Can Compute Anything",
   "date": "2026-06-25",
   "tagline": "Flatten sigmoids into steps, glue bumps, stack towers — Nielsen's visual proof of universality, made interactive",
-  "summary": "Rebuild Michael Nielsen's visual proof of the Universal Approximation Theorem by hand: crank a sigmoid into a step, subtract two steps into a bump, design a 1D function with a bank of height sliders (and meet the σ⁻¹ subtlety), then stack thresholded towers to fit a 2D surface.",
-  "readingTime": "18 min",
+  "summary": "Rebuild Michael Nielsen's visual proof of the Universal Approximation Theorem by hand: crank a sigmoid into a step, subtract two steps into a bump, stack bumps to design a 1D curve, then build a tower step-by-step and tile towers across a rotatable 3D surface.",
+  "readingTime": "22 min",
   "difficulty": "Intermediate",
   "collection": "Deep learning",
   "order": 9,
@@ -13,6 +13,6 @@
   "highlights": [
     "Watch a sigmoid snap into a step function and learn Nielsen's reparametrization by step position s = -b/w.",
     "Subtract two steps to make a bump, then design a whole function with a bank of per-bump height sliders — including the σ⁻¹∘f twist the output sigmoid hides.",
-    "Build a 2D tower from four sigmoid steps and tile towers across the plane to approximate any surface, watching the fit sharpen with resolution."
+    "Build a 2D tower step-by-step (wall, ridge, cross, threshold) and tile towers across a rotatable 3D surface to approximate any function, watching the skyline sharpen with resolution."
   ]
 }
