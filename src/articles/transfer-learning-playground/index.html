@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Freeze or Fine-tune?</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body, {delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
+
+<style>
+:root {
+  --serif: 'Source Serif 4', Georgia, serif;
+  --sans: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+  --mono: 'IBM Plex Mono', monospace;
+  --bg: #fdfcf9;
+  --paper: #ffffff;
+  --text: #2f2a22;
+  --muted: #6e665b;
+  --border: #e2d8c6;
+  --accent: #2c6fb7;
+  --warm: #d9622b;
+  --success: #1e7770;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; font-family: var(--serif); color: var(--text); background: var(--bg); line-height: 1.65; }
+
+.article { max-width: 980px; margin: 0 auto; padding: 2.5rem 1.5rem 5rem; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; color: var(--muted); text-decoration: none; font-family: var(--sans); font-size: 0.9rem; }
+.back-link:hover { color: var(--text); }
+.article-header { margin-bottom: 3rem; text-align: center; }
+.kicker { margin: 0 0 0.75rem; font-family: var(--sans); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); }
+h1 { margin: 0 auto 1rem; font-size: clamp(2.4rem, 5vw, 3.5rem); line-height: 1.1; letter-spacing: -0.02em; color: #1a1815; max-width: 18ch; }
+.abstract { margin: 0 auto 1rem; max-width: 62ch; font-size: 1.15rem; color: #4d463d; }
+.byline { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-top: 1.4rem; padding-top: 1rem; border-top: 1px solid var(--border); color: var(--muted); font-family: var(--sans); font-size: 0.92rem; }
+
+.step-section {
+  position: relative;
+  margin-top: 4rem;
+  padding: 3rem 2.5rem;
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.03);
+}
+.step-badge {
+  position: absolute;
+  top: -16px;
+  left: 32px;
+  background: var(--accent);
+  color: white;
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.4rem 1.2rem;
+  border-radius: 999px;
+  box-shadow: 0 4px 12px rgba(44, 111, 183, 0.25);
+}
+h2 { margin: 0 0 1rem; font-size: clamp(1.6rem, 3.5vw, 2.2rem); line-height: 1.15; color: #1a1815; }
+h3 { margin-top: 2rem; margin-bottom: 0.8rem; font-size: 1.25rem; color: #1a1815; }
+p { max-width: 68ch; font-size: 1.1rem; }
+ul { max-width: 68ch; font-size: 1.1rem; padding-left: 1.4rem; }
+li { margin-bottom: 0.5rem; }
+.math-block { margin: 1.5rem 0; text-align: center; font-size: 1.05rem; }
+
+.control-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.4rem;
+  margin: 1.6rem 0;
+}
+.control-block { display: flex; flex-direction: column; gap: 0.5rem; }
+.control-block label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-family: var(--sans);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.control-block label span { font-family: var(--mono); color: var(--warm); font-weight: 500; font-size: 0.95rem; }
+input[type="range"] {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px; height: 18px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid var(--paper);
+  box-shadow: 0 2px 6px rgba(44,111,183,0.4);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 18px; height: 18px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid var(--paper);
+}
+
+.button-row { display: flex; gap: 0.6rem; flex-wrap: wrap; margin: 1rem 0; align-items: center; }
+.mode-button {
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: 0.92rem;
+  padding: 0.55rem 1.1rem;
+  border-radius: 8px;
+  border: 1.5px solid var(--border);
+  background: var(--paper);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.mode-button:hover { border-color: var(--accent); }
+.mode-button.is-active { background: var(--accent); color: white; border-color: var(--accent); }
+
+.interactive-figure { margin: 1.5rem 0; }
+.interactive-figure canvas {
+  display: block;
+  width: 100%;
+  background: #fbfaf6;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.interactive-figure figcaption { margin-top: 0.7rem; font-size: 0.92rem; color: var(--muted); text-align: center; font-style: italic; }
+
+.stat-strip { display: flex; gap: 1rem; flex-wrap: wrap; margin: 1.5rem 0; }
+.stat-pill {
+  flex: 1 1 140px;
+  min-width: 140px;
+  background: var(--paper);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  padding: 0.9rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  text-align: left;
+}
+.stat-pill .stat-label { font-family: var(--sans); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; }
+.stat-pill .stat-value { font-family: var(--mono); font-size: 1.5rem; font-weight: 600; color: var(--text); }
+.stat-pill--accent { border-color: var(--accent); }
+.stat-pill--accent .stat-value { color: var(--accent); }
+.stat-pill--warm { border-color: var(--warm); }
+.stat-pill--warm .stat-value { color: var(--warm); }
+.stat-pill--success { border-color: var(--success); }
+.stat-pill--success .stat-value { color: var(--success); }
+
+.callout {
+  margin: 2rem 0 0.5rem;
+  padding: 1.2rem 1.5rem;
+  border-radius: 12px;
+  border-left: 4px solid var(--accent);
+  background: rgba(44,111,183,0.05);
+  font-size: 1.02rem;
+}
+.callout strong { color: var(--accent); }
+.callout--think { border-left-color: var(--success); background: rgba(30,119,112,0.06); }
+.callout--think strong { color: var(--success); }
+.callout--warn { border-left-color: var(--warm); background: rgba(217,98,43,0.06); }
+.callout--warn strong { color: var(--warm); }
+#recommend { transition: background 0.2s; }
+
+footer { margin-top: 4rem; text-align: center; font-family: var(--sans); font-size: 0.85rem; color: var(--muted); }
+
+@media (max-width: 640px) { .step-section { padding: 2rem 1.4rem; } }
+</style>
+</head>
+<body>
+
+<article class="article">
+  <header class="article-header">
+    <a class="back-link" href="../">&larr; Explainer Library</a>
+    <p class="kicker">Interactive Explainer</p>
+    <h1>Freeze or Fine-tune?</h1>
+    <p class="abstract">
+      You have a network pretrained on a giant dataset and a new task with your own
+      data. Do you retrain the whole thing, freeze the backbone and only train a fresh
+      head, or start from scratch? The right answer swings on one thing:
+      <em>how much data you have</em>. Set the dataset size and cut point below and
+      watch the accuracy curves &mdash; and the overfitting &mdash; respond.
+    </p>
+    <div class="byline">
+      <span>~8 min</span>
+      <span>Deep Learning &middot; Transfer Learning &middot; Fine-tuning</span>
+    </div>
+  </header>
+
+  <section class="step-section" id="lab">
+    <div class="step-badge">The Lab</div>
+    <h2>Pick a strategy, watch it learn</h2>
+    <p>
+      The backbone is four convolutional blocks; the head is a fresh classifier for your
+      task. Choose a training strategy, then set how many backbone blocks are
+      <strong>frozen</strong> (kept at their pretrained weights) and how big your dataset
+      is. The curves are illustrative but deterministic &mdash; they encode the standard
+      bias&ndash;variance story, not random noise.
+    </p>
+
+    <div class="button-row">
+      <span style="font-family:var(--sans);font-size:0.85rem;font-weight:600;color:var(--muted)">Strategy:</span>
+      <button class="mode-button" data-mode="scratch">Train from scratch</button>
+      <button class="mode-button" data-mode="freeze">Freeze backbone, train head</button>
+      <button class="mode-button is-active" data-mode="finetune">Fine-tune all</button>
+    </div>
+
+    <div class="control-row">
+      <div class="control-block">
+        <label>Frozen blocks (cut point) <span>= <span id="cutVal">0</span> / 4</span></label>
+        <input type="range" id="cut" min="0" max="4" step="1" value="0">
+      </div>
+      <div class="control-block">
+        <label>Dataset size <span>= <span id="dataVal">100</span> imgs</span></label>
+        <input type="range" id="data" min="0" max="100" step="1" value="0">
+      </div>
+    </div>
+
+    <figure class="interactive-figure">
+      <canvas id="netCanvas" width="900" height="190"></canvas>
+      <figcaption>The backbone (four conv blocks) and head. Blue = pretrained &amp; trainable, grey = frozen, orange = trained from scratch, teal = the fresh head.</figcaption>
+    </figure>
+
+    <figure class="interactive-figure">
+      <canvas id="curveCanvas" width="900" height="360"></canvas>
+      <figcaption>Illustrative learning curves for the chosen setting. Solid = training accuracy, dashed = validation accuracy. A wide gap between them is overfitting.</figcaption>
+    </figure>
+
+    <div class="stat-strip">
+      <div class="stat-pill stat-pill--accent">
+        <span class="stat-label">Best validation acc.</span>
+        <span class="stat-value" id="bestValStat">&mdash;</span>
+      </div>
+      <div class="stat-pill stat-pill--warm">
+        <span class="stat-label">Generalisation gap</span>
+        <span class="stat-value" id="gapStat">&mdash;</span>
+      </div>
+      <div class="stat-pill stat-pill--success">
+        <span class="stat-label">Trainable params</span>
+        <span class="stat-value" id="paramStat">&mdash;</span>
+      </div>
+    </div>
+
+    <div class="callout" id="recommend">
+      <strong id="recTitle">Recommendation</strong>
+      <span id="recText"> &mdash; </span>
+    </div>
+  </section>
+
+  <section class="step-section" id="why">
+    <div class="step-badge">The Payoff</div>
+    <h2>Less data → freeze more. More data → fine-tune more.</h2>
+    <ul>
+      <li><strong>Tiny dataset.</strong> Fine-tuning millions of weights on a few hundred images overfits: training accuracy shoots up, validation lags and even droops. Freezing the backbone slashes the number of trainable parameters, so the model can't memorise &mdash; the frozen pretrained features do the heavy lifting and validation holds up.</li>
+      <li><strong>Large dataset.</strong> Now there is enough signal to safely move every weight. Fine-tuning adapts the backbone's features to your task and pulls ahead; a frozen backbone becomes a ceiling because those features can no longer specialise.</li>
+      <li><strong>From scratch</strong> needs the most data of all &mdash; with no pretrained features it starts from noise, so with little data it is the worst option by a wide margin.</li>
+      <li><strong>The cut point is a dial, not a switch.</strong> Freeze the early, generic layers (edges, textures) and fine-tune the later, task-specific ones. Slide the cut point and watch the trainable-parameter count &mdash; and the overfitting risk &mdash; move with it.</li>
+    </ul>
+    <div class="callout callout--think">
+      <strong>Why early layers transfer best.</strong> The first conv blocks of almost any vision
+      model learn edge and texture detectors that are useful for essentially every image task.
+      The later blocks are increasingly specialised to the original labels. So the safe default is:
+      freeze early, fine-tune late, and let the amount of data decide how far down the fine-tuning
+      reaches.
+    </div>
+  </section>
+
+  <footer>Part of the ES 667 Deep Learning explainer series &middot; Lecture 9: Modern CNNs &amp; Transfer Learning</footer>
+</article>
+
+<script>
+/* ===================== model ===================== */
+let mode = 'finetune';        // scratch | freeze | finetune
+let cut = 0;                  // frozen conv blocks 0..4
+let dataIdx = 0;             // 0..100 -> log dataset size
+
+const NBLOCKS = 4;
+const BLOCK_PARAMS = [0.15, 0.4, 1.6, 4.5]; // millions, early->late
+const HEAD_PARAMS = 0.6;
+const TOTAL_PARAMS = BLOCK_PARAMS.reduce((a, b) => a + b, 0) + HEAD_PARAMS;
+const E = 40;                 // epochs
+const COL = { accent: '#2c6fb7', warm: '#d9622b', success: '#1e7770' };
+const CGREY = '#a89f90';
+
+function datasetImages(idx) { return Math.round(100 * Math.pow(500, idx / 100)); }
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+/* asymptotic accuracies + dynamics for a given strategy */
+function modelParams(m, d, c) {
+  let valFinal, trainFinal, tau;
+  if (m === 'scratch') {
+    valFinal = 0.30 + 0.55 * d;
+    trainFinal = 1.0 - 0.06 * d;
+    tau = 12;
+  } else if (m === 'freeze') {
+    valFinal = 0.66 + 0.14 * d + 0.03 * c * (1 - d);
+    trainFinal = 0.80 + 0.10 * d - 0.015 * c;
+    tau = 5;
+  } else { // finetune
+    valFinal = 0.55 + 0.42 * d;
+    trainFinal = 0.99 - 0.04 * d;
+    tau = 8;
+  }
+  valFinal = clamp(valFinal, 0.15, m === 'finetune' ? 0.98 : 0.90);
+  trainFinal = clamp(trainFinal, valFinal + 0.02, 1.0);
+  const droop = clamp(trainFinal - valFinal - 0.18, 0, 0.5) * 0.55;
+  return { valFinal, trainFinal, tau, droop };
+}
+const BASE = 0.10; // chance-level starting accuracy
+function trainAcc(p, e) { return BASE + (p.trainFinal - BASE) * (1 - Math.exp(-e / (p.tau * 0.7))); }
+function valAcc(p, e) {
+  const peak = p.valFinal + p.droop;
+  let v = BASE + (peak - BASE) * (1 - Math.exp(-e / p.tau)) - p.droop * (e / E);
+  return clamp(v, 0, 1);
+}
+function bestVal(p) { let b = 0; for (let e = 0; e <= E; e++) b = Math.max(b, valAcc(p, e)); return b; }
+function trainableParams(m, c) {
+  if (m === 'freeze') { let s = HEAD_PARAMS; for (let i = c; i < NBLOCKS; i++) s += BLOCK_PARAMS[i]; return s; }
+  return TOTAL_PARAMS; // scratch & finetune train everything
+}
+
+/* ===================== canvas plumbing ===================== */
+function fitCanvas(canvas) {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = Math.round(rect.width * dpr);
+  canvas.height = Math.round(rect.height * dpr);
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { ctx, w: rect.width, h: rect.height };
+}
+function roundRect(ctx, x, y, w, h, r) {
+  r = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+function drawLock(ctx, cx, cy) {
+  ctx.strokeStyle = '#6e665b';
+  ctx.lineWidth = 1.6;
+  ctx.beginPath(); ctx.arc(cx, cy - 3, 3.2, Math.PI, 2 * Math.PI); ctx.stroke();
+  ctx.fillStyle = '#6e665b';
+  roundRect(ctx, cx - 4.5, cy - 1, 9, 7, 1.6); ctx.fill();
+}
+
+/* ===================== schematic ===================== */
+function blockStatus(i) {
+  // returns {fill, stroke, tag, label}
+  if (mode === 'scratch') return { fill: 'rgba(217,98,43,0.14)', stroke: COL.warm, tag: 'from scratch', txt: COL.warm };
+  if (mode === 'finetune') return { fill: 'rgba(44,111,183,0.13)', stroke: COL.accent, tag: 'fine-tuned', txt: COL.accent };
+  // freeze
+  if (i < cut) return { fill: 'rgba(110,102,91,0.12)', stroke: CGREY, tag: 'frozen', txt: '#6e665b', frozen: true };
+  return { fill: 'rgba(44,111,183,0.13)', stroke: COL.accent, tag: 'fine-tuned', txt: COL.accent };
+}
+function drawNet() {
+  const { ctx, w, h } = fitCanvas(document.getElementById('netCanvas'));
+  ctx.clearRect(0, 0, w, h);
+  const margin = 16, n = NBLOCKS + 1;
+  const gap = 14;
+  const boxW = (w - 2 * margin - gap * (n - 1)) / n;
+  const boxH = 78, top = 40;
+
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillStyle = '#5a5247'; ctx.font = '700 12px Manrope, sans-serif'; ctx.textAlign = 'left';
+  ctx.fillText('INPUT IMAGE', margin, 24);
+  ctx.textAlign = 'right';
+  ctx.fillText('CLASS SCORES', w - margin, 24);
+
+  for (let i = 0; i < n; i++) {
+    const x = margin + i * (boxW + gap), y = top;
+    const isHead = i === NBLOCKS;
+    let st;
+    if (isHead) st = { fill: 'rgba(30,119,112,0.14)', stroke: COL.success, tag: 'trained', txt: COL.success };
+    else st = blockStatus(i);
+
+    ctx.fillStyle = st.fill;
+    roundRect(ctx, x, y, boxW, boxH, 9); ctx.fill();
+    ctx.strokeStyle = st.stroke; ctx.lineWidth = 2;
+    if (st.frozen) ctx.setLineDash([5, 3]);
+    roundRect(ctx, x, y, boxW, boxH, 9); ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.fillStyle = '#2f2a22'; ctx.font = '700 13px Manrope, sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(isHead ? 'Head' : 'Conv ' + (i + 1), x + boxW / 2, y + 26);
+
+    if (st.frozen) drawLock(ctx, x + boxW / 2, y + 48);
+
+    ctx.fillStyle = st.txt; ctx.font = '600 11px Manrope, sans-serif';
+    ctx.fillText(st.tag, x + boxW / 2, y + boxH - 14);
+
+    // arrow to next
+    if (i < n - 1) {
+      const ax = x + boxW, ay = y + boxH / 2;
+      ctx.strokeStyle = '#c9bfac'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(ax + 2, ay); ctx.lineTo(ax + gap - 3, ay); ctx.stroke();
+      ctx.fillStyle = '#c9bfac';
+      ctx.beginPath(); ctx.moveTo(ax + gap - 3, ay); ctx.lineTo(ax + gap - 8, ay - 4); ctx.lineTo(ax + gap - 8, ay + 4); ctx.closePath(); ctx.fill();
+    }
+  }
+  // backbone / head brackets
+  ctx.fillStyle = '#9a9084'; ctx.font = 'italic 11px "Source Serif 4", serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillText('pretrained backbone', margin + (NBLOCKS * (boxW + gap)) / 2 - gap / 2, top + boxH + 6);
+  ctx.fillText('new head', margin + NBLOCKS * (boxW + gap) + boxW / 2, top + boxH + 6);
+}
+
+/* ===================== curves ===================== */
+function drawCurves() {
+  const { ctx, w, h } = fitCanvas(document.getElementById('curveCanvas'));
+  ctx.clearRect(0, 0, w, h);
+  const p = modelParams(mode, dataIdx / 100, cut);
+  const padL = 52, padR = 20, padT = 44, padB = 40;
+  const cw = w - padL - padR, ch = h - padT - padB;
+
+  // axes + gridlines
+  ctx.font = '500 10px Manrope, sans-serif';
+  ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  for (let a = 0; a <= 1.0001; a += 0.2) {
+    const y = padT + ch * (1 - a);
+    ctx.strokeStyle = a === 0 ? 'rgba(47,42,34,0.25)' : 'rgba(47,42,34,0.07)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL + cw, y); ctx.stroke();
+    ctx.fillStyle = '#8a8072'; ctx.fillText((a * 100).toFixed(0) + '%', padL - 8, y);
+  }
+  ctx.strokeStyle = 'rgba(47,42,34,0.25)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(padL, padT); ctx.lineTo(padL, padT + ch); ctx.stroke();
+  // x labels
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillStyle = '#8a8072';
+  for (let e = 0; e <= E; e += 10) {
+    const x = padL + cw * (e / E);
+    ctx.fillText(e, x, padT + ch + 6);
+  }
+  ctx.fillStyle = '#5a5247'; ctx.font = '600 11px Manrope, sans-serif';
+  ctx.fillText('epoch', padL + cw / 2, padT + ch + 20);
+
+  // title
+  ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+  ctx.fillStyle = '#5a5247'; ctx.font = '700 12px Manrope, sans-serif';
+  const modeName = mode === 'scratch' ? 'Train from scratch' : mode === 'freeze' ? 'Freeze backbone (' + cut + ' blocks), train head' : 'Fine-tune all';
+  ctx.fillText(modeName.toUpperCase() + '  ·  ' + datasetImages(dataIdx).toLocaleString() + ' IMAGES', padL, 26);
+
+  function plot(fn, color, dashed) {
+    ctx.strokeStyle = color; ctx.lineWidth = 2.4;
+    ctx.setLineDash(dashed ? [6, 4] : []);
+    ctx.beginPath();
+    for (let e = 0; e <= E; e++) {
+      const x = padL + cw * (e / E);
+      const y = padT + ch * (1 - fn(p, e));
+      if (e === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  plot(trainAcc, COL.warm, false);
+  plot(valAcc, COL.accent, true);
+
+  // mark best val point
+  let be = 0, bv = 0;
+  for (let e = 0; e <= E; e++) { const v = valAcc(p, e); if (v > bv) { bv = v; be = e; } }
+  const bx = padL + cw * (be / E), by = padT + ch * (1 - bv);
+  ctx.fillStyle = COL.accent;
+  ctx.beginPath(); ctx.arc(bx, by, 4.5, 0, 2 * Math.PI); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.fillStyle = COL.accent; ctx.font = '700 11px Manrope, sans-serif';
+  ctx.textAlign = be > E * 0.7 ? 'right' : 'left'; ctx.textBaseline = 'bottom';
+  ctx.fillText('best val ' + (bv * 100).toFixed(0) + '%', bx + (be > E * 0.7 ? -8 : 8), by - 6);
+
+  // legend
+  const lx = padL + cw - 168, ly = padT + 8;
+  ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
+  ctx.strokeStyle = COL.warm; ctx.lineWidth = 2.4; ctx.beginPath(); ctx.moveTo(lx, ly); ctx.lineTo(lx + 22, ly); ctx.stroke();
+  ctx.fillStyle = '#5a5247'; ctx.font = '600 11px Manrope, sans-serif'; ctx.fillText('train acc.', lx + 28, ly);
+  ctx.strokeStyle = COL.accent; ctx.setLineDash([6, 4]); ctx.beginPath(); ctx.moveTo(lx, ly + 18); ctx.lineTo(lx + 22, ly + 18); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle = '#5a5247'; ctx.fillText('val acc.', lx + 28, ly + 18);
+}
+
+/* ===================== stats + recommendation ===================== */
+function updateStats() {
+  const p = modelParams(mode, dataIdx / 100, cut);
+  const bv = bestVal(p);
+  const gap = p.trainFinal - bv;
+  const tp = trainableParams(mode, cut);
+  document.getElementById('bestValStat').textContent = (bv * 100).toFixed(0) + '%';
+  document.getElementById('gapStat').textContent = (gap * 100).toFixed(0) + ' pts';
+  document.getElementById('paramStat').textContent = tp.toFixed(1) + 'M / ' + TOTAL_PARAMS.toFixed(1) + 'M';
+}
+function updateRecommendation() {
+  const d = dataIdx / 100;
+  const cands = [
+    { m: 'scratch', v: bestVal(modelParams('scratch', d, cut)), name: 'training from scratch' },
+    { m: 'freeze', v: bestVal(modelParams('freeze', d, cut)), name: 'freezing the backbone and training the head' },
+    { m: 'finetune', v: bestVal(modelParams('finetune', d, cut)), name: 'fine-tuning all layers' }
+  ];
+  cands.sort((a, b) => b.v - a.v);
+  const win = cands[0];
+  const imgs = datasetImages(dataIdx).toLocaleString();
+  const el = document.getElementById('recommend');
+  const title = document.getElementById('recTitle');
+  const text = document.getElementById('recText');
+  el.classList.remove('callout--think', 'callout--warn');
+  let cls, sizeWord;
+  if (d < 0.34) { sizeWord = 'little data'; }
+  else if (d > 0.66) { sizeWord = 'plenty of data'; }
+  else { sizeWord = 'a moderate dataset'; }
+  if (win.m === 'freeze') el.classList.add('callout--think');
+  else if (win.m === 'scratch') el.classList.add('callout--warn');
+  const matches = (win.m === mode);
+  title.textContent = matches ? 'Good choice' : 'Consider switching';
+  text.innerHTML = ' &mdash; with ' + imgs + ' images (' + sizeWord + '), the best expected validation accuracy comes from <strong>' +
+    win.name + '</strong> (~' + (win.v * 100).toFixed(0) + '%). ' +
+    (matches ? 'That is exactly what you have selected.' :
+      'You currently have <em>' + (mode === 'scratch' ? 'train from scratch' : mode === 'freeze' ? 'freeze backbone' : 'fine-tune all') + '</em> selected.');
+}
+
+/* ===================== orchestration ===================== */
+function redraw() { drawNet(); drawCurves(); updateStats(); updateRecommendation(); }
+
+/* ===================== wiring ===================== */
+document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('[data-mode]').forEach(x => x.classList.remove('is-active'));
+  b.classList.add('is-active');
+  mode = b.dataset.mode;
+  redraw();
+}));
+document.getElementById('cut').addEventListener('input', e => {
+  cut = parseInt(e.target.value);
+  document.getElementById('cutVal').textContent = cut;
+  redraw();
+});
+document.getElementById('data').addEventListener('input', e => {
+  dataIdx = parseInt(e.target.value);
+  document.getElementById('dataVal').textContent = datasetImages(dataIdx).toLocaleString();
+  redraw();
+});
+
+window.addEventListener('resize', () => { drawNet(); drawCurves(); });
+window.addEventListener('load', redraw);
+redraw();
+</script>
+
+</body>
+</html>

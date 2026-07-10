@@ -1,0 +1,20 @@
+{
+  "slug": "anchor-assignment",
+  "title": "Assigning Anchors by IoU",
+  "date": "2026-07-10",
+  "tagline": "Detection is classification in disguise: every pre-placed anchor box asks 'is the object here?', and IoU thresholds supply the labels.",
+  "summary": "An anchor-based detector tiles the image with a fixed grid of boxes at several scales and aspect ratios, then trains each one as a yes/no classifier. Drag a ground-truth box across the grid and watch every anchor light up positive, ignore, or negative by its IoU with the object. Move the two thresholds and the counts shift; the single best-matching anchor is always kept. This is how 'where is the object' becomes a per-anchor classification problem.",
+  "readingTime": "7 min",
+  "difficulty": "Intermediate",
+  "collection": "Deep learning",
+  "order": 43,
+  "status": "published",
+  "tags": ["Object Detection", "Anchors", "IoU", "RPN", "Interactive"],
+  "highlights": [
+    "Drag a ground-truth box over a fixed field of anchors and see each one classified positive, ignore, or negative in real time.",
+    "Anchors come in several aspect ratios per location, so a wide object matches wide anchors and a tall one matches tall anchors.",
+    "Move the high and low IoU thresholds and watch the positive, ignore, and negative counts rebalance instantly.",
+    "The single highest-IoU anchor is always kept as positive, mirroring the RPN rule that guarantees every object has a match.",
+    "See why detection is really per-anchor classification plus box regression, not a mysterious 'where is it' oracle."
+  ]
+}

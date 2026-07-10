@@ -1,0 +1,20 @@
+{
+  "slug": "derivative-tangent",
+  "title": "The Derivative is a Local Line",
+  "date": "2026-07-10",
+  "tagline": "Zoom into any smooth curve and it becomes a straight line — its slope is the derivative",
+  "summary": "Pick a curve, drag a base point, and watch two views of the same limit. A secant slider collapses the step h toward zero so the average slope converges to the instantaneous one; a zoom slider magnifies the graph until the curve visibly straightens into its tangent. The big orange secant number slides onto the blue derivative, making the definition f'(x0) = lim (f(x0+h)-f(x0))/h something you see rather than memorize — and setting up local linearity, the reason gradients can train networks.",
+  "readingTime": "8 min",
+  "difficulty": "Intermediate",
+  "collection": "Deep learning",
+  "order": 34,
+  "status": "published",
+  "tags": ["Calculus", "Derivatives", "Tangent Line", "Gradients", "Interactive"],
+  "highlights": [
+    "Drag a base point along x^2, sin x, or x^3 - x and watch the tangent line rotate to match the local slope.",
+    "Shrink the secant step h toward zero and see the average slope converge onto the exact derivative, with the gap dying like h.",
+    "Zoom geometrically into the base point until the curve straightens into a line — local linearity made literal.",
+    "Read the secant slope, derivative, and their gap live as three linked numbers.",
+    "Connects to why deep learning works: near the current weights a loss looks linear, so the gradient gives a trustworthy downhill step."
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "slug": "bptt-unroll",
+  "title": "Backprop Through Time",
+  "date": "2026-07-10",
+  "tagline": "Unroll an RNN, walk the backward pass, and watch truncation cut the chain of credit",
+  "summary": "Training an RNN means unrolling it into a deep shared-weight graph and running ordinary backprop across it. Step the backward pass one timestep at a time: at each hidden state its gradient accumulates two contributions — the local loss here plus credit carried back from the future. A truncation-length K slider visibly severs the chain, and a per-hop w_h·σ′ factor shows credit vanishing or exploding as it travels back through time.",
+  "readingTime": "9 min",
+  "difficulty": "Intermediate",
+  "collection": "Deep learning",
+  "order": 49,
+  "status": "published",
+  "tags": ["BPTT", "RNN", "Backpropagation", "Vanishing Gradients", "Interactive"],
+  "highlights": [
+    "See the RNN drawn unrolled across seven timesteps with inputs, per-step losses, and the threaded hidden state.",
+    "Step the backward pass and watch each state's gradient accumulate two pieces: the local loss plus credit carried back from h_{t+1}.",
+    "Slide the truncation length K to sever the chain — greyed states get no gradient, exactly like truncated BPTT.",
+    "Turn the w_h·σ′ product below or above 1 and watch credit vanish or explode as it propagates back.",
+    "Connect the razor's-edge stability of plain RNNs to why LSTMs and GRUs gate the state's path through time."
+  ]
+}

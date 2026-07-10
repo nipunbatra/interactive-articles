@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Weight Decay Shrinks the Fit</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body, {delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
+
+<style>
+:root {
+  --serif: 'Source Serif 4', Georgia, serif;
+  --sans: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+  --mono: 'IBM Plex Mono', monospace;
+  --bg: #fdfcf9;
+  --paper: #ffffff;
+  --text: #2f2a22;
+  --muted: #6e665b;
+  --border: #e2d8c6;
+  --accent: #2c6fb7;
+  --warm: #d9622b;
+  --success: #1e7770;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; font-family: var(--serif); color: var(--text); background: var(--bg); line-height: 1.65; }
+
+.article { max-width: 980px; margin: 0 auto; padding: 2.5rem 1.5rem 5rem; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; color: var(--muted); text-decoration: none; font-family: var(--sans); font-size: 0.9rem; }
+.back-link:hover { color: var(--text); }
+.article-header { margin-bottom: 3rem; text-align: center; }
+.kicker { margin: 0 0 0.75rem; font-family: var(--sans); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); }
+h1 { margin: 0 auto 1rem; font-size: clamp(2.4rem, 5vw, 3.5rem); line-height: 1.1; letter-spacing: -0.02em; color: #1a1815; max-width: 20ch; }
+.abstract { margin: 0 auto 1rem; max-width: 62ch; font-size: 1.15rem; color: #4d463d; }
+.byline { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-top: 1.4rem; padding-top: 1rem; border-top: 1px solid var(--border); color: var(--muted); font-family: var(--sans); font-size: 0.92rem; }
+
+.step-section {
+  position: relative;
+  margin-top: 4rem;
+  padding: 3rem 2.5rem;
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.03);
+}
+.step-badge {
+  position: absolute;
+  top: -16px;
+  left: 32px;
+  background: var(--accent);
+  color: white;
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.4rem 1.2rem;
+  border-radius: 999px;
+  box-shadow: 0 4px 12px rgba(44, 111, 183, 0.25);
+}
+h2 { margin: 0 0 1rem; font-size: clamp(1.6rem, 3.5vw, 2.2rem); line-height: 1.15; color: #1a1815; }
+h3 { margin-top: 2rem; margin-bottom: 0.8rem; font-size: 1.25rem; color: #1a1815; }
+p { max-width: 68ch; font-size: 1.1rem; }
+ul { max-width: 68ch; font-size: 1.1rem; padding-left: 1.4rem; }
+li { margin-bottom: 0.5rem; }
+.math-block { margin: 1.5rem 0; text-align: center; font-size: 1.05rem; overflow-x: auto; }
+
+.control-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.4rem;
+  margin: 1.6rem 0;
+}
+.control-block { display: flex; flex-direction: column; gap: 0.5rem; }
+.control-block label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-family: var(--sans);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.control-block label span { font-family: var(--mono); color: var(--warm); font-weight: 500; font-size: 0.95rem; }
+input[type="range"] {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px; height: 18px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid var(--paper);
+  box-shadow: 0 2px 6px rgba(44,111,183,0.4);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 18px; height: 18px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid var(--paper);
+}
+
+.button-row { display: flex; gap: 0.6rem; flex-wrap: wrap; margin: 1rem 0; }
+.mode-button {
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: 0.92rem;
+  padding: 0.55rem 1.1rem;
+  border-radius: 8px;
+  border: 1.5px solid var(--border);
+  background: var(--paper);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.mode-button:hover { border-color: var(--accent); }
+.mode-button.is-active { background: var(--accent); color: white; border-color: var(--accent); }
+
+.interactive-figure { margin: 1.5rem 0; }
+.interactive-figure canvas {
+  display: block;
+  width: 100%;
+  background: #fbfaf6;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.interactive-figure figcaption { margin-top: 0.7rem; font-size: 0.92rem; color: var(--muted); text-align: center; font-style: italic; }
+
+.panels-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.2rem; margin: 1.5rem 0; }
+.panels-grid figure { margin: 0; }
+@media (max-width: 720px) { .panels-grid { grid-template-columns: 1fr; } }
+
+.stat-strip { display: flex; gap: 1rem; flex-wrap: wrap; margin: 1.5rem 0; }
+.stat-pill {
+  flex: 1 1 140px;
+  min-width: 140px;
+  background: var(--paper);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  padding: 0.9rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  text-align: left;
+}
+.stat-pill .stat-label { font-family: var(--sans); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; }
+.stat-pill .stat-value { font-family: var(--mono); font-size: 1.5rem; font-weight: 600; color: var(--text); }
+.stat-pill--accent { border-color: var(--accent); }
+.stat-pill--accent .stat-value { color: var(--accent); }
+.stat-pill--warm { border-color: var(--warm); }
+.stat-pill--warm .stat-value { color: var(--warm); }
+.stat-pill--success { border-color: var(--success); }
+.stat-pill--success .stat-value { color: var(--success); }
+
+.callout {
+  margin: 2rem 0 0.5rem;
+  padding: 1.2rem 1.5rem;
+  border-radius: 12px;
+  border-left: 4px solid var(--accent);
+  background: rgba(44,111,183,0.05);
+  font-size: 1.02rem;
+}
+.callout strong { color: var(--accent); }
+.callout--think { border-left-color: var(--success); background: rgba(30,119,112,0.06); }
+.callout--think strong { color: var(--success); }
+.callout--warn { border-left-color: var(--warm); background: rgba(217,98,43,0.06); }
+.callout--warn strong { color: var(--warm); }
+
+footer { margin-top: 4rem; text-align: center; font-family: var(--sans); font-size: 0.85rem; color: var(--muted); }
+
+@media (max-width: 640px) { .step-section { padding: 2rem 1.4rem; } }
+</style>
+</head>
+<body>
+
+<article class="article">
+  <header class="article-header">
+    <a class="back-link" href="../">&larr; Explainer Library</a>
+    <p class="kicker">Interactive Explainer</p>
+    <h1>Weight Decay Shrinks the Fit</h1>
+    <p class="abstract">
+      Hand a degree-9 polynomial a fistful of noisy points and it will happily thread
+      every one &mdash; wiggling violently between them with enormous coefficients.
+      Weight decay adds one term, $\lambda\lVert w\rVert^{2}$, that <em>taxes</em> big
+      weights. Turn the $\lambda$ knob below and watch the wild curve calm down, the
+      coefficients collapse, and the test error slide into its sweet spot.
+    </p>
+    <div class="byline">
+      <span>~10 min</span>
+      <span>Deep Learning &middot; Generalization &middot; Regularization</span>
+    </div>
+  </header>
+
+  <section class="step-section" id="prelude">
+    <div class="step-badge">Prelude</div>
+    <h2>One extra term in the loss</h2>
+    <p>
+      Ordinary least squares picks weights $w$ that minimize the squared error on the
+      training data. Ridge regression &mdash; the linear-model name for
+      <em>weight decay</em> &mdash; adds a penalty proportional to the squared length
+      of $w$:
+    </p>
+    <div class="math-block">
+      $$\mathcal{L}(w) = \underbrace{\sum_{i=1}^{N}\big(y_i - w^{\top}\phi(x_i)\big)^2}_{\text{fit the data}}
+        \;+\; \underbrace{\lambda\,\lVert w\rVert^{2}}_{\text{keep }w\text{ small}} .$$
+    </div>
+    <p>
+      Because this is quadratic in $w$, there is a closed-form minimizer &mdash; no
+      gradient descent required. Setting the gradient to zero gives the ridge
+      <em>normal equations</em>, which this page solves live in your browser with a
+      tiny Gaussian-elimination routine:
+    </p>
+    <div class="math-block">
+      $$\big(\Phi^{\top}\Phi + \lambda I\big)\,w = \Phi^{\top}y
+        \qquad\Longrightarrow\qquad
+        w^{*} = \big(\Phi^{\top}\Phi + \lambda I\big)^{-1}\Phi^{\top}y .$$
+    </div>
+    <p>
+      Here $\Phi$ is the design matrix whose rows are the polynomial features
+      $\phi(x) = [1, x, x^2, \dots, x^d]$. The single knob $\lambda$ interpolates
+      between two extremes: at $\lambda \to 0$ you recover the wild interpolating fit;
+      as $\lambda \to \infty$ every weight is crushed toward zero and the curve flattens
+      to a constant.
+    </p>
+  </section>
+
+  <section class="step-section" id="lab">
+    <div class="step-badge">The Lab</div>
+    <h2>Turn the knob, watch the fit</h2>
+    <p>
+      Fifteen noisy points (orange) are sampled from a smooth true curve (grey dashed).
+      A degree-9 polynomial is fit by ridge regression. Drag $\lambda$ on its log scale:
+      far left is almost-zero penalty (wild overfit), far right is a heavy penalty
+      (flat underfit). The three presets jump you to the interesting regimes.
+    </p>
+
+    <div class="button-row" id="preset-row">
+      <button class="mode-button" data-preset="overfit">Overfit &nbsp;($\lambda\!\approx\!0$)</button>
+      <button class="mode-button is-active" data-preset="sweet">Sweet spot</button>
+      <button class="mode-button" data-preset="underfit">Underfit (big $\lambda$)</button>
+    </div>
+
+    <div class="control-row">
+      <div class="control-block">
+        <label>Penalty <span>$\lambda$ = <span id="lamVal">0.010</span></span></label>
+        <input type="range" id="lam" min="-5" max="2" step="0.05" value="-2.0">
+      </div>
+      <div class="control-block">
+        <label>Polynomial degree <span>$d$ = <span id="degVal">9</span></span></label>
+        <input type="range" id="deg" min="1" max="12" step="1" value="9">
+      </div>
+      <div class="control-block">
+        <label>Noise level <span>$\sigma$ = <span id="noiseVal">0.18</span></span></label>
+        <input type="range" id="noise" min="0.0" max="0.4" step="0.01" value="0.18">
+      </div>
+    </div>
+
+    <figure class="interactive-figure">
+      <canvas id="fitCanvas" width="900" height="380"></canvas>
+      <figcaption>
+        The fitted degree-$d$ polynomial (blue) against the true function (grey dashed)
+        and the noisy training sample (orange). A vertical exaggeration is clipped to the frame.
+      </figcaption>
+    </figure>
+
+    <div class="stat-strip">
+      <div class="stat-pill stat-pill--warm">
+        <span class="stat-label">Weight norm $\lVert w\rVert^{2}$</span>
+        <span class="stat-value" id="normStat">&mdash;</span>
+      </div>
+      <div class="stat-pill stat-pill--accent">
+        <span class="stat-label">Train error (MSE)</span>
+        <span class="stat-value" id="trainStat">&mdash;</span>
+      </div>
+      <div class="stat-pill stat-pill--success">
+        <span class="stat-label">Test error (MSE)</span>
+        <span class="stat-value" id="testStat">&mdash;</span>
+      </div>
+    </div>
+
+    <div class="panels-grid">
+      <figure class="interactive-figure">
+        <canvas id="normCanvas" width="440" height="300"></canvas>
+        <figcaption>$\lVert w\rVert^{2}$ versus $\lambda$ (both log axes). Bigger penalty &rarr; smaller weights, monotonically.</figcaption>
+      </figure>
+      <figure class="interactive-figure">
+        <canvas id="errCanvas" width="440" height="300"></canvas>
+        <figcaption>Train (blue) vs test (green) error versus $\lambda$. Test error is a U &mdash; the dot marks your current $\lambda$.</figcaption>
+      </figure>
+    </div>
+
+    <figure class="interactive-figure">
+      <canvas id="coefCanvas" width="900" height="220"></canvas>
+      <figcaption>The learned coefficients $w_1,\dots,w_d$ (the bias $w_0$ is not penalized and is hidden). Watch every bar collapse toward zero as $\lambda$ grows.</figcaption>
+    </figure>
+
+    <div class="callout callout--warn">
+      <strong>Start at "Overfit."</strong> The blue curve snakes through nearly every
+      orange dot, but between them it lunges toward $\pm\infty$; the weight-norm number
+      is astronomical and the test error is far above the train error. Now drag
+      $\lambda$ right: the curve relaxes onto the true grey curve, the coefficient bars
+      shrink, and test error drops into the trough before the curve finally goes flat.
+    </div>
+  </section>
+
+  <section class="step-section" id="why">
+    <div class="step-badge">The Payoff</div>
+    <h2>Why smaller weights generalize better</h2>
+    <p>
+      A high-degree polynomial is not <em>too complex</em> because it has many terms
+      &mdash; it is dangerous because those terms can take on <em>huge, canceling</em>
+      values. A coefficient of $+40{,}000$ on $x^7$ fighting $-38{,}000$ on $x^9$ is
+      what produces the violent wiggles. Penalizing $\lVert w\rVert^{2}$ forbids exactly
+      those enormous, delicately balanced weights, so the only fits left are smooth ones.
+    </p>
+    <ul>
+      <li><strong>Bias&ndash;variance, made visible.</strong> Small $\lambda$ = low bias, high variance (fits the noise). Large $\lambda$ = high bias, low variance (ignores signal too). The U-shaped test curve is that trade-off, and its minimum is the $\lambda$ you want.</li>
+      <li><strong>Same math as an MAP prior.</strong> $\lambda\lVert w\rVert^{2}$ is the log of a Gaussian prior $w \sim \mathcal{N}(0, \tfrac{1}{2\lambda}I)$. Weight decay is just Bayesian shrinkage toward zero.</li>
+      <li><strong>Why "decay."</strong> In gradient descent the penalty adds $-2\eta\lambda\,w$ to each step, i.e. every weight is multiplied by $(1-2\eta\lambda)<1$ before the data-driven update &mdash; it literally decays toward zero each step.</li>
+    </ul>
+    <div class="callout callout--think">
+      <strong>In deep nets.</strong> There is no closed form, but the idea is identical:
+      add $\lambda\lVert w\rVert^{2}$ to the loss (or use an optimizer's
+      <code>weight_decay</code> argument). It is one of the cheapest, most reliable
+      regularizers there is &mdash; a single number that buys you a smoother function
+      and a smaller gap between training and test performance.
+    </div>
+  </section>
+
+  <footer>Part of the ES 667 Deep Learning explainer series &middot; Lecture 7: Generalization &amp; Regularization</footer>
+</article>
+
+<script>
+/* ===================== deterministic RNG (LCG + Box-Muller) ===================== */
+function makeRNG(seed) {
+  let s = (seed >>> 0) || 1;
+  return function () { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 4294967296; };
+}
+function gauss(rng) {
+  let u = 0, v = 0;
+  while (u === 0) u = rng();
+  while (v === 0) v = rng();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+
+/* ===================== ground truth & data ===================== */
+const trueFn = (x) => Math.sin(1.3 * Math.PI * x);          // smooth target on [-1, 1]
+const DATA_SEED = 20260707;
+
+let train = { x: [], y: [] };
+let test = { x: [], y: [] };
+
+function regenData(noise) {
+  const rng = makeRNG(DATA_SEED);
+  // training sample: 15 jittered x in (-0.95, 0.95), sorted
+  const N = 15, xs = [];
+  for (let i = 0; i < N; i++) xs.push(-0.95 + 1.9 * rng());
+  xs.sort((a, b) => a - b);
+  train = { x: xs, y: xs.map((x) => trueFn(x) + noise * gauss(rng)) };
+  // held-out test sample: 60 fresh noisy points
+  const M = 60, tx = [], ty = [];
+  for (let i = 0; i < M; i++) { const x = -1 + 2 * rng(); tx.push(x); ty.push(trueFn(x) + noise * gauss(rng)); }
+  test = { x: tx, y: ty };
+}
+
+/* ===================== linear algebra ===================== */
+function polyFeat(x, d) { const f = [1]; let p = 1; for (let k = 1; k <= d; k++) { p *= x; f.push(p); } return f; }
+
+// Solve A w = b by Gaussian elimination with partial pivoting. A is n x n (row-major arrays).
+function gaussSolve(A, b) {
+  const n = b.length;
+  const M = A.map((row, i) => row.slice().concat(b[i]));
+  for (let col = 0; col < n; col++) {
+    let piv = col;
+    for (let r = col + 1; r < n; r++) if (Math.abs(M[r][col]) > Math.abs(M[piv][col])) piv = r;
+    if (piv !== col) { const t = M[piv]; M[piv] = M[col]; M[col] = t; }
+    const d = M[col][col];
+    if (Math.abs(d) < 1e-14) continue; // singular column, skip (ridge keeps this rare)
+    for (let r = 0; r < n; r++) {
+      if (r === col) continue;
+      const f = M[r][col] / d;
+      if (f === 0) continue;
+      for (let c = col; c <= n; c++) M[r][c] -= f * M[col][c];
+    }
+  }
+  const w = new Array(n).fill(0);
+  for (let i = 0; i < n; i++) { const d = M[i][i]; w[i] = Math.abs(d) < 1e-14 ? 0 : M[i][n] / d; }
+  return w;
+}
+
+// Ridge fit: minimize ||y - Phi w||^2 + lambda ||w_{1:d}||^2 (bias w0 unpenalized).
+function ridgeFit(xs, ys, d, lambda) {
+  const n = d + 1;
+  const A = Array.from({ length: n }, () => new Array(n).fill(0));
+  const b = new Array(n).fill(0);
+  for (let i = 0; i < xs.length; i++) {
+    const f = polyFeat(xs[i], d);
+    for (let a = 0; a < n; a++) {
+      b[a] += f[a] * ys[i];
+      for (let c = 0; c < n; c++) A[a][c] += f[a] * f[c];
+    }
+  }
+  for (let j = 1; j < n; j++) A[j][j] += lambda; // do not penalize the intercept
+  return gaussSolve(A, b);
+}
+function predict(w, x) { const f = polyFeat(x, w.length - 1); let s = 0; for (let k = 0; k < w.length; k++) s += w[k] * f[k]; return s; }
+function mse(w, xs, ys) { let s = 0; for (let i = 0; i < xs.length; i++) { const e = ys[i] - predict(w, xs[i]); s += e * e; } return s / xs.length; }
+function wnorm2(w) { let s = 0; for (let k = 1; k < w.length; k++) s += w[k] * w[k]; return s; }
+
+/* ===================== precomputed sweep over lambda ===================== */
+const LAM_MIN = -5, LAM_MAX = 2, SWEEP = 90;
+let sweep = []; // {lam, log, norm, train, test}
+function computeSweep(d) {
+  sweep = [];
+  for (let i = 0; i < SWEEP; i++) {
+    const log = LAM_MIN + (LAM_MAX - LAM_MIN) * i / (SWEEP - 1);
+    const lam = Math.pow(10, log);
+    const w = ridgeFit(train.x, train.y, d, lam);
+    sweep.push({ lam, log, norm: wnorm2(w), train: mse(w, train.x, train.y), test: mse(w, test.x, test.y) });
+  }
+}
+
+/* ===================== canvas helpers ===================== */
+function fitCanvas(canvas) {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = Math.round(rect.width * dpr);
+  canvas.height = Math.round(rect.height * dpr);
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { ctx, w: rect.width, h: rect.height };
+}
+
+/* ===================== main fit plot ===================== */
+function drawFit(w) {
+  const { ctx, w: W, h: H } = fitCanvas(document.getElementById('fitCanvas'));
+  ctx.clearRect(0, 0, W, H);
+  const padL = 44, padR = 18, padT = 20, padB = 34;
+  const cw = W - padL - padR, ch = H - padT - padB;
+  const xLo = -1, xHi = 1, yLo = -2.4, yHi = 2.4;
+  const X = (x) => padL + (x - xLo) / (xHi - xLo) * cw;
+  const Y = (y) => padT + (1 - (y - yLo) / (yHi - yLo)) * ch;
+
+  // gridlines
+  ctx.font = '500 10px Manrope, sans-serif';
+  ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  for (let y = -2; y <= 2; y += 1) {
+    const py = Y(y);
+    ctx.strokeStyle = y === 0 ? 'rgba(47,42,34,0.22)' : 'rgba(47,42,34,0.07)';
+    ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(padL, py); ctx.lineTo(padL + cw, py); ctx.stroke();
+    ctx.fillStyle = '#8a8072'; ctx.fillText(y.toFixed(0), padL - 7, py);
+  }
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  for (let x = -1; x <= 1; x += 0.5) {
+    const px = X(x);
+    ctx.strokeStyle = 'rgba(47,42,34,0.05)'; ctx.beginPath(); ctx.moveTo(px, padT); ctx.lineTo(px, padT + ch); ctx.stroke();
+    ctx.fillStyle = '#8a8072'; ctx.fillText(x.toFixed(1), px, padT + ch + 6);
+  }
+
+  // clip to plot area (curve can shoot far off screen)
+  ctx.save();
+  ctx.beginPath(); ctx.rect(padL, padT, cw, ch); ctx.clip();
+
+  // true function (dashed grey)
+  ctx.strokeStyle = 'rgba(47,42,34,0.35)'; ctx.lineWidth = 2; ctx.setLineDash([6, 5]);
+  ctx.beginPath();
+  for (let i = 0; i <= 300; i++) { const x = xLo + (xHi - xLo) * i / 300; const py = Y(trueFn(x)); i ? ctx.lineTo(X(x), py) : ctx.moveTo(X(x), py); }
+  ctx.stroke(); ctx.setLineDash([]);
+
+  // fitted polynomial (blue)
+  ctx.strokeStyle = '#2c6fb7'; ctx.lineWidth = 2.6;
+  ctx.beginPath();
+  for (let i = 0; i <= 600; i++) { const x = xLo + (xHi - xLo) * i / 600; const py = Y(predict(w, x)); i ? ctx.lineTo(X(x), py) : ctx.moveTo(X(x), py); }
+  ctx.stroke();
+  ctx.restore();
+
+  // training points (orange)
+  for (let i = 0; i < train.x.length; i++) {
+    ctx.beginPath(); ctx.arc(X(train.x[i]), Y(train.y[i]), 4.5, 0, 2 * Math.PI);
+    ctx.fillStyle = '#d9622b'; ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.4; ctx.stroke();
+  }
+
+  // legend
+  ctx.font = '600 11px Manrope, sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  const lx = padL + 8, ly = padT + 12;
+  ctx.strokeStyle = '#2c6fb7'; ctx.lineWidth = 2.6; ctx.beginPath(); ctx.moveTo(lx, ly); ctx.lineTo(lx + 22, ly); ctx.stroke();
+  ctx.fillStyle = '#5a5247'; ctx.fillText('ridge fit', lx + 28, ly);
+  ctx.strokeStyle = 'rgba(47,42,34,0.35)'; ctx.setLineDash([6, 5]); ctx.beginPath(); ctx.moveTo(lx + 92, ly); ctx.lineTo(lx + 114, ly); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle = '#5a5247'; ctx.fillText('true function', lx + 120, ly);
+}
+
+/* ===================== log-log sweep panels ===================== */
+function drawSweepPanel(canvasId, keys, curLog, title, unitLog) {
+  const { ctx, w: W, h: H } = fitCanvas(document.getElementById(canvasId));
+  ctx.clearRect(0, 0, W, H);
+  const padL = 48, padR = 14, padT = 26, padB = 34;
+  const cw = W - padL - padR, ch = H - padT - padB;
+  // y-range across all series in log10
+  let lo = Infinity, hi = -Infinity;
+  for (const s of sweep) for (const k of keys) { const v = Math.log10(Math.max(s[k], 1e-9)); if (v < lo) lo = v; if (v > hi) hi = v; }
+  if (!isFinite(lo)) { lo = -3; hi = 1; }
+  lo = Math.floor(lo - 0.3); hi = Math.ceil(hi + 0.3);
+  const X = (log) => padL + (log - LAM_MIN) / (LAM_MAX - LAM_MIN) * cw;
+  const Y = (logv) => padT + (1 - (logv - lo) / (hi - lo)) * ch;
+
+  // y gridlines (log decades)
+  ctx.font = '500 9px Manrope, sans-serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  for (let e = lo; e <= hi; e++) {
+    const py = Y(e);
+    ctx.strokeStyle = 'rgba(47,42,34,0.07)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(padL, py); ctx.lineTo(padL + cw, py); ctx.stroke();
+    ctx.fillStyle = '#8a8072'; ctx.fillText('10' + supers(e), padL - 6, py);
+  }
+  // x gridlines (lambda decades)
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  for (let e = LAM_MIN; e <= LAM_MAX; e++) {
+    const px = X(e);
+    ctx.strokeStyle = 'rgba(47,42,34,0.06)'; ctx.beginPath(); ctx.moveTo(px, padT); ctx.lineTo(px, padT + ch); ctx.stroke();
+    ctx.fillStyle = '#8a8072'; ctx.fillText('10' + supers(e), px, padT + ch + 6);
+  }
+
+  const colors = keys.length > 1 ? ['#2c6fb7', '#1e7770'] : ['#d9622b'];
+  keys.forEach((k, ki) => {
+    ctx.strokeStyle = colors[ki]; ctx.lineWidth = 2.4; ctx.beginPath();
+    sweep.forEach((s, i) => { const px = X(s.log), py = Y(Math.log10(Math.max(s[k], 1e-9))); i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); });
+    ctx.stroke();
+  });
+
+  // current-lambda marker
+  const px = X(curLog);
+  ctx.strokeStyle = 'rgba(217,98,43,0.55)'; ctx.lineWidth = 1.6; ctx.setLineDash([4, 4]);
+  ctx.beginPath(); ctx.moveTo(px, padT); ctx.lineTo(px, padT + ch); ctx.stroke(); ctx.setLineDash([]);
+  keys.forEach((k, ki) => {
+    const val = interpSweep(curLog, k);
+    const py = Y(Math.log10(Math.max(val, 1e-9)));
+    ctx.beginPath(); ctx.arc(px, py, 4.5, 0, 2 * Math.PI); ctx.fillStyle = colors[ki]; ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+  });
+
+  // title + axis
+  ctx.fillStyle = '#5a5247'; ctx.font = '600 11px Manrope, sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillText(title, padL, 6);
+  ctx.fillStyle = '#a89b86'; ctx.font = 'italic 10px "Source Serif 4", serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
+  ctx.fillText('λ →', padL + cw, padT + ch + 30);
+}
+function supers(e) { const map = { '-': '⁻', '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹' }; return String(e).split('').map((c) => map[c] || c).join(''); }
+function interpSweep(log, key) {
+  if (log <= sweep[0].log) return sweep[0][key];
+  if (log >= sweep[sweep.length - 1].log) return sweep[sweep.length - 1][key];
+  for (let i = 1; i < sweep.length; i++) if (sweep[i].log >= log) { const a = sweep[i - 1], b = sweep[i]; const t = (log - a.log) / (b.log - a.log); return a[key] + t * (b[key] - a[key]); }
+  return sweep[sweep.length - 1][key];
+}
+
+/* ===================== coefficient bars ===================== */
+function drawCoefs(w) {
+  const { ctx, w: W, h: H } = fitCanvas(document.getElementById('coefCanvas'));
+  ctx.clearRect(0, 0, W, H);
+  const padL = 30, padR = 14, padT = 22, padB = 30;
+  const cw = W - padL - padR, ch = H - padT - padB;
+  const zeroY = padT + ch / 2;
+  const coefs = w.slice(1); // drop bias
+  const maxAbs = Math.max(1e-6, ...coefs.map((c) => Math.abs(c)));
+  const scale = (ch / 2) / (maxAbs * 1.08);
+  // zero line
+  ctx.strokeStyle = 'rgba(47,42,34,0.28)'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(padL, zeroY); ctx.lineTo(padL + cw, zeroY); ctx.stroke();
+  const n = coefs.length, gap = Math.min(16, cw / n * 0.3), bw = (cw - gap * (n + 1)) / n;
+  for (let i = 0; i < n; i++) {
+    const x = padL + gap + i * (bw + gap);
+    const bh = coefs[i] * scale;
+    ctx.fillStyle = coefs[i] >= 0 ? '#2c6fb7' : '#d9622b';
+    ctx.fillRect(x, coefs[i] >= 0 ? zeroY - bh : zeroY, bw, Math.abs(bh));
+    ctx.fillStyle = '#8a8072'; ctx.font = '500 10px Manrope, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillText('w' + subs(i + 1), x + bw / 2, padT + ch + 6);
+  }
+  ctx.fillStyle = '#5a5247'; ctx.font = '600 11px Manrope, sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillText('coefficients  (max |w| = ' + fmt(maxAbs) + ')', padL, 4);
+}
+function subs(e) { const map = { '0': '₀', '1': '₁', '2': '₂', '3': '₃', '4': '₄', '5': '₅', '6': '₆', '7': '₇', '8': '₈', '9': '₉' }; return String(e).split('').map((c) => map[c] || c).join(''); }
+function fmt(v) { if (v >= 1000) return v.toExponential(1); if (v >= 10) return v.toFixed(0); if (v >= 1) return v.toFixed(1); return v.toFixed(3); }
+
+/* ===================== orchestration ===================== */
+const lamEl = document.getElementById('lam');
+const degEl = document.getElementById('deg');
+const noiseEl = document.getElementById('noise');
+let curDeg = 9, curNoise = 0.18;
+
+function recomputeAll() {
+  curDeg = parseInt(degEl.value);
+  curNoise = parseFloat(noiseEl.value);
+  regenData(curNoise);
+  computeSweep(curDeg);
+  redraw();
+}
+function redraw() {
+  const log = parseFloat(lamEl.value);
+  const lam = Math.pow(10, log);
+  document.getElementById('lamVal').textContent = lam < 0.001 ? lam.toExponential(1) : lam.toFixed(3);
+  document.getElementById('degVal').textContent = curDeg;
+  document.getElementById('noiseVal').textContent = curNoise.toFixed(2);
+
+  const w = ridgeFit(train.x, train.y, curDeg, lam);
+  drawFit(w);
+  drawSweepPanel('normCanvas', ['norm'], log, '‖w‖²  vs  λ');
+  drawSweepPanel('errCanvas', ['train', 'test'], log, 'train / test error  vs  λ');
+  drawCoefs(w);
+
+  const nrm = wnorm2(w);
+  document.getElementById('normStat').textContent = nrm >= 1000 ? nrm.toExponential(1) : nrm.toFixed(2);
+  document.getElementById('trainStat').textContent = mse(w, train.x, train.y).toFixed(3);
+  document.getElementById('testStat').textContent = mse(w, test.x, test.y).toFixed(3);
+}
+
+/* ===================== presets ===================== */
+const PRESETS = { overfit: -4.3, sweet: -1.4, underfit: 1.2 };
+function applyPreset(key) { lamEl.value = PRESETS[key]; redraw(); }
+
+/* ===================== wiring ===================== */
+lamEl.addEventListener('input', () => {
+  document.querySelectorAll('#preset-row .mode-button').forEach((x) => x.classList.remove('is-active'));
+  redraw();
+});
+degEl.addEventListener('input', recomputeAll);
+noiseEl.addEventListener('input', recomputeAll);
+document.querySelectorAll('#preset-row .mode-button').forEach((b) =>
+  b.addEventListener('click', () => {
+    document.querySelectorAll('#preset-row .mode-button').forEach((x) => x.classList.remove('is-active'));
+    b.classList.add('is-active');
+    applyPreset(b.dataset.preset);
+  }));
+
+window.addEventListener('load', recomputeAll);
+window.addEventListener('resize', redraw);
+recomputeAll();
+</script>
+
+</body>
+</html>

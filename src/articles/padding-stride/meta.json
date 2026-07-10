@@ -1,0 +1,20 @@
+{
+  "slug": "padding-stride",
+  "title": "Padding, Stride & Output Size",
+  "date": "2026-07-10",
+  "tagline": "Move four sliders and watch one floor formula predict a convolution's output size exactly",
+  "summary": "An input grid wrapped in a dashed border of padded zeros, with a kernel that slides across it at a chosen stride. Sliders for input size W, kernel K, padding P, and stride S drive the animation, and the output grid grows one cell per landing to the size floor((W+2P-K)/S)+1 predicts. One-click buttons snap to same padding (output equals input) and valid padding (P=0), and a live badge names the regime, so the geometry stops being something to memorise.",
+  "readingTime": "7 min",
+  "difficulty": "Intermediate",
+  "collection": "Deep learning",
+  "order": 38,
+  "status": "published",
+  "tags": ["Convolution", "Padding", "Stride", "CNN", "Interactive"],
+  "highlights": [
+    "See padded zero cells drawn as a distinct dashed border around the real input.",
+    "Step or play the kernel across every valid position and watch the output grid fill in.",
+    "Read the output size straight off floor((W+2P-K)/S)+1 as you move any of the four sliders.",
+    "One click snaps padding to same (output equals input) or valid (P=0), with a live regime badge.",
+    "Bump the stride to 2 and watch the output halve, making downsampling by stride concrete."
+  ]
+}

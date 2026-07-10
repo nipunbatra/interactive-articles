@@ -1,0 +1,20 @@
+{
+  "slug": "weight-decay",
+  "title": "Weight Decay Shrinks the Fit",
+  "date": "2026-07-10",
+  "tagline": "Add one penalty term, lambda times the squared weight norm, and watch a wild overfit calm into a smooth generalizing curve",
+  "summary": "A degree-9 polynomial threads fifteen noisy points and wiggles violently between them with enormous coefficients. Ridge regression adds a lambda times ||w||^2 penalty that taxes big weights. Drag lambda on a log scale from near-zero (wild overfit) to large (flat underfit) and watch the fitted curve relax onto the true function, the coefficient bars collapse toward zero, ||w||^2 shrink monotonically, and the test error trace out its classic U-shaped sweet spot. The ridge normal equations are solved in closed form live with a tiny Gaussian-elimination solver.",
+  "readingTime": "10 min",
+  "difficulty": "Intermediate",
+  "collection": "Deep learning",
+  "order": 44,
+  "status": "published",
+  "tags": ["Weight Decay", "Regularization", "Generalization", "Ridge", "Interactive"],
+  "highlights": [
+    "Drag a log-scale lambda slider from wild overfit to flat underfit and watch a degree-9 ridge fit relax onto the true curve in real time.",
+    "See ||w||^2 shrink monotonically as lambda grows, plotted on log-log axes with a live marker at your current penalty.",
+    "Watch train and test error trace the classic bias-variance U-shape, with the test minimum marking the lambda you actually want.",
+    "A coefficient bar chart shows every weight collapsing toward zero, exposing that overfit means huge canceling coefficients, not just many terms.",
+    "The ridge normal equations (Phi^T Phi + lambda I) w = Phi^T y are solved in closed form in the browser with a tiny Gaussian-elimination routine."
+  ]
+}

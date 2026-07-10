@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Augmentation &amp; Mixup</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body, {delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
+
+<style>
+:root {
+  --serif: 'Source Serif 4', Georgia, serif;
+  --sans: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+  --mono: 'IBM Plex Mono', monospace;
+  --bg: #fdfcf9;
+  --paper: #ffffff;
+  --text: #2f2a22;
+  --muted: #6e665b;
+  --border: #e2d8c6;
+  --accent: #2c6fb7;
+  --warm: #d9622b;
+  --success: #1e7770;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; font-family: var(--serif); color: var(--text); background: var(--bg); line-height: 1.65; }
+
+.article { max-width: 980px; margin: 0 auto; padding: 2.5rem 1.5rem 5rem; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; color: var(--muted); text-decoration: none; font-family: var(--sans); font-size: 0.9rem; }
+.back-link:hover { color: var(--text); }
+.article-header { margin-bottom: 3rem; text-align: center; }
+.kicker { margin: 0 0 0.75rem; font-family: var(--sans); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); }
+h1 { margin: 0 auto 1rem; font-size: clamp(2.4rem, 5vw, 3.5rem); line-height: 1.1; letter-spacing: -0.02em; color: #1a1815; max-width: 18ch; }
+.abstract { margin: 0 auto 1rem; max-width: 62ch; font-size: 1.15rem; color: #4d463d; }
+.byline { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-top: 1.4rem; padding-top: 1rem; border-top: 1px solid var(--border); color: var(--muted); font-family: var(--sans); font-size: 0.92rem; }
+
+.step-section {
+  position: relative;
+  margin-top: 4rem;
+  padding: 3rem 2.5rem;
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.03);
+}
+.step-badge {
+  position: absolute;
+  top: -16px;
+  left: 32px;
+  background: var(--accent);
+  color: white;
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.4rem 1.2rem;
+  border-radius: 999px;
+  box-shadow: 0 4px 12px rgba(44, 111, 183, 0.25);
+}
+h2 { margin: 0 0 1rem; font-size: clamp(1.6rem, 3.5vw, 2.2rem); line-height: 1.15; color: #1a1815; }
+h3 { margin-top: 2rem; margin-bottom: 0.8rem; font-size: 1.25rem; color: #1a1815; }
+p { max-width: 68ch; font-size: 1.1rem; }
+ul { max-width: 68ch; font-size: 1.1rem; padding-left: 1.4rem; }
+li { margin-bottom: 0.5rem; }
+.math-block { margin: 1.5rem 0; text-align: center; font-size: 1.05rem; overflow-x: auto; }
+
+.control-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.4rem;
+  margin: 1.6rem 0;
+}
+.control-block { display: flex; flex-direction: column; gap: 0.5rem; }
+.control-block label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-family: var(--sans);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.control-block label span { font-family: var(--mono); color: var(--warm); font-weight: 500; font-size: 0.95rem; }
+input[type="range"] {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px; height: 18px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid var(--paper);
+  box-shadow: 0 2px 6px rgba(44,111,183,0.4);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 18px; height: 18px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid var(--paper);
+}
+input[type="range"]:disabled { opacity: 0.4; }
+
+.button-row { display: flex; gap: 0.6rem; flex-wrap: wrap; margin: 1rem 0; }
+.mode-button {
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: 0.92rem;
+  padding: 0.55rem 1.1rem;
+  border-radius: 8px;
+  border: 1.5px solid var(--border);
+  background: var(--paper);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.mode-button:hover { border-color: var(--accent); }
+.mode-button.is-active { background: var(--accent); color: white; border-color: var(--accent); }
+.mode-button.is-active.mixup-active { background: var(--warm); border-color: var(--warm); }
+
+.interactive-figure { margin: 1.5rem 0; }
+.interactive-figure canvas {
+  display: block;
+  width: 100%;
+  background: #fbfaf6;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.interactive-figure figcaption { margin-top: 0.7rem; font-size: 0.92rem; color: var(--muted); text-align: center; font-style: italic; }
+
+.stat-strip { display: flex; gap: 1rem; flex-wrap: wrap; margin: 1.5rem 0; }
+.stat-pill {
+  flex: 1 1 140px;
+  min-width: 140px;
+  background: var(--paper);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  padding: 0.9rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  text-align: left;
+}
+.stat-pill .stat-label { font-family: var(--sans); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; }
+.stat-pill .stat-value { font-family: var(--mono); font-size: 1.5rem; font-weight: 600; color: var(--text); }
+.stat-pill--accent { border-color: var(--accent); }
+.stat-pill--accent .stat-value { color: var(--accent); }
+.stat-pill--warm { border-color: var(--warm); }
+.stat-pill--warm .stat-value { color: var(--warm); }
+.stat-pill--success { border-color: var(--success); }
+.stat-pill--success .stat-value { color: var(--success); }
+
+.callout {
+  margin: 2rem 0 0.5rem;
+  padding: 1.2rem 1.5rem;
+  border-radius: 12px;
+  border-left: 4px solid var(--accent);
+  background: rgba(44,111,183,0.05);
+  font-size: 1.02rem;
+}
+.callout strong { color: var(--accent); }
+.callout--think { border-left-color: var(--success); background: rgba(30,119,112,0.06); }
+.callout--think strong { color: var(--success); }
+.callout--warn { border-left-color: var(--warm); background: rgba(217,98,43,0.06); }
+.callout--warn strong { color: var(--warm); }
+
+footer { margin-top: 4rem; text-align: center; font-family: var(--sans); font-size: 0.85rem; color: var(--muted); }
+
+@media (max-width: 640px) { .step-section { padding: 2rem 1.4rem; } }
+</style>
+</head>
+<body>
+
+<article class="article">
+  <header class="article-header">
+    <a class="back-link" href="../">&larr; Explainer Library</a>
+    <p class="kicker">Interactive Explainer</p>
+    <h1>Augmentation &amp; Mixup</h1>
+    <p class="abstract">
+      Twenty-four points is not much of a training set, and a classifier will draw a
+      nervous, jagged boundary through the empty space between them. Two cheap tricks
+      manufacture more data from what you already have: <strong>augmentation</strong>
+      scatters plausible neighbors <em>around</em> each point, and <strong>mixup</strong>
+      places soft-labeled points <em>along the lines between</em> points. Toggle each
+      one and watch the boundary relax into a wide, confident margin.
+    </p>
+    <div class="byline">
+      <span>~9 min</span>
+      <span>Deep Learning &middot; Generalization &middot; Regularization</span>
+    </div>
+  </header>
+
+  <section class="step-section" id="prelude">
+    <div class="step-badge">Prelude</div>
+    <h2>Two ways to invent training data</h2>
+    <p>
+      A model only ever sees the training points you give it; everywhere else it
+      guesses. Both augmentation and mixup attack that emptiness by synthesizing new
+      labeled examples &mdash; but they fill different geometry.
+    </p>
+    <ul>
+      <li><strong>Data augmentation</strong> applies label-preserving perturbations &mdash; a jitter, small rotation, or rescale &mdash; to each example. A cat photo shifted two pixels is still a cat, so we get a fresh point $\tilde{x} = x_i + \varepsilon$ carrying the <em>same hard label</em>. This inflates a little cloud <em>around</em> every training point.</li>
+      <li><strong>Mixup</strong> blends two examples and their labels linearly:</li>
+    </ul>
+    <div class="math-block">
+      $$\tilde{x} = \lambda\,x_i + (1-\lambda)\,x_j, \qquad
+        \tilde{y} = \lambda\,y_i + (1-\lambda)\,y_j, \qquad \lambda \in [0,1].$$
+    </div>
+    <p>
+      A point halfway between a blue example and an orange one is labeled &ldquo;half
+      blue, half orange.&rdquo; Instead of clouds around points, mixup lays down a
+      <em>continuum of soft-labeled points along the segments between</em> examples,
+      teaching the model to change its prediction <em>linearly and gently</em> as you
+      move from one class to the other.
+    </p>
+  </section>
+
+  <section class="step-section" id="lab">
+    <div class="step-badge">The Lab</div>
+    <h2>Fill in the manifold</h2>
+    <p>
+      Two classes, twelve points each, and a soft nearest-neighbor classifier whose
+      decision landscape is painted underneath: blue where it predicts class&nbsp;A,
+      orange for class&nbsp;B, and pale where it is unsure &mdash; that pale ribbon is
+      the <em>margin</em>. Turn on augmentation and mixup and watch the synthesized
+      points (small dots) reshape that landscape.
+    </p>
+
+    <div class="button-row" id="toggle-row">
+      <button class="mode-button" id="augBtn">Augmentation: off</button>
+      <button class="mode-button" id="mixBtn">Mixup: off</button>
+    </div>
+
+    <div class="control-row">
+      <div class="control-block">
+        <label>Augmentation strength <span>$\sigma$ = <span id="augVal">0.25</span></span></label>
+        <input type="range" id="augStr" min="0.05" max="0.6" step="0.01" value="0.25">
+      </div>
+      <div class="control-block">
+        <label>Mixup blend <span>$\lambda$ = <span id="lamVal">0.50</span></span></label>
+        <input type="range" id="lam" min="0" max="1" step="0.01" value="0.5">
+      </div>
+    </div>
+
+    <figure class="interactive-figure">
+      <canvas id="fieldCanvas" width="900" height="500"></canvas>
+      <figcaption>
+        Decision landscape of the classifier. Big dots are the 24 real examples; small
+        dots are synthesized examples. The dashed line is the highlighted mixup pair,
+        and the ringed dot on it is $\tilde{x} = \lambda x_i + (1-\lambda)x_j$ colored by
+        its soft label &mdash; drag $\lambda$ to slide it between the two classes.
+      </figcaption>
+    </figure>
+
+    <figure class="interactive-figure">
+      <canvas id="labelCanvas" width="900" height="90"></canvas>
+      <figcaption>The highlighted mixup point's soft label as $\lambda$ sweeps the segment: a linear blend from all&ndash;B to all&ndash;A.</figcaption>
+    </figure>
+
+    <div class="stat-strip">
+      <div class="stat-pill stat-pill--accent">
+        <span class="stat-label">Effective examples</span>
+        <span class="stat-value" id="nStat">24</span>
+      </div>
+      <div class="stat-pill stat-pill--success">
+        <span class="stat-label">Margin band (% area)</span>
+        <span class="stat-value" id="marginStat">&mdash;</span>
+      </div>
+      <div class="stat-pill stat-pill--warm">
+        <span class="stat-label">Boundary length</span>
+        <span class="stat-value" id="lenStat">&mdash;</span>
+      </div>
+    </div>
+
+    <div class="callout callout--warn">
+      <strong>Start with both off.</strong> Note the boundary buckles toward isolated
+      points and the pale margin is thin and uneven. Turn on <strong>Augmentation</strong>:
+      each point sprouts a cloud, the support thickens, and the boundary
+      straightens (its length drops). Now add <strong>Mixup</strong>: soft-labeled
+      points bridge the gap and the pale margin band <em>widens</em> &mdash; the
+      classifier is forced to transition gradually, which is exactly a larger margin.
+    </div>
+  </section>
+
+  <section class="step-section" id="why">
+    <div class="step-badge">The Payoff</div>
+    <h2>Same goal, different geometry</h2>
+    <p>
+      Both methods are <em>data-space</em> regularizers: they don't touch the loss or
+      the weights, they enlarge the region of input space the model is held accountable
+      for. But they enlarge it differently, and that difference is the whole lesson.
+    </p>
+    <ul>
+      <li><strong>Augmentation grows balls around points.</strong> It encodes an invariance you already believe (&ldquo;a small jitter doesn't change the class&rdquo;), so it thickens each class's support and kills the model's freedom to overfit to a single pixel-perfect example.</li>
+      <li><strong>Mixup grows segments between points.</strong> By demanding $f\big(\lambda x_i + (1-\lambda)x_j\big) \approx \lambda y_i + (1-\lambda)y_j$, it forces the prediction to vary <em>linearly</em> between examples. That linear ramp is a wide, calibrated margin &mdash; and it discourages the wildly overconfident extrapolation plain training loves.</li>
+      <li><strong>Both shrink the gap</strong> between what the model saw and what it will be tested on &mdash; the same generalization goal as weight decay or dropout, reached by editing the <em>data</em> instead of the <em>model</em>.</li>
+    </ul>
+    <div class="callout callout--think">
+      <strong>In practice.</strong> Augmentation is domain-specific and nearly free lunch:
+      flips, crops, color jitter for images; time-warps for audio; token dropout for text.
+      Mixup is domain-agnostic &mdash; a few lines that blend a batch with a shuffled copy
+      of itself &mdash; and it doubles as a calibration and label-noise-robustness trick.
+      Stack them.
+    </div>
+  </section>
+
+  <footer>Part of the ES 667 Deep Learning explainer series &middot; Lecture 7: Generalization &amp; Regularization</footer>
+</article>
+
+<script>
+/* ===================== deterministic RNG (LCG + Box-Muller) ===================== */
+function makeRNG(seed) {
+  let s = (seed >>> 0) || 1;
+  return function () { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 4294967296; };
+}
+function gauss(rng) { let u = 0, v = 0; while (u === 0) u = rng(); while (v === 0) v = rng(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
+
+/* ===================== base dataset (two gaussian blobs) ===================== */
+const DATA_SEED = 424242;
+const CA = [-1.15, -0.5], CB = [1.15, 0.5], SPREAD = 0.5, NPER = 12;
+const real = []; // {x, y, label}  label 0 = A (blue), 1 = B (orange)
+(function buildData() {
+  const rng = makeRNG(DATA_SEED);
+  for (let i = 0; i < NPER; i++) real.push({ x: CA[0] + SPREAD * gauss(rng), y: CA[1] + SPREAD * gauss(rng), label: 0 });
+  for (let i = 0; i < NPER; i++) real.push({ x: CB[0] + SPREAD * gauss(rng), y: CB[1] + SPREAD * gauss(rng), label: 1 });
+})();
+// highlighted mixup pair: the A point nearest B's centre and the B point nearest A's centre
+let idxA = 0, idxB = NPER;
+(function pickPair() {
+  let bestA = -Infinity, bestB = Infinity;
+  for (let i = 0; i < real.length; i++) {
+    if (real[i].label === 0 && real[i].x > bestA) { bestA = real[i].x; idxA = i; }
+    if (real[i].label === 1 && real[i].x < bestB) { bestB = real[i].x; idxB = i; }
+  }
+})();
+
+/* ===================== view / domain ===================== */
+const HX = 2.9; // half-width in data units; half-height derived from canvas aspect
+const BW = 0.55; // RBF bandwidth of the soft classifier
+const AUG_COPIES = 7, MIX_PAIRS = 55;
+
+let augOn = false, mixOn = false;
+
+/* Build the effective training set from the current toggles. Deterministic (fixed seed). */
+function buildEffective() {
+  const pts = real.map((p) => ({ x: p.x, y: p.y, label: p.label, kind: 'real' }));
+  if (augOn) {
+    const sigma = parseFloat(document.getElementById('augStr').value);
+    const rng = makeRNG(9001);
+    for (const p of real) for (let k = 0; k < AUG_COPIES; k++)
+      pts.push({ x: p.x + sigma * gauss(rng), y: p.y + sigma * gauss(rng), label: p.label, kind: 'aug' });
+  }
+  if (mixOn) {
+    const rng = makeRNG(7777);
+    for (let m = 0; m < MIX_PAIRS; m++) {
+      const i = Math.floor(rng() * NPER);            // an A point
+      const j = NPER + Math.floor(rng() * NPER);     // a B point
+      const lam = rng();                             // blend weight
+      pts.push({
+        x: lam * real[i].x + (1 - lam) * real[j].x,
+        y: lam * real[i].y + (1 - lam) * real[j].y,
+        label: lam * real[i].label + (1 - lam) * real[j].label, // soft label = 1 - lam
+        kind: 'mix'
+      });
+    }
+  }
+  return pts;
+}
+
+/* Soft classifier: RBF-weighted average of labels (Nadaraya-Watson / Parzen). */
+function scoreAt(px, py, pts) {
+  let num = 0, den = 0;
+  const inv = 1 / (2 * BW * BW);
+  for (let i = 0; i < pts.length; i++) {
+    const dx = px - pts[i].x, dy = py - pts[i].y;
+    const w = Math.exp(-(dx * dx + dy * dy) * inv);
+    num += w * pts[i].label; den += w;
+  }
+  return den > 0 ? num / den : 0.5;
+}
+
+/* ===================== colours ===================== */
+const PAPER = [251, 250, 246], COL_A = [44, 111, 183], COL_B = [217, 98, 43];
+function lerp3(a, b, t) { return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]; }
+function rgb(c) { return 'rgb(' + (c[0] | 0) + ',' + (c[1] | 0) + ',' + (c[2] | 0) + ')'; }
+function classColor(score) { // score = P(class B). 0 -> blue(A), 1 -> orange(B)
+  const base = score < 0.5 ? COL_A : COL_B;
+  const conf = Math.abs(2 * score - 1);
+  return lerp3(PAPER, base, Math.pow(conf, 0.75));
+}
+
+/* ===================== canvas helpers ===================== */
+function fitCanvas(canvas) {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = Math.round(rect.width * dpr);
+  canvas.height = Math.round(rect.height * dpr);
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { ctx, w: rect.width, h: rect.height };
+}
+
+/* ===================== marching-squares 0.5 contour ===================== */
+function contourLength(field, NX, NY, xmin, xmax, ymin, ymax, level) {
+  const dx = (xmax - xmin) / (NX - 1), dy = (ymax - ymin) / (NY - 1);
+  let total = 0;
+  const interp = (a, b) => (level - a) / (b - a);
+  for (let j = 0; j < NY - 1; j++) for (let i = 0; i < NX - 1; i++) {
+    const v0 = field[j * NX + i], v1 = field[j * NX + i + 1], v2 = field[(j + 1) * NX + i + 1], v3 = field[(j + 1) * NX + i];
+    let idx = 0; if (v0 > level) idx |= 1; if (v1 > level) idx |= 2; if (v2 > level) idx |= 4; if (v3 > level) idx |= 8;
+    if (idx === 0 || idx === 15) continue;
+    const x0 = xmin + i * dx, y0 = ymin + j * dy;
+    const pts = [];
+    if ((idx & 1) !== (idx & 2) >> 1) pts.push([x0 + dx * interp(v0, v1), y0]);           // top
+    if ((idx & 2) >> 1 !== (idx & 4) >> 2) pts.push([x0 + dx, y0 + dy * interp(v1, v2)]); // right
+    if ((idx & 8) >> 3 !== (idx & 4) >> 2) pts.push([x0 + dx * interp(v3, v2), y0 + dy]); // bottom
+    if ((idx & 1) !== (idx & 8) >> 3) pts.push([x0, y0 + dy * interp(v0, v3)]);           // left
+    if (pts.length >= 2) total += Math.hypot(pts[0][0] - pts[1][0], pts[0][1] - pts[1][1]);
+  }
+  return total;
+}
+
+/* ===================== main field render ===================== */
+const NX = 82, NY = 46;
+function drawField() {
+  const { ctx, w: W, h: H } = fitCanvas(document.getElementById('fieldCanvas'));
+  const pts = buildEffective();
+  const xmin = -HX, xmax = HX;
+  const hy = HX * (H / W);
+  const ymin = -hy, ymax = hy;
+  const X = (x) => (x - xmin) / (xmax - xmin) * W;
+  const Y = (y) => (1 - (y - ymin) / (ymax - ymin)) * H;
+
+  // score field on a node grid
+  const field = new Float32Array(NX * NY);
+  for (let j = 0; j < NY; j++) for (let i = 0; i < NX; i++) {
+    const gx = xmin + (xmax - xmin) * i / (NX - 1);
+    const gy = ymin + (ymax - ymin) * j / (NY - 1);
+    field[j * NX + i] = scoreAt(gx, gy, pts);
+  }
+
+  // heatmap: fill each cell with corner-average colour
+  const cw = W / (NX - 1), chh = H / (NY - 1);
+  for (let j = 0; j < NY - 1; j++) for (let i = 0; i < NX - 1; i++) {
+    const s = (field[j * NX + i] + field[j * NX + i + 1] + field[(j + 1) * NX + i] + field[(j + 1) * NX + i + 1]) / 4;
+    ctx.fillStyle = rgb(classColor(s));
+    // rows are top(j=0,ymax) to bottom; y increases downward on canvas as j increases
+    ctx.fillRect(Math.floor(i * cw), Math.floor(H - (j + 1) * chh), Math.ceil(cw) + 1, Math.ceil(chh) + 1);
+  }
+
+  // contour lines: margin edges (0.35, 0.65) light, decision (0.5) dark
+  drawContour(ctx, field, xmin, xmax, ymin, ymax, X, Y, 0.35, 'rgba(47,42,34,0.18)', 1.2, [5, 4]);
+  drawContour(ctx, field, xmin, xmax, ymin, ymax, X, Y, 0.65, 'rgba(47,42,34,0.18)', 1.2, [5, 4]);
+  drawContour(ctx, field, xmin, xmax, ymin, ymax, X, Y, 0.5, 'rgba(26,24,21,0.85)', 2.4, []);
+
+  // synthesized points
+  for (const p of pts) {
+    if (p.kind === 'real') continue;
+    ctx.beginPath(); ctx.arc(X(p.x), Y(p.y), 3.0, 0, 2 * Math.PI);
+    const c = p.kind === 'mix' ? lerp3(COL_A, COL_B, p.label) : (p.label === 0 ? COL_A : COL_B);
+    ctx.fillStyle = 'rgba(' + (c[0] | 0) + ',' + (c[1] | 0) + ',' + (c[2] | 0) + ',0.55)';
+    ctx.fill();
+  }
+
+  // real points
+  for (const p of real) {
+    ctx.beginPath(); ctx.arc(X(p.x), Y(p.y), 6.5, 0, 2 * Math.PI);
+    ctx.fillStyle = rgb(p.label === 0 ? COL_A : COL_B);
+    ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+  }
+
+  // highlighted mixup pair + moving blended point
+  const lam = parseFloat(document.getElementById('lam').value);
+  const A = real[idxA], B = real[idxB];
+  ctx.strokeStyle = 'rgba(26,24,21,0.55)'; ctx.lineWidth = 1.6; ctx.setLineDash([6, 5]);
+  ctx.beginPath(); ctx.moveTo(X(A.x), Y(A.y)); ctx.lineTo(X(B.x), Y(B.y)); ctx.stroke(); ctx.setLineDash([]);
+  // rings on the two anchors
+  for (const P of [A, B]) { ctx.beginPath(); ctx.arc(X(P.x), Y(P.y), 10, 0, 2 * Math.PI); ctx.strokeStyle = 'rgba(26,24,21,0.6)'; ctx.lineWidth = 1.8; ctx.stroke(); }
+  const mx = lam * A.x + (1 - lam) * B.x, my = lam * A.y + (1 - lam) * B.y;
+  const softB = 1 - lam; // P(class B)
+  ctx.beginPath(); ctx.arc(X(mx), Y(my), 8, 0, 2 * Math.PI);
+  ctx.fillStyle = rgb(lerp3(COL_A, COL_B, softB)); ctx.fill();
+  ctx.strokeStyle = '#1a1815'; ctx.lineWidth = 2.5; ctx.stroke();
+
+  // labels for the two classes
+  ctx.font = '700 13px Manrope, sans-serif'; ctx.textBaseline = 'top';
+  ctx.fillStyle = rgb(COL_A); ctx.textAlign = 'left'; ctx.fillText('Class A', 12, 10);
+  ctx.fillStyle = rgb(COL_B); ctx.textAlign = 'right'; ctx.fillText('Class B', W - 12, 10);
+
+  // ---- metrics ----
+  let bandCells = 0, tot = (NX) * (NY);
+  for (let k = 0; k < field.length; k++) if (Math.abs(2 * field[k] - 1) < 0.30) bandCells++;
+  const len = contourLength(field, NX, NY, xmin, xmax, ymin, ymax, 0.5);
+  document.getElementById('nStat').textContent = pts.length;
+  document.getElementById('marginStat').textContent = (100 * bandCells / tot).toFixed(0) + '%';
+  document.getElementById('lenStat').textContent = len.toFixed(2);
+}
+
+function drawContour(ctx, field, xmin, xmax, ymin, ymax, X, Y, level, color, lw, dash) {
+  const dx = (xmax - xmin) / (NX - 1), dy = (ymax - ymin) / (NY - 1);
+  const interp = (a, b) => (level - a) / (b - a);
+  ctx.strokeStyle = color; ctx.lineWidth = lw; ctx.setLineDash(dash);
+  ctx.beginPath();
+  for (let j = 0; j < NY - 1; j++) for (let i = 0; i < NX - 1; i++) {
+    const v0 = field[j * NX + i], v1 = field[j * NX + i + 1], v2 = field[(j + 1) * NX + i + 1], v3 = field[(j + 1) * NX + i];
+    let idx = 0; if (v0 > level) idx |= 1; if (v1 > level) idx |= 2; if (v2 > level) idx |= 4; if (v3 > level) idx |= 8;
+    if (idx === 0 || idx === 15) continue;
+    const x0 = xmin + i * dx, y0 = ymin + j * dy;
+    const e = [];
+    if (((idx & 1) ? 1 : 0) !== ((idx & 2) ? 1 : 0)) e.push([x0 + dx * interp(v0, v1), y0]);
+    if (((idx & 2) ? 1 : 0) !== ((idx & 4) ? 1 : 0)) e.push([x0 + dx, y0 + dy * interp(v1, v2)]);
+    if (((idx & 8) ? 1 : 0) !== ((idx & 4) ? 1 : 0)) e.push([x0 + dx * interp(v3, v2), y0 + dy]);
+    if (((idx & 1) ? 1 : 0) !== ((idx & 8) ? 1 : 0)) e.push([x0, y0 + dy * interp(v0, v3)]);
+    if (e.length >= 2) { ctx.moveTo(X(e[0][0]), Y(e[0][1])); ctx.lineTo(X(e[1][0]), Y(e[1][1])); }
+  }
+  ctx.stroke(); ctx.setLineDash([]);
+}
+
+/* ===================== mixup soft-label strip ===================== */
+function drawLabelStrip() {
+  const { ctx, w: W, h: H } = fitCanvas(document.getElementById('labelCanvas'));
+  ctx.clearRect(0, 0, W, H);
+  const padL = 60, padR = 60, y0 = 26, bh = 26;
+  const bw = W - padL - padR;
+  // gradient B (left, lambda=0) -> A (right, lambda=1)
+  for (let i = 0; i < bw; i++) {
+    const lam = i / bw;            // 0..1 left to right
+    const softB = 1 - lam;
+    ctx.fillStyle = rgb(lerp3(COL_A, COL_B, softB));
+    ctx.fillRect(padL + i, y0, 1, bh);
+  }
+  ctx.strokeStyle = 'rgba(47,42,34,0.25)'; ctx.lineWidth = 1; ctx.strokeRect(padL, y0, bw, bh);
+  // endpoints
+  ctx.font = '700 12px Manrope, sans-serif'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = rgb(COL_B); ctx.textAlign = 'right'; ctx.fillText('B (λ=0)', padL - 8, y0 + bh / 2);
+  ctx.fillStyle = rgb(COL_A); ctx.textAlign = 'left'; ctx.fillText('A (λ=1)', padL + bw + 8, y0 + bh / 2);
+  // current marker
+  const lam = parseFloat(document.getElementById('lam').value);
+  const mx = padL + lam * bw;
+  ctx.strokeStyle = '#1a1815'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(mx, y0 - 6); ctx.lineTo(mx, y0 + bh + 6); ctx.stroke();
+  ctx.beginPath(); ctx.arc(mx, y0 + bh / 2, 7, 0, 2 * Math.PI); ctx.fillStyle = rgb(lerp3(COL_A, COL_B, 1 - lam)); ctx.fill(); ctx.strokeStyle = '#1a1815'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.fillStyle = '#3a352d'; ctx.font = '600 12px Manrope, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+  ctx.fillText('soft label  ỹ = ' + (100 * (1 - lam)).toFixed(0) + '% B / ' + (100 * lam).toFixed(0) + '% A', W / 2, y0 - 10);
+}
+
+/* ===================== orchestration ===================== */
+function redraw() {
+  document.getElementById('augVal').textContent = parseFloat(document.getElementById('augStr').value).toFixed(2);
+  document.getElementById('lamVal').textContent = parseFloat(document.getElementById('lam').value).toFixed(2);
+  document.getElementById('augStr').disabled = !augOn;
+  drawField();
+  drawLabelStrip();
+}
+
+/* ===================== wiring ===================== */
+const augBtn = document.getElementById('augBtn'), mixBtn = document.getElementById('mixBtn');
+augBtn.addEventListener('click', () => { augOn = !augOn; augBtn.classList.toggle('is-active', augOn); augBtn.textContent = 'Augmentation: ' + (augOn ? 'on' : 'off'); redraw(); });
+mixBtn.addEventListener('click', () => { mixOn = !mixOn; mixBtn.classList.toggle('is-active', mixOn); mixBtn.classList.toggle('mixup-active', mixOn); mixBtn.textContent = 'Mixup: ' + (mixOn ? 'on' : 'off'); redraw(); });
+document.getElementById('augStr').addEventListener('input', redraw);
+document.getElementById('lam').addEventListener('input', redraw);
+
+window.addEventListener('load', redraw);
+window.addEventListener('resize', redraw);
+redraw();
+</script>
+
+</body>
+</html>

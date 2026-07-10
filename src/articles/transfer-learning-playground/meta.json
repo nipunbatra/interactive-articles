@@ -1,0 +1,20 @@
+{
+  "slug": "transfer-learning-playground",
+  "title": "Freeze or Fine-tune?",
+  "date": "2026-07-10",
+  "tagline": "Set the dataset size and cut point, and watch freezing vs fine-tuning trade places on the accuracy curves",
+  "summary": "A pretrained backbone of four conv blocks plus a fresh head, with three strategies: train from scratch, freeze the backbone and train only the head, or fine-tune everything. Choose how many blocks to freeze and how much data you have, then watch deterministic train and validation accuracy curves respond, with the generalisation gap drawn as the distance between them. A live recommendation names the strategy with the best expected validation accuracy, making the rule concrete: little data favours freezing, lots of data favours fine-tuning.",
+  "readingTime": "8 min",
+  "difficulty": "Intermediate",
+  "collection": "Deep learning",
+  "order": 40,
+  "status": "published",
+  "tags": ["Transfer Learning", "Fine-tuning", "Overfitting", "CNN", "Interactive"],
+  "highlights": [
+    "See a backbone-plus-head schematic recolour live as blocks switch between frozen, fine-tuned, and trained-from-scratch.",
+    "Deterministic learning curves show training accuracy pulling away from validation as overfitting when data is scarce.",
+    "A dataset-size slider makes the crossover visible: freezing wins with little data, fine-tuning wins with lots.",
+    "The cut-point slider trades trainable parameters against overfitting risk, block by block.",
+    "A live recommendation picks the strategy with the best expected validation accuracy for your current data budget."
+  ]
+}

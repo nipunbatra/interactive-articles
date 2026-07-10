@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Backprop Through Time</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body, {delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
+
+<style>
+:root {
+  --serif: 'Source Serif 4', Georgia, serif;
+  --sans: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+  --mono: 'IBM Plex Mono', monospace;
+  --bg: #fdfcf9;
+  --paper: #ffffff;
+  --text: #2f2a22;
+  --muted: #6e665b;
+  --border: #e2d8c6;
+  --accent: #2c6fb7;
+  --warm: #d9622b;
+  --success: #1e7770;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; font-family: var(--serif); color: var(--text); background: var(--bg); line-height: 1.65; }
+
+.article { max-width: 980px; margin: 0 auto; padding: 2.5rem 1.5rem 5rem; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; color: var(--muted); text-decoration: none; font-family: var(--sans); font-size: 0.9rem; }
+.back-link:hover { color: var(--text); }
+.article-header { margin-bottom: 3rem; text-align: center; }
+.kicker { margin: 0 0 0.75rem; font-family: var(--sans); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); }
+h1 { margin: 0 auto 1rem; font-size: clamp(2.4rem, 5vw, 3.5rem); line-height: 1.1; letter-spacing: -0.02em; color: #1a1815; max-width: 18ch; }
+.abstract { margin: 0 auto 1rem; max-width: 62ch; font-size: 1.15rem; color: #4d463d; }
+.byline { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-top: 1.4rem; padding-top: 1rem; border-top: 1px solid var(--border); color: var(--muted); font-family: var(--sans); font-size: 0.92rem; }
+
+.step-section {
+  position: relative;
+  margin-top: 4rem;
+  padding: 3rem 2.5rem;
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.03);
+}
+.step-badge {
+  position: absolute;
+  top: -16px;
+  left: 32px;
+  background: var(--accent);
+  color: white;
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.4rem 1.2rem;
+  border-radius: 999px;
+  box-shadow: 0 4px 12px rgba(44, 111, 183, 0.25);
+}
+h2 { margin: 0 0 1rem; font-size: clamp(1.6rem, 3.5vw, 2.2rem); line-height: 1.15; color: #1a1815; }
+h3 { margin-top: 2rem; margin-bottom: 0.8rem; font-size: 1.25rem; color: #1a1815; }
+p { max-width: 68ch; font-size: 1.1rem; }
+ul { max-width: 68ch; font-size: 1.1rem; padding-left: 1.4rem; }
+li { margin-bottom: 0.5rem; }
+.math-block { margin: 1.5rem 0; text-align: center; font-size: 1.05rem; }
+
+.control-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.4rem;
+  margin: 1.6rem 0;
+}
+.control-block { display: flex; flex-direction: column; gap: 0.5rem; }
+.control-block label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-family: var(--sans);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.control-block label span { font-family: var(--mono); color: var(--warm); font-weight: 500; font-size: 0.95rem; }
+input[type="range"] {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px; height: 18px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid var(--paper);
+  box-shadow: 0 2px 6px rgba(44,111,183,0.4);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 18px; height: 18px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid var(--paper);
+}
+
+.button-row { display: flex; gap: 0.6rem; flex-wrap: wrap; margin: 1rem 0; align-items: center; }
+.mode-button {
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: 0.92rem;
+  padding: 0.55rem 1.1rem;
+  border-radius: 8px;
+  border: 1.5px solid var(--border);
+  background: var(--paper);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.mode-button:hover { border-color: var(--accent); }
+.mode-button.is-active { background: var(--accent); color: white; border-color: var(--accent); }
+.mode-button--primary { background: var(--warm); color: white; border-color: var(--warm); }
+.mode-button--primary:hover { border-color: var(--warm); filter: brightness(1.05); }
+.mode-button:disabled { opacity: 0.4; cursor: default; }
+
+.interactive-figure { margin: 1.5rem 0; }
+.interactive-figure canvas {
+  display: block;
+  width: 100%;
+  background: #fbfaf6;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.interactive-figure figcaption { margin-top: 0.7rem; font-size: 0.92rem; color: var(--muted); text-align: center; font-style: italic; }
+
+.stat-strip { display: flex; gap: 1rem; flex-wrap: wrap; margin: 1.5rem 0; }
+.stat-pill {
+  flex: 1 1 140px;
+  min-width: 140px;
+  background: var(--paper);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  padding: 0.9rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  text-align: left;
+}
+.stat-pill .stat-label { font-family: var(--sans); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; }
+.stat-pill .stat-value { font-family: var(--mono); font-size: 1.5rem; font-weight: 600; color: var(--text); }
+.stat-pill--accent { border-color: var(--accent); }
+.stat-pill--accent .stat-value { color: var(--accent); }
+.stat-pill--warm { border-color: var(--warm); }
+.stat-pill--warm .stat-value { color: var(--warm); }
+.stat-pill--success { border-color: var(--success); }
+.stat-pill--success .stat-value { color: var(--success); }
+
+.callout {
+  margin: 2rem 0 0.5rem;
+  padding: 1.2rem 1.5rem;
+  border-radius: 12px;
+  border-left: 4px solid var(--accent);
+  background: rgba(44,111,183,0.05);
+  font-size: 1.02rem;
+}
+.callout strong { color: var(--accent); }
+.callout--think { border-left-color: var(--success); background: rgba(30,119,112,0.06); }
+.callout--think strong { color: var(--success); }
+.callout--warn { border-left-color: var(--warm); background: rgba(217,98,43,0.06); }
+.callout--warn strong { color: var(--warm); }
+
+.legend-row { display: flex; gap: 1.4rem; flex-wrap: wrap; font-family: var(--sans); font-size: 0.85rem; color: var(--muted); margin: 0.4rem 0 0; }
+.legend-row span { display: inline-flex; align-items: center; gap: 0.4rem; }
+.swatch { width: 22px; height: 3px; border-radius: 2px; display: inline-block; }
+
+footer { margin-top: 4rem; text-align: center; font-family: var(--sans); font-size: 0.85rem; color: var(--muted); }
+
+@media (max-width: 640px) { .step-section { padding: 2rem 1.4rem; } }
+</style>
+</head>
+<body>
+
+<article class="article">
+  <header class="article-header">
+    <a class="back-link" href="../">&larr; Explainer Library</a>
+    <p class="kicker">Interactive Explainer</p>
+    <h1>Backprop Through Time</h1>
+    <p class="abstract">
+      To train an RNN you <em>unroll</em> it into a deep feed-forward graph with shared
+      weights, then run ordinary backprop across it. Walk the backward pass step by
+      step: at each state, watch its gradient accumulate two pieces &mdash; one from the
+      loss right here, one carried back from the future &mdash; and see how truncation
+      cuts the chain and how the per-step product quietly vanishes or explodes.
+    </p>
+    <div class="byline">
+      <span>~9 min</span>
+      <span>Deep Learning &middot; RNNs &middot; Backpropagation</span>
+    </div>
+  </header>
+
+  <section class="step-section" id="prelude">
+    <div class="step-badge">Prelude</div>
+    <h2>Unroll, then backprop</h2>
+    <p>
+      An RNN reuses one cell at every timestep, so in time it looks like a very deep
+      network whose layers all share the weights $w_h, w_x, b$. Draw it unrolled and
+      it is just a chain: inputs $x_t$ come in from below, an output/loss $\mathcal{L}_t$
+      is read off above, and the hidden state is threaded left to right.
+    </p>
+    <p>
+      Backprop on this graph has a name &mdash; <strong>backpropagation through
+      time</strong>. Its one wrinkle: every hidden state feeds <em>two</em> places, so
+      its gradient is a <em>sum</em> of two incoming contributions.
+    </p>
+    <div class="math-block">
+      $$\frac{\partial \mathcal{L}}{\partial h_t}
+        = \underbrace{\frac{\partial \mathcal{L}_t}{\partial h_t}}_{\text{local: loss here}}
+        \;+\; \underbrace{\frac{\partial \mathcal{L}}{\partial h_{t+1}}\,\frac{\partial h_{t+1}}{\partial h_t}}_{\text{carried back from the future}} .$$
+    </div>
+  </section>
+
+  <section class="step-section" id="lab">
+    <div class="step-badge">The Lab</div>
+    <h2>Walk the backward pass</h2>
+    <p>
+      Seven timesteps, unrolled. Press <strong>Step backward</strong> to move the
+      gradient frontier from the last step toward the first. At each state the two
+      contributions light up: the vertical arrow is the local loss gradient, the
+      horizontal arrow is credit carried back from $h_{t+1}$. The <strong>truncation
+      $K$</strong> slider severs the chain &mdash; greyed states are cut off, and no
+      credit ever reaches them.
+    </p>
+
+    <div class="control-row">
+      <div class="control-block">
+        <label>Truncation length <span>$K$ = <span id="kVal">4</span> steps</span></label>
+        <input type="range" id="k" min="1" max="7" step="1" value="4">
+      </div>
+      <div class="control-block">
+        <label>Recurrent weight <span>$|w_h|$ = <span id="whVal">0.85</span></span></label>
+        <input type="range" id="wh" min="0.1" max="1.8" step="0.05" value="0.85">
+      </div>
+      <div class="control-block">
+        <label>Activation slope <span>$\sigma'$ = <span id="aVal">0.90</span></span></label>
+        <input type="range" id="a" min="0.3" max="1.0" step="0.05" value="0.9">
+      </div>
+    </div>
+
+    <div class="button-row">
+      <button class="mode-button mode-button--primary" id="backBtn">&larr; Step backward</button>
+      <button class="mode-button" id="runBtn">Run backward</button>
+      <button class="mode-button" id="resetBtn">Reset</button>
+    </div>
+
+    <figure class="interactive-figure">
+      <canvas id="graphCanvas" width="920" height="400"></canvas>
+      <figcaption>The RNN unrolled over 7 timesteps. Blue = forward pass. Orange = gradients flowing backward. Faded states are severed by truncation $K$.</figcaption>
+    </figure>
+    <div class="legend-row">
+      <span><span class="swatch" style="background:#2c6fb7;"></span> forward pass</span>
+      <span><span class="swatch" style="background:#d9622b;"></span> local loss gradient</span>
+      <span><span class="swatch" style="background:#1e7770;"></span> credit carried back</span>
+      <span><span class="swatch" style="background:#c9c0b0;"></span> severed by truncation</span>
+    </div>
+
+    <div class="stat-strip">
+      <div class="stat-pill stat-pill--warm">
+        <span class="stat-label">Backward step</span>
+        <span class="stat-value" id="bstepVal">0 / 4</span>
+      </div>
+      <div class="stat-pill stat-pill--accent">
+        <span class="stat-label">Gradient frontier at</span>
+        <span class="stat-value" id="frontVal">&mdash;</span>
+      </div>
+      <div class="stat-pill stat-pill--success">
+        <span class="stat-label">Credit reaching frontier</span>
+        <span class="stat-value" id="creditVal">&mdash;</span>
+      </div>
+    </div>
+
+    <div class="callout" id="regimeCallout">
+      <strong>Press Step backward.</strong> Watch the frontier march left and the
+      "credit reaching frontier" number change. Each hop multiplies it by
+      $|w_h|\cdot\sigma'$ &mdash; set that product below 1 and credit <em>vanishes</em>
+      as it travels back; set it above 1 and it <em>explodes</em>.
+    </div>
+  </section>
+
+  <section class="step-section" id="payoff">
+    <div class="step-badge">The Payoff</div>
+    <h2>Why long-range credit is so fragile</h2>
+    <p>
+      Trace the credit that reaches an early state $h_t$ from a late loss $h_T$. It has
+      to pass through every recurrent edge in between, and each edge contributes the
+      same Jacobian factor. The whole path is therefore a <em>product</em>:
+    </p>
+    <div class="math-block">
+      $$\frac{\partial h_T}{\partial h_t}
+        = \prod_{k=t+1}^{T} \frac{\partial h_k}{\partial h_{k-1}}
+        \approx \big(w_h\,\sigma'\big)^{\,T-t} .$$
+    </div>
+    <ul>
+      <li>If $|w_h\,\sigma'| &lt; 1$, that product decays exponentially &mdash; the <strong>vanishing gradient</strong>. Distant timesteps get essentially zero learning signal.</li>
+      <li>If $|w_h\,\sigma'| &gt; 1$, it grows exponentially &mdash; the <strong>exploding gradient</strong>, which gradient clipping papers over but never truly fixes.</li>
+      <li>Only $|w_h\,\sigma'| \approx 1$ preserves credit over long ranges &mdash; a razor's edge that plain RNNs cannot reliably sit on.</li>
+    </ul>
+    <div class="callout callout--warn">
+      <strong>Truncated BPTT is the practical compromise.</strong> Instead of unrolling
+      the entire sequence, you backprop only $K$ steps and cut the rest (the greyed
+      region). It bounds compute and memory per update and tames exploding gradients
+      &mdash; at the cost that no gradient signal ever reaches beyond $K$ steps, so the
+      model simply cannot learn dependencies longer than its truncation window.
+    </div>
+    <div class="callout callout--think">
+      <strong>The fix that stuck.</strong> LSTMs and GRUs replace that fragile
+      $w_h\,\sigma'$ product with a nearly-linear, gated highway for the state, so the
+      per-step factor stays close to 1 by construction. Same unrolled picture &mdash;
+      just an easier road for credit to travel.
+    </div>
+  </section>
+
+  <footer>Part of the ES 667 Deep Learning explainer series &middot; Lecture 13: RNNs, LSTMs and GRUs</footer>
+</article>
+
+<script>
+/* ===================== state ===================== */
+const T = 7;
+let bstep = 0;          // 0..K backward steps taken
+let runTimer = null;
+
+const kEl  = document.getElementById('k');
+const whEl = document.getElementById('wh');
+const aEl  = document.getElementById('a');
+const SUBS = {'0':'₀','1':'₁','2':'₂','3':'₃','4':'₄','5':'₅','6':'₆','7':'₇','8':'₈','9':'₉'};
+function sub(n){ return String(n).split('').map(c => SUBS[c] || c).join(''); }
+
+function getK(){ return parseInt(kEl.value); }
+
+/* ===================== canvas helpers ===================== */
+function fitCanvas(canvas){
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = Math.max(1, Math.round(rect.width * dpr));
+  canvas.height = Math.max(1, Math.round(rect.height * dpr));
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { ctx, w: rect.width, h: rect.height };
+}
+function arrow(ctx, x1, y1, x2, y2, color, width, head){
+  ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = width;
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+  if (head === false) return;
+  const ang = Math.atan2(y2 - y1, x2 - x1), hl = 8 + width;
+  ctx.beginPath();
+  ctx.moveTo(x2, y2);
+  ctx.lineTo(x2 - hl * Math.cos(ang - 0.4), y2 - hl * Math.sin(ang - 0.4));
+  ctx.lineTo(x2 - hl * Math.cos(ang + 0.4), y2 - hl * Math.sin(ang + 0.4));
+  ctx.closePath(); ctx.fill();
+}
+function nodeBox(ctx, cx, cy, bw, bh, fill, stroke, sw, label, sublabel, textCol){
+  ctx.fillStyle = fill; ctx.strokeStyle = stroke; ctx.lineWidth = sw;
+  const r = 8, x = cx - bw/2, y = cy - bh/2;
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + bw, y, x + bw, y + bh, r);
+  ctx.arcTo(x + bw, y + bh, x, y + bh, r);
+  ctx.arcTo(x, y + bh, x, y, r);
+  ctx.arcTo(x, y, x + bw, y, r);
+  ctx.closePath(); ctx.fill(); if (sw > 0) ctx.stroke();
+  ctx.fillStyle = textCol; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.font = '700 15px "IBM Plex Mono", monospace';
+  ctx.fillText(label, cx, cy - (sublabel ? 6 : 0));
+  if (sublabel){ ctx.font = '500 9px Manrope, sans-serif'; ctx.fillText(sublabel, cx, cy + 11); }
+}
+
+/* ===================== main drawing ===================== */
+function drawGraph(){
+  const { ctx, w, h } = fitCanvas(document.getElementById('graphCanvas'));
+  ctx.clearRect(0, 0, w, h);
+  const K = getK();
+  const marginL = 60, marginR = 34;
+  const colW = (w - marginL - marginR) / (T - 1);
+  const cx = t => marginL + (t - 1) * colW;
+  const midY = h * 0.52;
+  const boxW = Math.min(64, colW * 0.62), boxH = 42;
+  const yOut = midY - 104;   // output / loss nodes
+  const yIn  = midY + 104;   // input nodes
+  const smallR = 15;
+
+  const cutT = T - K;                       // nodes t<=cutT are severed
+  const frontier = bstep >= 1 ? (T - bstep + 1) : null;
+  const isSevered = t => t <= cutT;
+  const isProcessed = t => frontier !== null && t >= frontier && t <= T;
+
+  const GREY = '#c9c0b0', GREYD = '#a89b86';
+  const BLUE = '#2c6fb7', WARM = '#d9622b', SAGE = '#1e7770';
+  const faded = 'rgba(160,150,132,0.5)';
+
+  // severed-region shading
+  if (K < T){
+    ctx.fillStyle = 'rgba(160,150,132,0.09)';
+    const x0 = cx(1) - boxW/2 - 14;
+    const x1 = cx(cutT) + boxW/2 + 14;
+    ctx.fillRect(x0, 22, x1 - x0, h - 44);
+    ctx.fillStyle = GREYD; ctx.font = 'italic 11px "Source Serif 4", serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillText('severed by truncation (no credit reaches here)', (x0 + x1) / 2, 26);
+  }
+
+  // ---- forward edges (drawn first, underneath) ----
+  for (let t = 1; t <= T; t++){
+    const fade = isSevered(t);
+    const col = fade ? faded : BLUE;
+    // input -> hidden
+    arrow(ctx, cx(t), yIn - smallR, cx(t), midY + boxH/2 + 3, col, fade ? 1.2 : 1.6);
+    // hidden -> output
+    arrow(ctx, cx(t), midY - boxH/2 - 3, cx(t), yOut + smallR, col, fade ? 1.2 : 1.6);
+    // hidden -> hidden (forward, rightward along center)
+    if (t < T){
+      const bothFade = isSevered(t) && isSevered(t + 1);
+      arrow(ctx, cx(t) + boxW/2 + 3, midY, cx(t + 1) - boxW/2 - 3, midY, bothFade ? faded : BLUE, bothFade ? 1.2 : 1.8);
+    }
+  }
+
+  // ---- backward gradient arrows (overlay) ----
+  if (frontier !== null){
+    // recurrent backward arcs for traversed edges: edge (t, t+1) for t in [frontier .. T-1]
+    for (let t = frontier; t <= T - 1; t++){
+      const yb = midY - 26;
+      const x1 = cx(t + 1) - boxW/2 - 3, x2 = cx(t) + boxW/2 + 3;
+      ctx.strokeStyle = SAGE; ctx.lineWidth = 2.4;
+      ctx.beginPath();
+      ctx.moveTo(x1, midY - boxH/2 + 6);
+      ctx.bezierCurveTo(x1, yb, x2, yb, x2, midY - boxH/2 + 6);
+      ctx.stroke();
+      // arrowhead pointing left into h_t
+      arrow(ctx, x2 + 10, midY - boxH/2 + 5, x2, midY - boxH/2 + 6, SAGE, 2.4);
+    }
+    // local loss backward arrows for processed nodes t in [frontier .. T]
+    for (let t = frontier; t <= T; t++){
+      arrow(ctx, cx(t) + 12, yOut + smallR + 4, cx(t) + 12, midY - boxH/2 - 3, WARM, 2.2);
+    }
+  }
+
+  // ---- cut / scissors marker on the boundary edge ----
+  if (K < T){
+    const xm = (cx(cutT) + cx(cutT + 1)) / 2;
+    ctx.strokeStyle = GREYD; ctx.lineWidth = 2; ctx.setLineDash([4, 3]);
+    ctx.beginPath(); ctx.moveTo(xm, midY - 34); ctx.lineTo(xm, midY + 34); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = GREYD; ctx.font = '16px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('✂', xm, midY - 44);
+  }
+
+  // ---- nodes ----
+  for (let t = 1; t <= T; t++){
+    const sev = isSevered(t), proc = isProcessed(t), front = (t === frontier);
+    // input node
+    ctx.fillStyle = sev ? faded : GREYD;
+    ctx.beginPath(); ctx.arc(cx(t), yIn, smallR, 0, 2 * Math.PI);
+    ctx.fillStyle = sev ? 'rgba(160,150,132,0.15)' : '#f0ece2'; ctx.fill();
+    ctx.lineWidth = 1.4; ctx.strokeStyle = sev ? faded : GREYD; ctx.stroke();
+    ctx.fillStyle = sev ? faded : '#5a5247'; ctx.font = '600 12px "IBM Plex Mono", monospace';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('x' + sub(t), cx(t), yIn);
+    // output node
+    ctx.beginPath(); ctx.arc(cx(t), yOut, smallR, 0, 2 * Math.PI);
+    ctx.fillStyle = sev ? 'rgba(160,150,132,0.15)' : (proc ? 'rgba(217,98,43,0.14)' : '#f7efe6'); ctx.fill();
+    ctx.lineWidth = 1.4; ctx.strokeStyle = sev ? faded : (proc ? WARM : GREYD); ctx.stroke();
+    ctx.fillStyle = sev ? faded : (proc ? WARM : '#5a5247'); ctx.font = '600 11px "IBM Plex Mono", monospace';
+    ctx.fillText('L' + sub(t), cx(t), yOut);
+    // hidden box
+    let fill, stroke, sw, txt;
+    if (sev){ fill = 'rgba(160,150,132,0.12)'; stroke = faded; sw = 1.4; txt = faded; }
+    else if (front){ fill = 'rgba(217,98,43,0.14)'; stroke = WARM; sw = 3; txt = '#1a1815'; }
+    else if (proc){ fill = 'rgba(30,119,112,0.10)'; stroke = SAGE; sw = 2; txt = '#1a1815'; }
+    else { fill = 'rgba(44,111,183,0.08)'; stroke = BLUE; sw = 1.8; txt = '#1a1815'; }
+    nodeBox(ctx, cx(t), midY, boxW, boxH, fill, stroke, sw, 'h' + sub(t), null, txt);
+  }
+
+  // ---- frontier annotation ----
+  if (frontier !== null){
+    const fx = cx(frontier);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillStyle = '#1a1815'; ctx.font = '600 11px Manrope, sans-serif';
+    const msg = frontier === T
+      ? '∇h' + sub(frontier) + ' = local only'
+      : '∇h' + sub(frontier) + ' = local + carried';
+    ctx.fillText(msg, fx, midY + boxH/2 + 34);
+  }
+
+  // labels
+  ctx.fillStyle = '#8a8072'; ctx.font = 'italic 10px "Source Serif 4", serif';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  ctx.fillText('losses', 6, yOut);
+  ctx.fillText('states', 6, midY - boxH/2 - 14);
+  ctx.fillText('inputs', 6, yIn);
+}
+
+/* ===================== stats & regime ===================== */
+function updateStats(){
+  const K = getK();
+  const wh = parseFloat(whEl.value), a = parseFloat(aEl.value);
+  const m = wh * a;
+  document.getElementById('bstepVal').textContent = bstep + ' / ' + K;
+  const frontier = bstep >= 1 ? (T - bstep + 1) : null;
+  document.getElementById('frontVal').textContent = frontier ? ('h' + sub(frontier)) : '—';
+  const hops = bstep >= 1 ? (bstep - 1) : 0;
+  const credit = Math.pow(Math.abs(m), hops);
+  document.getElementById('creditVal').textContent = frontier ? credit.toFixed(3) : '—';
+
+  const co = document.getElementById('regimeCallout');
+  let cls = 'callout', head, body;
+  if (m < 0.98){
+    cls += ' callout--think';
+    head = 'Vanishing regime.';
+    body = 'Each backward hop multiplies credit by |w_h|·σ′ = ' + m.toFixed(3) + ' &lt; 1, so signal fades exponentially. After ' + (T-1) + ' hops only ' + Math.pow(m, T-1).toFixed(3) + ' of it survives to h₁ — the earliest steps barely learn.';
+  } else if (m > 1.02){
+    cls += ' callout--warn';
+    head = 'Exploding regime.';
+    body = 'Each backward hop multiplies credit by |w_h|·σ′ = ' + m.toFixed(3) + ' &gt; 1, so it grows without bound. After ' + (T-1) + ' hops it is ×' + Math.pow(m, T-1).toFixed(2) + ' — this is why plain RNNs need gradient clipping.';
+  } else {
+    head = 'Stable regime.';
+    body = 'The per-hop factor |w_h|·σ′ = ' + m.toFixed(3) + ' sits near 1, so credit travels back almost intact. This razor’s edge is exactly what plain RNNs struggle to hold — and what LSTM/GRU gates enforce by construction.';
+  }
+  co.className = cls;
+  co.innerHTML = '<strong>' + head + '</strong> ' + body;
+}
+
+/* ===================== orchestration ===================== */
+function redraw(){
+  const K = getK();
+  if (bstep > K) bstep = K;
+  drawGraph();
+  updateStats();
+  document.getElementById('backBtn').disabled = (bstep >= K);
+  document.getElementById('runBtn').disabled = (bstep >= K);
+}
+function doBack(){ const K = getK(); if (bstep < K){ bstep++; redraw(); } }
+function doReset(){ if (runTimer){ clearInterval(runTimer); runTimer = null; } bstep = 0; redraw(); }
+function doRun(){
+  if (runTimer) return;
+  runTimer = setInterval(() => {
+    if (bstep >= getK()){ clearInterval(runTimer); runTimer = null; return; }
+    bstep++; redraw();
+  }, 480);
+}
+
+/* ===================== wiring ===================== */
+kEl.addEventListener('input', () => { document.getElementById('kVal').textContent = kEl.value; redraw(); });
+whEl.addEventListener('input', () => { document.getElementById('whVal').textContent = parseFloat(whEl.value).toFixed(2); redraw(); });
+aEl.addEventListener('input',  () => { document.getElementById('aVal').textContent  = parseFloat(aEl.value).toFixed(2);  redraw(); });
+document.getElementById('backBtn').addEventListener('click', doBack);
+document.getElementById('runBtn').addEventListener('click', doRun);
+document.getElementById('resetBtn').addEventListener('click', doReset);
+
+window.addEventListener('load', redraw);
+window.addEventListener('resize', redraw);
+redraw();
+</script>
+
+</body>
+</html>

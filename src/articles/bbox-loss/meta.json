@@ -1,0 +1,20 @@
+{
+  "slug": "bbox-loss",
+  "title": "Box Regression Losses",
+  "date": "2026-07-10",
+  "tagline": "Drag a predicted box around a ground-truth box and watch L1, L2, and smooth-L1 disagree about how much to care.",
+  "summary": "Object detectors regress four box numbers, and the loss you pick decides how a single badly-placed box is punished. Drag the predicted box with sliders and read L1, L2 (squared), and smooth-L1 live; then flip to the function view to see why: L2's gradient grows without bound so one outlier box dominates the update, L1's gradient is a constant plus-or-minus one but kinked at zero, and smooth-L1 is quadratic near zero and linear in the tails — the robust compromise Fast R-CNN made standard.",
+  "readingTime": "8 min",
+  "difficulty": "Intermediate",
+  "collection": "Deep learning",
+  "order": 42,
+  "status": "published",
+  "tags": ["Object Detection", "Loss Functions", "Smooth L1", "Regression", "Interactive"],
+  "highlights": [
+    "Drag a predicted box over a fixed ground-truth box and see the four residuals and all three losses update live.",
+    "Compare L1, L2, and smooth-L1 as functions of the residual, with a marker that slides along every curve as you move the box.",
+    "Switch to the gradient view and watch L2's slope grow without bound while L1 stays pinned at plus-or-minus one.",
+    "See exactly where smooth-L1 hands off from quadratic to linear at the transition point beta, and move beta to shift it.",
+    "Understand why detectors use smooth-L1: quadratic near zero for stable fine-tuning, linear in the tails for robustness to outlier boxes."
+  ]
+}

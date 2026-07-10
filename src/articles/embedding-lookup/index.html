@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Embeddings are a Lookup Table</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body, {delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
+
+<style>
+:root {
+  --serif: 'Source Serif 4', Georgia, serif;
+  --sans: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+  --mono: 'IBM Plex Mono', monospace;
+  --bg: #fdfcf9;
+  --paper: #ffffff;
+  --text: #2f2a22;
+  --muted: #6e665b;
+  --border: #e2d8c6;
+  --accent: #2c6fb7;
+  --warm: #d9622b;
+  --success: #1e7770;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; font-family: var(--serif); color: var(--text); background: var(--bg); line-height: 1.65; }
+
+.article { max-width: 980px; margin: 0 auto; padding: 2.5rem 1.5rem 5rem; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; color: var(--muted); text-decoration: none; font-family: var(--sans); font-size: 0.9rem; }
+.back-link:hover { color: var(--text); }
+.article-header { margin-bottom: 3rem; text-align: center; }
+.kicker { margin: 0 0 0.75rem; font-family: var(--sans); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); }
+h1 { margin: 0 auto 1rem; font-size: clamp(2.4rem, 5vw, 3.5rem); line-height: 1.1; letter-spacing: -0.02em; color: #1a1815; max-width: 20ch; }
+.abstract { margin: 0 auto 1rem; max-width: 62ch; font-size: 1.15rem; color: #4d463d; }
+.byline { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-top: 1.4rem; padding-top: 1rem; border-top: 1px solid var(--border); color: var(--muted); font-family: var(--sans); font-size: 0.92rem; }
+
+.step-section {
+  position: relative;
+  margin-top: 4rem;
+  padding: 3rem 2.5rem;
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.03);
+}
+.step-badge {
+  position: absolute;
+  top: -16px;
+  left: 32px;
+  background: var(--accent);
+  color: white;
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.4rem 1.2rem;
+  border-radius: 999px;
+  box-shadow: 0 4px 12px rgba(44, 111, 183, 0.25);
+}
+h2 { margin: 0 0 1rem; font-size: clamp(1.6rem, 3.5vw, 2.2rem); line-height: 1.15; color: #1a1815; }
+h3 { margin-top: 2rem; margin-bottom: 0.8rem; font-size: 1.25rem; color: #1a1815; }
+p { max-width: 68ch; font-size: 1.1rem; }
+ul { max-width: 68ch; font-size: 1.1rem; padding-left: 1.4rem; }
+li { margin-bottom: 0.5rem; }
+.math-block { margin: 1.5rem 0; text-align: center; font-size: 1.05rem; }
+code { font-family: var(--mono); font-size: 0.92em; background: rgba(47,42,34,0.05); padding: 0.1em 0.35em; border-radius: 4px; }
+
+.control-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.4rem;
+  margin: 1.6rem 0;
+}
+.control-block { display: flex; flex-direction: column; gap: 0.5rem; }
+.control-block label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-family: var(--sans);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.control-block label span { font-family: var(--mono); color: var(--warm); font-weight: 500; font-size: 0.95rem; }
+input[type="range"] {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px; height: 18px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid var(--paper);
+  box-shadow: 0 2px 6px rgba(44,111,183,0.4);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 18px; height: 18px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid var(--paper);
+}
+
+.button-row { display: flex; gap: 0.6rem; flex-wrap: wrap; margin: 1rem 0; }
+.mode-button {
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: 0.92rem;
+  padding: 0.55rem 1.1rem;
+  border-radius: 8px;
+  border: 1.5px solid var(--border);
+  background: var(--paper);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.mode-button:hover { border-color: var(--accent); }
+.mode-button.is-active { background: var(--accent); color: white; border-color: var(--accent); }
+
+.token-grid { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.token-grid .mode-button { min-width: 52px; font-family: var(--mono); font-size: 1.05rem; padding: 0.5rem 0.7rem; }
+.token-grid .mode-button.vowel.is-active { background: var(--accent); border-color: var(--accent); }
+.token-grid .mode-button.cons.is-active { background: var(--warm); border-color: var(--warm); }
+
+.interactive-figure { margin: 1.5rem 0; }
+.interactive-figure canvas {
+  display: block;
+  width: 100%;
+  background: #fbfaf6;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  touch-action: none;
+}
+.interactive-figure figcaption { margin-top: 0.7rem; font-size: 0.92rem; color: var(--muted); text-align: center; font-style: italic; }
+
+.panels-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.2rem; margin: 1.5rem 0; }
+.panels-grid figure { margin: 0; }
+@media (max-width: 720px) { .panels-grid { grid-template-columns: 1fr; } }
+
+.stat-strip { display: flex; gap: 1rem; flex-wrap: wrap; margin: 1.5rem 0; }
+.stat-pill {
+  flex: 1 1 140px;
+  min-width: 140px;
+  background: var(--paper);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  padding: 0.9rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  text-align: left;
+}
+.stat-pill .stat-label { font-family: var(--sans); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; }
+.stat-pill .stat-value { font-family: var(--mono); font-size: 1.5rem; font-weight: 600; color: var(--text); }
+.stat-pill--accent { border-color: var(--accent); }
+.stat-pill--accent .stat-value { color: var(--accent); }
+.stat-pill--warm { border-color: var(--warm); }
+.stat-pill--warm .stat-value { color: var(--warm); }
+.stat-pill--big { flex: 1 1 100%; }
+.stat-pill--big .stat-value { font-size: 1.9rem; }
+
+.callout {
+  margin: 2rem 0 0.5rem;
+  padding: 1.2rem 1.5rem;
+  border-radius: 12px;
+  border-left: 4px solid var(--accent);
+  background: rgba(44,111,183,0.05);
+  font-size: 1.02rem;
+}
+.callout strong { color: var(--accent); }
+.callout--think { border-left-color: var(--success); background: rgba(30,119,112,0.06); }
+.callout--think strong { color: var(--success); }
+.callout--warn { border-left-color: var(--warm); background: rgba(217,98,43,0.06); }
+.callout--warn strong { color: var(--warm); }
+
+footer { margin-top: 4rem; text-align: center; font-family: var(--sans); font-size: 0.85rem; color: var(--muted); }
+
+@media (max-width: 640px) { .step-section { padding: 2rem 1.4rem; } }
+</style>
+</head>
+<body>
+
+<article class="article">
+  <header class="article-header">
+    <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+    <p class="kicker">Interactive Explainer</p>
+    <h1>Embeddings are a Lookup Table</h1>
+    <p class="abstract">
+      Networks cannot multiply by the letter &ldquo;e.&rdquo; So the very first layer of a
+      language model keeps a table &mdash; one learnable row of numbers per token &mdash;
+      and &ldquo;embedding a token&rdquo; is nothing more fancy than reading off its row.
+      Pick a token, watch its row light up, and drag it around a 2&#8209;D map to feel what
+      training is really doing: pulling related tokens together.
+    </p>
+    <div class="byline">
+      <span>~7 min</span>
+      <span>Deep Learning &middot; Language Models &middot; Representations</span>
+    </div>
+  </header>
+
+  <section class="step-section" id="prelude">
+    <div class="step-badge">Prelude</div>
+    <h2>A row per token</h2>
+    <p>
+      A token id is just an integer &mdash; token <code>3</code> is no bigger than token
+      <code>1</code>, they are only names. To turn that name into something a network can
+      compute with, we store a matrix $E \in \mathbb{R}^{V \times d}$: one row for each of the
+      $V$ tokens, each row a vector of length $d$. Embedding token $i$ is a single indexing op:
+    </p>
+    <div class="math-block">
+      $$e = E[i] \in \mathbb{R}^{d}, \qquad
+        \text{(in code:}\;\; \texttt{e = E[i]}\text{)}.$$
+    </div>
+    <p>
+      No multiplication, no dot product &mdash; just a lookup. (It <em>is</em> equivalent to
+      multiplying a one&#8209;hot vector by $E$, which is why it is a &ldquo;layer,&rdquo; but the
+      one&#8209;hot times matrix collapses to picking one row.) Below, $V = 10$ tokens and $d = 2$,
+      so every token is both a row of the table <em>and</em> a point on a map.
+    </p>
+  </section>
+
+  <section class="step-section" id="lab">
+    <div class="step-badge">The Lab</div>
+    <h2>Look it up, then move it</h2>
+    <p>
+      Click a token. Its row in the table (left) lights up and is read out as a dense vector;
+      the same token is ringed on the 2&#8209;D map (right). Then nudge its two coordinates with
+      the sliders &mdash; or just <strong>drag the point</strong> &mdash; and watch its row and its
+      position move together. They are the same numbers.
+    </p>
+
+    <h3>Token id</h3>
+    <div class="button-row token-grid" id="tokenRow"></div>
+
+    <div class="panels-grid">
+      <figure class="interactive-figure">
+        <canvas id="tableCanvas" width="460" height="420"></canvas>
+        <figcaption>The embedding table $E$ (10 rows &times; 2 dims). The selected token&rsquo;s row is its vector $e = E[i]$.</figcaption>
+      </figure>
+      <figure class="interactive-figure">
+        <canvas id="mapCanvas" width="460" height="420"></canvas>
+        <figcaption>Every token as a point $(e_0, e_1)$. Drag the ringed point; the dashed line shows its nearest neighbour.</figcaption>
+      </figure>
+    </div>
+
+    <div class="control-row">
+      <div class="control-block">
+        <label>Dim 0 <span>$e_0$ = <span id="d0Val">0.00</span></span></label>
+        <input type="range" id="d0" min="-1.8" max="1.8" step="0.02" value="0">
+      </div>
+      <div class="control-block">
+        <label>Dim 1 <span>$e_1$ = <span id="d1Val">0.00</span></span></label>
+        <input type="range" id="d1" min="-1.8" max="1.8" step="0.02" value="0">
+      </div>
+    </div>
+
+    <div class="stat-strip">
+      <div class="stat-pill stat-pill--accent stat-pill--big">
+        <span class="stat-label">Lookup&nbsp;&nbsp;<code>e = E[i]</code></span>
+        <span class="stat-value" id="lookupVal">&mdash;</span>
+      </div>
+    </div>
+    <div class="stat-strip">
+      <div class="stat-pill">
+        <span class="stat-label">Selected token</span>
+        <span class="stat-value" id="tokVal">&mdash;</span>
+      </div>
+      <div class="stat-pill stat-pill--warm">
+        <span class="stat-label">Nearest neighbour</span>
+        <span class="stat-value" id="nnVal">&mdash;</span>
+      </div>
+      <div class="stat-pill">
+        <span class="stat-label">Distance to it</span>
+        <span class="stat-value" id="distVal">&mdash;</span>
+      </div>
+    </div>
+
+    <div class="button-row">
+      <button class="mode-button" id="resetBtn">Reset table</button>
+    </div>
+
+    <div class="callout callout--warn">
+      <strong>Try this.</strong> The five vowels start clustered in one corner and the five
+      consonants in another &mdash; the kind of structure a trained model discovers on its own.
+      Now drag a vowel down into the consonants: its <em>nearest neighbour</em> flips to a consonant.
+      Nothing about the token &ldquo;changed&rdquo; &mdash; only its row did. Similarity in an
+      embedding space is <em>entirely</em> a matter of which rows sit near which.
+    </div>
+  </section>
+
+  <section class="step-section" id="why">
+    <div class="step-badge">The Payoff</div>
+    <h2>Training is just moving rows</h2>
+    <p>
+      Because embedding a token is pure indexing, the only thing gradient descent can do to the
+      embedding layer is <em>edit the rows that were used</em>. When two tokens keep appearing in
+      similar contexts, the loss keeps nudging their rows in similar directions, and they drift
+      together &mdash; exactly the clustering you just dragged apart by hand.
+    </p>
+    <ul>
+      <li>A token id carries no meaning; the meaning lives in the <strong>row</strong> the model learned for it.</li>
+      <li>&ldquo;Distance between tokens&rdquo; is just distance between rows &mdash; there is nothing else.</li>
+      <li>A step of training touches only the rows of the tokens in the batch; every other row is untouched. (That is the star of the companion char&#8209;MLP explainer.)</li>
+    </ul>
+    <div class="callout callout--think">
+      <strong>One layer, two views.</strong> The heat&#8209;map and the scatter plot are never out of
+      sync because they render the <em>same array</em>. An embedding matrix is simultaneously a table you
+      index into and a geometry you can measure &mdash; and that geometry is the model&rsquo;s entire
+      idea of what these tokens mean.
+    </div>
+  </section>
+
+  <footer>Part of the ES 667 Deep Learning explainer series &middot; Lecture 12: Next-Token Prediction</footer>
+</article>
+
+<script>
+/* ===================== data ===================== */
+const TOKENS = ['a','e','i','o','u','n','r','s','t','l'];
+const IS_VOWEL = i => i < 5;
+// Fixed, hand-set table: vowels cluster top-right, consonants bottom-left.
+const E0 = [
+  [ 1.10,  0.90], [ 1.32,  1.12], [ 0.88,  1.30], [ 1.24,  0.68], [ 0.80,  1.02],
+  [-1.10, -0.90], [-1.32, -0.66], [-0.88, -1.24], [-1.20, -1.06], [-0.70, -0.92]
+];
+let E = E0.map(r => r.slice());
+let sel = 1; // start on 'e'
+const COL_ACCENT = '#2c6fb7', COL_WARM = '#d9622b';
+const RANGE = 1.8;
+
+const d0El = document.getElementById('d0');
+const d1El = document.getElementById('d1');
+const d0Val = document.getElementById('d0Val');
+const d1Val = document.getElementById('d1Val');
+
+/* ===================== canvas helpers ===================== */
+function fitCanvas(canvas) {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = Math.max(1, Math.round(rect.width * dpr));
+  canvas.height = Math.max(1, Math.round(rect.height * dpr));
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { ctx, w: rect.width, h: rect.height };
+}
+function roundRect(ctx, x, y, w, h, r) {
+  r = Math.min(r, Math.abs(w) / 2, Math.abs(h) / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+// value -> diverging color (orange for negative, blue for positive)
+function heatColor(v) {
+  const t = Math.max(-1, Math.min(1, v / RANGE));
+  if (t >= 0) {
+    const a = 0.12 + 0.78 * t;
+    return `rgba(44,111,183,${a.toFixed(3)})`;
+  } else {
+    const a = 0.12 + 0.78 * (-t);
+    return `rgba(217,98,43,${a.toFixed(3)})`;
+  }
+}
+
+/* ===================== table (heat-map) ===================== */
+function drawTable() {
+  const { ctx, w, h } = fitCanvas(document.getElementById('tableCanvas'));
+  ctx.clearRect(0, 0, w, h);
+  const padT = 46, padB = 18, padL = 74, padR = 108;
+  const gridW = w - padL - padR, gridH = h - padT - padB;
+  const n = TOKENS.length, cols = 2;
+  const rh = gridH / n, cw = gridW / cols;
+
+  ctx.font = '600 11px Manrope, sans-serif';
+  ctx.fillStyle = '#5a5247';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillText('embedding table  E  (row = token)', 6, 8);
+  // column headers
+  ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+  ctx.fillStyle = '#8a8072'; ctx.font = '600 11px Manrope, sans-serif';
+  ctx.fillText('dim 0', padL + cw * 0.5, padT - 6);
+  ctx.fillText('dim 1', padL + cw * 1.5, padT - 6);
+
+  for (let i = 0; i < n; i++) {
+    const y = padT + i * rh;
+    const isSel = i === sel;
+    // row label (token + id)
+    ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    ctx.font = (isSel ? '700 ' : '500 ') + '13px "IBM Plex Mono", monospace';
+    ctx.fillStyle = isSel ? '#1a1815' : '#6e665b';
+    ctx.fillText('‘' + TOKENS[i] + '’', padL - 34, y + rh / 2);
+    ctx.font = '500 10px "IBM Plex Mono", monospace';
+    ctx.fillStyle = '#a89b86';
+    ctx.fillText('id ' + i, padL - 8, y + rh / 2);
+
+    for (let c = 0; c < cols; c++) {
+      const x = padL + c * cw;
+      ctx.fillStyle = heatColor(E[i][c]);
+      roundRect(ctx, x + 3, y + 3, cw - 6, rh - 6, 6); ctx.fill();
+      // value
+      ctx.fillStyle = Math.abs(E[i][c]) > 0.9 ? '#ffffff' : '#3a352c';
+      ctx.font = (isSel ? '700 ' : '500 ') + '13px "IBM Plex Mono", monospace';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(E[i][c].toFixed(2), x + cw / 2, y + rh / 2);
+    }
+    if (isSel) {
+      ctx.strokeStyle = IS_VOWEL(i) ? COL_ACCENT : COL_WARM;
+      ctx.lineWidth = 3;
+      roundRect(ctx, padL + 1, y + 1, gridW - 2, rh - 2, 7); ctx.stroke();
+      // arrow + readout on the right
+      const ry = y + rh / 2;
+      ctx.strokeStyle = '#a89b86'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(padL + gridW + 4, ry); ctx.lineTo(padL + gridW + 18, ry); ctx.stroke();
+      ctx.fillStyle = IS_VOWEL(i) ? COL_ACCENT : COL_WARM;
+      ctx.font = '700 12px "IBM Plex Mono", monospace';
+      ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      ctx.fillText('e =', padL + gridW + 22, ry - 9);
+      ctx.fillStyle = '#3a352c';
+      ctx.fillText('[' + E[i][0].toFixed(2) + ',', padL + gridW + 22, ry + 6);
+      ctx.fillText(' ' + E[i][1].toFixed(2) + ']', padL + gridW + 22, ry + 21);
+    }
+  }
+}
+
+/* ===================== map (scatter) ===================== */
+let mapGeom = null;
+function drawMap() {
+  const cv = document.getElementById('mapCanvas');
+  const { ctx, w, h } = fitCanvas(cv);
+  ctx.clearRect(0, 0, w, h);
+  const pad = 40;
+  const plotW = w - 2 * pad, plotH = h - 2 * pad;
+  const AX = RANGE + 0.2;
+  const toX = v => pad + (v + AX) / (2 * AX) * plotW;
+  const toY = v => pad + (AX - v) / (2 * AX) * plotH;
+  mapGeom = { pad, plotW, plotH, AX, toX, toY,
+    fromX: px => (px - pad) / plotW * 2 * AX - AX,
+    fromY: py => AX - (py - pad) / plotH * 2 * AX };
+
+  ctx.font = '600 11px Manrope, sans-serif';
+  ctx.fillStyle = '#5a5247'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillText('token map  (dim 0, dim 1)', 6, 8);
+
+  // grid
+  ctx.strokeStyle = 'rgba(47,42,34,0.06)'; ctx.lineWidth = 1;
+  for (let g = -1; g <= 1; g++) {
+    if (g === 0) continue;
+    ctx.beginPath(); ctx.moveTo(toX(g), pad); ctx.lineTo(toX(g), pad + plotH); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(pad, toY(g)); ctx.lineTo(pad + plotW, toY(g)); ctx.stroke();
+  }
+  // axes
+  ctx.strokeStyle = 'rgba(47,42,34,0.28)'; ctx.lineWidth = 1.4;
+  ctx.beginPath(); ctx.moveTo(toX(0), pad); ctx.lineTo(toX(0), pad + plotH); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(pad, toY(0)); ctx.lineTo(pad + plotW, toY(0)); ctx.stroke();
+  ctx.fillStyle = '#a89b86'; ctx.font = '500 10px Manrope, sans-serif';
+  ctx.textAlign = 'right'; ctx.textBaseline = 'top';
+  ctx.fillText('dim 0 →', pad + plotW, toY(0) + 4);
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillText('dim 1 ↑', toX(0) + 5, pad);
+
+  // nearest neighbour line
+  const nn = nearest(sel);
+  if (nn.idx >= 0) {
+    ctx.strokeStyle = 'rgba(217,98,43,0.55)'; ctx.lineWidth = 1.6;
+    ctx.setLineDash([5, 4]);
+    ctx.beginPath();
+    ctx.moveTo(toX(E[sel][0]), toY(E[sel][1]));
+    ctx.lineTo(toX(E[nn.idx][0]), toY(E[nn.idx][1]));
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // points
+  for (let i = 0; i < TOKENS.length; i++) {
+    const x = toX(E[i][0]), y = toY(E[i][1]);
+    const isSel = i === sel;
+    ctx.beginPath();
+    ctx.arc(x, y, isSel ? 11 : 8, 0, Math.PI * 2);
+    ctx.fillStyle = IS_VOWEL(i) ? COL_ACCENT : COL_WARM;
+    ctx.globalAlpha = isSel ? 1 : 0.82;
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    if (isSel) {
+      ctx.strokeStyle = '#1a1815'; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.arc(x, y, 15, 0, Math.PI * 2); ctx.stroke();
+    }
+    ctx.fillStyle = '#fff';
+    ctx.font = '700 11px "IBM Plex Mono", monospace';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(TOKENS[i], x, y + 0.5);
+  }
+  // legend
+  ctx.font = '600 10px Manrope, sans-serif'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = COL_ACCENT; ctx.beginPath(); ctx.arc(pad + 8, pad + plotH - 26, 5, 0, 7); ctx.fill();
+  ctx.textAlign = 'left'; ctx.fillStyle = '#6e665b'; ctx.fillText('vowels', pad + 18, pad + plotH - 26);
+  ctx.fillStyle = COL_WARM; ctx.beginPath(); ctx.arc(pad + 8, pad + plotH - 10, 5, 0, 7); ctx.fill();
+  ctx.fillStyle = '#6e665b'; ctx.fillText('consonants', pad + 18, pad + plotH - 10);
+}
+
+/* ===================== logic ===================== */
+function dist(a, b) {
+  const dx = E[a][0] - E[b][0], dy = E[a][1] - E[b][1];
+  return Math.sqrt(dx * dx + dy * dy);
+}
+function nearest(i) {
+  let best = -1, bd = Infinity;
+  for (let j = 0; j < TOKENS.length; j++) {
+    if (j === i) continue;
+    const d = dist(i, j);
+    if (d < bd) { bd = d; best = j; }
+  }
+  return { idx: best, d: bd };
+}
+function syncSliders() {
+  d0El.value = E[sel][0]; d1El.value = E[sel][1];
+  d0Val.textContent = E[sel][0].toFixed(2);
+  d1Val.textContent = E[sel][1].toFixed(2);
+}
+function updateStats() {
+  document.getElementById('lookupVal').textContent =
+    'E[' + sel + '] = [' + E[sel][0].toFixed(2) + ', ' + E[sel][1].toFixed(2) + ']';
+  document.getElementById('tokVal').textContent = '‘' + TOKENS[sel] + '’  (id ' + sel + ')';
+  const nn = nearest(sel);
+  document.getElementById('nnVal').textContent = nn.idx >= 0 ? '‘' + TOKENS[nn.idx] + '’' : '—';
+  document.getElementById('distVal').textContent = nn.idx >= 0 ? nn.d.toFixed(3) : '—';
+}
+function redraw() { drawTable(); drawMap(); updateStats(); }
+
+function selectToken(i) {
+  sel = i;
+  document.querySelectorAll('#tokenRow .mode-button').forEach(b =>
+    b.classList.toggle('is-active', parseInt(b.dataset.tok) === i));
+  syncSliders();
+  redraw();
+}
+
+/* ===================== build token buttons ===================== */
+const tokenRow = document.getElementById('tokenRow');
+TOKENS.forEach((t, i) => {
+  const b = document.createElement('button');
+  b.className = 'mode-button ' + (IS_VOWEL(i) ? 'vowel' : 'cons');
+  b.dataset.tok = i;
+  b.textContent = t;
+  b.addEventListener('click', () => selectToken(i));
+  tokenRow.appendChild(b);
+});
+
+/* ===================== wiring ===================== */
+d0El.addEventListener('input', () => {
+  E[sel][0] = parseFloat(d0El.value); d0Val.textContent = E[sel][0].toFixed(2); redraw();
+});
+d1El.addEventListener('input', () => {
+  E[sel][1] = parseFloat(d1El.value); d1Val.textContent = E[sel][1].toFixed(2); redraw();
+});
+document.getElementById('resetBtn').addEventListener('click', () => {
+  E = E0.map(r => r.slice()); syncSliders(); redraw();
+});
+
+/* ---- drag on the map ---- */
+const mapCv = document.getElementById('mapCanvas');
+let dragging = false;
+function pointerToData(ev) {
+  const rect = mapCv.getBoundingClientRect();
+  const px = ev.clientX - rect.left, py = ev.clientY - rect.top;
+  return { x: mapGeom.fromX(px), y: mapGeom.fromY(py), px, py };
+}
+function pickNearestPoint(px, py) {
+  let best = -1, bd = Infinity;
+  for (let i = 0; i < TOKENS.length; i++) {
+    const dx = mapGeom.toX(E[i][0]) - px, dy = mapGeom.toY(E[i][1]) - py;
+    const d = dx * dx + dy * dy;
+    if (d < bd) { bd = d; best = i; }
+  }
+  return { idx: best, d2: bd };
+}
+function clampR(v) { return Math.max(-RANGE, Math.min(RANGE, v)); }
+mapCv.addEventListener('pointerdown', (ev) => {
+  if (!mapGeom) return;
+  const p = pointerToData(ev);
+  const hit = pickNearestPoint(p.px, p.py);
+  if (hit.d2 <= 24 * 24) {
+    if (hit.idx !== sel) selectToken(hit.idx);
+    dragging = true;
+    mapCv.setPointerCapture(ev.pointerId);
+    E[sel][0] = clampR(p.x); E[sel][1] = clampR(p.y);
+    syncSliders(); redraw();
+  }
+});
+mapCv.addEventListener('pointermove', (ev) => {
+  if (!dragging) return;
+  const p = pointerToData(ev);
+  E[sel][0] = clampR(p.x); E[sel][1] = clampR(p.y);
+  syncSliders(); redraw();
+});
+function endDrag() { dragging = false; }
+mapCv.addEventListener('pointerup', endDrag);
+mapCv.addEventListener('pointercancel', endDrag);
+
+window.addEventListener('load', () => { selectToken(sel); });
+window.addEventListener('resize', redraw);
+</script>
+
+</body>
+</html>

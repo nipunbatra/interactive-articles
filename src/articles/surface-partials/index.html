@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Partial Derivatives are Slices</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body, {delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
+
+<style>
+:root {
+  --serif: 'Source Serif 4', Georgia, serif;
+  --sans: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+  --mono: 'IBM Plex Mono', monospace;
+  --bg: #fdfcf9;
+  --paper: #ffffff;
+  --text: #2f2a22;
+  --muted: #6e665b;
+  --border: #e2d8c6;
+  --accent: #2c6fb7;
+  --warm: #d9622b;
+  --success: #1e7770;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; font-family: var(--serif); color: var(--text); background: var(--bg); line-height: 1.65; }
+
+.article { max-width: 980px; margin: 0 auto; padding: 2.5rem 1.5rem 5rem; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; color: var(--muted); text-decoration: none; font-family: var(--sans); font-size: 0.9rem; }
+.back-link:hover { color: var(--text); }
+.article-header { margin-bottom: 3rem; text-align: center; }
+.kicker { margin: 0 0 0.75rem; font-family: var(--sans); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); }
+h1 { margin: 0 auto 1rem; font-size: clamp(2.4rem, 5vw, 3.5rem); line-height: 1.1; letter-spacing: -0.02em; color: #1a1815; max-width: 20ch; }
+.abstract { margin: 0 auto 1rem; max-width: 62ch; font-size: 1.15rem; color: #4d463d; }
+.byline { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-top: 1.4rem; padding-top: 1rem; border-top: 1px solid var(--border); color: var(--muted); font-family: var(--sans); font-size: 0.92rem; }
+
+.step-section {
+  position: relative;
+  margin-top: 4rem;
+  padding: 3rem 2.5rem;
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.03);
+}
+.step-badge {
+  position: absolute;
+  top: -16px;
+  left: 32px;
+  background: var(--accent);
+  color: white;
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.4rem 1.2rem;
+  border-radius: 999px;
+  box-shadow: 0 4px 12px rgba(44, 111, 183, 0.25);
+}
+h2 { margin: 0 0 1rem; font-size: clamp(1.6rem, 3.5vw, 2.2rem); line-height: 1.15; color: #1a1815; }
+h3 { margin-top: 2rem; margin-bottom: 0.8rem; font-size: 1.25rem; color: #1a1815; }
+p { max-width: 68ch; font-size: 1.1rem; }
+ul { max-width: 68ch; font-size: 1.1rem; padding-left: 1.4rem; }
+li { margin-bottom: 0.5rem; }
+.math-block { margin: 1.5rem 0; text-align: center; font-size: 1.05rem; }
+
+.control-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.4rem;
+  margin: 1.6rem 0;
+}
+.control-block { display: flex; flex-direction: column; gap: 0.5rem; }
+.control-block label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-family: var(--sans);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.control-block label span { font-family: var(--mono); color: var(--warm); font-weight: 500; font-size: 0.95rem; }
+input[type="range"] {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px; height: 18px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid var(--paper);
+  box-shadow: 0 2px 6px rgba(44,111,183,0.4);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 18px; height: 18px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid var(--paper);
+}
+
+.button-row { display: flex; gap: 0.6rem; flex-wrap: wrap; margin: 1rem 0; }
+.mode-button {
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: 0.92rem;
+  padding: 0.55rem 1.1rem;
+  border-radius: 8px;
+  border: 1.5px solid var(--border);
+  background: var(--paper);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.mode-button:hover { border-color: var(--accent); }
+.mode-button.is-active { background: var(--accent); color: white; border-color: var(--accent); }
+
+.interactive-figure { margin: 1.5rem 0; }
+.interactive-figure canvas {
+  display: block;
+  width: 100%;
+  background: #fbfaf6;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  touch-action: none;
+}
+.interactive-figure--map canvas { cursor: crosshair; }
+.interactive-figure figcaption { margin-top: 0.7rem; font-size: 0.92rem; color: var(--muted); text-align: center; font-style: italic; }
+
+.panels-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.2rem; margin: 1.5rem 0; }
+.panels-grid figure { margin: 0; }
+@media (max-width: 720px) { .panels-grid { grid-template-columns: 1fr; } }
+
+.stat-strip { display: flex; gap: 1rem; flex-wrap: wrap; margin: 1.5rem 0; }
+.stat-pill {
+  flex: 1 1 140px;
+  min-width: 140px;
+  background: var(--paper);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  padding: 0.9rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  text-align: left;
+}
+.stat-pill .stat-label { font-family: var(--sans); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; }
+.stat-pill .stat-value { font-family: var(--mono); font-size: 1.5rem; font-weight: 600; color: var(--text); }
+.stat-pill--accent { border-color: var(--accent); }
+.stat-pill--accent .stat-value { color: var(--accent); }
+.stat-pill--warm { border-color: var(--warm); }
+.stat-pill--warm .stat-value { color: var(--warm); }
+.stat-pill--success { border-color: var(--success); }
+.stat-pill--success .stat-value { color: var(--success); }
+
+.callout {
+  margin: 2rem 0 0.5rem;
+  padding: 1.2rem 1.5rem;
+  border-radius: 12px;
+  border-left: 4px solid var(--accent);
+  background: rgba(44,111,183,0.05);
+  font-size: 1.02rem;
+}
+.callout strong { color: var(--accent); }
+.callout--think { border-left-color: var(--success); background: rgba(30,119,112,0.06); }
+.callout--think strong { color: var(--success); }
+.callout--warn { border-left-color: var(--warm); background: rgba(217,98,43,0.06); }
+.callout--warn strong { color: var(--warm); }
+
+footer { margin-top: 4rem; text-align: center; font-family: var(--sans); font-size: 0.85rem; color: var(--muted); }
+
+@media (max-width: 640px) { .step-section { padding: 2rem 1.4rem; } }
+</style>
+</head>
+<body>
+
+<article class="article">
+  <header class="article-header">
+    <a class="back-link" href="../">&larr; Explainer Library</a>
+    <p class="kicker">Interactive Explainer &middot; Calculus Toolkit</p>
+    <h1>Partial Derivatives are Slices</h1>
+    <p class="abstract">
+      A surface $f(x,y)$ has no single slope &mdash; it tilts differently in every
+      direction. A partial derivative fixes that by holding one variable still and
+      asking the ordinary one-dimensional question. Move the point on the map and
+      watch two slices, each with its own tangent, and the gradient arrow that
+      collects them.
+    </p>
+    <div class="byline">
+      <span>~9 min</span>
+      <span>Deep Learning &middot; Calculus &middot; Gradients</span>
+    </div>
+  </header>
+
+  <section class="step-section" id="prelude">
+    <div class="step-badge">Prelude</div>
+    <h2>Freeze one axis, take a normal derivative</h2>
+    <p>
+      To measure $\partial f / \partial x$ at a point $(x_0, y_0)$, pin $y = y_0$.
+      What remains is a curve in $x$ alone, and its ordinary slope <em>is</em> the
+      partial derivative. Swap the roles for $\partial f / \partial y$:
+    </p>
+    <div class="math-block">
+      $$\frac{\partial f}{\partial x}(x_0,y_0) = \lim_{h\to0}\frac{f(x_0+h,\,y_0)-f(x_0,y_0)}{h},
+        \qquad
+        \frac{\partial f}{\partial y}(x_0,y_0) = \lim_{h\to0}\frac{f(x_0,\,y_0+h)-f(x_0,y_0)}{h}.$$
+    </div>
+    <p>
+      Stack the two partials into a vector and you have the gradient
+      $\nabla f = \big(\partial f/\partial x,\; \partial f/\partial y\big)$. It points
+      in the direction of steepest ascent, perpendicular to the contour lines &mdash;
+      the single most important object in optimization.
+    </p>
+  </section>
+
+  <section class="step-section" id="lab">
+    <div class="step-badge">The Lab</div>
+    <h2>One point, two slices, one gradient</h2>
+    <p>
+      The map is a filled contour plot of $f(x,y)$: blue is low, orange is high.
+      <strong>Click or drag on the map</strong> (or use the sliders) to move the
+      point. The dashed lines are the two slices; each slice is redrawn below with
+      its tangent, whose slope is the corresponding partial derivative. The green
+      arrow is $\nabla f$ &mdash; notice it always points uphill, across the contours.
+    </p>
+
+    <div class="button-row" id="fn-row">
+      <button class="mode-button is-active" data-fn="bowl">Bowl $x^2+y^2$</button>
+      <button class="mode-button" data-fn="saddle">Saddle $x^2-y^2$</button>
+      <button class="mode-button" data-fn="ripple">Ripple $2\sin x\cos y$</button>
+    </div>
+
+    <div class="control-row">
+      <div class="control-block">
+        <label>Point <span>$x_0$ = <span id="x0Val">1.00</span></span></label>
+        <input type="range" id="x0" min="-3" max="3" step="0.01" value="1.0">
+      </div>
+      <div class="control-block">
+        <label>Point <span>$y_0$ = <span id="y0Val">0.60</span></span></label>
+        <input type="range" id="y0" min="-3" max="3" step="0.01" value="0.6">
+      </div>
+    </div>
+
+    <figure class="interactive-figure interactive-figure--map">
+      <canvas id="mapCanvas" width="760" height="470"></canvas>
+      <figcaption>
+        Contour map of $f(x,y)$. Orange dashed line $y=y_0$ generates the left slice;
+        blue dashed line $x=x_0$ generates the right slice. The green arrow is the
+        gradient $\nabla f(x_0,y_0)$.
+      </figcaption>
+    </figure>
+
+    <div class="panels-grid">
+      <figure class="interactive-figure">
+        <canvas id="sliceX" width="420" height="280"></canvas>
+        <figcaption>Slice $g(x)=f(x,\,y_0)$ &mdash; hold $y$ fixed. Tangent slope $=\partial f/\partial x$.</figcaption>
+      </figure>
+      <figure class="interactive-figure">
+        <canvas id="sliceY" width="420" height="280"></canvas>
+        <figcaption>Slice $g(y)=f(x_0,\,y)$ &mdash; hold $x$ fixed. Tangent slope $=\partial f/\partial y$.</figcaption>
+      </figure>
+    </div>
+
+    <div class="stat-strip">
+      <div class="stat-pill stat-pill--warm">
+        <span class="stat-label">$\partial f / \partial x$ (left slice slope)</span>
+        <span class="stat-value" id="fxVal">&mdash;</span>
+      </div>
+      <div class="stat-pill stat-pill--accent">
+        <span class="stat-label">$\partial f / \partial y$ (right slice slope)</span>
+        <span class="stat-value" id="fyVal">&mdash;</span>
+      </div>
+      <div class="stat-pill stat-pill--success">
+        <span class="stat-label">$\lVert \nabla f \rVert$ (steepness)</span>
+        <span class="stat-value" id="gnormVal">&mdash;</span>
+      </div>
+      <div class="stat-pill">
+        <span class="stat-label">$f(x_0,y_0)$ (height)</span>
+        <span class="stat-value" id="fVal">&mdash;</span>
+      </div>
+    </div>
+
+    <div class="callout callout--warn">
+      <strong>Try the saddle.</strong> Sit at the origin: both partials are $0$, so
+      $\nabla f = 0$ &mdash; a critical point. Yet the left slice curves <em>up</em>
+      and the right slice curves <em>down</em>. Zero gradient does not mean a minimum;
+      here it is a saddle. Now step off-centre and watch the green arrow snap to point
+      straight uphill.
+    </div>
+  </section>
+
+  <section class="step-section" id="why">
+    <div class="step-badge">The Payoff</div>
+    <h2>Why the gradient points uphill</h2>
+    <p>
+      The two partials are the components of one vector, and that vector has a
+      geometric job. Along any unit direction $u$, the rate of change is the
+      directional derivative $\nabla f \cdot u$. By Cauchy&ndash;Schwarz this dot
+      product is largest when $u$ aligns with $\nabla f$ &mdash; so the gradient
+      points in the direction of steepest ascent, and $-\nabla f$ is the direction
+      gradient descent actually steps.
+    </p>
+    <div class="math-block">
+      $$D_u f = \nabla f \cdot u, \qquad \max_{\lVert u\rVert = 1} D_u f = \lVert \nabla f\rVert
+        \ \text{ at } \ u = \frac{\nabla f}{\lVert \nabla f\rVert}.$$
+    </div>
+    <ul>
+      <li><strong>Perpendicular to contours.</strong> Moving <em>along</em> a contour keeps $f$ constant, so that direction has zero slope; the gradient, being steepest, must be at right angles to it. Watch the arrow &mdash; it never runs along a colour band.</li>
+      <li><strong>Every weight is an axis.</strong> A network's loss depends on millions of parameters. Its gradient has one partial per weight, each the slope of a private one-dimensional slice, and backprop computes them all in a single backward pass.</li>
+      <li><strong>Flat spots are ambiguous.</strong> $\nabla f = 0$ marks minima, maxima, <em>and</em> saddles alike. The curvature of the slices &mdash; the Hessian &mdash; tells them apart.</li>
+    </ul>
+    <div class="callout callout--think">
+      <strong>Next up:</strong> when the output is also a vector, each output has its
+      own gradient. Stack them as rows and you get the Jacobian &mdash; a whole matrix
+      of partials that linearizes a map. That is the final explainer,
+      <em>The Jacobian is a Local Warp</em>.
+    </div>
+  </section>
+
+  <footer>Part of the ES 667 Deep Learning explainer series &middot; Lecture 3: Calculus Toolkit</footer>
+</article>
+
+<script>
+/* ===================== functions ===================== */
+const FUNCS = {
+  bowl:   { f:(x,y)=> x*x + y*y,               fx:(x,y)=> 2*x,                  fy:(x,y)=> 2*y },
+  saddle: { f:(x,y)=> x*x - y*y,               fx:(x,y)=> 2*x,                  fy:(x,y)=> -2*y },
+  ripple: { f:(x,y)=> 2*Math.sin(x)*Math.cos(y), fx:(x,y)=> 2*Math.cos(x)*Math.cos(y), fy:(x,y)=> -2*Math.sin(x)*Math.sin(y) }
+};
+let fnKey = 'bowl';
+const F = () => FUNCS[fnKey];
+const DOM = 3;                 // domain half-width [-3,3]
+
+/* ===================== elements ===================== */
+const x0El = document.getElementById('x0');
+const y0El = document.getElementById('y0');
+const getX0 = () => parseFloat(x0El.value);
+const getY0 = () => parseFloat(y0El.value);
+
+/* ===================== helpers ===================== */
+function fitCanvas(canvas) {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { ctx, w: rect.width, h: rect.height };
+}
+function fmt(v) {
+  const a = Math.abs(v);
+  if (a < 0.0005) return '0.000';
+  if (a >= 100) return v.toFixed(1);
+  return v.toFixed(3);
+}
+// diverging blue -> cream -> orange colormap on t in [0,1]
+function colormap(t) {
+  t = Math.max(0, Math.min(1, t));
+  const stops = [
+    [26, 77, 128],    // deep blue
+    [90, 150, 200],
+    [253, 252, 249],  // cream
+    [224, 150, 90],
+    [176, 77, 30]     // deep orange
+  ];
+  const s = t * (stops.length - 1);
+  const i = Math.min(stops.length - 2, Math.floor(s));
+  const f = s - i;
+  const a = stops[i], b = stops[i+1];
+  return [
+    Math.round(a[0] + (b[0]-a[0])*f),
+    Math.round(a[1] + (b[1]-a[1])*f),
+    Math.round(a[2] + (b[2]-a[2])*f)
+  ];
+}
+
+/* offscreen heatmap cache */
+const G = 200;
+const off = document.createElement('canvas');
+off.width = G; off.height = G;
+const offCtx = off.getContext('2d');
+let fMin = 0, fMax = 1;
+
+function renderHeatmap() {
+  const fn = F();
+  fMin = Infinity; fMax = -Infinity;
+  const vals = new Float32Array(G * G);
+  for (let j = 0; j < G; j++) {
+    const wy = DOM - (2*DOM) * j / (G - 1);
+    for (let i = 0; i < G; i++) {
+      const wx = -DOM + (2*DOM) * i / (G - 1);
+      const v = fn.f(wx, wy);
+      vals[j*G + i] = v;
+      if (v < fMin) fMin = v;
+      if (v > fMax) fMax = v;
+    }
+  }
+  const img = offCtx.createImageData(G, G);
+  const range = (fMax - fMin) || 1;
+  const NB = 14;                       // contour bands
+  for (let k = 0; k < G*G; k++) {
+    let t = (vals[k] - fMin) / range;
+    const banded = (Math.floor(t * NB) + 0.5) / NB;
+    const c = colormap(banded);
+    img.data[k*4]   = c[0];
+    img.data[k*4+1] = c[1];
+    img.data[k*4+2] = c[2];
+    img.data[k*4+3] = 255;
+  }
+  offCtx.putImageData(img, 0, 0);
+}
+
+/* ===================== map draw ===================== */
+let plot = null;   // {x, y, S} of the square plot region, in CSS px
+function drawMap() {
+  const { ctx, w, h } = fitCanvas(document.getElementById('mapCanvas'));
+  ctx.clearRect(0, 0, w, h);
+  const pad = 22;
+  const S = h - 2*pad;
+  const px = 54, py = pad;
+  plot = { x: px, y: py, S };
+  const WX = wx => px + (wx + DOM) / (2*DOM) * S;
+  const WY = wy => py + (DOM - wy) / (2*DOM) * S;
+
+  // heatmap
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(off, px, py, S, S);
+  ctx.strokeStyle = 'rgba(47,42,34,0.25)'; ctx.lineWidth = 1;
+  ctx.strokeRect(px, py, S, S);
+
+  const fn = F(), x0 = getX0(), y0 = getY0();
+
+  // axis ticks
+  ctx.fillStyle = '#8a8072'; ctx.font = '500 10px Manrope, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  for (let g = -3; g <= 3; g++) { ctx.fillText(String(g), WX(g), py + S + 5); }
+  ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  for (let g = -3; g <= 3; g++) { ctx.fillText(String(g), px - 6, WY(g)); }
+  ctx.fillStyle = '#6e665b'; ctx.font = '600 11px Manrope, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillText('x', px + S/2, py + S + 20);
+
+  // slice guide lines
+  ctx.setLineDash([6, 5]); ctx.lineWidth = 2;
+  ctx.strokeStyle = '#d9622b';                 // y = y0  (left slice, over x)
+  ctx.beginPath(); ctx.moveTo(px, WY(y0)); ctx.lineTo(px + S, WY(y0)); ctx.stroke();
+  ctx.strokeStyle = '#2c6fb7';                 // x = x0  (right slice, over y)
+  ctx.beginPath(); ctx.moveTo(WX(x0), py); ctx.lineTo(WX(x0), py + S); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // gradient arrow (points uphill)
+  const gx = fn.fx(x0, y0), gy = fn.fy(x0, y0);
+  const gn = Math.hypot(gx, gy);
+  const sx0 = WX(x0), sy0 = WY(y0);
+  if (gn > 1e-6) {
+    const L = Math.min(70, 16 + gn * 7);       // arrow length in px
+    const ux = gx / gn, uy = gy / gn;
+    const ex = sx0 + ux * L, ey = sy0 - uy * L;   // screen y flips
+    ctx.strokeStyle = '#1e7770'; ctx.fillStyle = '#1e7770'; ctx.lineWidth = 3.5;
+    ctx.beginPath(); ctx.moveTo(sx0, sy0); ctx.lineTo(ex, ey); ctx.stroke();
+    const ang = Math.atan2(ey - sy0, ex - sx0), ah = 10;
+    ctx.beginPath();
+    ctx.moveTo(ex, ey);
+    ctx.lineTo(ex - ah*Math.cos(ang - 0.4), ey - ah*Math.sin(ang - 0.4));
+    ctx.lineTo(ex - ah*Math.cos(ang + 0.4), ey - ah*Math.sin(ang + 0.4));
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#14564f'; ctx.font = '700 12px Manrope, sans-serif';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillText('∇f', ex + 6, ey);
+  }
+
+  // point
+  ctx.fillStyle = '#1a1815';
+  ctx.beginPath(); ctx.arc(sx0, sy0, 6, 0, 2*Math.PI); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.5; ctx.stroke();
+
+  // colorbar
+  const cbX = px + S + 26, cbY = py, cbW = 16, cbH = S;
+  const grad = ctx.createLinearGradient(0, cbY + cbH, 0, cbY);
+  for (let s = 0; s <= 10; s++) {
+    const c = colormap(s/10);
+    grad.addColorStop(s/10, `rgb(${c[0]},${c[1]},${c[2]})`);
+  }
+  ctx.fillStyle = grad; ctx.fillRect(cbX, cbY, cbW, cbH);
+  ctx.strokeStyle = 'rgba(47,42,34,0.25)'; ctx.lineWidth = 1; ctx.strokeRect(cbX, cbY, cbW, cbH);
+  ctx.fillStyle = '#8a8072'; ctx.font = '500 10px Manrope, sans-serif';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  ctx.fillText(fmt(fMax), cbX + cbW + 5, cbY + 4);
+  ctx.fillText(fmt(fMin), cbX + cbW + 5, cbY + cbH - 4);
+  ctx.save(); ctx.translate(cbX + cbW + 34, cbY + cbH/2); ctx.rotate(Math.PI/2);
+  ctx.textAlign = 'center'; ctx.fillStyle = '#6e665b'; ctx.font = '600 11px Manrope, sans-serif';
+  ctx.fillText('f(x, y)', 0, 0); ctx.restore();
+  // current-value marker on colorbar
+  const tv = (fn.f(x0,y0) - fMin) / ((fMax - fMin) || 1);
+  const my = cbY + cbH * (1 - Math.max(0, Math.min(1, tv)));
+  ctx.fillStyle = '#1a1815';
+  ctx.beginPath(); ctx.moveTo(cbX - 4, my); ctx.lineTo(cbX - 10, my - 4); ctx.lineTo(cbX - 10, my + 4); ctx.closePath(); ctx.fill();
+}
+
+/* ===================== slice plots ===================== */
+function drawSlice(canvasId, mode) {
+  // mode 'x': g(x)=f(x,y0), tangent slope fx ; mode 'y': g(y)=f(x0,y), tangent slope fy
+  const { ctx, w, h } = fitCanvas(document.getElementById(canvasId));
+  ctx.clearRect(0, 0, w, h);
+  const fn = F(), x0 = getX0(), y0 = getY0();
+  const g = (mode === 'x') ? (t => fn.f(t, y0)) : (t => fn.f(x0, t));
+  const t0 = (mode === 'x') ? x0 : y0;
+  const slope = (mode === 'x') ? fn.fx(x0, y0) : fn.fy(x0, y0);
+  const accent = (mode === 'x') ? '#d9622b' : '#2c6fb7';
+
+  // y-range over the slice
+  let lo = Infinity, hi = -Infinity;
+  const M = 240;
+  const ys = new Array(M + 1);
+  for (let i = 0; i <= M; i++) {
+    const t = -DOM + (2*DOM)*i/M;
+    const v = g(t); ys[i] = v;
+    if (v < lo) lo = v; if (v > hi) hi = v;
+  }
+  if (hi - lo < 1e-6) { hi += 1; lo -= 1; }
+  const padF = (hi - lo) * 0.12; lo -= padF; hi += padF;
+
+  const padL = 42, padR = 14, padT = 30, padB = 34;
+  const cw = w - padL - padR, ch = h - padT - padB;
+  const TX = t => padL + (t + DOM)/(2*DOM) * cw;
+  const VY = v => padT + (hi - v)/(hi - lo) * ch;
+
+  // grid + zero lines
+  ctx.strokeStyle = 'rgba(47,42,34,0.08)'; ctx.lineWidth = 1;
+  ctx.fillStyle = '#a89b86'; ctx.font = '500 10px Manrope, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  for (let gv = -3; gv <= 3; gv++) {
+    const sx = TX(gv);
+    ctx.strokeStyle = (gv === 0) ? 'rgba(47,42,34,0.28)' : 'rgba(47,42,34,0.08)';
+    ctx.beginPath(); ctx.moveTo(sx, padT); ctx.lineTo(sx, padT + ch); ctx.stroke();
+    ctx.fillText(String(gv), sx, padT + ch + 5);
+  }
+  if (lo < 0 && hi > 0) {
+    const zy = VY(0);
+    ctx.strokeStyle = 'rgba(47,42,34,0.28)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(padL, zy); ctx.lineTo(padL + cw, zy); ctx.stroke();
+  }
+
+  // slice curve
+  ctx.strokeStyle = '#1a1815'; ctx.lineWidth = 2.4;
+  ctx.beginPath();
+  for (let i = 0; i <= M; i++) {
+    const t = -DOM + (2*DOM)*i/M;
+    const sx = TX(t), sy = VY(ys[i]);
+    if (i === 0) ctx.moveTo(sx, sy); else ctx.lineTo(sx, sy);
+  }
+  ctx.stroke();
+
+  // tangent line at t0
+  const v0 = g(t0);
+  ctx.strokeStyle = accent; ctx.lineWidth = 2.2;
+  const tl = -DOM, tr = DOM;
+  ctx.beginPath();
+  ctx.moveTo(TX(tl), VY(v0 + slope*(tl - t0)));
+  ctx.lineTo(TX(tr), VY(v0 + slope*(tr - t0)));
+  ctx.stroke();
+
+  // point
+  ctx.fillStyle = accent;
+  ctx.beginPath(); ctx.arc(TX(t0), VY(v0), 6, 0, 2*Math.PI); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.2; ctx.stroke();
+
+  // labels
+  ctx.fillStyle = '#5a5247'; ctx.font = '600 11px Manrope, sans-serif';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillText(mode === 'x' ? 'g(x) = f(x, y₀)' : 'g(y) = f(x₀, y)', padL, 6);
+  ctx.textAlign = 'right';
+  ctx.fillStyle = accent;
+  ctx.fillText('slope = ' + fmt(slope), padL + cw, 6);
+  ctx.fillStyle = '#8a8072'; ctx.font = '600 11px Manrope, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillText(mode === 'x' ? 'x' : 'y', padL + cw/2, padT + ch + 18);
+}
+
+/* ===================== orchestration ===================== */
+function redraw() {
+  drawMap();
+  drawSlice('sliceX', 'x');
+  drawSlice('sliceY', 'y');
+  const fn = F(), x0 = getX0(), y0 = getY0();
+  const gx = fn.fx(x0,y0), gy = fn.fy(x0,y0);
+  document.getElementById('fxVal').textContent = fmt(gx);
+  document.getElementById('fyVal').textContent = fmt(gy);
+  document.getElementById('gnormVal').textContent = fmt(Math.hypot(gx, gy));
+  document.getElementById('fVal').textContent = fmt(fn.f(x0,y0));
+}
+
+/* ===================== interaction ===================== */
+const mapCanvas = document.getElementById('mapCanvas');
+let dragging = false;
+function setFromEvent(e) {
+  if (!plot) return;
+  const rect = mapCanvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  let wx = (mx - plot.x) / plot.S * (2*DOM) - DOM;
+  let wy = DOM - (my - plot.y) / plot.S * (2*DOM);
+  wx = Math.max(-DOM, Math.min(DOM, wx));
+  wy = Math.max(-DOM, Math.min(DOM, wy));
+  x0El.value = wx; y0El.value = wy;
+  document.getElementById('x0Val').textContent = wx.toFixed(2);
+  document.getElementById('y0Val').textContent = wy.toFixed(2);
+  redraw();
+}
+mapCanvas.addEventListener('pointerdown', e => { dragging = true; setFromEvent(e); });
+window.addEventListener('pointermove', e => { if (dragging) setFromEvent(e); });
+window.addEventListener('pointerup', () => { dragging = false; });
+
+x0El.addEventListener('input', () => { document.getElementById('x0Val').textContent = getX0().toFixed(2); redraw(); });
+y0El.addEventListener('input', () => { document.getElementById('y0Val').textContent = getY0().toFixed(2); redraw(); });
+document.querySelectorAll('#fn-row .mode-button').forEach(b =>
+  b.addEventListener('click', () => {
+    document.querySelectorAll('#fn-row .mode-button').forEach(x => x.classList.remove('is-active'));
+    b.classList.add('is-active');
+    fnKey = b.dataset.fn;
+    renderHeatmap();
+    redraw();
+  }));
+
+window.addEventListener('load', () => { renderHeatmap(); redraw(); });
+window.addEventListener('resize', redraw);
+</script>
+
+</body>
+</html>

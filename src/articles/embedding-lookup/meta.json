@@ -1,0 +1,20 @@
+{
+  "slug": "embedding-lookup",
+  "title": "Embeddings are a Lookup Table",
+  "date": "2026-07-10",
+  "tagline": "An embedding layer is just indexing a learned table of vectors — one row per token",
+  "summary": "A 10-token, 2-dimensional embedding matrix drawn two ways at once: a heat-map table you index into and a scatter map you can drag. Click a token to light up its row and read off e = E[i]; nudge the two coordinates with sliders or drag the point across the plane and watch the row and its position move as one. Vowels and consonants start pre-clustered, so you can feel the punchline directly — similarity between tokens is nothing but distance between rows, and training is just moving those rows.",
+  "readingTime": "7 min",
+  "difficulty": "Intermediate",
+  "collection": "Deep learning",
+  "order": 46,
+  "status": "published",
+  "tags": ["Embeddings", "Language Models", "Representations", "Lookup Table", "Interactive"],
+  "highlights": [
+    "See an embedding matrix E rendered simultaneously as a heat-map table and a 2-D scatter of points — the same array, two views.",
+    "Click any token id to light up its row and read the lookup e = E[i] as a dense vector.",
+    "Drag a point across the plane (or nudge its two sliders) and watch the corresponding row recolor in lock-step.",
+    "Vowels and consonants begin pre-clustered, so dragging one across the border flips its nearest neighbour and makes 'similarity = nearby rows' tangible.",
+    "Sets up the companion char-MLP explainer: a training step edits only the rows of the tokens it actually used."
+  ]
+}

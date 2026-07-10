@@ -1,0 +1,20 @@
+{
+  "slug": "surface-partials",
+  "title": "Partial Derivatives are Slices",
+  "date": "2026-07-10",
+  "tagline": "Freeze one variable, take an ordinary derivative — the gradient just collects the slopes",
+  "summary": "A surface tilts differently in every direction, so it has no single slope. Move a point across a filled contour map of f(x,y) and watch two 1-D slices appear: one holds y fixed, one holds x fixed, and each carries a tangent whose slope is the matching partial derivative. The green gradient arrow stacks the two partials, always pointing uphill and perpendicular to the contours. A bowl, a saddle, and a ripple make critical points, steepest ascent, and the meaning of a zero gradient concrete.",
+  "readingTime": "9 min",
+  "difficulty": "Intermediate",
+  "collection": "Deep learning",
+  "order": 35,
+  "status": "published",
+  "tags": ["Calculus", "Partial Derivatives", "Gradient", "Optimization", "Interactive"],
+  "highlights": [
+    "Drag a point over a filled contour map of a bowl, a saddle, or a ripple and see both slice curves update live.",
+    "Each slice draws its own tangent, whose slope is exactly the partial derivative held in one variable.",
+    "The gradient arrow collects both partials and always points uphill, at right angles to the contour bands.",
+    "Read partial-x, partial-y, gradient norm, and height as four linked numbers.",
+    "See why a zero gradient can be a minimum, a maximum, or a saddle — and why -grad is the direction descent steps."
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "slug": "augmentation-mixup",
+  "title": "Augmentation & Mixup",
+  "date": "2026-07-10",
+  "tagline": "Two cheap ways to invent training data: scatter neighbors around each point, or place soft-labeled points along the lines between them",
+  "summary": "A 2-D two-class dataset with only twelve points per class gives a nervous, jagged decision boundary. Toggle data augmentation and watch each example sprout a cloud of jittered copies that thickens the support and straightens the boundary. Toggle mixup and watch convex combinations x = lambda*xi + (1-lambda)*xj carry soft labels along the segments between examples, widening the pale margin band. A lambda slider slides a highlighted blended point between an A example and a B example, colored by its interpolated soft label. Both fill in the data manifold and push the boundary to a larger margin.",
+  "readingTime": "9 min",
+  "difficulty": "Intermediate",
+  "collection": "Deep learning",
+  "order": 45,
+  "status": "published",
+  "tags": ["Augmentation", "Mixup", "Regularization", "Generalization", "Interactive"],
+  "highlights": [
+    "Toggle data augmentation and watch every point sprout a cloud of jittered copies that thickens class support and straightens the boundary.",
+    "Toggle mixup and see soft-labeled convex combinations bridge the gap between classes along straight segments.",
+    "Drag a lambda slider to slide a highlighted blended point x = lambda*xi + (1-lambda)*xj between two classes, colored by its interpolated soft label.",
+    "Watch a live decision landscape with a pale margin ribbon widen as mixup forces the prediction to change linearly between examples.",
+    "Read three metrics live: effective example count, margin-band area, and decision-boundary length that quantify the smoothing."
+  ]
+}

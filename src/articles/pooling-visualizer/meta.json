@@ -1,0 +1,20 @@
+{
+  "slug": "pooling-visualizer",
+  "title": "Pooling, Cell by Cell",
+  "date": "2026-07-10",
+  "tagline": "Slide a pooling window over a feature map and watch max vs average downsample it live",
+  "summary": "A 6x6 feature map with a pooling window that slides cell by cell. Choose the window size (2 or 3), the stride, and max versus average pooling, then step or play through every landing. The current window is highlighted on the input, the number it produces is outlined on the output, and in max mode the winning cell is starred. The output-size formula floor((W-K)/S)+1 updates live so the shrinking is never a surprise.",
+  "readingTime": "7 min",
+  "difficulty": "Intermediate",
+  "collection": "Deep learning",
+  "order": 37,
+  "status": "published",
+  "tags": ["Pooling", "CNN", "Downsampling", "Interactive"],
+  "highlights": [
+    "Watch a pooling window slide over a 6x6 feature map, producing one output cell per landing.",
+    "Toggle max versus average pooling on the same window and see exactly how the summarised number changes.",
+    "In max mode the single winning input cell is starred, making translation-invariance concrete.",
+    "Change window size and stride and read the output dimension straight off floor((W-K)/S)+1.",
+    "Step, play, scrub, or regenerate the input to build intuition for why K=S=2 halves each spatial dimension."
+  ]
+}

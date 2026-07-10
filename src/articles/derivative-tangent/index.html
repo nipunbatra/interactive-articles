@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Derivative is a Local Line</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body, {delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
+
+<style>
+:root {
+  --serif: 'Source Serif 4', Georgia, serif;
+  --sans: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+  --mono: 'IBM Plex Mono', monospace;
+  --bg: #fdfcf9;
+  --paper: #ffffff;
+  --text: #2f2a22;
+  --muted: #6e665b;
+  --border: #e2d8c6;
+  --accent: #2c6fb7;
+  --warm: #d9622b;
+  --success: #1e7770;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; font-family: var(--serif); color: var(--text); background: var(--bg); line-height: 1.65; }
+
+.article { max-width: 980px; margin: 0 auto; padding: 2.5rem 1.5rem 5rem; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; color: var(--muted); text-decoration: none; font-family: var(--sans); font-size: 0.9rem; }
+.back-link:hover { color: var(--text); }
+.article-header { margin-bottom: 3rem; text-align: center; }
+.kicker { margin: 0 0 0.75rem; font-family: var(--sans); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); }
+h1 { margin: 0 auto 1rem; font-size: clamp(2.4rem, 5vw, 3.5rem); line-height: 1.1; letter-spacing: -0.02em; color: #1a1815; max-width: 20ch; }
+.abstract { margin: 0 auto 1rem; max-width: 62ch; font-size: 1.15rem; color: #4d463d; }
+.byline { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-top: 1.4rem; padding-top: 1rem; border-top: 1px solid var(--border); color: var(--muted); font-family: var(--sans); font-size: 0.92rem; }
+
+.step-section {
+  position: relative;
+  margin-top: 4rem;
+  padding: 3rem 2.5rem;
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.03);
+}
+.step-badge {
+  position: absolute;
+  top: -16px;
+  left: 32px;
+  background: var(--accent);
+  color: white;
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.4rem 1.2rem;
+  border-radius: 999px;
+  box-shadow: 0 4px 12px rgba(44, 111, 183, 0.25);
+}
+h2 { margin: 0 0 1rem; font-size: clamp(1.6rem, 3.5vw, 2.2rem); line-height: 1.15; color: #1a1815; }
+h3 { margin-top: 2rem; margin-bottom: 0.8rem; font-size: 1.25rem; color: #1a1815; }
+p { max-width: 68ch; font-size: 1.1rem; }
+ul { max-width: 68ch; font-size: 1.1rem; padding-left: 1.4rem; }
+li { margin-bottom: 0.5rem; }
+.math-block { margin: 1.5rem 0; text-align: center; font-size: 1.05rem; }
+
+.control-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.4rem;
+  margin: 1.6rem 0;
+}
+.control-block { display: flex; flex-direction: column; gap: 0.5rem; }
+.control-block label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-family: var(--sans);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.control-block label span { font-family: var(--mono); color: var(--warm); font-weight: 500; font-size: 0.95rem; }
+input[type="range"] {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px; height: 18px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid var(--paper);
+  box-shadow: 0 2px 6px rgba(44,111,183,0.4);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 18px; height: 18px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid var(--paper);
+}
+
+.button-row { display: flex; gap: 0.6rem; flex-wrap: wrap; margin: 1rem 0; }
+.mode-button {
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: 0.92rem;
+  padding: 0.55rem 1.1rem;
+  border-radius: 8px;
+  border: 1.5px solid var(--border);
+  background: var(--paper);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.mode-button:hover { border-color: var(--accent); }
+.mode-button.is-active { background: var(--accent); color: white; border-color: var(--accent); }
+
+.interactive-figure { margin: 1.5rem 0; }
+.interactive-figure canvas {
+  display: block;
+  width: 100%;
+  background: #fbfaf6;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  cursor: grab;
+  touch-action: none;
+}
+.interactive-figure canvas:active { cursor: grabbing; }
+.interactive-figure figcaption { margin-top: 0.7rem; font-size: 0.92rem; color: var(--muted); text-align: center; font-style: italic; }
+
+.stat-strip { display: flex; gap: 1rem; flex-wrap: wrap; margin: 1.5rem 0; }
+.stat-pill {
+  flex: 1 1 140px;
+  min-width: 140px;
+  background: var(--paper);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  padding: 0.9rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  text-align: left;
+}
+.stat-pill .stat-label { font-family: var(--sans); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; }
+.stat-pill .stat-value { font-family: var(--mono); font-size: 1.5rem; font-weight: 600; color: var(--text); }
+.stat-pill--accent { border-color: var(--accent); }
+.stat-pill--accent .stat-value { color: var(--accent); }
+.stat-pill--warm { border-color: var(--warm); }
+.stat-pill--warm .stat-value { color: var(--warm); }
+.stat-pill--success { border-color: var(--success); }
+.stat-pill--success .stat-value { color: var(--success); }
+.stat-pill--big { flex: 1 1 100%; }
+.stat-pill--big .stat-value { font-size: 2.6rem; }
+
+.callout {
+  margin: 2rem 0 0.5rem;
+  padding: 1.2rem 1.5rem;
+  border-radius: 12px;
+  border-left: 4px solid var(--accent);
+  background: rgba(44,111,183,0.05);
+  font-size: 1.02rem;
+}
+.callout strong { color: var(--accent); }
+.callout--think { border-left-color: var(--success); background: rgba(30,119,112,0.06); }
+.callout--think strong { color: var(--success); }
+.callout--warn { border-left-color: var(--warm); background: rgba(217,98,43,0.06); }
+.callout--warn strong { color: var(--warm); }
+
+footer { margin-top: 4rem; text-align: center; font-family: var(--sans); font-size: 0.85rem; color: var(--muted); }
+
+@media (max-width: 640px) { .step-section { padding: 2rem 1.4rem; } }
+</style>
+</head>
+<body>
+
+<article class="article">
+  <header class="article-header">
+    <a class="back-link" href="../">&larr; Explainer Library</a>
+    <p class="kicker">Interactive Explainer &middot; Calculus Toolkit</p>
+    <h1>The Derivative is a Local Line</h1>
+    <p class="abstract">
+      A derivative is not a formula to memorize &mdash; it is the slope of the
+      straight line a curve becomes when you zoom in far enough. Drag the base
+      point, collapse a secant onto the tangent, and zoom until the curve
+      straightens. The number you land on <em>is</em> $f'(x_0)$.
+    </p>
+    <div class="byline">
+      <span>~8 min</span>
+      <span>Deep Learning &middot; Calculus &middot; Gradients</span>
+    </div>
+  </header>
+
+  <section class="step-section" id="prelude">
+    <div class="step-badge">Prelude</div>
+    <h2>Slope of what, exactly?</h2>
+    <p>
+      The derivative $f'(x_0)$ is defined as a limit of slopes of secant lines.
+      Pick a nearby point a distance $h$ away, draw the line through
+      $(x_0, f(x_0))$ and $(x_0+h,\, f(x_0+h))$, and read off its slope. Now let
+      the second point slide in toward the first:
+    </p>
+    <div class="math-block">
+      $$f'(x_0) \;=\; \lim_{h \to 0} \frac{f(x_0+h) - f(x_0)}{h}.$$
+    </div>
+    <p>
+      Two pictures of the same fact live below. The <strong>secant</strong> slider
+      shrinks $h$ so the average slope converges to the instantaneous one. The
+      <strong>zoom</strong> slider does it geometrically: magnify the graph around
+      $(x_0, f(x_0))$ and any smooth curve flattens into a straight line &mdash;
+      the tangent. That line, and its slope, is the entire content of "derivative."
+    </p>
+  </section>
+
+  <section class="step-section" id="lab">
+    <div class="step-badge">The Lab</div>
+    <h2>Secant, tangent, zoom</h2>
+    <p>
+      Choose a curve, then <strong>drag left/right on the plot</strong> (or use the
+      $x_0$ slider) to move the base point. Pull the $h$ slider toward $0$ and watch
+      the orange secant swing onto the blue tangent. Then push the zoom slider and
+      watch the curve itself straighten.
+    </p>
+
+    <div class="button-row" id="fn-row">
+      <button class="mode-button is-active" data-fn="sq">$f(x)=x^2$</button>
+      <button class="mode-button" data-fn="sin">$f(x)=\sin x$</button>
+      <button class="mode-button" data-fn="cubic">$f(x)=x^3-x$</button>
+    </div>
+
+    <div class="control-row">
+      <div class="control-block">
+        <label>Base point <span>$x_0$ = <span id="x0Val">1.00</span></span></label>
+        <input type="range" id="x0" min="-3" max="3" step="0.01" value="1.0">
+      </div>
+      <div class="control-block">
+        <label>Secant step <span>$h$ = <span id="hVal">1.50</span></span></label>
+        <input type="range" id="h" min="0.02" max="2.5" step="0.001" value="1.5">
+      </div>
+      <div class="control-block">
+        <label>Zoom <span>&times;<span id="zoomVal">1.0</span></span></label>
+        <input type="range" id="zoom" min="0" max="1" step="0.001" value="0">
+      </div>
+    </div>
+
+    <figure class="interactive-figure">
+      <canvas id="mainCanvas" width="900" height="460"></canvas>
+      <figcaption>
+        Blue = tangent line $y = f(x_0) + f'(x_0)(x-x_0)$.
+        Orange = secant through the two dots, slope
+        $\big(f(x_0+h)-f(x_0)\big)/h$. Grid spacing is labelled and shrinks as you zoom.
+      </figcaption>
+    </figure>
+
+    <div class="stat-strip">
+      <div class="stat-pill stat-pill--warm stat-pill--big">
+        <span class="stat-label">Secant slope $\;\big(f(x_0+h)-f(x_0)\big)/h$</span>
+        <span class="stat-value" id="secVal">&mdash;</span>
+      </div>
+    </div>
+    <div class="stat-strip">
+      <div class="stat-pill stat-pill--accent">
+        <span class="stat-label">Derivative $f'(x_0)$</span>
+        <span class="stat-value" id="derivVal">&mdash;</span>
+      </div>
+      <div class="stat-pill stat-pill--success">
+        <span class="stat-label">Gap (secant &minus; tangent)</span>
+        <span class="stat-value" id="gapVal">&mdash;</span>
+      </div>
+      <div class="stat-pill">
+        <span class="stat-label">Height $f(x_0)$</span>
+        <span class="stat-value" id="fxVal">&mdash;</span>
+      </div>
+    </div>
+
+    <div class="callout callout--warn">
+      <strong>Do this now.</strong> Set $x_0$ somewhere interesting, then drag the
+      $h$ slider from $2.5$ down toward $0$. The big orange number slides toward the
+      blue derivative, and the <em>gap</em> shrinks &mdash; for a smooth curve it
+      shrinks roughly like $h$ itself. Separately, leave $h$ alone and crank the
+      zoom: the curve peels away from your eye as a perfect line. Same limit,
+      two lenses.
+    </div>
+  </section>
+
+  <section class="step-section" id="why">
+    <div class="step-badge">The Payoff</div>
+    <h2>Differentiable means locally linear</h2>
+    <p>
+      Zoom into a differentiable function anywhere and it looks like a line. That is
+      the whole reason calculus powers deep learning: near the current weights, a
+      loss surface is well approximated by its tangent (its gradient), so we can
+      take a confident step downhill. Formally, the tangent is the best linear
+      approximation, with error that dies faster than $h$:
+    </p>
+    <div class="math-block">
+      $$f(x_0 + h) = \underbrace{f(x_0) + f'(x_0)\,h}_{\text{tangent line}} + o(h).$$
+    </div>
+    <ul>
+      <li><strong>Corners break it.</strong> Try $f(x)=|x|$ in your head at $x_0=0$: zooming never straightens the kink, and the left/right secant slopes disagree. No single tangent, no derivative &mdash; the same reason $\mathrm{ReLU}$ needs a subgradient at $0$.</li>
+      <li><strong>The slope is the derivative.</strong> There is nothing else in the definition: it is literally the number the secant slopes converge to.</li>
+      <li><strong>Backprop is this, everywhere at once.</strong> Each layer contributes its local slope; the chain rule multiplies them. Every arrow in a computation graph is a tiny version of this picture.</li>
+    </ul>
+    <div class="callout callout--think">
+      <strong>Next up:</strong> functions of many variables do not have one slope but
+      a whole vector of them &mdash; the gradient. Each entry is exactly this
+      one-dimensional picture, taken along one axis. That is the next explainer,
+      <em>Partial Derivatives are Slices</em>.
+    </div>
+  </section>
+
+  <footer>Part of the ES 667 Deep Learning explainer series &middot; Lecture 3: Calculus Toolkit</footer>
+</article>
+
+<script>
+/* ===================== functions ===================== */
+const FUNCS = {
+  sq:    { f: x => x*x,         fp: x => 2*x,        base: 1.0 },
+  sin:   { f: x => Math.sin(x), fp: x => Math.cos(x), base: 0.8 },
+  cubic: { f: x => x*x*x - x,   fp: x => 3*x*x - 1,  base: 1.2 }
+};
+let fnKey = 'sq';
+const F = () => FUNCS[fnKey];
+
+/* ===================== state / elements ===================== */
+const x0El   = document.getElementById('x0');
+const hEl    = document.getElementById('h');
+const zoomEl = document.getElementById('zoom');
+const BASE_HALF = 3.4;               // world half-width at zoom 1
+const ZOOM_MAX  = 250;               // max magnification
+
+function getX0()   { return parseFloat(x0El.value); }
+function getH()    { return parseFloat(hEl.value); }
+function getZoom() { return Math.pow(ZOOM_MAX, parseFloat(zoomEl.value)); }
+
+/* ===================== canvas helper ===================== */
+function fitCanvas(canvas) {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { ctx, w: rect.width, h: rect.height };
+}
+function niceStep(range) {
+  const raw = range / 6;
+  const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const norm = raw / mag;
+  const step = norm >= 5 ? 5 : norm >= 2 ? 2 : 1;
+  return step * mag;
+}
+function fmt(v) {
+  const a = Math.abs(v);
+  if (a !== 0 && (a < 0.001 || a >= 100000)) return v.toExponential(1);
+  if (a >= 100) return v.toFixed(1);
+  if (a >= 1)   return v.toFixed(3);
+  return v.toFixed(4);
+}
+
+/* ===================== main draw ===================== */
+function draw() {
+  const { ctx, w, h } = fitCanvas(document.getElementById('mainCanvas'));
+  ctx.clearRect(0, 0, w, h);
+
+  const fn = F();
+  const x0 = getX0();
+  const y0 = fn.f(x0);
+  const zoom = getZoom();
+  const halfW = BASE_HALF / zoom;
+  const pp = (w / 2) / halfW;                 // pixels per world unit (equal aspect)
+  const cx = x0, cy = y0;                      // view centred on the base point
+  const SX = wx => w/2 + (wx - cx) * pp;
+  const SY = wy => h/2 - (wy - cy) * pp;
+  const halfWy = (h / 2) / pp;
+
+  // ---- grid ----
+  const step = niceStep(2 * halfW);
+  ctx.font = '500 10px Manrope, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  const xStart = Math.ceil((cx - halfW) / step) * step;
+  for (let gx = xStart; gx <= cx + halfW; gx += step) {
+    const sx = SX(gx);
+    const isAxis = Math.abs(gx) < step * 0.5;
+    ctx.strokeStyle = isAxis ? 'rgba(47,42,34,0.35)' : 'rgba(47,42,34,0.07)';
+    ctx.lineWidth = isAxis ? 1.4 : 1;
+    ctx.beginPath(); ctx.moveTo(sx, 0); ctx.lineTo(sx, h); ctx.stroke();
+    if (!isAxis || gx !== 0) {
+      ctx.fillStyle = '#a89b86';
+      ctx.fillText(fmt(gx), sx, 4);
+    }
+  }
+  const yStart = Math.ceil((cy - halfWy) / step) * step;
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  for (let gy = yStart; gy <= cy + halfWy; gy += step) {
+    const sy = SY(gy);
+    const isAxis = Math.abs(gy) < step * 0.5;
+    ctx.strokeStyle = isAxis ? 'rgba(47,42,34,0.35)' : 'rgba(47,42,34,0.07)';
+    ctx.lineWidth = isAxis ? 1.4 : 1;
+    ctx.beginPath(); ctx.moveTo(0, sy); ctx.lineTo(w, sy); ctx.stroke();
+    if (Math.abs(gy) >= step * 0.5) {
+      ctx.fillStyle = '#a89b86';
+      ctx.fillText(fmt(gy), 5, sy);
+    }
+  }
+
+  // ---- the curve ----
+  ctx.strokeStyle = '#1a1815'; ctx.lineWidth = 2.4;
+  ctx.beginPath();
+  const N = 700;
+  for (let i = 0; i <= N; i++) {
+    const wx = (cx - halfW) + (2 * halfW) * i / N;
+    const sy = SY(fn.f(wx));
+    if (i === 0) ctx.moveTo(SX(wx), sy); else ctx.lineTo(SX(wx), sy);
+  }
+  ctx.stroke();
+
+  // ---- tangent line ----
+  const m = fn.fp(x0);
+  ctx.strokeStyle = '#2c6fb7'; ctx.lineWidth = 2.2;
+  ctx.beginPath();
+  const xl = cx - halfW, xr = cx + halfW;
+  ctx.moveTo(SX(xl), SY(y0 + m * (xl - x0)));
+  ctx.lineTo(SX(xr), SY(y0 + m * (xr - x0)));
+  ctx.stroke();
+
+  // ---- secant line ----
+  const hh = getH();
+  const xB = x0 + hh, yB = fn.f(xB);
+  const secSlope = (yB - y0) / hh;
+  ctx.strokeStyle = '#d9622b'; ctx.lineWidth = 2.2;
+  ctx.setLineDash([7, 5]);
+  ctx.beginPath();
+  ctx.moveTo(SX(xl), SY(y0 + secSlope * (xl - x0)));
+  ctx.lineTo(SX(xr), SY(y0 + secSlope * (xr - x0)));
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // second secant dot (may be off-screen when zoomed in)
+  const sxB = SX(xB), syB = SY(yB);
+  if (sxB > -20 && sxB < w + 20 && syB > -20 && syB < h + 20) {
+    ctx.fillStyle = '#d9622b';
+    ctx.beginPath(); ctx.arc(sxB, syB, 6, 0, 2*Math.PI); ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = '#b04d1e'; ctx.font = '600 12px Manrope, sans-serif';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+    ctx.fillText('x₀ + h', sxB + 9, syB - 6);
+  }
+
+  // ---- base point ----
+  const sx0 = SX(x0), sy0 = SY(y0);
+  ctx.fillStyle = '#2c6fb7';
+  ctx.beginPath(); ctx.arc(sx0, sy0, 7, 0, 2*Math.PI); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.5; ctx.stroke();
+  ctx.fillStyle = '#1a5285'; ctx.font = '700 13px Manrope, sans-serif';
+  ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
+  ctx.fillText('x₀', sx0 - 10, sy0 - 8);
+
+  // ---- legend ----
+  const lg = [['tangent  (slope = f′)', '#2c6fb7'], ['secant  (slope over h)', '#d9622b']];
+  ctx.font = '600 11px Manrope, sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  lg.forEach((row, i) => {
+    const ly = 16 + i * 18;
+    ctx.strokeStyle = row[1]; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(w - 190, ly); ctx.lineTo(w - 168, ly); ctx.stroke();
+    ctx.fillStyle = '#5a5247'; ctx.fillText(row[0], w - 162, ly);
+  });
+
+  // zoom / locally-linear badge
+  if (zoom > 8) {
+    ctx.fillStyle = 'rgba(30,119,112,0.9)'; ctx.font = '700 12px Manrope, sans-serif';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillText('curve ≈ tangent  (locally linear)', 12, h - 22);
+  }
+
+  // ---- stats ----
+  document.getElementById('secVal').textContent   = fmt(secSlope);
+  document.getElementById('derivVal').textContent = fmt(m);
+  document.getElementById('gapVal').textContent   = fmt(secSlope - m);
+  document.getElementById('fxVal').textContent    = fmt(y0);
+}
+
+/* ===================== drag to move x0 ===================== */
+const canvas = document.getElementById('mainCanvas');
+let dragging = false, lastX = 0;
+function ppNow() {
+  const rect = canvas.getBoundingClientRect();
+  const halfW = BASE_HALF / getZoom();
+  return (rect.width / 2) / halfW;
+}
+function pointerDown(e) { dragging = true; lastX = e.clientX; }
+function pointerMove(e) {
+  if (!dragging) return;
+  const dxWorld = (e.clientX - lastX) / ppNow();
+  lastX = e.clientX;
+  let nx = getX0() - dxWorld;               // drag right -> move base point right along curve
+  nx = Math.max(-3, Math.min(3, nx));
+  x0El.value = nx;
+  document.getElementById('x0Val').textContent = nx.toFixed(2);
+  draw();
+}
+function pointerUp() { dragging = false; }
+canvas.addEventListener('pointerdown', pointerDown);
+window.addEventListener('pointermove', pointerMove);
+window.addEventListener('pointerup', pointerUp);
+
+/* ===================== wiring ===================== */
+x0El.addEventListener('input', () => { document.getElementById('x0Val').textContent = getX0().toFixed(2); draw(); });
+hEl.addEventListener('input', () => { document.getElementById('hVal').textContent = getH().toFixed(2); draw(); });
+zoomEl.addEventListener('input', () => { document.getElementById('zoomVal').textContent = getZoom().toFixed(1); draw(); });
+document.querySelectorAll('#fn-row .mode-button').forEach(b =>
+  b.addEventListener('click', () => {
+    document.querySelectorAll('#fn-row .mode-button').forEach(x => x.classList.remove('is-active'));
+    b.classList.add('is-active');
+    fnKey = b.dataset.fn;
+    const nb = F().base;
+    x0El.value = nb; document.getElementById('x0Val').textContent = nb.toFixed(2);
+    draw();
+  }));
+
+window.addEventListener('load', draw);
+window.addEventListener('resize', draw);
+</script>
+
+</body>
+</html>

@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Box Regression Losses</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body, {delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
+
+<style>
+:root {
+  --serif: 'Source Serif 4', Georgia, serif;
+  --sans: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+  --mono: 'IBM Plex Mono', monospace;
+  --bg: #fdfcf9;
+  --paper: #ffffff;
+  --text: #2f2a22;
+  --muted: #6e665b;
+  --border: #e2d8c6;
+  --accent: #2c6fb7;
+  --warm: #d9622b;
+  --success: #1e7770;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; font-family: var(--serif); color: var(--text); background: var(--bg); line-height: 1.65; }
+
+.article { max-width: 980px; margin: 0 auto; padding: 2.5rem 1.5rem 5rem; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; color: var(--muted); text-decoration: none; font-family: var(--sans); font-size: 0.9rem; }
+.back-link:hover { color: var(--text); }
+.article-header { margin-bottom: 3rem; text-align: center; }
+.kicker { margin: 0 0 0.75rem; font-family: var(--sans); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); }
+h1 { margin: 0 auto 1rem; font-size: clamp(2.4rem, 5vw, 3.5rem); line-height: 1.1; letter-spacing: -0.02em; color: #1a1815; max-width: 18ch; }
+.abstract { margin: 0 auto 1rem; max-width: 62ch; font-size: 1.15rem; color: #4d463d; }
+.byline { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-top: 1.4rem; padding-top: 1rem; border-top: 1px solid var(--border); color: var(--muted); font-family: var(--sans); font-size: 0.92rem; }
+
+.step-section {
+  position: relative;
+  margin-top: 4rem;
+  padding: 3rem 2.5rem;
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.03);
+}
+.step-badge {
+  position: absolute;
+  top: -16px;
+  left: 32px;
+  background: var(--accent);
+  color: white;
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.4rem 1.2rem;
+  border-radius: 999px;
+  box-shadow: 0 4px 12px rgba(44, 111, 183, 0.25);
+}
+h2 { margin: 0 0 1rem; font-size: clamp(1.6rem, 3.5vw, 2.2rem); line-height: 1.15; color: #1a1815; }
+h3 { margin-top: 2rem; margin-bottom: 0.8rem; font-size: 1.25rem; color: #1a1815; }
+p { max-width: 68ch; font-size: 1.1rem; }
+ul { max-width: 68ch; font-size: 1.1rem; padding-left: 1.4rem; }
+li { margin-bottom: 0.5rem; }
+.math-block { margin: 1.5rem 0; text-align: center; font-size: 1.05rem; }
+
+.control-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.4rem;
+  margin: 1.6rem 0;
+}
+.control-block { display: flex; flex-direction: column; gap: 0.5rem; }
+.control-block label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-family: var(--sans);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.control-block label span { font-family: var(--mono); color: var(--warm); font-weight: 500; font-size: 0.95rem; }
+input[type="range"] {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px; height: 18px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid var(--paper);
+  box-shadow: 0 2px 6px rgba(44,111,183,0.4);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 18px; height: 18px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid var(--paper);
+}
+
+.button-row { display: flex; gap: 0.6rem; flex-wrap: wrap; margin: 1rem 0; }
+.mode-button {
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: 0.92rem;
+  padding: 0.55rem 1.1rem;
+  border-radius: 8px;
+  border: 1.5px solid var(--border);
+  background: var(--paper);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.mode-button:hover { border-color: var(--accent); }
+.mode-button.is-active { background: var(--accent); color: white; border-color: var(--accent); }
+
+.interactive-figure { margin: 1.5rem 0; }
+.interactive-figure canvas {
+  display: block;
+  width: 100%;
+  background: #fbfaf6;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.interactive-figure figcaption { margin-top: 0.7rem; font-size: 0.92rem; color: var(--muted); text-align: center; font-style: italic; }
+
+.panels-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.4rem; margin: 1.5rem 0; align-items: start; }
+.panels-grid figure { margin: 0; }
+.panels-grid canvas { height: 340px; }
+@media (max-width: 760px) { .panels-grid { grid-template-columns: 1fr; } }
+
+.stat-strip { display: flex; gap: 1rem; flex-wrap: wrap; margin: 1.5rem 0; }
+.stat-pill {
+  flex: 1 1 140px;
+  min-width: 140px;
+  background: var(--paper);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  padding: 0.9rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  text-align: left;
+}
+.stat-pill .stat-label { font-family: var(--sans); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; }
+.stat-pill .stat-value { font-family: var(--mono); font-size: 1.5rem; font-weight: 600; color: var(--text); }
+.stat-pill--warm { border-color: var(--warm); }
+.stat-pill--warm .stat-value { color: var(--warm); }
+.stat-pill--accent { border-color: var(--accent); }
+.stat-pill--accent .stat-value { color: var(--accent); }
+.stat-pill--success { border-color: var(--success); }
+.stat-pill--success .stat-value { color: var(--success); }
+
+.callout {
+  margin: 2rem 0 0.5rem;
+  padding: 1.2rem 1.5rem;
+  border-radius: 12px;
+  border-left: 4px solid var(--accent);
+  background: rgba(44,111,183,0.05);
+  font-size: 1.02rem;
+}
+.callout strong { color: var(--accent); }
+.callout--think { border-left-color: var(--success); background: rgba(30,119,112,0.06); }
+.callout--think strong { color: var(--success); }
+.callout--warn { border-left-color: var(--warm); background: rgba(217,98,43,0.06); }
+.callout--warn strong { color: var(--warm); }
+
+.legend-row { display: flex; gap: 1.2rem; flex-wrap: wrap; justify-content: center; font-family: var(--sans); font-size: 0.85rem; color: var(--muted); margin-top: 0.4rem; }
+.legend-row .swatch { display: inline-block; width: 16px; height: 3px; border-radius: 2px; margin-right: 0.4rem; vertical-align: 3px; }
+
+footer { margin-top: 4rem; text-align: center; font-family: var(--sans); font-size: 0.85rem; color: var(--muted); }
+
+@media (max-width: 640px) { .step-section { padding: 2rem 1.4rem; } }
+</style>
+</head>
+<body>
+
+<article class="article">
+  <header class="article-header">
+    <a class="back-link" href="../">&larr; Explainer Library</a>
+    <p class="kicker">Interactive Explainer</p>
+    <h1>Box Regression Losses</h1>
+    <p class="abstract">
+      A detector predicts four numbers per box &mdash; position and size &mdash; and trains
+      them by penalizing the difference from the ground truth. But <em>how</em> you penalize
+      that difference matters. L2 obsesses over the worst box; L1 treats every error the
+      same but has a kink at zero; smooth-L1 blends the two. Drag the predicted box and watch
+      the three losses argue.
+    </p>
+    <div class="byline">
+      <span>~8 min</span>
+      <span>Deep Learning &middot; Object Detection &middot; Loss Functions</span>
+    </div>
+  </header>
+
+  <section class="step-section" id="prelude">
+    <div class="step-badge">Prelude</div>
+    <h2>Four numbers, one residual vector</h2>
+    <p>
+      A predicted box is a vector $\hat{\mathbf{b}}=(x,y,w,h)$ and the target is
+      $\mathbf{b}^{*}=(x^{*},y^{*},w^{*},h^{*})$. The regression loss is a sum over the four
+      per-coordinate residuals $r_i = \hat{b}_i - b^{*}_i$:
+    </p>
+    <div class="math-block">
+      $$\mathcal{L}(\hat{\mathbf{b}},\mathbf{b}^{*}) = \sum_{i} \ell(r_i), \qquad r_i = \hat{b}_i - b^{*}_i .$$
+    </div>
+    <p>
+      Everything hinges on the shape of the per-coordinate penalty $\ell(r)$. The three
+      classic choices:
+    </p>
+    <div class="math-block">
+      $$\ell_{1}(r) = |r|, \qquad
+        \ell_{2}(r) = \tfrac{1}{2}r^{2}, \qquad
+        \ell_{\text{smooth}}(r) = \begin{cases} \frac{r^{2}}{2\beta}, & |r| < \beta \\[2pt] |r| - \frac{\beta}{2}, & |r| \ge \beta \end{cases}.$$
+    </div>
+  </section>
+
+  <section class="step-section" id="lab">
+    <div class="step-badge">The Lab</div>
+    <h2>Move the box, read the loss</h2>
+    <p>
+      The <span style="color:var(--success);font-weight:600">green dashed</span> box is the fixed
+      ground truth. The <span style="color:var(--accent);font-weight:600">blue</span> box is your
+      prediction &mdash; move it with the sliders. The right panel plots the three per-coordinate
+      penalties; the sliding marker sits at the current $x$-residual $r_x$, so you can watch each
+      loss respond as you push the box off target.
+    </p>
+
+    <div class="control-row">
+      <div class="control-block">
+        <label>Pred $x$ <span id="pxVal">3.10</span></label>
+        <input type="range" id="px" min="0.2" max="5.4" step="0.05" value="3.1">
+      </div>
+      <div class="control-block">
+        <label>Pred $y$ <span id="pyVal">2.10</span></label>
+        <input type="range" id="py" min="0.2" max="3.6" step="0.05" value="2.1">
+      </div>
+      <div class="control-block">
+        <label>Pred $w$ <span id="pwVal">2.60</span></label>
+        <input type="range" id="pw" min="0.6" max="5.0" step="0.05" value="2.6">
+      </div>
+      <div class="control-block">
+        <label>Pred $h$ <span id="phVal">2.10</span></label>
+        <input type="range" id="ph" min="0.6" max="4.2" step="0.05" value="2.1">
+      </div>
+    </div>
+
+    <div class="button-row" id="modeRow">
+      <button class="mode-button is-active" data-mode="loss">Show losses $\ell(r)$</button>
+      <button class="mode-button" data-mode="grad">Show gradients $\ell'(r)$</button>
+    </div>
+    <div class="control-row" style="margin-top:0.4rem">
+      <div class="control-block">
+        <label>Smooth-L1 transition $\beta$ <span id="betaVal">1.00</span></label>
+        <input type="range" id="beta" min="0.25" max="2.5" step="0.05" value="1.0">
+      </div>
+    </div>
+
+    <div class="panels-grid">
+      <figure class="interactive-figure">
+        <canvas id="sceneCanvas" width="480" height="360"></canvas>
+        <figcaption>(a) Predicted vs. ground-truth box. Arrows show the four residuals $r_x,r_y,r_w,r_h$.</figcaption>
+      </figure>
+      <figure class="interactive-figure">
+        <canvas id="plotCanvas" width="480" height="360"></canvas>
+        <figcaption>(b) Per-coordinate penalty vs. residual $r$. The dot marks $r_x$ on each curve.</figcaption>
+      </figure>
+    </div>
+    <div class="legend-row">
+      <span><span class="swatch" style="background:var(--warm)"></span>L1 &nbsp;$|r|$</span>
+      <span><span class="swatch" style="background:var(--accent)"></span>L2 &nbsp;$\tfrac12 r^2$</span>
+      <span><span class="swatch" style="background:var(--success)"></span>smooth-L1</span>
+    </div>
+
+    <div class="stat-strip">
+      <div class="stat-pill stat-pill--warm">
+        <span class="stat-label">L1 loss $\;\sum|r_i|$</span>
+        <span class="stat-value" id="l1Val">&mdash;</span>
+      </div>
+      <div class="stat-pill stat-pill--accent">
+        <span class="stat-label">L2 loss $\;\sum \tfrac12 r_i^2$</span>
+        <span class="stat-value" id="l2Val">&mdash;</span>
+      </div>
+      <div class="stat-pill stat-pill--success">
+        <span class="stat-label">Smooth-L1 $\;\sum \ell_\beta(r_i)$</span>
+        <span class="stat-value" id="slVal">&mdash;</span>
+      </div>
+    </div>
+
+    <div class="callout callout--warn">
+      <strong>Push the box far off target.</strong> The L2 number rockets up quadratically while
+      L1 and smooth-L1 grow only linearly. Now flip to <em>Show gradients</em>: L2's gradient is
+      the straight line $r$, so a single wildly-wrong box produces a huge gradient that swamps the
+      update for all the well-placed boxes. That outlier sensitivity is exactly what smooth-L1 was
+      designed to fix.
+    </div>
+  </section>
+
+  <section class="step-section" id="why">
+    <div class="step-badge">The Payoff</div>
+    <h2>Why smooth-L1 wins for boxes</h2>
+    <p>
+      Read the three gradients side by side &mdash; the gradient is what actually trains the network:
+    </p>
+    <div class="math-block">
+      $$\ell_{2}'(r) = r, \qquad
+        \ell_{1}'(r) = \operatorname{sign}(r), \qquad
+        \ell_{\text{smooth}}'(r) = \begin{cases} r/\beta, & |r| < \beta \\ \operatorname{sign}(r), & |r| \ge \beta \end{cases}.$$
+    </div>
+    <ul>
+      <li><strong>L2</strong> has gradient $r$: smooth and well-behaved near the target, but it <em>grows without bound</em>. One badly-initialized box early in training can dominate the batch.</li>
+      <li><strong>L1</strong> has gradient $\pm 1$: bounded and robust to outliers, but it never eases off. Even a near-perfect box keeps getting a full-strength $\pm 1$ nudge, and the kink at $r=0$ makes the gradient discontinuous.</li>
+      <li><strong>Smooth-L1</strong> is $r/\beta$ near zero (like L2, so it settles gently and smoothly through the origin) and $\pm 1$ in the tails (like L1, so outliers cannot blow up). The transition happens at $|r|=\beta$.</li>
+    </ul>
+    <div class="callout callout--think">
+      <strong>This is why detectors use it.</strong> Fast R-CNN introduced smooth-L1 for exactly this
+      reason, and the pattern carried into Faster R-CNN, SSD, and RetinaNet. Box targets are noisy and
+      some anchors start far away; the quadratic core keeps optimization stable once boxes are close,
+      while the linear tails stop a handful of terrible boxes from hijacking the gradient. Move $\beta$
+      to shift where robustness takes over from precision.
+    </div>
+  </section>
+
+  <footer>Part of the ES 667 Deep Learning explainer series &middot; Lecture 10: Object Detection</footer>
+</article>
+
+<script>
+/* ===================== state ===================== */
+// world units: canvas image is 8 x 6 units
+const GT = { x: 2.4, y: 1.6, w: 3.2, h: 2.6 };
+const els = {
+  px: document.getElementById('px'), py: document.getElementById('py'),
+  pw: document.getElementById('pw'), ph: document.getElementById('ph'),
+  beta: document.getElementById('beta')
+};
+let mode = 'loss';
+
+function pred() {
+  return {
+    x: parseFloat(els.px.value), y: parseFloat(els.py.value),
+    w: parseFloat(els.pw.value), h: parseFloat(els.ph.value)
+  };
+}
+function beta() { return parseFloat(els.beta.value); }
+
+/* ===================== loss math ===================== */
+function l1(r) { return Math.abs(r); }
+function l2(r) { return 0.5 * r * r; }
+function sl(r, b) { const a = Math.abs(r); return a < b ? (r * r) / (2 * b) : a - b / 2; }
+function dl1(r) { return r > 0 ? 1 : (r < 0 ? -1 : 0); }
+function dl2(r) { return r; }
+function dsl(r, b) { const a = Math.abs(r); return a < b ? r / b : (r > 0 ? 1 : -1); }
+
+/* ===================== canvas helpers ===================== */
+function fitCanvas(canvas) {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = Math.max(1, Math.round(rect.width * dpr));
+  canvas.height = Math.max(1, Math.round(rect.height * dpr));
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { ctx, w: rect.width, h: rect.height };
+}
+
+/* ===================== scene panel ===================== */
+function drawScene() {
+  const { ctx, w, h } = fitCanvas(document.getElementById('sceneCanvas'));
+  ctx.clearRect(0, 0, w, h);
+  const pad = 16;
+  const UW = 8, UH = 6;
+  const sx = (w - 2 * pad) / UW, sy = (h - 2 * pad) / UH;
+  const X = u => pad + u * sx, Y = v => pad + v * sy;
+
+  // soft "image" backdrop + toy object under the GT box
+  ctx.fillStyle = '#f4efe6';
+  ctx.fillRect(pad, pad, w - 2 * pad, h - 2 * pad);
+  // faint grid
+  ctx.strokeStyle = 'rgba(47,42,34,0.05)'; ctx.lineWidth = 1;
+  for (let u = 1; u < UW; u++) { ctx.beginPath(); ctx.moveTo(X(u), pad); ctx.lineTo(X(u), h - pad); ctx.stroke(); }
+  for (let v = 1; v < UH; v++) { ctx.beginPath(); ctx.moveTo(pad, Y(v)); ctx.lineTo(w - pad, Y(v)); ctx.stroke(); }
+  // toy object (a stylized blob) centered in GT
+  const ocx = X(GT.x + GT.w / 2), ocy = Y(GT.y + GT.h / 2);
+  ctx.save();
+  ctx.globalAlpha = 0.9;
+  ctx.fillStyle = '#cdb89a';
+  ctx.beginPath(); ctx.ellipse(ocx, ocy + GT.h * sy * 0.1, GT.w * sx * 0.34, GT.h * sy * 0.30, 0, 0, 2 * Math.PI); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(ocx, ocy - GT.h * sy * 0.22, GT.w * sx * 0.20, GT.h * sy * 0.18, 0, 0, 2 * Math.PI); ctx.fill();
+  ctx.fillStyle = '#b09877';
+  ctx.beginPath(); ctx.moveTo(ocx - GT.w * sx * 0.16, ocy - GT.h * sy * 0.34);
+  ctx.lineTo(ocx - GT.w * sx * 0.05, ocy - GT.h * sy * 0.18);
+  ctx.lineTo(ocx - GT.w * sx * 0.24, ocy - GT.h * sy * 0.2); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(ocx + GT.w * sx * 0.16, ocy - GT.h * sy * 0.34);
+  ctx.lineTo(ocx + GT.w * sx * 0.05, ocy - GT.h * sy * 0.18);
+  ctx.lineTo(ocx + GT.w * sx * 0.24, ocy - GT.h * sy * 0.2); ctx.closePath(); ctx.fill();
+  ctx.restore();
+
+  // ground-truth box (dashed green)
+  ctx.strokeStyle = '#1e7770'; ctx.lineWidth = 2.5; ctx.setLineDash([7, 5]);
+  ctx.strokeRect(X(GT.x), Y(GT.y), GT.w * sx, GT.h * sy);
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#1e7770'; ctx.font = '700 12px Manrope, sans-serif';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+  ctx.fillText('ground truth', X(GT.x), Y(GT.y) - 4);
+
+  // predicted box (blue)
+  const P = pred();
+  ctx.strokeStyle = '#2c6fb7'; ctx.lineWidth = 2.5;
+  ctx.strokeRect(X(P.x), Y(P.y), P.w * sx, P.h * sy);
+  ctx.fillStyle = 'rgba(44,111,183,0.08)';
+  ctx.fillRect(X(P.x), Y(P.y), P.w * sx, P.h * sy);
+  ctx.fillStyle = '#2c6fb7'; ctx.textBaseline = 'top';
+  ctx.fillText('prediction', X(P.x), Y(P.y + P.h) + 4);
+
+  // residual arrows: top-left corner (x,y) and bottom-right corner (w,h via size)
+  drawArrow(ctx, X(GT.x), Y(GT.y), X(P.x), Y(P.y), '#d9622b');       // position residual
+  drawArrow(ctx, X(GT.x + GT.w), Y(GT.y + GT.h), X(P.x + P.w), Y(P.y + P.h), '#d9622b'); // size residual
+
+  // residual readout
+  const r = residuals();
+  ctx.fillStyle = '#5a5247'; ctx.font = '500 11px "IBM Plex Mono", monospace';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillText('r = (' + r.map(v => (v >= 0 ? '+' : '') + v.toFixed(2)).join(', ') + ')', pad + 2, pad + 2);
+}
+
+function drawArrow(ctx, x0, y0, x1, y1, color) {
+  if (Math.hypot(x1 - x0, y1 - y0) < 3) return;
+  ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+  const ang = Math.atan2(y1 - y0, x1 - x0), s = 7;
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x1 - s * Math.cos(ang - 0.4), y1 - s * Math.sin(ang - 0.4));
+  ctx.lineTo(x1 - s * Math.cos(ang + 0.4), y1 - s * Math.sin(ang + 0.4));
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle = color;
+  ctx.beginPath(); ctx.arc(x0, y0, 3, 0, 2 * Math.PI); ctx.fill();
+}
+
+function residuals() {
+  const P = pred();
+  return [P.x - GT.x, P.y - GT.y, P.w - GT.w, P.h - GT.h];
+}
+
+/* ===================== function plot panel ===================== */
+const R = 4; // plot residual range [-R, R]
+function drawPlot() {
+  const { ctx, w, h } = fitCanvas(document.getElementById('plotCanvas'));
+  ctx.clearRect(0, 0, w, h);
+  const padL = 42, padR = 14, padT = 16, padB = 30;
+  const cw = w - padL - padR, ch = h - padT - padB;
+  const b = beta();
+
+  let yMax, yMin;
+  if (mode === 'loss') { yMin = 0; yMax = 0.5 * R * R; }     // L2 sets the top
+  else { yMin = -R; yMax = R; }
+
+  const X = r => padL + (r + R) / (2 * R) * cw;
+  const Yv = v => padT + (1 - (v - yMin) / (yMax - yMin)) * ch;
+
+  // grid + axes
+  ctx.strokeStyle = 'rgba(47,42,34,0.08)'; ctx.lineWidth = 1;
+  ctx.fillStyle = '#8a8072'; ctx.font = '500 10px Manrope, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  for (let r = -R; r <= R + 0.01; r++) {
+    ctx.beginPath(); ctx.moveTo(X(r), padT); ctx.lineTo(X(r), padT + ch); ctx.stroke();
+    ctx.fillText(r.toString(), X(r), padT + ch + 5);
+  }
+  ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  const yticks = mode === 'loss' ? [0, 2, 4, 6, 8] : [-4, -2, 0, 2, 4];
+  for (const v of yticks) {
+    if (v < yMin - 0.01 || v > yMax + 0.01) continue;
+    ctx.strokeStyle = v === 0 ? 'rgba(47,42,34,0.28)' : 'rgba(47,42,34,0.08)';
+    ctx.lineWidth = v === 0 ? 1.3 : 1;
+    ctx.beginPath(); ctx.moveTo(padL, Yv(v)); ctx.lineTo(padL + cw, Yv(v)); ctx.stroke();
+    ctx.fillStyle = '#8a8072'; ctx.fillText(v.toString(), padL - 6, Yv(v));
+  }
+  // zero vertical
+  ctx.strokeStyle = 'rgba(47,42,34,0.28)'; ctx.lineWidth = 1.3;
+  ctx.beginPath(); ctx.moveTo(X(0), padT); ctx.lineTo(X(0), padT + ch); ctx.stroke();
+
+  // curves
+  const fL1 = mode === 'loss' ? (r => l1(r)) : (r => dl1(r));
+  const fL2 = mode === 'loss' ? (r => l2(r)) : (r => dl2(r));
+  const fSL = mode === 'loss' ? (r => sl(r, b)) : (r => dsl(r, b));
+  plotCurve(ctx, X, Yv, fL2, '#2c6fb7');
+  plotCurve(ctx, X, Yv, fL1, '#d9622b');
+  plotCurve(ctx, X, Yv, fSL, '#1e7770');
+
+  // transition markers at +/- beta
+  ctx.setLineDash([3, 3]); ctx.strokeStyle = 'rgba(30,119,112,0.5)'; ctx.lineWidth = 1;
+  for (const bb of [-b, b]) { if (bb > -R && bb < R) { ctx.beginPath(); ctx.moveTo(X(bb), padT); ctx.lineTo(X(bb), padT + ch); ctx.stroke(); } }
+  ctx.setLineDash([]);
+  ctx.fillStyle = 'rgba(30,119,112,0.8)'; ctx.font = 'italic 10px "Source Serif 4", serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  if (b < R) ctx.fillText('|r| = β', X(b), padT + 1);
+
+  // live marker at r_x (clamped into view)
+  const rx = Math.max(-R, Math.min(R, residuals()[0]));
+  ctx.strokeStyle = 'rgba(47,42,34,0.4)'; ctx.setLineDash([2, 3]); ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(X(rx), padT); ctx.lineTo(X(rx), padT + ch); ctx.stroke(); ctx.setLineDash([]);
+  for (const [f, col] of [[fL2, '#2c6fb7'], [fL1, '#d9622b'], [fSL, '#1e7770']]) {
+    const yv = Math.max(yMin, Math.min(yMax, f(rx)));
+    ctx.fillStyle = col;
+    ctx.beginPath(); ctx.arc(X(rx), Yv(yv), 4.5, 0, 2 * Math.PI); ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.4; ctx.stroke();
+  }
+  ctx.fillStyle = '#5a5247'; ctx.font = '600 11px "IBM Plex Mono", monospace';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillText('r_x = ' + (rx >= 0 ? '+' : '') + rx.toFixed(2), padL + 4, padT + 2);
+  ctx.fillStyle = '#8a8072'; ctx.font = '600 10px Manrope, sans-serif';
+  ctx.textAlign = 'right';
+  ctx.fillText(mode === 'loss' ? 'penalty ℓ(r)' : "gradient ℓ'(r)", padL + cw, padT + 2);
+}
+
+function plotCurve(ctx, X, Yv, f, color) {
+  ctx.strokeStyle = color; ctx.lineWidth = 2.4;
+  ctx.beginPath();
+  let started = false;
+  const steps = 260;
+  for (let i = 0; i <= steps; i++) {
+    const r = -R + (2 * R) * i / steps;
+    const v = f(r);
+    const x = X(r), y = Yv(v);
+    if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+}
+
+/* ===================== orchestration ===================== */
+function redraw() {
+  drawScene();
+  drawPlot();
+  const b = beta();
+  const r = residuals();
+  const sum = (f) => r.reduce((a, v) => a + f(v), 0);
+  document.getElementById('l1Val').textContent = sum(l1).toFixed(2);
+  document.getElementById('l2Val').textContent = sum(l2).toFixed(2);
+  document.getElementById('slVal').textContent = sum(v => sl(v, b)).toFixed(2);
+}
+
+function syncLabels() {
+  document.getElementById('pxVal').textContent = parseFloat(els.px.value).toFixed(2);
+  document.getElementById('pyVal').textContent = parseFloat(els.py.value).toFixed(2);
+  document.getElementById('pwVal').textContent = parseFloat(els.pw.value).toFixed(2);
+  document.getElementById('phVal').textContent = parseFloat(els.ph.value).toFixed(2);
+  document.getElementById('betaVal').textContent = parseFloat(els.beta.value).toFixed(2);
+}
+
+['px', 'py', 'pw', 'ph', 'beta'].forEach(id => {
+  els[id].addEventListener('input', () => { syncLabels(); redraw(); });
+});
+document.querySelectorAll('#modeRow .mode-button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#modeRow .mode-button').forEach(b => b.classList.remove('is-active'));
+    btn.classList.add('is-active');
+    mode = btn.dataset.mode;
+    redraw();
+  });
+});
+
+window.addEventListener('resize', redraw);
+window.addEventListener('load', () => { syncLabels(); redraw(); });
+</script>
+
+</body>
+</html>

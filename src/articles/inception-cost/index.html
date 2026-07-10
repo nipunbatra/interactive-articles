@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Why 1×1 Convolutions Save Compute</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body, {delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
+
+<style>
+:root {
+  --serif: 'Source Serif 4', Georgia, serif;
+  --sans: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+  --mono: 'IBM Plex Mono', monospace;
+  --bg: #fdfcf9;
+  --paper: #ffffff;
+  --text: #2f2a22;
+  --muted: #6e665b;
+  --border: #e2d8c6;
+  --accent: #2c6fb7;
+  --warm: #d9622b;
+  --success: #1e7770;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; font-family: var(--serif); color: var(--text); background: var(--bg); line-height: 1.65; }
+
+.article { max-width: 980px; margin: 0 auto; padding: 2.5rem 1.5rem 5rem; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; color: var(--muted); text-decoration: none; font-family: var(--sans); font-size: 0.9rem; }
+.back-link:hover { color: var(--text); }
+.article-header { margin-bottom: 3rem; text-align: center; }
+.kicker { margin: 0 0 0.75rem; font-family: var(--sans); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); }
+h1 { margin: 0 auto 1rem; font-size: clamp(2.4rem, 5vw, 3.5rem); line-height: 1.1; letter-spacing: -0.02em; color: #1a1815; max-width: 18ch; }
+.abstract { margin: 0 auto 1rem; max-width: 62ch; font-size: 1.15rem; color: #4d463d; }
+.byline { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-top: 1.4rem; padding-top: 1rem; border-top: 1px solid var(--border); color: var(--muted); font-family: var(--sans); font-size: 0.92rem; }
+
+.step-section {
+  position: relative;
+  margin-top: 4rem;
+  padding: 3rem 2.5rem;
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.03);
+}
+.step-badge {
+  position: absolute;
+  top: -16px;
+  left: 32px;
+  background: var(--accent);
+  color: white;
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.4rem 1.2rem;
+  border-radius: 999px;
+  box-shadow: 0 4px 12px rgba(44, 111, 183, 0.25);
+}
+h2 { margin: 0 0 1rem; font-size: clamp(1.6rem, 3.5vw, 2.2rem); line-height: 1.15; color: #1a1815; }
+h3 { margin-top: 2rem; margin-bottom: 0.8rem; font-size: 1.25rem; color: #1a1815; }
+p { max-width: 68ch; font-size: 1.1rem; }
+ul { max-width: 68ch; font-size: 1.1rem; padding-left: 1.4rem; }
+li { margin-bottom: 0.5rem; }
+.math-block { margin: 1.5rem 0; text-align: center; font-size: 1.05rem; }
+
+.control-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.4rem;
+  margin: 1.6rem 0;
+}
+.control-block { display: flex; flex-direction: column; gap: 0.5rem; }
+.control-block label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-family: var(--sans);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.control-block label span { font-family: var(--mono); color: var(--warm); font-weight: 500; font-size: 0.95rem; }
+input[type="range"] {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px; height: 18px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid var(--paper);
+  box-shadow: 0 2px 6px rgba(44,111,183,0.4);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 18px; height: 18px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid var(--paper);
+}
+
+.button-row { display: flex; gap: 0.6rem; flex-wrap: wrap; margin: 1rem 0; align-items: center; }
+.mode-button {
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: 0.92rem;
+  padding: 0.55rem 1.1rem;
+  border-radius: 8px;
+  border: 1.5px solid var(--border);
+  background: var(--paper);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.mode-button:hover { border-color: var(--accent); }
+.mode-button.is-active { background: var(--accent); color: white; border-color: var(--accent); }
+
+.interactive-figure { margin: 1.5rem 0; }
+.interactive-figure canvas {
+  display: block;
+  width: 100%;
+  background: #fbfaf6;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.interactive-figure figcaption { margin-top: 0.7rem; font-size: 0.92rem; color: var(--muted); text-align: center; font-style: italic; }
+
+.stat-strip { display: flex; gap: 1rem; flex-wrap: wrap; margin: 1.5rem 0; }
+.stat-pill {
+  flex: 1 1 140px;
+  min-width: 140px;
+  background: var(--paper);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  padding: 0.9rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  text-align: left;
+}
+.stat-pill .stat-label { font-family: var(--sans); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; }
+.stat-pill .stat-value { font-family: var(--mono); font-size: 1.4rem; font-weight: 600; color: var(--text); }
+.stat-pill--accent { border-color: var(--accent); }
+.stat-pill--accent .stat-value { color: var(--accent); }
+.stat-pill--warm { border-color: var(--warm); }
+.stat-pill--warm .stat-value { color: var(--warm); }
+.stat-pill--success { border-color: var(--success); }
+.stat-pill--success .stat-value { color: var(--success); }
+.stat-pill--big { flex: 1 1 100%; }
+.stat-pill--big .stat-value { font-size: 2.6rem; }
+
+.formula-card {
+  margin: 1.5rem 0;
+  padding: 1.2rem 1.5rem;
+  background: #f7f4ee;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  text-align: center;
+}
+.formula-card .formula-slot { font-size: 1.0rem; overflow-x: auto; }
+
+.callout {
+  margin: 2rem 0 0.5rem;
+  padding: 1.2rem 1.5rem;
+  border-radius: 12px;
+  border-left: 4px solid var(--accent);
+  background: rgba(44,111,183,0.05);
+  font-size: 1.02rem;
+}
+.callout strong { color: var(--accent); }
+.callout--think { border-left-color: var(--success); background: rgba(30,119,112,0.06); }
+.callout--think strong { color: var(--success); }
+.callout--warn { border-left-color: var(--warm); background: rgba(217,98,43,0.06); }
+.callout--warn strong { color: var(--warm); }
+
+footer { margin-top: 4rem; text-align: center; font-family: var(--sans); font-size: 0.85rem; color: var(--muted); }
+
+@media (max-width: 640px) { .step-section { padding: 2rem 1.4rem; } }
+</style>
+</head>
+<body>
+
+<article class="article">
+  <header class="article-header">
+    <a class="back-link" href="../">&larr; Explainer Library</a>
+    <p class="kicker">Interactive Explainer</p>
+    <h1>Why 1×1 Convolutions Save Compute</h1>
+    <p class="abstract">
+      A $3\times3$ convolution that maps many channels to many channels is expensive:
+      cost grows with $C_{\text{in}}\times C_{\text{out}}$. Inception's trick is to
+      squeeze the channels down with a cheap $1\times1$ convolution <em>first</em>, do
+      the pricey $3\times3$ on the narrow stack, and it can come out several times
+      cheaper for the same output shape. Slide the channel counts and watch the two
+      bars diverge.
+    </p>
+    <div class="byline">
+      <span>~7 min</span>
+      <span>Deep Learning &middot; Modern CNNs &middot; Efficiency</span>
+    </div>
+  </header>
+
+  <section class="step-section" id="lab">
+    <div class="step-badge">The Lab</div>
+    <h2>Direct vs. bottleneck, in FLOPs</h2>
+    <p>
+      Both paths take a $C_{\text{in}}$-channel feature map of size $H\times W$ and
+      produce a $C_{\text{out}}$-channel map of the same spatial size. The
+      <strong>direct</strong> path does one $3\times3$ convolution. The
+      <strong>bottleneck</strong> path first projects to $C_{\text{mid}}$ channels with a
+      $1\times1$ convolution, then does the $3\times3$ on that narrower stack. The bars
+      below are total multiply&ndash;adds, drawn to scale.
+    </p>
+
+    <div class="button-row">
+      <span style="font-family:var(--sans);font-size:0.85rem;font-weight:600;color:var(--muted)">Presets:</span>
+      <button class="mode-button" data-preset="inception">Inception 3×3 branch</button>
+      <button class="mode-button is-active" data-preset="resnet">ResNet-style bottleneck</button>
+      <button class="mode-button" data-preset="nosave">Mid too wide</button>
+    </div>
+
+    <div class="control-row">
+      <div class="control-block">
+        <label>$C_{\text{in}}$ <span>= <span id="cinVal">256</span></span></label>
+        <input type="range" id="cin" min="16" max="512" step="16" value="256">
+      </div>
+      <div class="control-block">
+        <label>$C_{\text{mid}}$ (bottleneck) <span>= <span id="cmidVal">64</span></span></label>
+        <input type="range" id="cmid" min="8" max="512" step="8" value="64">
+      </div>
+      <div class="control-block">
+        <label>$C_{\text{out}}$ <span>= <span id="coutVal">256</span></span></label>
+        <input type="range" id="cout" min="16" max="512" step="16" value="256">
+      </div>
+      <div class="control-block">
+        <label>Spatial $H = W$ <span>= <span id="hwVal">28</span></span></label>
+        <input type="range" id="hw" min="4" max="56" step="2" value="28">
+      </div>
+    </div>
+
+    <figure class="interactive-figure">
+      <canvas id="costCanvas" width="900" height="380"></canvas>
+      <figcaption>Two bars to scale: the direct $3\times3$ path versus the $1\times1$-then-$3\times3$ bottleneck (split into its two convolutions).</figcaption>
+    </figure>
+
+    <div class="stat-strip">
+      <div class="stat-pill stat-pill--warm">
+        <span class="stat-label">Direct 3×3</span>
+        <span class="stat-value" id="directVal">&mdash;</span>
+      </div>
+      <div class="stat-pill stat-pill--accent">
+        <span class="stat-label">Bottleneck total</span>
+        <span class="stat-value" id="bottleVal">&mdash;</span>
+      </div>
+      <div class="stat-pill stat-pill--success">
+        <span class="stat-label">Savings ratio</span>
+        <span class="stat-value" id="ratioVal">&mdash;</span>
+      </div>
+    </div>
+
+    <div class="formula-card">
+      <div class="formula-slot" id="formulaSlot"></div>
+    </div>
+
+    <div class="callout callout--warn">
+      <strong>Push $C_{\text{mid}}$ up past $C_{\text{in}}$.</strong> The savings ratio drops below
+      $1$: the bottleneck now costs <em>more</em> than the direct conv, because the $1\times1$ is no
+      longer a squeeze. The trick only pays off when $C_{\text{mid}}$ is genuinely small &mdash;
+      a narrow waist between two wide layers. That waist is exactly what "bottleneck" names.
+    </div>
+  </section>
+
+  <section class="step-section" id="why">
+    <div class="step-badge">The Payoff</div>
+    <h2>Where the factor comes from</h2>
+    <p>
+      For an output of $H\times W$ pixels and $C_{\text{out}}$ channels, each output value
+      is a dot product over a $K\times K \times C_{\text{in}}$ patch, so a convolution costs
+    </p>
+    <div class="math-block">
+      $$\text{MACs} = H \cdot W \cdot C_{\text{out}} \cdot K^2 \cdot C_{\text{in}} .$$
+    </div>
+    <p>Putting the two paths side by side (with $K=3$ for the spatial conv, $K=1$ for the projection):</p>
+    <div class="math-block">
+      $$\underbrace{HW\cdot 9\, C_{\text{in}} C_{\text{out}}}_{\text{direct}}
+        \quad\text{vs.}\quad
+        \underbrace{HW\, C_{\text{mid}}\big(C_{\text{in}} + 9\,C_{\text{out}}\big)}_{\text{bottleneck}} .$$
+    </div>
+    <ul>
+      <li>The expensive $3\times3$ now runs on $C_{\text{mid}}$ input channels instead of $C_{\text{in}}$ &mdash; that is where the big saving lives.</li>
+      <li>The extra $1\times1$ costs only $HW\,C_{\text{in}}C_{\text{mid}}$: cheap, because a $1\times1$ has no spatial extent, just a per-pixel channel mix.</li>
+      <li>Net win whenever $C_{\text{mid}}$ is small relative to $C_{\text{in}}$ and $C_{\text{out}}$ &mdash; the whole point of a bottleneck.</li>
+    </ul>
+    <div class="callout callout--think">
+      <strong>This one idea recurs everywhere.</strong> GoogLeNet/Inception uses $1\times1$
+      convolutions to shrink channels before the $3\times3$ and $5\times5$ branches. ResNet's
+      "bottleneck block" wraps a $3\times3$ between a $1\times1$ down-projection and a $1\times1$
+      up-projection. MobileNet's depthwise-separable convolution is the same instinct pushed
+      further. Cheap channel mixing before expensive spatial mixing is a load-bearing pattern
+      of modern CNNs.
+    </div>
+  </section>
+
+  <footer>Part of the ES 667 Deep Learning explainer series &middot; Lecture 9: Modern CNNs &amp; Transfer Learning</footer>
+</article>
+
+<script>
+/* ===================== state ===================== */
+let Cin = 256, Cmid = 64, Cout = 256, HW = 28;
+const COL = { accent: '#2c6fb7', warm: '#d9622b', success: '#1e7770' };
+
+function macs() {
+  const sp = HW * HW;
+  const direct = sp * 9 * Cin * Cout;
+  const proj = sp * Cin * Cmid;          // 1x1
+  const spatial = sp * 9 * Cmid * Cout;  // 3x3 on narrow stack
+  const bottleneck = proj + spatial;
+  return { direct, proj, spatial, bottleneck, ratio: direct / bottleneck };
+}
+function fmt(n) {
+  if (n >= 1e9) return (n / 1e9).toFixed(2) + ' G';
+  if (n >= 1e6) return (n / 1e6).toFixed(1) + ' M';
+  if (n >= 1e3) return (n / 1e3).toFixed(1) + ' K';
+  return String(Math.round(n));
+}
+
+/* ===================== canvas ===================== */
+function fitCanvas(canvas) {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = Math.round(rect.width * dpr);
+  canvas.height = Math.round(rect.height * dpr);
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { ctx, w: rect.width, h: rect.height };
+}
+function roundRect(ctx, x, y, w, h, r) {
+  r = Math.min(r, Math.abs(w) / 2, Math.abs(h) / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+function draw() {
+  const { ctx, w, h } = fitCanvas(document.getElementById('costCanvas'));
+  ctx.clearRect(0, 0, w, h);
+  const m = macs();
+  const padL = 20, padR = 20;
+  const labelW = Math.min(150, w * 0.20);
+  const valW = 96;
+  const trackX = padL + labelW;
+  const trackW = w - trackX - padR - valW;
+  const maxV = Math.max(m.direct, m.bottleneck, 1);
+  const scale = trackW / maxV;
+
+  const barH = 46;
+  const y1 = 74, y2 = 176;
+
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillStyle = '#5a5247'; ctx.font = '700 13px Manrope, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('MULTIPLY–ADDS PER LAYER  (bars to scale)', padL, 34);
+
+  // ---- Direct bar ----
+  ctx.fillStyle = '#3a342c'; ctx.font = '700 13px Manrope, sans-serif';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  ctx.fillText('Direct 3×3', padL, y1 + barH / 2 - 8);
+  ctx.fillStyle = '#8a8072'; ctx.font = '500 10px "IBM Plex Mono", monospace';
+  ctx.fillText(Cin + '→' + Cout, padL, y1 + barH / 2 + 9);
+  // bar
+  ctx.fillStyle = COL.warm;
+  roundRect(ctx, trackX, y1, Math.max(2, m.direct * scale), barH, 6); ctx.fill();
+  ctx.fillStyle = '#7a3417'; ctx.font = '600 11px Manrope, sans-serif';
+  ctx.textAlign = 'left';
+  if (m.direct * scale > 130) { ctx.fillStyle = '#fff'; ctx.fillText('9 · C_in · C_out', trackX + 10, y1 + barH / 2); }
+  // value
+  ctx.fillStyle = COL.warm; ctx.font = '700 15px "IBM Plex Mono", monospace';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  ctx.fillText(fmt(m.direct), trackX + m.direct * scale + 10, y1 + barH / 2);
+
+  // ---- Bottleneck bar (two segments) ----
+  ctx.fillStyle = '#3a342c'; ctx.font = '700 13px Manrope, sans-serif';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  ctx.fillText('1×1 then 3×3', padL, y2 + barH / 2 - 8);
+  ctx.fillStyle = '#8a8072'; ctx.font = '500 10px "IBM Plex Mono", monospace';
+  ctx.fillText(Cin + '→' + Cmid + '→' + Cout, padL, y2 + barH / 2 + 9);
+  const w1 = m.proj * scale, w2 = m.spatial * scale;
+  // 1x1 segment (accent)
+  ctx.fillStyle = COL.accent;
+  roundRect(ctx, trackX, y2, Math.max(2, w1), barH, 6); ctx.fill();
+  // 3x3 segment (success)
+  ctx.fillStyle = COL.success;
+  roundRect(ctx, trackX + w1 + 2, y2, Math.max(2, w2), barH, 6); ctx.fill();
+  // segment labels if wide enough
+  ctx.font = '600 10px Manrope, sans-serif'; ctx.fillStyle = '#fff'; ctx.textAlign = 'center';
+  if (w1 > 44) ctx.fillText('1×1', trackX + w1 / 2, y2 + barH / 2);
+  if (w2 > 44) ctx.fillText('3×3', trackX + w1 + 2 + w2 / 2, y2 + barH / 2);
+  // value
+  ctx.fillStyle = COL.accent; ctx.font = '700 15px "IBM Plex Mono", monospace';
+  ctx.textAlign = 'left';
+  ctx.fillText(fmt(m.bottleneck), trackX + (w1 + w2) + 12, y2 + barH / 2);
+
+  // ---- legend ----
+  const ly = y2 + barH + 34;
+  ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
+  ctx.fillStyle = COL.accent; roundRect(ctx, padL, ly - 6, 12, 12, 3); ctx.fill();
+  ctx.fillStyle = '#5a5247'; ctx.font = '500 11px Manrope, sans-serif';
+  ctx.fillText('1×1 projection  ' + fmt(m.proj), padL + 18, ly);
+  ctx.fillStyle = COL.success; roundRect(ctx, padL + 190, ly - 6, 12, 12, 3); ctx.fill();
+  ctx.fillStyle = '#5a5247';
+  ctx.fillText('3×3 on ' + Cmid + ' ch  ' + fmt(m.spatial), padL + 208, ly);
+
+  // ---- savings banner ----
+  const bx = w - padR - 210, by = ly - 22, bw = 210, bh = 44;
+  const saves = m.ratio >= 1;
+  ctx.fillStyle = saves ? 'rgba(30,119,112,0.10)' : 'rgba(217,98,43,0.12)';
+  roundRect(ctx, bx, by, bw, bh, 10); ctx.fill();
+  ctx.strokeStyle = saves ? COL.success : COL.warm; ctx.lineWidth = 1.5;
+  roundRect(ctx, bx, by, bw, bh, 10); ctx.stroke();
+  ctx.fillStyle = saves ? COL.success : COL.warm;
+  ctx.font = '800 20px Manrope, sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  ctx.fillText((saves ? m.ratio.toFixed(1) + '× cheaper' : '÷' + m.ratio.toFixed(2) + ' — costs more'), bx + 14, by + bh / 2);
+}
+
+/* ===================== formula + stats ===================== */
+function renderFormula() {
+  const m = macs();
+  const tex = '\\frac{\\text{direct}}{\\text{bottleneck}} = ' +
+    '\\frac{9\\,C_{\\text{in}}C_{\\text{out}}}{C_{\\text{mid}}\\,(C_{\\text{in}} + 9\\,C_{\\text{out}})} = ' +
+    '\\frac{9 \\cdot ' + Cin + ' \\cdot ' + Cout + '}{' + Cmid + '\\,(' + Cin + ' + 9\\cdot' + Cout + ')} = ' +
+    m.ratio.toFixed(2) + '\\times';
+  const el = document.getElementById('formulaSlot');
+  if (window.katex) { try { katex.render(tex, el, { displayMode: true, throwOnError: false }); } catch (e) { el.textContent = tex; } }
+  else { const iv = setInterval(() => { if (window.katex) { clearInterval(iv); try { katex.render(tex, el, { displayMode: true, throwOnError: false }); } catch (e) {} } }, 80); setTimeout(() => clearInterval(iv), 4000); }
+}
+function updateStats() {
+  const m = macs();
+  document.getElementById('directVal').textContent = fmt(m.direct);
+  document.getElementById('bottleVal').textContent = fmt(m.bottleneck);
+  document.getElementById('ratioVal').textContent = m.ratio.toFixed(2) + '×';
+}
+
+/* ===================== orchestration ===================== */
+function redraw() { draw(); renderFormula(); updateStats(); }
+
+/* ===================== wiring ===================== */
+function bindSlider(id, valId, setter) {
+  document.getElementById(id).addEventListener('input', e => {
+    setter(parseInt(e.target.value));
+    document.getElementById(valId).textContent = e.target.value;
+    redraw();
+  });
+}
+bindSlider('cin', 'cinVal', v => { Cin = v; });
+bindSlider('cmid', 'cmidVal', v => { Cmid = v; });
+bindSlider('cout', 'coutVal', v => { Cout = v; });
+bindSlider('hw', 'hwVal', v => { HW = v; });
+
+const PRESETS = {
+  inception: { Cin: 192, Cmid: 96, Cout: 128, HW: 28 },
+  resnet: { Cin: 256, Cmid: 64, Cout: 256, HW: 28 },
+  nosave: { Cin: 128, Cmid: 256, Cout: 128, HW: 28 }
+};
+function setControl(id, valId, value) {
+  document.getElementById(id).value = value;
+  document.getElementById(valId).textContent = value;
+}
+document.querySelectorAll('[data-preset]').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('[data-preset]').forEach(x => x.classList.remove('is-active'));
+  b.classList.add('is-active');
+  const p = PRESETS[b.dataset.preset];
+  Cin = p.Cin; Cmid = p.Cmid; Cout = p.Cout; HW = p.HW;
+  setControl('cin', 'cinVal', Cin); setControl('cmid', 'cmidVal', Cmid);
+  setControl('cout', 'coutVal', Cout); setControl('hw', 'hwVal', HW);
+  redraw();
+}));
+
+window.addEventListener('resize', () => draw());
+window.addEventListener('load', redraw);
+redraw();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GRU Gates: Keep or Update</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body, {delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
+
+<style>
+:root {
+  --serif: 'Source Serif 4', Georgia, serif;
+  --sans: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+  --mono: 'IBM Plex Mono', monospace;
+  --bg: #fdfcf9;
+  --paper: #ffffff;
+  --text: #2f2a22;
+  --muted: #6e665b;
+  --border: #e2d8c6;
+  --accent: #2c6fb7;
+  --warm: #d9622b;
+  --success: #1e7770;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; font-family: var(--serif); color: var(--text); background: var(--bg); line-height: 1.65; }
+
+.article { max-width: 980px; margin: 0 auto; padding: 2.5rem 1.5rem 5rem; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; color: var(--muted); text-decoration: none; font-family: var(--sans); font-size: 0.9rem; }
+.back-link:hover { color: var(--text); }
+.article-header { margin-bottom: 3rem; text-align: center; }
+.kicker { margin: 0 0 0.75rem; font-family: var(--sans); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); }
+h1 { margin: 0 auto 1rem; font-size: clamp(2.4rem, 5vw, 3.5rem); line-height: 1.1; letter-spacing: -0.02em; color: #1a1815; max-width: 18ch; }
+.abstract { margin: 0 auto 1rem; max-width: 62ch; font-size: 1.15rem; color: #4d463d; }
+.byline { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-top: 1.4rem; padding-top: 1rem; border-top: 1px solid var(--border); color: var(--muted); font-family: var(--sans); font-size: 0.92rem; }
+
+.step-section {
+  position: relative;
+  margin-top: 4rem;
+  padding: 3rem 2.5rem;
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.03);
+}
+.step-badge {
+  position: absolute;
+  top: -16px;
+  left: 32px;
+  background: var(--accent);
+  color: white;
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.4rem 1.2rem;
+  border-radius: 999px;
+  box-shadow: 0 4px 12px rgba(44, 111, 183, 0.25);
+}
+h2 { margin: 0 0 1rem; font-size: clamp(1.6rem, 3.5vw, 2.2rem); line-height: 1.15; color: #1a1815; }
+h3 { margin-top: 2rem; margin-bottom: 0.8rem; font-size: 1.25rem; color: #1a1815; }
+p { max-width: 68ch; font-size: 1.1rem; }
+ul { max-width: 68ch; font-size: 1.1rem; padding-left: 1.4rem; }
+li { margin-bottom: 0.5rem; }
+.math-block { margin: 1.5rem 0; text-align: center; font-size: 1.05rem; }
+
+.control-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.4rem;
+  margin: 1.6rem 0;
+}
+.control-block { display: flex; flex-direction: column; gap: 0.5rem; }
+.control-block label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-family: var(--sans);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.control-block label span { font-family: var(--mono); color: var(--warm); font-weight: 500; font-size: 0.95rem; }
+input[type="range"] {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px; height: 18px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid var(--paper);
+  box-shadow: 0 2px 6px rgba(44,111,183,0.4);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 18px; height: 18px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid var(--paper);
+}
+
+.button-row { display: flex; gap: 0.6rem; flex-wrap: wrap; margin: 1rem 0; align-items: center; }
+.mode-button {
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: 0.92rem;
+  padding: 0.55rem 1.1rem;
+  border-radius: 8px;
+  border: 1.5px solid var(--border);
+  background: var(--paper);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.mode-button:hover { border-color: var(--accent); }
+.mode-button.is-active { background: var(--accent); color: white; border-color: var(--accent); }
+
+.interactive-figure { margin: 1.5rem 0; }
+.interactive-figure canvas {
+  display: block;
+  width: 100%;
+  background: #fbfaf6;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.interactive-figure figcaption { margin-top: 0.7rem; font-size: 0.92rem; color: var(--muted); text-align: center; font-style: italic; }
+
+.stat-strip { display: flex; gap: 1rem; flex-wrap: wrap; margin: 1.5rem 0; }
+.stat-pill {
+  flex: 1 1 140px;
+  min-width: 140px;
+  background: var(--paper);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  padding: 0.9rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  text-align: left;
+}
+.stat-pill .stat-label { font-family: var(--sans); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; }
+.stat-pill .stat-value { font-family: var(--mono); font-size: 1.5rem; font-weight: 600; color: var(--text); }
+.stat-pill--accent { border-color: var(--accent); }
+.stat-pill--accent .stat-value { color: var(--accent); }
+.stat-pill--warm { border-color: var(--warm); }
+.stat-pill--warm .stat-value { color: var(--warm); }
+.stat-pill--success { border-color: var(--success); }
+.stat-pill--success .stat-value { color: var(--success); }
+.stat-pill--big { flex: 1 1 100%; }
+.stat-pill--big .stat-value { font-size: 2.2rem; }
+
+.callout {
+  margin: 2rem 0 0.5rem;
+  padding: 1.2rem 1.5rem;
+  border-radius: 12px;
+  border-left: 4px solid var(--accent);
+  background: rgba(44,111,183,0.05);
+  font-size: 1.02rem;
+}
+.callout strong { color: var(--accent); }
+.callout--think { border-left-color: var(--success); background: rgba(30,119,112,0.06); }
+.callout--think strong { color: var(--success); }
+.callout--warn { border-left-color: var(--warm); background: rgba(217,98,43,0.06); }
+.callout--warn strong { color: var(--warm); }
+
+.arith-box {
+  font-family: var(--mono);
+  font-size: 1.02rem;
+  line-height: 1.95;
+  white-space: pre-wrap;
+  background: #fbfaf6;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.1rem 1.3rem;
+  margin: 1.4rem 0;
+  color: var(--text);
+  overflow-x: auto;
+}
+.arith-box .rr { color: var(--warm); font-weight: 600; }
+.arith-box .hp { color: var(--accent); }
+.arith-box .res { color: #1a1815; font-weight: 600; }
+
+.cmp-wrap { overflow-x: auto; margin: 1.4rem 0; }
+.cmp-table { width: 100%; border-collapse: collapse; font-family: var(--sans); font-size: 0.95rem; min-width: 460px; }
+.cmp-table th, .cmp-table td { text-align: left; padding: 0.7rem 0.9rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+.cmp-table thead th { font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 700; }
+.cmp-table td:first-child, .cmp-table th:first-child { font-weight: 600; color: var(--text); width: 8.5rem; }
+.cmp-table .gru { color: var(--success); font-weight: 700; }
+.cmp-table .lstm { color: var(--accent); font-weight: 700; }
+.cmp-table code { font-family: var(--mono); font-size: 0.86em; background: #f3efe6; padding: 1px 5px; border-radius: 4px; }
+
+footer { margin-top: 4rem; text-align: center; font-family: var(--sans); font-size: 0.85rem; color: var(--muted); }
+
+@media (max-width: 640px) { .step-section { padding: 2rem 1.4rem; } }
+</style>
+</head>
+<body>
+
+<article class="article">
+  <header class="article-header">
+    <a class="back-link" href="../">&larr; Explainer Library</a>
+    <p class="kicker">Interactive Explainer</p>
+    <h1>GRU Gates: Keep or Update</h1>
+    <p class="abstract">
+      A GRU cell has one job at each step: decide how much of the old state to keep
+      and how much to replace with something new. That decision is a learned
+      <em>interpolation</em>. Slide the update gate $z$ and watch the new state glide
+      between "remember the past" and "take the candidate" &mdash; while the reset gate
+      $r$ controls how much of the past the candidate is even allowed to see.
+    </p>
+    <div class="byline">
+      <span>~8 min</span>
+      <span>Deep Learning &middot; RNN &middot; GRU</span>
+    </div>
+  </header>
+
+  <section class="step-section" id="prelude">
+    <div class="step-badge">Prelude</div>
+    <h2>Two gates, one interpolation</h2>
+    <p>
+      Where a plain RNN overwrites its state every step, a GRU protects it with two
+      sigmoid gates. The <strong>reset gate</strong> $r$ decides how much of the past
+      leaks into a fresh <em>candidate</em> state $\tilde{h}_t$; the <strong>update
+      gate</strong> $z$ then blends that candidate with the old state:
+    </p>
+    <div class="math-block">
+      $$\tilde{h}_t = \tanh\!\big(W_x x_t + r_t \odot W_h h_{t-1}\big), \qquad
+        h_t = (1 - z_t)\,h_{t-1} + z_t\,\tilde{h}_t .$$
+    </div>
+    <p>
+      Read that second equation as a dial. When $z_t = 0$ the cell copies the past
+      through untouched ($h_t = h_{t-1}$); when $z_t = 1$ it throws the past away and
+      adopts the candidate; anywhere in between it is a weighted average. Gates are
+      just <em>learned interpolators</em>.
+    </p>
+  </section>
+
+  <section class="step-section" id="lab">
+    <div class="step-badge">The Lab</div>
+    <h2>Turn the dials</h2>
+    <p>
+      Set the previous state $h_{t-1}$ and an input $x_t$, then move the two gates. The
+      candidate box updates its arithmetic as you change $r$; the number line shows the
+      new state $h_t$ sliding along the segment between the past and the candidate at
+      exactly fraction $z$.
+    </p>
+
+    <div class="button-row" id="preset-row">
+      <span style="font-family:var(--sans);font-size:0.82rem;color:var(--muted);font-weight:600;">Presets:</span>
+      <button class="mode-button" data-preset="copy">Copy-through (z=0)</button>
+      <button class="mode-button" data-preset="overwrite">Overwrite (z=1)</button>
+      <button class="mode-button" data-preset="ignore">Ignore past (r=0)</button>
+      <button class="mode-button is-active" data-preset="balanced">Balanced</button>
+    </div>
+
+    <div class="control-row">
+      <div class="control-block">
+        <label>Update gate <span>$z$ = <span id="zVal">0.50</span></span></label>
+        <input type="range" id="z" min="0" max="1" step="0.01" value="0.5">
+      </div>
+      <div class="control-block">
+        <label>Reset gate <span>$r$ = <span id="rVal">0.70</span></span></label>
+        <input type="range" id="r" min="0" max="1" step="0.01" value="0.7">
+      </div>
+      <div class="control-block">
+        <label>Previous state <span>$h_{t-1}$ = <span id="hpVal">0.60</span></span></label>
+        <input type="range" id="hp" min="-1" max="1" step="0.02" value="0.6">
+      </div>
+      <div class="control-block">
+        <label>Input signal <span>$x_t$ = <span id="xVal">0.40</span></span></label>
+        <input type="range" id="x" min="-2" max="2" step="0.05" value="0.4">
+      </div>
+    </div>
+
+    <div class="arith-box" id="candBox"></div>
+
+    <figure class="interactive-figure">
+      <canvas id="gruCanvas" width="900" height="330"></canvas>
+      <figcaption>Top: the new state $h_t$ (green) sits on the segment from the past $h_{t-1}$ (blue) to the candidate $\tilde{h}_t$ (orange), at fraction $z$. Bottom: the update gate as a keep-vs-update proportion bar.</figcaption>
+    </figure>
+
+    <div class="stat-strip">
+      <div class="stat-pill stat-pill--accent">
+        <span class="stat-label">Keep the past $(1-z)\,h_{t-1}$</span>
+        <span class="stat-value" id="keepVal">&mdash;</span>
+      </div>
+      <div class="stat-pill stat-pill--warm">
+        <span class="stat-label">Take candidate $z\,\tilde{h}_t$</span>
+        <span class="stat-value" id="takeVal">&mdash;</span>
+      </div>
+      <div class="stat-pill stat-pill--success stat-pill--big">
+        <span class="stat-label">New state $h_t = (1-z)\,h_{t-1} + z\,\tilde{h}_t$</span>
+        <span class="stat-value" id="htVal">&mdash;</span>
+      </div>
+    </div>
+
+    <div class="callout callout--warn">
+      <strong>Pull $z$ to 0.</strong> The new state locks onto $h_{t-1}$ no matter what
+      the input says &mdash; this is how a GRU carries a memory across many steps, the
+      same trick as the LSTM's forget gate near 1. Now push $z$ to 1: the past
+      vanishes and $h_t$ becomes the candidate. Separately, drag $r$ to 0 and watch the
+      candidate stop listening to the past entirely &mdash; useful when a new phrase
+      should be read fresh.
+    </div>
+  </section>
+
+  <section class="step-section" id="compare">
+    <div class="step-badge">The Payoff</div>
+    <h2>GRU vs LSTM, side by side</h2>
+    <p>
+      The GRU (Cho et al., 2014) is a streamlined LSTM. It merges the LSTM's separate
+      cell and hidden states into one vector, and folds three gates down to two. Fewer
+      parameters, often comparable accuracy &mdash; and the same core idea in both:
+      a multiplicative, near-linear path lets the state travel across time without the
+      $w_h\,\sigma'$ product vanishing or exploding.
+    </p>
+
+    <div class="cmp-wrap">
+      <table class="cmp-table">
+        <thead>
+          <tr><th></th><th class="gru">GRU</th><th class="lstm">LSTM</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Gates</td><td>2 &mdash; update $z$, reset $r$</td><td>3 &mdash; forget, input, output</td></tr>
+          <tr><td>State</td><td>single $h_t$ (cell &amp; hidden merged)</td><td>two &mdash; cell $c_t$ + hidden $h_t$</td></tr>
+          <tr><td>Update rule</td><td><code>h = (1−z)·h_prev + z·h̃</code></td><td><code>c = f·c_prev + i·g;  h = o·tanh(c)</code></td></tr>
+          <tr><td>Exposure</td><td>whole state exposed each step</td><td>output gate filters what is exposed</td></tr>
+          <tr><td>Parameters</td><td>fewer (~3/4 of an LSTM)</td><td>more</td></tr>
+          <tr><td>When</td><td>smaller data, faster training, edge/streaming</td><td>slightly more capacity on long, complex sequences</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout--think">
+      <strong>One idea, two packagings.</strong> Both architectures replace the plain
+      RNN's overwrite with a gated blend. The GRU writes it as a single interpolation,
+      $h_t = (1-z)h_{t-1} + z\tilde{h}_t$; the LSTM splits keeping and writing into
+      separate forget and input gates and adds an output gate. In 2026 both are mostly
+      pedagogical stepping stones to attention and state-space models &mdash; but the
+      "gate = learned interpolator" intuition you just dialed in is exactly what those
+      newer models generalize.
+    </div>
+  </section>
+
+  <footer>Part of the ES 667 Deep Learning explainer series &middot; Lecture 13: RNNs, LSTMs and GRUs</footer>
+</article>
+
+<script>
+/* ===================== state ===================== */
+const zEl  = document.getElementById('z');
+const rEl  = document.getElementById('r');
+const hpEl = document.getElementById('hp');
+const xEl  = document.getElementById('x');
+
+function P(){ return {
+  z: parseFloat(zEl.value), r: parseFloat(rEl.value),
+  hp: parseFloat(hpEl.value), x: parseFloat(xEl.value)
+}; }
+
+// candidate: tanh(x + r * h_prev)  (weights fixed to 1 for clarity)
+function candidate(p){ return Math.tanh(p.x + p.r * p.hp); }
+
+const PRESETS = {
+  copy:      { z: 0.0, r: 0.7, hp: 0.6, x: 0.4 },
+  overwrite: { z: 1.0, r: 0.7, hp: 0.6, x: 0.4 },
+  ignore:    { z: 0.5, r: 0.0, hp: 0.6, x: 0.4 },
+  balanced:  { z: 0.5, r: 0.7, hp: 0.6, x: 0.4 }
+};
+
+/* ===================== canvas helpers ===================== */
+function fitCanvas(canvas){
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = Math.max(1, Math.round(rect.width * dpr));
+  canvas.height = Math.max(1, Math.round(rect.height * dpr));
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { ctx, w: rect.width, h: rect.height };
+}
+function roundRectPath(ctx, x, y, w, h, r){
+  r = Math.min(r, Math.abs(w)/2, Math.abs(h)/2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+/* ===================== main drawing ===================== */
+function drawGRU(){
+  const { ctx, w, h } = fitCanvas(document.getElementById('gruCanvas'));
+  ctx.clearRect(0, 0, w, h);
+  const p = P();
+  const hc = candidate(p);
+  const ht = (1 - p.z) * p.hp + p.z * hc;
+
+  const BLUE = '#2c6fb7', WARM = '#d9622b', SAGE = '#1e7770';
+  const padL = 60, padR = 60;
+  const axisW = w - padL - padR;
+  const vx = v => padL + (v + 1) / 2 * axisW;   // value -1..1 -> pixels
+
+  /* ---------- legend (top) — values live here so markers never collide ---------- */
+  const legY = 26;
+  function legItem(x, color, name, val){
+    ctx.fillStyle = color;
+    ctx.beginPath(); ctx.arc(x, legY, 6, 0, 2 * Math.PI); ctx.fill();
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#3a352d'; ctx.font = '600 12.5px Manrope, sans-serif';
+    ctx.fillText(name, x + 13, legY);
+    const nameW = ctx.measureText(name).width;
+    ctx.fillStyle = color; ctx.font = '600 12.5px "IBM Plex Mono", monospace';
+    ctx.fillText('= ' + val.toFixed(3), x + 13 + nameW + 8, legY);
+  }
+  legItem(padL, BLUE, 'hₜ₋₁  past', p.hp);
+  legItem(padL + axisW * 0.36, WARM, 'h̃ₜ  candidate', hc);
+  legItem(padL + axisW * 0.72, SAGE, 'hₜ  new state', ht);
+
+  /* ---------- number line interpolation ---------- */
+  const lineY = 118;
+  ctx.strokeStyle = 'rgba(47,42,34,0.25)'; ctx.lineWidth = 1.4;
+  ctx.beginPath(); ctx.moveTo(padL, lineY); ctx.lineTo(padL + axisW, lineY); ctx.stroke();
+  // ticks
+  ctx.fillStyle = '#8a8072'; ctx.font = '500 10px Manrope, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  for (const t of [-1, -0.5, 0, 0.5, 1]){
+    const X = vx(t);
+    ctx.strokeStyle = 'rgba(47,42,34,0.18)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(X, lineY - 5); ctx.lineTo(X, lineY + 5); ctx.stroke();
+    ctx.fillStyle = '#8a8072'; ctx.fillText(t.toFixed(1), X, lineY + 9);
+  }
+  ctx.fillStyle = '#5a5247'; ctx.font = '600 11px Manrope, sans-serif';
+  ctx.textAlign = 'right'; ctx.textBaseline = 'top';
+  ctx.fillText('state value →', padL + axisW, lineY + 22);
+
+  // segment between past and candidate — h_t interpolates ALONG this at fraction z
+  ctx.strokeStyle = 'rgba(30,119,112,0.55)'; ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.moveTo(vx(p.hp), lineY); ctx.lineTo(vx(hc), lineY); ctx.stroke();
+
+  // past marker (blue circle)
+  ctx.fillStyle = BLUE;
+  ctx.beginPath(); ctx.arc(vx(p.hp), lineY, 8, 0, 2 * Math.PI); ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(vx(p.hp), lineY, 3, 0, 2 * Math.PI); ctx.fill();
+  // candidate marker (orange circle)
+  ctx.fillStyle = WARM;
+  ctx.beginPath(); ctx.arc(vx(hc), lineY, 8, 0, 2 * Math.PI); ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(vx(hc), lineY, 3, 0, 2 * Math.PI); ctx.fill();
+  // result h_t marker (green diamond, drawn last, on top)
+  {
+    const X = vx(ht), s = 9;
+    ctx.fillStyle = SAGE;
+    ctx.beginPath();
+    ctx.moveTo(X, lineY - s); ctx.lineTo(X + s, lineY); ctx.lineTo(X, lineY + s); ctx.lineTo(X - s, lineY);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.8; ctx.stroke();
+    // small "z" caption riding just above the result
+    ctx.fillStyle = SAGE; ctx.font = '600 10px Manrope, sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    ctx.fillText('fraction z = ' + p.z.toFixed(2) + ' →', X, lineY - 14);
+  }
+
+  /* ---------- bottom: keep vs update proportion bar ---------- */
+  const barY = h - 78, barH = 40, barX = padL, barW = axisW;
+  const keepW = (1 - p.z) * barW, takeW = p.z * barW;
+  // keep portion
+  ctx.fillStyle = 'rgba(44,111,183,0.85)';
+  roundRectPath(ctx, barX, barY, Math.max(0.001, keepW), barH, 8); ctx.fill();
+  // take portion
+  ctx.fillStyle = 'rgba(217,98,43,0.9)';
+  roundRectPath(ctx, barX + keepW, barY, Math.max(0.001, takeW), barH, 8); ctx.fill();
+  // outline
+  ctx.strokeStyle = 'rgba(47,42,34,0.2)'; ctx.lineWidth = 1.2;
+  roundRectPath(ctx, barX, barY, barW, barH, 8); ctx.stroke();
+  // divider
+  ctx.strokeStyle = '#1a1815'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(barX + keepW, barY - 6); ctx.lineTo(barX + keepW, barY + barH + 6); ctx.stroke();
+
+  // labels inside/around
+  ctx.font = '700 12px Manrope, sans-serif'; ctx.textBaseline = 'middle';
+  if (keepW > 64){ ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.fillText('KEEP  ' + (100*(1-p.z)).toFixed(0) + '%', barX + keepW/2, barY + barH/2); }
+  if (takeW > 64){ ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.fillText('UPDATE  ' + (100*p.z).toFixed(0) + '%', barX + keepW + takeW/2, barY + barH/2); }
+  ctx.fillStyle = BLUE; ctx.font = '600 10px Manrope, sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillText('z → 0 : keep the past', barX, barY + barH + 12);
+  ctx.fillStyle = WARM; ctx.textAlign = 'right';
+  ctx.fillText('z → 1 : take the candidate', barX + barW, barY + barH + 12);
+  ctx.fillStyle = '#5a5247'; ctx.font = '600 11px Manrope, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+  ctx.fillText('update gate  z = ' + p.z.toFixed(2), barX + barW/2, barY - 12);
+}
+
+/* ===================== arithmetic ===================== */
+function updateCand(){
+  const p = P();
+  const inner = p.x + p.r * p.hp;
+  const hc = Math.tanh(inner);
+  const f2 = v => (v >= 0 ? ' ' : '') + v.toFixed(2);
+  const f3 = v => (v >= 0 ? ' ' : '') + v.toFixed(3);
+  document.getElementById('candBox').innerHTML =
+    'h̃_t = tanh( x_t + r·h_{t-1} )\n' +
+    '    = tanh(' + f2(p.x) + ' + <span class="rr">' + f2(p.r) + '</span>·<span class="hp">' + f2(p.hp) + '</span> )\n' +
+    '    = tanh( <span class="res">' + f3(inner) + '</span> )\n' +
+    '    = <span class="res">' + f3(hc) + '</span>';
+}
+
+/* ===================== orchestration ===================== */
+function redraw(){
+  const p = P();
+  const hc = candidate(p);
+  const keep = (1 - p.z) * p.hp;
+  const take = p.z * hc;
+  drawGRU();
+  updateCand();
+  document.getElementById('keepVal').textContent = keep.toFixed(3);
+  document.getElementById('takeVal').textContent = take.toFixed(3);
+  document.getElementById('htVal').textContent = (keep + take).toFixed(3);
+}
+
+/* ===================== wiring ===================== */
+const binds = [
+  ['z', 'zVal', 2], ['r', 'rVal', 2], ['hp', 'hpVal', 2], ['x', 'xVal', 2]
+];
+binds.forEach(([id, valId, dp]) => {
+  const el = document.getElementById(id);
+  el.addEventListener('input', () => {
+    document.getElementById(valId).textContent = parseFloat(el.value).toFixed(dp);
+    document.querySelectorAll('#preset-row .mode-button').forEach(x => x.classList.remove('is-active'));
+    redraw();
+  });
+});
+
+document.querySelectorAll('#preset-row .mode-button').forEach(b =>
+  b.addEventListener('click', () => {
+    document.querySelectorAll('#preset-row .mode-button').forEach(x => x.classList.remove('is-active'));
+    b.classList.add('is-active');
+    const P0 = PRESETS[b.dataset.preset];
+    zEl.value = P0.z;  document.getElementById('zVal').textContent = P0.z.toFixed(2);
+    rEl.value = P0.r;  document.getElementById('rVal').textContent = P0.r.toFixed(2);
+    hpEl.value = P0.hp; document.getElementById('hpVal').textContent = P0.hp.toFixed(2);
+    xEl.value = P0.x;  document.getElementById('xVal').textContent = P0.x.toFixed(2);
+    redraw();
+  }));
+
+window.addEventListener('load', redraw);
+window.addEventListener('resize', redraw);
+redraw();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,20 @@
+{
+  "slug": "makemore-forward",
+  "title": "A Char-MLP Language Model, Step by Step",
+  "date": "2026-07-10",
+  "tagline": "Walk one forward-and-backward pass of a tiny character-level MLP, one Step at a time",
+  "summary": "A makemore-style char-MLP stripped to its bones: 8-character vocab, a 3-character context, 2-D embeddings, one tanh hidden layer. Press Step to advance a single training example through embed, concatenate, hidden layer, softmax, cross-entropy loss, and backprop — every number drawn live on the canvas with fixed, reproducible weights. The finale makes next-token learning concrete: the gradient p - y flows back and edits only the two embedding rows the example actually used.",
+  "readingTime": "10 min",
+  "difficulty": "Intermediate",
+  "collection": "Deep learning",
+  "order": 47,
+  "status": "published",
+  "tags": ["Language Models", "MLP", "Backprop", "Softmax", "Embeddings", "Interactive"],
+  "highlights": [
+    "Step through one full forward-and-backward pass of a tiny char-level MLP, stage by stage, with live numbers.",
+    "See the pipeline explicitly: embed → concatenate → tanh hidden layer → softmax → cross-entropy → backprop.",
+    "Watch the context 'e, m, m' light up exactly two rows of the embedding table — 'm' is used twice and its gradient accumulates.",
+    "Read the softmax as a bar chart, mark the true next character 'a', and see the loss -log p_true as one big number.",
+    "The punchline of next-token prediction: the gradient p - y updates only the embedding rows that were looked up; every other row gets exactly zero."
+  ]
+}

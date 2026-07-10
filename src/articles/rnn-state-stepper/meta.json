@@ -1,0 +1,20 @@
+{
+  "slug": "rnn-state-stepper",
+  "title": "Watch an RNN's State Evolve",
+  "date": "2026-07-10",
+  "tagline": "Step a scalar RNN by hand and watch a whole sequence fold into one running number",
+  "summary": "A recurrent net is one tiny cell applied over and over. Set w_x, w_h and b, feed an input sequence, and press Step to advance t=1,2,3… — each press shows the exact arithmetic h_t = tanh(w_x·x_t + w_h·h_{t-1} + b) with the numbers substituted, then plots the new state on the trajectory. Turn w_h up and watch the state saturate under tanh or blow up in linear mode: the whole vanishing/exploding story in one knob.",
+  "readingTime": "8 min",
+  "difficulty": "Intermediate",
+  "collection": "Deep learning",
+  "order": 48,
+  "status": "published",
+  "tags": ["RNN", "Sequences", "Hidden State", "Recurrence", "Interactive"],
+  "highlights": [
+    "Step the recurrence one timestep at a time and see h_t = tanh(w_x·x_t + w_h·h_{t-1} + b) computed with the actual substituted numbers.",
+    "Plot the hidden-state trajectory against t, with a faint preview of where the current weights are heading.",
+    "Feed impulse, step, alternating, spike, or ramp inputs — or type your own comma-separated sequence.",
+    "Crank the recurrent weight w_h past 1 and watch the state saturate under tanh or explode in linear mode.",
+    "See the point of it all: one shared cell folds an entire sequence into a single running summary."
+  ]
+}

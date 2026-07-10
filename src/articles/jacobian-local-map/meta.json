@@ -1,0 +1,20 @@
+{
+  "slug": "jacobian-local-map",
+  "title": "The Jacobian is a Local Warp",
+  "date": "2026-07-10",
+  "tagline": "Near a point, a nonlinear map acts like its Jacobian — a circle becomes an ellipse",
+  "summary": "A nonlinear map F from R2 to R2 bends space, but zoom in and the bending straightens into a linear stretch-and-rotate given by the Jacobian. Side-by-side input and output panels show a small circle around a draggable base point carried through the true map, next to the ellipse the Jacobian predicts. Shrink the radius and the two coincide; grow it and a gap opens. A live 2x2 Jacobian, its determinant as an area-scale factor, and the columns drawn as arrows tie the picture to singular values, exploding/vanishing gradients, and the chain rule as a matrix product.",
+  "readingTime": "9 min",
+  "difficulty": "Intermediate",
+  "collection": "Deep learning",
+  "order": 36,
+  "status": "published",
+  "tags": ["Calculus", "Jacobian", "Linear Algebra", "Backpropagation", "Interactive"],
+  "highlights": [
+    "Drag a base point and watch a small input circle map to an ellipse in output space through a true nonlinear map.",
+    "Overlay the Jacobian's predicted ellipse and see it match the true image ever more closely as the radius shrinks.",
+    "Read a live 2x2 Jacobian with its columns drawn as arrows — the images of the x and y directions.",
+    "Watch det J as the local area-scaling factor, and a gap readout quantifying where linearization breaks down.",
+    "Connects circle-to-ellipse to singular values, vanishing/exploding gradients, and the chain rule as a product of Jacobians."
+  ]
+}

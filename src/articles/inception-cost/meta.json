@@ -1,0 +1,20 @@
+{
+  "slug": "inception-cost",
+  "title": "Why 1×1 Convolutions Save Compute",
+  "date": "2026-07-10",
+  "tagline": "Compare a direct 3x3 conv with a 1x1 bottleneck and watch the FLOP bars diverge several-fold",
+  "summary": "Two paths produce the same output shape: a direct 3x3 convolution, or a 1x1 projection to a narrow C_mid followed by the 3x3. Sliders for C_in, C_mid, C_out, and spatial size drive a live FLOP comparison drawn as two bars to scale, with the bottleneck split into its 1x1 and 3x3 pieces and a savings ratio called out. A ResNet-style preset shows the several-fold win; pushing C_mid past C_in shows the ratio drop below one, making crisp when the bottleneck actually pays.",
+  "readingTime": "7 min",
+  "difficulty": "Intermediate",
+  "collection": "Deep learning",
+  "order": 39,
+  "status": "published",
+  "tags": ["Inception", "1x1 Convolution", "FLOPs", "Efficiency", "Interactive"],
+  "highlights": [
+    "See the multiply-add cost of a direct 3x3 conv versus a 1x1 bottleneck as two bars drawn to scale.",
+    "The bottleneck bar is split into its cheap 1x1 projection and its 3x3 on the narrowed channel stack.",
+    "A live savings ratio shows the several-fold win of a ResNet-style bottleneck.",
+    "Push C_mid past C_in and watch the ratio fall below one, so the bottleneck only pays when the waist is narrow.",
+    "The exact formula 9 C_in C_out over C_mid (C_in + 9 C_out) is rendered with your current numbers plugged in."
+  ]
+}

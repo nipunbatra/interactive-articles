@@ -1,0 +1,20 @@
+{
+  "slug": "gru-gates",
+  "title": "GRU Gates: Keep or Update",
+  "date": "2026-07-10",
+  "tagline": "The update gate is a learned dial between remembering the past and taking the new candidate",
+  "summary": "A GRU cell decides, each step, how much old state to keep and how much to replace. Slide the update gate z and watch the new state h_t = (1−z)·h_{t-1} + z·h̃_t glide along a number line between the past and the candidate, with a keep-vs-update proportion bar making the interpolation literal. The reset gate r controls how much of the past the candidate can even see. A compact GRU-vs-LSTM table sits alongside: 2 gates and one merged state vs 3 gates and a separate cell.",
+  "readingTime": "8 min",
+  "difficulty": "Intermediate",
+  "collection": "Deep learning",
+  "order": 50,
+  "status": "published",
+  "tags": ["GRU", "LSTM", "Gates", "RNN", "Interactive"],
+  "highlights": [
+    "Slide the update gate z and watch h_t interpolate along a number line between the past h_{t-1} and the candidate h̃_t.",
+    "See the update gate drawn as a keep-vs-update proportion bar — the interpolation made literal.",
+    "Turn the reset gate r and read the candidate's arithmetic update: tanh(x + r·h_{t-1}) with the numbers substituted.",
+    "Presets for copy-through (z=0), overwrite (z=1), and ignore-the-past (r=0) show the extremes at a click.",
+    "A compact GRU-vs-LSTM comparison: 2 gates and one merged state versus 3 gates and a separate cell state."
+  ]
+}

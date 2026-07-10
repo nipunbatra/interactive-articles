@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Watch an RNN's State Evolve</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body, {delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
+
+<style>
+:root {
+  --serif: 'Source Serif 4', Georgia, serif;
+  --sans: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+  --mono: 'IBM Plex Mono', monospace;
+  --bg: #fdfcf9;
+  --paper: #ffffff;
+  --text: #2f2a22;
+  --muted: #6e665b;
+  --border: #e2d8c6;
+  --accent: #2c6fb7;
+  --warm: #d9622b;
+  --success: #1e7770;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; font-family: var(--serif); color: var(--text); background: var(--bg); line-height: 1.65; }
+
+.article { max-width: 980px; margin: 0 auto; padding: 2.5rem 1.5rem 5rem; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; color: var(--muted); text-decoration: none; font-family: var(--sans); font-size: 0.9rem; }
+.back-link:hover { color: var(--text); }
+.article-header { margin-bottom: 3rem; text-align: center; }
+.kicker { margin: 0 0 0.75rem; font-family: var(--sans); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); }
+h1 { margin: 0 auto 1rem; font-size: clamp(2.4rem, 5vw, 3.5rem); line-height: 1.1; letter-spacing: -0.02em; color: #1a1815; max-width: 20ch; }
+.abstract { margin: 0 auto 1rem; max-width: 62ch; font-size: 1.15rem; color: #4d463d; }
+.byline { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-top: 1.4rem; padding-top: 1rem; border-top: 1px solid var(--border); color: var(--muted); font-family: var(--sans); font-size: 0.92rem; }
+
+.step-section {
+  position: relative;
+  margin-top: 4rem;
+  padding: 3rem 2.5rem;
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.03);
+}
+.step-badge {
+  position: absolute;
+  top: -16px;
+  left: 32px;
+  background: var(--accent);
+  color: white;
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.4rem 1.2rem;
+  border-radius: 999px;
+  box-shadow: 0 4px 12px rgba(44, 111, 183, 0.25);
+}
+h2 { margin: 0 0 1rem; font-size: clamp(1.6rem, 3.5vw, 2.2rem); line-height: 1.15; color: #1a1815; }
+h3 { margin-top: 2rem; margin-bottom: 0.8rem; font-size: 1.25rem; color: #1a1815; }
+p { max-width: 68ch; font-size: 1.1rem; }
+ul { max-width: 68ch; font-size: 1.1rem; padding-left: 1.4rem; }
+li { margin-bottom: 0.5rem; }
+.math-block { margin: 1.5rem 0; text-align: center; font-size: 1.05rem; }
+
+.control-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.4rem;
+  margin: 1.6rem 0;
+}
+.control-block { display: flex; flex-direction: column; gap: 0.5rem; }
+.control-block label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-family: var(--sans);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.control-block label span { font-family: var(--mono); color: var(--warm); font-weight: 500; font-size: 0.95rem; }
+input[type="range"] {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px; height: 18px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid var(--paper);
+  box-shadow: 0 2px 6px rgba(44,111,183,0.4);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 18px; height: 18px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid var(--paper);
+}
+
+.button-row { display: flex; gap: 0.6rem; flex-wrap: wrap; margin: 1rem 0; align-items: center; }
+.mode-button {
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: 0.92rem;
+  padding: 0.55rem 1.1rem;
+  border-radius: 8px;
+  border: 1.5px solid var(--border);
+  background: var(--paper);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.mode-button:hover { border-color: var(--accent); }
+.mode-button.is-active { background: var(--accent); color: white; border-color: var(--accent); }
+.mode-button--primary { background: var(--warm); color: white; border-color: var(--warm); }
+.mode-button--primary:hover { border-color: var(--warm); filter: brightness(1.05); }
+.mode-button:disabled { opacity: 0.4; cursor: default; }
+
+.interactive-figure { margin: 1.5rem 0; }
+.interactive-figure canvas {
+  display: block;
+  width: 100%;
+  background: #fbfaf6;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.interactive-figure figcaption { margin-top: 0.7rem; font-size: 0.92rem; color: var(--muted); text-align: center; font-style: italic; }
+
+.stat-strip { display: flex; gap: 1rem; flex-wrap: wrap; margin: 1.5rem 0; }
+.stat-pill {
+  flex: 1 1 140px;
+  min-width: 140px;
+  background: var(--paper);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  padding: 0.9rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  text-align: left;
+}
+.stat-pill .stat-label { font-family: var(--sans); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; }
+.stat-pill .stat-value { font-family: var(--mono); font-size: 1.5rem; font-weight: 600; color: var(--text); }
+.stat-pill--accent { border-color: var(--accent); }
+.stat-pill--accent .stat-value { color: var(--accent); }
+.stat-pill--warm { border-color: var(--warm); }
+.stat-pill--warm .stat-value { color: var(--warm); }
+.stat-pill--success { border-color: var(--success); }
+.stat-pill--success .stat-value { color: var(--success); }
+
+.callout {
+  margin: 2rem 0 0.5rem;
+  padding: 1.2rem 1.5rem;
+  border-radius: 12px;
+  border-left: 4px solid var(--accent);
+  background: rgba(44,111,183,0.05);
+  font-size: 1.02rem;
+}
+.callout strong { color: var(--accent); }
+.callout--think { border-left-color: var(--success); background: rgba(30,119,112,0.06); }
+.callout--think strong { color: var(--success); }
+.callout--warn { border-left-color: var(--warm); background: rgba(217,98,43,0.06); }
+.callout--warn strong { color: var(--warm); }
+
+.class-toggle { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.class-toggle .mode-button { flex: 1 1 120px; }
+
+/* widget-specific */
+.arith-box {
+  font-family: var(--mono);
+  font-size: 1.02rem;
+  line-height: 1.95;
+  white-space: pre-wrap;
+  background: #fbfaf6;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.1rem 1.3rem;
+  margin: 1.4rem 0;
+  color: var(--text);
+  overflow-x: auto;
+}
+.arith-box .lbl { color: var(--muted); }
+.arith-box .wx { color: var(--accent); }
+.arith-box .wh { color: var(--success); }
+.arith-box .xv { color: var(--warm); }
+.arith-box .res { color: #1a1815; font-weight: 600; }
+.seq-chips { display: flex; gap: 0.35rem; flex-wrap: wrap; margin: 1rem 0 0.3rem; }
+.seq-chip {
+  font-family: var(--mono);
+  font-size: 0.9rem;
+  padding: 0.35rem 0.5rem;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--muted);
+  min-width: 3rem;
+  text-align: center;
+}
+.seq-chip .st { display: block; font-size: 0.62rem; letter-spacing: 0.04em; color: #a89b86; }
+.seq-chip.is-done { color: var(--text); border-color: var(--accent); }
+.seq-chip.is-current { border-color: var(--warm); color: var(--warm); background: rgba(217,98,43,0.09); font-weight: 600; }
+.text-input {
+  font-family: var(--mono);
+  font-size: 0.95rem;
+  padding: 0.5rem 0.7rem;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--text);
+  width: 100%;
+}
+
+footer { margin-top: 4rem; text-align: center; font-family: var(--sans); font-size: 0.85rem; color: var(--muted); }
+
+@media (max-width: 640px) { .step-section { padding: 2rem 1.4rem; } }
+</style>
+</head>
+<body>
+
+<article class="article">
+  <header class="article-header">
+    <a class="back-link" href="../">&larr; Explainer Library</a>
+    <p class="kicker">Interactive Explainer</p>
+    <h1>Watch an RNN's State Evolve</h1>
+    <p class="abstract">
+      A recurrent network is just one small cell applied over and over. It keeps a
+      running hidden state $h_t$, and at every timestep it folds the next input into
+      that state with the <em>same</em> weights. Set the weights, feed a sequence, and
+      press <strong>Step</strong> to watch a whole sequence collapse into a single
+      number, one timestep at a time.
+    </p>
+    <div class="byline">
+      <span>~8 min</span>
+      <span>Deep Learning &middot; Sequences &middot; RNNs</span>
+    </div>
+  </header>
+
+  <section class="step-section" id="prelude">
+    <div class="step-badge">Prelude</div>
+    <h2>One cell, applied over and over</h2>
+    <p>
+      Take the simplest possible recurrent unit: a single scalar hidden state $h_t$.
+      At each step it reads one input $x_t$, mixes it with the previous state, and
+      squashes the result through $\tanh$:
+    </p>
+    <div class="math-block">
+      $$h_t = \tanh\!\big(w_x\,x_t + w_h\,h_{t-1} + b\big), \qquad h_0 = 0 .$$
+    </div>
+    <p>
+      There are only three numbers to learn &mdash; $w_x$ (how strongly the new input
+      matters), $w_h$ (how strongly the past matters), and a bias $b$ &mdash; and they
+      are <em>shared across every timestep</em>. That weight sharing is the whole idea:
+      a sequence of any length is processed by the same tiny function, and all the
+      network's memory lives in the single running number $h_t$.
+    </p>
+  </section>
+
+  <section class="step-section" id="lab">
+    <div class="step-badge">The Lab</div>
+    <h2>Step the recurrence by hand</h2>
+    <p>
+      Choose an input sequence, set the three weights, and press <strong>Step</strong>.
+      Each press advances $t$ by one and shows the exact arithmetic with the numbers
+      substituted in &mdash; then plots the new state on the trajectory. Watch how the
+      recurrent weight $w_h$ decides whether the state settles, oscillates, saturates,
+      or (in linear mode) blows up.
+    </p>
+
+    <div class="button-row" id="preset-row">
+      <span style="font-family:var(--sans);font-size:0.82rem;color:var(--muted);font-weight:600;">Input sequence:</span>
+      <button class="mode-button is-active" data-preset="impulse">Impulse</button>
+      <button class="mode-button" data-preset="step">Step</button>
+      <button class="mode-button" data-preset="alt">Alternating</button>
+      <button class="mode-button" data-preset="spikes">Two spikes</button>
+      <button class="mode-button" data-preset="ramp">Ramp</button>
+    </div>
+
+    <div class="control-row" style="margin-top:0.8rem;">
+      <div class="control-block" style="grid-column:1 / -1;">
+        <label style="margin-bottom:0.2rem;">Or type your own (comma-separated)</label>
+        <input class="text-input" id="seqInput" type="text" value="1, 0, 0, 0, 0, 0, 0, 0, 0, 0">
+      </div>
+    </div>
+
+    <div class="seq-chips" id="seqChips"></div>
+
+    <div class="control-row">
+      <div class="control-block">
+        <label>Input weight <span>$w_x$ = <span id="wxVal">0.80</span></span></label>
+        <input type="range" id="wx" min="-2" max="2" step="0.05" value="0.8">
+      </div>
+      <div class="control-block">
+        <label>Recurrent weight <span>$w_h$ = <span id="whVal">1.10</span></span></label>
+        <input type="range" id="wh" min="-2" max="2" step="0.05" value="1.1">
+      </div>
+      <div class="control-block">
+        <label>Bias <span>$b$ = <span id="bVal">0.00</span></span></label>
+        <input type="range" id="b" min="-2" max="2" step="0.05" value="0.0">
+      </div>
+    </div>
+
+    <div class="control-row" style="margin-top:0.4rem;">
+      <div class="control-block">
+        <label style="margin-bottom:0.2rem;">Activation</label>
+        <div class="class-toggle" id="actToggle">
+          <button class="mode-button is-active" data-act="tanh">tanh (squashed)</button>
+          <button class="mode-button" data-act="linear">linear (no squash)</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="button-row">
+      <button class="mode-button mode-button--primary" id="stepBtn">Step &rarr;</button>
+      <button class="mode-button" id="runBtn">Run to end</button>
+      <button class="mode-button" id="resetBtn">Reset</button>
+    </div>
+
+    <div class="arith-box" id="arithBox"></div>
+
+    <figure class="interactive-figure">
+      <canvas id="trajCanvas" width="900" height="360"></canvas>
+      <figcaption>Hidden state $h_t$ against timestep $t$. Filled dots are revealed steps; the faint dashed line previews where the current weights are heading. Grey stems at the bottom show the input $x_t$.</figcaption>
+    </figure>
+
+    <div class="stat-strip">
+      <div class="stat-pill stat-pill--warm">
+        <span class="stat-label">Current step $t$</span>
+        <span class="stat-value" id="tVal">0</span>
+      </div>
+      <div class="stat-pill stat-pill--accent">
+        <span class="stat-label">Current state $h_t$</span>
+        <span class="stat-value" id="hVal">0.000</span>
+      </div>
+      <div class="stat-pill stat-pill--success">
+        <span class="stat-label">Final state $h_T$</span>
+        <span class="stat-value" id="hfVal">&mdash;</span>
+      </div>
+    </div>
+
+    <div class="callout callout--warn">
+      <strong>Push $w_h$ toward 2 and step through the Step input.</strong> In
+      <em>tanh</em> mode the state races to $+1$ and pins there &mdash; it
+      <em>saturates</em>, and any further input barely moves it. Switch to
+      <em>linear</em> mode with the same $w_h &gt; 1$ and the state instead doubles
+      every step: it <em>explodes</em>. That single knob, $w_h$, is the entire
+      vanishing / exploding story in miniature.
+    </div>
+  </section>
+
+  <section class="step-section" id="payoff">
+    <div class="step-badge">The Payoff</div>
+    <h2>A sequence, folded into one number</h2>
+    <p>
+      Nothing above ever stored the sequence. At step $t$ the cell only ever sees
+      $x_t$ and the single carried number $h_{t-1}$ &mdash; yet $h_t$ depends on the
+      <em>whole</em> history $x_1,\dots,x_t$, because each state was built from the one
+      before it. That is what &ldquo;recurrent&rdquo; means: memory is a running
+      summary, not a stored transcript.
+    </p>
+    <ul>
+      <li>With $|w_h| &lt; 1$ the influence of an old input <strong>decays</strong> geometrically &mdash; the network has a short memory and forgets the impulse.</li>
+      <li>With $w_h \approx 1$ the state <strong>holds</strong> information for a long time &mdash; the sweet spot, but a knife-edge that is hard to learn.</li>
+      <li>With $|w_h| &gt; 1$ the state <strong>saturates</strong> (through $\tanh$) or <strong>explodes</strong> (linear) &mdash; the same instability that makes deep RNNs hard to train.</li>
+    </ul>
+    <div class="callout callout--think">
+      <strong>Where this goes next.</strong> Because $h_t$ is built by re-applying one
+      cell, training it means differentiating through that entire chain &mdash;
+      <em>backprop through time</em>. And because every step multiplies by roughly
+      $w_h$, gradients shrink or grow exponentially with sequence length. LSTMs and
+      GRUs exist precisely to give the state an easier, gated path through time.
+    </div>
+  </section>
+
+  <footer>Part of the ES 667 Deep Learning explainer series &middot; Lecture 13: RNNs, LSTMs and GRUs</footer>
+</article>
+
+<script>
+/* ===================== state ===================== */
+const SUBS = {'-':'₋','0':'₀','1':'₁','2':'₂','3':'₃','4':'₄','5':'₅','6':'₆','7':'₇','8':'₈','9':'₉'};
+function sub(n){ return String(n).split('').map(c => SUBS[c] || c).join(''); }
+
+let seq = [1,0,0,0,0,0,0,0,0,0];
+let step = 0;
+let activation = 'tanh';
+let runTimer = null;
+
+const wxEl = document.getElementById('wx');
+const whEl = document.getElementById('wh');
+const bEl  = document.getElementById('b');
+const seqInput = document.getElementById('seqInput');
+
+function getParams(){ return { wx:parseFloat(wxEl.value), wh:parseFloat(whEl.value), b:parseFloat(bEl.value) }; }
+function actFn(z){ return activation === 'tanh' ? Math.tanh(z) : z; }
+
+const PRESETS = {
+  impulse: [1,0,0,0,0,0,0,0,0,0],
+  step:    [1,1,1,1,1,1,1,1,1,1],
+  alt:     [1,-1,1,-1,1,-1,1,-1,1,-1],
+  spikes:  [0,0,1,0,0,0,-1,0,0,0],
+  ramp:    [0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0]
+};
+
+/* ===================== simulation ===================== */
+function fullTrajectory(){
+  const { wx, wh, b } = getParams();
+  const hs = [0];
+  for (let t = 1; t <= seq.length; t++){
+    const x = seq[t-1];
+    hs.push(actFn(wx*x + wh*hs[t-1] + b));
+  }
+  return hs;
+}
+
+/* ===================== canvas helpers ===================== */
+function fitCanvas(canvas){
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = Math.max(1, Math.round(rect.width * dpr));
+  canvas.height = Math.max(1, Math.round(rect.height * dpr));
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { ctx, w: rect.width, h: rect.height };
+}
+
+/* ===================== trajectory panel ===================== */
+function drawTraj(hs){
+  const { ctx, w, h } = fitCanvas(document.getElementById('trajCanvas'));
+  ctx.clearRect(0, 0, w, h);
+  const padL = 52, padR = 22, padT = 24, padB = 54;
+  const cw = w - padL - padR, ch = h - padT - padB;
+  const N = seq.length;
+
+  // y-range: symmetric around 0
+  let maxMag = 1.05;
+  for (const v of hs) maxMag = Math.max(maxMag, Math.abs(v));
+  for (const v of seq) maxMag = Math.max(maxMag, Math.abs(v));
+  maxMag *= 1.08;
+
+  const tx = (t) => padL + (N === 0 ? 0 : (t / N) * cw);
+  const vy = (v) => padT + ch/2 - (v / maxMag) * (ch/2);
+
+  // horizontal gridlines
+  ctx.font = '500 10px Manrope, sans-serif';
+  ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  const gridVals = [];
+  for (let g = -Math.ceil(maxMag); g <= Math.ceil(maxMag); g++) gridVals.push(g);
+  for (const g of gridVals){
+    if (Math.abs(g) > maxMag) continue;
+    const y = vy(g);
+    ctx.strokeStyle = g === 0 ? 'rgba(47,42,34,0.28)' : 'rgba(47,42,34,0.07)';
+    ctx.lineWidth = g === 0 ? 1.3 : 1;
+    ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL + cw, y); ctx.stroke();
+    ctx.fillStyle = '#8a8072';
+    ctx.fillText((g > 0 ? '+' : '') + g, padL - 8, y);
+  }
+  // tanh saturation guides
+  if (activation === 'tanh' && maxMag > 1.02){
+    ctx.strokeStyle = 'rgba(217,98,43,0.35)'; ctx.setLineDash([3,4]); ctx.lineWidth = 1;
+    for (const s of [1,-1]){ const y = vy(s); ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL+cw, y); ctx.stroke(); }
+    ctx.setLineDash([]);
+  }
+
+  // x-axis tick labels
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillStyle = '#8a8072'; ctx.font = '500 10px Manrope, sans-serif';
+  for (let t = 0; t <= N; t++){
+    ctx.fillText('t=' + t, tx(t), padT + ch + 26);
+  }
+
+  // input stems at bottom
+  const baseY = padT + ch + 8;
+  for (let t = 1; t <= N; t++){
+    const x = seq[t-1];
+    const barH = (x / maxMag) * 18;
+    ctx.strokeStyle = 'rgba(110,102,91,0.5)'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(tx(t), baseY); ctx.lineTo(tx(t), baseY - barH); ctx.stroke();
+    ctx.fillStyle = 'rgba(110,102,91,0.55)';
+    ctx.beginPath(); ctx.arc(tx(t), baseY - barH, 2, 0, 2*Math.PI); ctx.fill();
+  }
+  ctx.fillStyle = '#a89b86'; ctx.font = 'italic 10px "Source Serif 4", serif';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  ctx.fillText('inputs x', padL, baseY - 6);
+
+  // future (faint dashed) line over full trajectory
+  ctx.strokeStyle = 'rgba(44,111,183,0.28)'; ctx.lineWidth = 1.6; ctx.setLineDash([5,4]);
+  ctx.beginPath();
+  hs.forEach((v, t) => { const X = tx(t), Y = vy(v); t === 0 ? ctx.moveTo(X, Y) : ctx.lineTo(X, Y); });
+  ctx.stroke(); ctx.setLineDash([]);
+
+  // revealed (solid) line 0..step
+  ctx.strokeStyle = '#2c6fb7'; ctx.lineWidth = 2.6;
+  ctx.beginPath();
+  for (let t = 0; t <= step; t++){ const X = tx(t), Y = vy(hs[t]); t === 0 ? ctx.moveTo(X, Y) : ctx.lineTo(X, Y); }
+  ctx.stroke();
+
+  // dots
+  for (let t = 0; t <= step; t++){
+    const X = tx(t), Y = vy(hs[t]);
+    ctx.fillStyle = '#2c6fb7';
+    ctx.beginPath(); ctx.arc(X, Y, 4.5, 0, 2*Math.PI); ctx.fill();
+  }
+  // current point highlighted
+  {
+    const X = tx(step), Y = vy(hs[step]);
+    ctx.strokeStyle = '#d9622b'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(X, Y, 8, 0, 2*Math.PI); ctx.stroke();
+    ctx.fillStyle = '#1a1815'; ctx.font = '700 12px "IBM Plex Mono", monospace';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    ctx.fillText('h' + sub(step) + '=' + hs[step].toFixed(3), X, Y - 12);
+  }
+
+  // title
+  ctx.fillStyle = '#5a5247'; ctx.font = '600 11px Manrope, sans-serif';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillText('hidden state  h', padL, 6);
+}
+
+/* ===================== arithmetic panel ===================== */
+function updateArith(hs){
+  const box = document.getElementById('arithBox');
+  const { wx, wh, b } = getParams();
+  if (step === 0){
+    box.innerHTML = '<span class="lbl">Initial state:</span>  h₀ = 0.000\n\n<span class="lbl">Press “Step →” to fold in x₁ and compute h₁.</span>';
+    return;
+  }
+  const t = step;
+  const x = seq[t-1];
+  const hprev = hs[t-1];
+  const pre = wx*x + wh*hprev + b;
+  const out = hs[t];
+  const fn = activation === 'tanh' ? 'tanh' : 'id';
+  const f2 = (v) => (v >= 0 ? ' ' : '') + v.toFixed(2);
+  const f3 = (v) => (v >= 0 ? ' ' : '') + v.toFixed(3);
+  box.innerHTML =
+    'h' + sub(t) + ' = ' + fn + '( w_x·x' + sub(t) + ' + w_h·h' + sub(t-1) + ' + b )\n' +
+    '   = ' + fn + '( <span class="wx">' + f2(wx) + '</span>·<span class="xv">' + f2(x) + '</span>' +
+             ' + <span class="wh">' + f2(wh) + '</span>·<span class="wh">' + f2(hprev) + '</span>' +
+             ' + ' + f2(b) + ' )\n' +
+    '   = ' + fn + '( <span class="res">' + f3(pre) + '</span> )\n' +
+    '   = <span class="res">' + f3(out) + '</span>';
+}
+
+/* ===================== chips ===================== */
+function drawChips(){
+  const box = document.getElementById('seqChips');
+  box.innerHTML = '';
+  seq.forEach((x, i) => {
+    const d = document.createElement('div');
+    const tt = i + 1;
+    // done for consumed steps (t <= step); current highlight on t === step
+    d.className = 'seq-chip' + (tt <= step ? ' is-done' : '') + (tt === step ? ' is-current' : '');
+    d.innerHTML = '<span class="st">x' + sub(tt) + '</span>' + x.toFixed(2).replace('-', '−');
+    box.appendChild(d);
+  });
+}
+
+/* ===================== orchestration ===================== */
+function redraw(){
+  const hs = fullTrajectory();
+  if (step > seq.length) step = seq.length;
+  drawTraj(hs);
+  updateArith(hs);
+  drawChips();
+  document.getElementById('tVal').textContent = step;
+  document.getElementById('hVal').textContent = hs[step].toFixed(3);
+  document.getElementById('hfVal').textContent = hs[seq.length].toFixed(3);
+  document.getElementById('stepBtn').disabled = (step >= seq.length);
+  document.getElementById('runBtn').disabled = (step >= seq.length);
+}
+
+function doStep(){ if (step < seq.length){ step++; redraw(); } }
+function doReset(){ if (runTimer){ clearInterval(runTimer); runTimer = null; } step = 0; redraw(); }
+function doRun(){
+  if (runTimer) return;
+  runTimer = setInterval(() => {
+    if (step >= seq.length){ clearInterval(runTimer); runTimer = null; return; }
+    step++; redraw();
+  }, 320);
+}
+
+function parseSeq(str){
+  const parts = str.split(/[,\s]+/).map(s => s.trim()).filter(s => s.length);
+  const nums = parts.map(Number).filter(v => Number.isFinite(v));
+  return nums.length ? nums.slice(0, 24) : [1,0,0,0,0,0,0,0,0,0];
+}
+
+/* ===================== wiring ===================== */
+[wxEl, whEl, bEl].forEach((el, i) => {
+  const valEl = [document.getElementById('wxVal'), document.getElementById('whVal'), document.getElementById('bVal')][i];
+  el.addEventListener('input', () => { valEl.textContent = parseFloat(el.value).toFixed(2); redraw(); });
+});
+
+document.querySelectorAll('#actToggle .mode-button').forEach(b =>
+  b.addEventListener('click', () => {
+    activation = b.dataset.act;
+    document.querySelectorAll('#actToggle .mode-button').forEach(x => x.classList.toggle('is-active', x === b));
+    redraw();
+  }));
+
+document.querySelectorAll('#preset-row .mode-button').forEach(b =>
+  b.addEventListener('click', () => {
+    document.querySelectorAll('#preset-row .mode-button').forEach(x => x.classList.remove('is-active'));
+    b.classList.add('is-active');
+    seq = PRESETS[b.dataset.preset].slice();
+    seqInput.value = seq.map(v => (Number.isInteger(v) ? v : v.toFixed(1))).join(', ');
+    doReset();
+  }));
+
+seqInput.addEventListener('change', () => {
+  seq = parseSeq(seqInput.value);
+  document.querySelectorAll('#preset-row .mode-button').forEach(x => x.classList.remove('is-active'));
+  doReset();
+});
+
+document.getElementById('stepBtn').addEventListener('click', doStep);
+document.getElementById('runBtn').addEventListener('click', doRun);
+document.getElementById('resetBtn').addEventListener('click', doReset);
+
+window.addEventListener('load', redraw);
+window.addEventListener('resize', redraw);
+redraw();
+</script>
+
+</body>
+</html>

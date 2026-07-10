@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Assigning Anchors by IoU</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body, {delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
+
+<style>
+:root {
+  --serif: 'Source Serif 4', Georgia, serif;
+  --sans: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+  --mono: 'IBM Plex Mono', monospace;
+  --bg: #fdfcf9;
+  --paper: #ffffff;
+  --text: #2f2a22;
+  --muted: #6e665b;
+  --border: #e2d8c6;
+  --accent: #2c6fb7;
+  --warm: #d9622b;
+  --success: #1e7770;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; font-family: var(--serif); color: var(--text); background: var(--bg); line-height: 1.65; }
+
+.article { max-width: 980px; margin: 0 auto; padding: 2.5rem 1.5rem 5rem; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; color: var(--muted); text-decoration: none; font-family: var(--sans); font-size: 0.9rem; }
+.back-link:hover { color: var(--text); }
+.article-header { margin-bottom: 3rem; text-align: center; }
+.kicker { margin: 0 0 0.75rem; font-family: var(--sans); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); }
+h1 { margin: 0 auto 1rem; font-size: clamp(2.4rem, 5vw, 3.5rem); line-height: 1.1; letter-spacing: -0.02em; color: #1a1815; max-width: 20ch; }
+.abstract { margin: 0 auto 1rem; max-width: 62ch; font-size: 1.15rem; color: #4d463d; }
+.byline { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-top: 1.4rem; padding-top: 1rem; border-top: 1px solid var(--border); color: var(--muted); font-family: var(--sans); font-size: 0.92rem; }
+
+.step-section {
+  position: relative;
+  margin-top: 4rem;
+  padding: 3rem 2.5rem;
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.03);
+}
+.step-badge {
+  position: absolute;
+  top: -16px;
+  left: 32px;
+  background: var(--accent);
+  color: white;
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.4rem 1.2rem;
+  border-radius: 999px;
+  box-shadow: 0 4px 12px rgba(44, 111, 183, 0.25);
+}
+h2 { margin: 0 0 1rem; font-size: clamp(1.6rem, 3.5vw, 2.2rem); line-height: 1.15; color: #1a1815; }
+h3 { margin-top: 2rem; margin-bottom: 0.8rem; font-size: 1.25rem; color: #1a1815; }
+p { max-width: 68ch; font-size: 1.1rem; }
+ul { max-width: 68ch; font-size: 1.1rem; padding-left: 1.4rem; }
+li { margin-bottom: 0.5rem; }
+.math-block { margin: 1.5rem 0; text-align: center; font-size: 1.05rem; }
+
+.control-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 1.4rem;
+  margin: 1.6rem 0;
+}
+.control-block { display: flex; flex-direction: column; gap: 0.5rem; }
+.control-block label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-family: var(--sans);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.control-block label span { font-family: var(--mono); color: var(--warm); font-weight: 500; font-size: 0.95rem; }
+input[type="range"] {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px; height: 18px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid var(--paper);
+  box-shadow: 0 2px 6px rgba(44,111,183,0.4);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 18px; height: 18px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid var(--paper);
+}
+input[type="range"].thr-neg::-webkit-slider-thumb { background: var(--warm); box-shadow: 0 2px 6px rgba(217,98,43,0.4); }
+input[type="range"].thr-neg::-moz-range-thumb { background: var(--warm); }
+input[type="range"].thr-pos::-webkit-slider-thumb { background: var(--success); box-shadow: 0 2px 6px rgba(30,119,112,0.4); }
+input[type="range"].thr-pos::-moz-range-thumb { background: var(--success); }
+
+.button-row { display: flex; gap: 0.6rem; flex-wrap: wrap; margin: 1rem 0; }
+.mode-button {
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: 0.92rem;
+  padding: 0.55rem 1.1rem;
+  border-radius: 8px;
+  border: 1.5px solid var(--border);
+  background: var(--paper);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.mode-button:hover { border-color: var(--accent); }
+.mode-button.is-active { background: var(--accent); color: white; border-color: var(--accent); }
+
+.interactive-figure { margin: 1.5rem 0; }
+.interactive-figure canvas {
+  display: block;
+  width: 100%;
+  background: #fbfaf6;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  touch-action: none;
+  cursor: grab;
+}
+.interactive-figure canvas.dragging { cursor: grabbing; }
+.interactive-figure figcaption { margin-top: 0.7rem; font-size: 0.92rem; color: var(--muted); text-align: center; font-style: italic; }
+.fig-board { max-width: 640px; margin-left: auto; margin-right: auto; }
+.fig-board canvas { height: clamp(300px, 55vw, 440px); }
+
+.stat-strip { display: flex; gap: 1rem; flex-wrap: wrap; margin: 1.5rem 0; }
+.stat-pill {
+  flex: 1 1 130px;
+  min-width: 130px;
+  background: var(--paper);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  padding: 0.9rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  text-align: left;
+}
+.stat-pill .stat-label { font-family: var(--sans); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; }
+.stat-pill .stat-value { font-family: var(--mono); font-size: 1.5rem; font-weight: 600; color: var(--text); }
+.stat-pill--success { border-color: var(--success); }
+.stat-pill--success .stat-value { color: var(--success); }
+.stat-pill--warm { border-color: var(--warm); }
+.stat-pill--warm .stat-value { color: var(--warm); }
+.stat-pill--muted .stat-value { color: var(--muted); }
+.stat-pill--accent { border-color: var(--accent); }
+.stat-pill--accent .stat-value { color: var(--accent); }
+
+.callout {
+  margin: 2rem 0 0.5rem;
+  padding: 1.2rem 1.5rem;
+  border-radius: 12px;
+  border-left: 4px solid var(--accent);
+  background: rgba(44,111,183,0.05);
+  font-size: 1.02rem;
+}
+.callout strong { color: var(--accent); }
+.callout--think { border-left-color: var(--success); background: rgba(30,119,112,0.06); }
+.callout--think strong { color: var(--success); }
+.callout--warn { border-left-color: var(--warm); background: rgba(217,98,43,0.06); }
+.callout--warn strong { color: var(--warm); }
+
+.legend-row { display: flex; gap: 1.3rem; flex-wrap: wrap; justify-content: center; font-family: var(--sans); font-size: 0.85rem; color: var(--muted); margin-top: 0.4rem; }
+.legend-row .box { display: inline-block; width: 14px; height: 11px; border-radius: 2px; margin-right: 0.4rem; vertical-align: -1px; border: 2px solid; }
+
+footer { margin-top: 4rem; text-align: center; font-family: var(--sans); font-size: 0.85rem; color: var(--muted); }
+
+@media (max-width: 640px) { .step-section { padding: 2rem 1.4rem; } }
+</style>
+</head>
+<body>
+
+<article class="article">
+  <header class="article-header">
+    <a class="back-link" href="../">&larr; Explainer Library</a>
+    <p class="kicker">Interactive Explainer</p>
+    <h1>Assigning Anchors by IoU</h1>
+    <p class="abstract">
+      How does a detector answer &ldquo;where is the object?&rdquo; It doesn't, directly. It
+      pre-places thousands of candidate boxes &mdash; <em>anchors</em> &mdash; and turns each one
+      into a yes/no question: <em>does an object sit here?</em> The labels for that classifier come
+      from one number, the Intersection-over-Union between each anchor and the ground truth. Drag
+      the object below and watch the anchors take sides.
+    </p>
+    <div class="byline">
+      <span>~7 min</span>
+      <span>Deep Learning &middot; Object Detection &middot; Anchors</span>
+    </div>
+  </header>
+
+  <section class="step-section" id="prelude">
+    <div class="step-badge">Prelude</div>
+    <h2>From localization to classification</h2>
+    <p>
+      Regressing a box out of thin air is hard. Anchor-based detectors sidestep it: they tile the
+      image with a fixed set of reference boxes at several scales and aspect ratios, then ask each
+      anchor a much easier question &mdash; is there an object overlapping me, yes or no? The overlap
+      is measured by Intersection over Union:
+    </p>
+    <div class="math-block">
+      $$\text{IoU}(A, G) = \frac{\text{area}(A \cap G)}{\text{area}(A \cup G)} \in [0, 1].$$
+    </div>
+    <p>
+      Two thresholds turn that continuous overlap into training labels. An anchor is a
+      <strong>positive</strong> (object) if its IoU is at least $\tau_{\text{pos}}$, a
+      <strong>negative</strong> (background) if its IoU is below $\tau_{\text{neg}}$, and is
+      <strong>ignored</strong> in between so ambiguous boxes don't send confusing gradients.
+    </p>
+  </section>
+
+  <section class="step-section" id="lab">
+    <div class="step-badge">The Lab</div>
+    <h2>Drag the object, label the anchors</h2>
+    <p>
+      The <span style="color:var(--accent);font-weight:600">blue</span> box is the ground-truth
+      object &mdash; drag it with the mouse or the sliders. Every thin box is an anchor; each grid
+      location carries six &mdash; three aspect ratios at two scales. Each anchor is colored
+      <span style="color:var(--success);font-weight:600">positive</span>,
+      <span style="color:var(--warm);font-weight:600">ignore</span>, or
+      <span style="color:var(--muted);font-weight:600">negative</span> by its IoU with the object,
+      and the best-matching anchor is drawn bold.
+    </p>
+
+    <div class="button-row" id="presetRow">
+      <button class="mode-button" data-preset="center">Centered object</button>
+      <button class="mode-button" data-preset="small">Small object</button>
+      <button class="mode-button" data-preset="wide">Wide object</button>
+      <button class="mode-button" data-preset="corner">Off to the side</button>
+    </div>
+
+    <div class="control-row">
+      <div class="control-block">
+        <label>Object center $x$ <span id="gxVal">4.6</span></label>
+        <input type="range" id="gx" min="1.4" max="8.6" step="0.05" value="4.6">
+      </div>
+      <div class="control-block">
+        <label>Object center $y$ <span id="gyVal">3.4</span></label>
+        <input type="range" id="gy" min="1.2" max="5.8" step="0.05" value="3.4">
+      </div>
+      <div class="control-block">
+        <label>Object width $w$ <span id="gwVal">2.60</span></label>
+        <input type="range" id="gw" min="0.8" max="5.0" step="0.05" value="2.6">
+      </div>
+      <div class="control-block">
+        <label>Object height $h$ <span id="ghVal">2.20</span></label>
+        <input type="range" id="gh" min="0.8" max="4.0" step="0.05" value="2.2">
+      </div>
+    </div>
+
+    <div class="control-row">
+      <div class="control-block">
+        <label>Positive threshold $\tau_{\text{pos}}$ <span id="posVal">0.50</span></label>
+        <input type="range" id="posThr" class="thr-pos" min="0.2" max="0.9" step="0.01" value="0.5">
+      </div>
+      <div class="control-block">
+        <label>Negative threshold $\tau_{\text{neg}}$ <span id="negVal">0.30</span></label>
+        <input type="range" id="negThr" class="thr-neg" min="0.05" max="0.6" step="0.01" value="0.3">
+      </div>
+    </div>
+
+    <figure class="interactive-figure fig-board">
+      <canvas id="anchorCanvas" width="640" height="440"></canvas>
+      <figcaption>Anchors classified by IoU with the object. Drag the blue box to move the ground truth.</figcaption>
+    </figure>
+    <div class="legend-row">
+      <span><span class="box" style="border-color:var(--success)"></span>Positive (IoU &ge; &tau;<sub>pos</sub>)</span>
+      <span><span class="box" style="border-color:var(--warm)"></span>Ignore</span>
+      <span><span class="box" style="border-color:#b9b0a2"></span>Negative</span>
+      <span><span class="box" style="border-color:var(--accent);border-style:dashed"></span>Ground truth</span>
+    </div>
+
+    <div class="stat-strip">
+      <div class="stat-pill stat-pill--success">
+        <span class="stat-label">Positive anchors</span>
+        <span class="stat-value" id="posCount">&mdash;</span>
+      </div>
+      <div class="stat-pill stat-pill--warm">
+        <span class="stat-label">Ignored anchors</span>
+        <span class="stat-value" id="ignCount">&mdash;</span>
+      </div>
+      <div class="stat-pill stat-pill--muted">
+        <span class="stat-label">Negative anchors</span>
+        <span class="stat-value" id="negCount">&mdash;</span>
+      </div>
+      <div class="stat-pill stat-pill--accent">
+        <span class="stat-label">Best anchor IoU</span>
+        <span class="stat-value" id="bestVal">&mdash;</span>
+      </div>
+    </div>
+
+    <div class="callout callout--warn">
+      <strong>Shrink the object small and drag it between grid points.</strong> Its IoU with every
+      anchor can drop below $\tau_{\text{pos}}$ &mdash; zero positives by the threshold alone. That is
+      why the highest-IoU anchor is <em>always</em> forced positive (drawn bold): without that rule,
+      tiny or oddly-sized objects would have no anchor to learn from and would simply be missed.
+    </div>
+  </section>
+
+  <section class="step-section" id="why">
+    <div class="step-badge">The Payoff</div>
+    <h2>Detection is classification plus a nudge</h2>
+    <p>
+      Once anchors are labeled, the detector's job splits into two familiar pieces, trained together:
+    </p>
+    <ul>
+      <li><strong>Classification.</strong> For every anchor, predict object vs. background. Positives and negatives supply the labels; ignored anchors contribute no loss. This is the same cross-entropy you use anywhere else.</li>
+      <li><strong>Box regression.</strong> For positive anchors only, predict a small offset $(\Delta x, \Delta y, \Delta w, \Delta h)$ that slides and stretches the anchor onto the ground truth &mdash; trained with the smooth-L1 loss from the previous explainer.</li>
+    </ul>
+    <p>
+      Because anchors are dense and come in several shapes, some anchor is almost always close enough
+      to any object to serve as a starting point. &ldquo;Where is the object?&rdquo; becomes
+      &ldquo;which anchors say yes, and how should each nudge its box?&rdquo;
+    </p>
+    <div class="callout callout--think">
+      <strong>Thresholds are a design knob.</strong> Faster R-CNN's RPN uses $\tau_{\text{pos}}=0.7$
+      and $\tau_{\text{neg}}=0.3$; its second stage uses $0.5$. Raise $\tau_{\text{pos}}$ and you keep
+      only tight matches (cleaner positives, but fewer of them); widen the ignore band and you throw
+      away more ambiguous anchors. Every anchor-based detector is tuning exactly these numbers.
+    </div>
+  </section>
+
+  <footer>Part of the ES 667 Deep Learning explainer series &middot; Lecture 10: Object Detection</footer>
+</article>
+
+<script>
+/* ===================== world ===================== */
+const UW = 10, UH = 7;               // world units of the "image"
+const COLS = 6, ROWS = 5;            // anchor grid locations
+const cellW = UW / COLS, cellH = UH / ROWS;
+const SCALES = [1.4, 2.4];           // two anchor scales (units)
+const ARS = [1, 2, 0.5];             // three aspect ratios (w:h)
+
+// build fixed anchor field: two scales x three aspect ratios per location
+const ANCHORS = [];
+for (let r = 0; r < ROWS; r++) {
+  for (let c = 0; c < COLS; c++) {
+    const cx = (c + 0.5) * cellW, cy = (r + 0.5) * cellH;
+    for (const s of SCALES) {
+      for (const ar of ARS) {
+        ANCHORS.push({ cx, cy, w: s * Math.sqrt(ar), h: s / Math.sqrt(ar) });
+      }
+    }
+  }
+}
+
+const GT = { cx: 4.6, cy: 3.4, w: 2.6, h: 2.2 };
+
+const els = {
+  gx: document.getElementById('gx'), gy: document.getElementById('gy'),
+  gw: document.getElementById('gw'), gh: document.getElementById('gh'),
+  posThr: document.getElementById('posThr'), negThr: document.getElementById('negThr')
+};
+
+/* ===================== IoU ===================== */
+function iou(a, b) {
+  const ax0 = a.cx - a.w / 2, ax1 = a.cx + a.w / 2, ay0 = a.cy - a.h / 2, ay1 = a.cy + a.h / 2;
+  const bx0 = b.cx - b.w / 2, bx1 = b.cx + b.w / 2, by0 = b.cy - b.h / 2, by1 = b.cy + b.h / 2;
+  const ix = Math.max(0, Math.min(ax1, bx1) - Math.max(ax0, bx0));
+  const iy = Math.max(0, Math.min(ay1, by1) - Math.max(ay0, by0));
+  const inter = ix * iy;
+  const uni = a.w * a.h + b.w * b.h - inter;
+  return uni <= 0 ? 0 : inter / uni;
+}
+
+/* ===================== canvas helpers ===================== */
+function fitCanvas(canvas) {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = Math.max(1, Math.round(rect.width * dpr));
+  canvas.height = Math.max(1, Math.round(rect.height * dpr));
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { ctx, w: rect.width, h: rect.height };
+}
+const PAD = 14;
+let mapState = null; // {X,Y, invX, invY}
+
+function buildMap(w, h) {
+  const sx = (w - 2 * PAD) / UW, sy = (h - 2 * PAD) / UH;
+  mapState = {
+    X: u => PAD + u * sx, Y: v => PAD + v * sy,
+    invX: px => (px - PAD) / sx, invY: py => (py - PAD) / sy
+  };
+}
+
+/* ===================== draw ===================== */
+function classify() {
+  const pos = parseFloat(els.posThr.value);
+  let neg = parseFloat(els.negThr.value);
+  if (neg > pos) neg = pos; // keep ignore band well-formed
+  let best = -1, bestIoU = 0;
+  const info = ANCHORS.map((a, i) => {
+    const v = iou(a, GT);
+    if (v > bestIoU) { bestIoU = v; best = i; }
+    let status = v >= pos ? 'pos' : (v >= neg ? 'ign' : 'neg');
+    return { v, status };
+  });
+  if (best >= 0 && bestIoU > 0) info[best].status = 'pos'; // best anchor always positive (RPN rule)
+  return { info, best, bestIoU, pos, neg };
+}
+
+const STATUS_COLOR = { pos: '#1e7770', ign: '#d9622b', neg: '#b9b0a2' };
+const STATUS_FILL = { pos: 'rgba(30,119,112,0.10)', ign: 'rgba(217,98,43,0.09)', neg: 'rgba(0,0,0,0)' };
+
+function draw() {
+  const canvas = document.getElementById('anchorCanvas');
+  const { ctx, w, h } = fitCanvas(canvas);
+  buildMap(w, h);
+  const { X, Y } = mapState;
+  ctx.clearRect(0, 0, w, h);
+
+  // image backdrop
+  ctx.fillStyle = '#f5f0e7';
+  ctx.fillRect(PAD, Y(0), w - 2 * PAD, Y(UH) - Y(0));
+
+  const cls = classify();
+
+  // draw negatives first (faint), then ignore, then positives, then best, then GT
+  const order = { neg: 0, ign: 1, pos: 2 };
+  const idxs = ANCHORS.map((_, i) => i).sort((a, b) => order[cls.info[a].status] - order[cls.info[b].status]);
+  for (const i of idxs) {
+    const a = ANCHORS[i], s = cls.info[i].status;
+    const x = X(a.cx - a.w / 2), y = Y(a.cy - a.h / 2), bw = a.w * (X(1) - X(0)), bh = a.h * (Y(1) - Y(0));
+    if (i === cls.best) continue; // draw best last
+    ctx.fillStyle = STATUS_FILL[s];
+    if (s !== 'neg') ctx.fillRect(x, y, bw, bh);
+    ctx.strokeStyle = STATUS_COLOR[s];
+    ctx.globalAlpha = s === 'neg' ? 0.32 : 0.95;
+    ctx.lineWidth = s === 'neg' ? 0.8 : 2;
+    ctx.strokeRect(x, y, bw, bh);
+    ctx.globalAlpha = 1;
+  }
+
+  // best anchor, bold with glow
+  if (cls.best >= 0) {
+    const a = ANCHORS[cls.best];
+    const x = X(a.cx - a.w / 2), y = Y(a.cy - a.h / 2), bw = a.w * (X(1) - X(0)), bh = a.h * (Y(1) - Y(0));
+    ctx.save();
+    ctx.shadowColor = 'rgba(30,119,112,0.5)'; ctx.shadowBlur = 12;
+    ctx.strokeStyle = '#155f59'; ctx.lineWidth = 3.4;
+    ctx.strokeRect(x, y, bw, bh);
+    ctx.restore();
+    // star marker at anchor center
+    ctx.fillStyle = '#155f59'; ctx.font = '700 13px Manrope, sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('★', X(a.cx), Y(a.cy));
+  }
+
+  // ground-truth box (blue, dashed, filled)
+  const gx = X(GT.cx - GT.w / 2), gy = Y(GT.cy - GT.h / 2);
+  const gbw = GT.w * (X(1) - X(0)), gbh = GT.h * (Y(1) - Y(0));
+  ctx.fillStyle = 'rgba(44,111,183,0.12)';
+  ctx.fillRect(gx, gy, gbw, gbh);
+  ctx.strokeStyle = '#2c6fb7'; ctx.lineWidth = 3; ctx.setLineDash([8, 5]);
+  ctx.strokeRect(gx, gy, gbw, gbh);
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#2c6fb7'; ctx.font = '700 12px Manrope, sans-serif';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+  ctx.fillText('object (GT)', gx, gy - 4);
+  // center handle dot
+  ctx.beginPath(); ctx.arc(X(GT.cx), Y(GT.cy), 4, 0, 2 * Math.PI); ctx.fillStyle = '#2c6fb7'; ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+
+  // counts
+  let np = 0, ni = 0, nn = 0;
+  for (const it of cls.info) { if (it.status === 'pos') np++; else if (it.status === 'ign') ni++; else nn++; }
+  document.getElementById('posCount').textContent = np;
+  document.getElementById('ignCount').textContent = ni;
+  document.getElementById('negCount').textContent = nn;
+  document.getElementById('bestVal').textContent = cls.bestIoU.toFixed(2);
+}
+
+/* ===================== interaction ===================== */
+function syncLabels() {
+  document.getElementById('gxVal').textContent = GT.cx.toFixed(2);
+  document.getElementById('gyVal').textContent = GT.cy.toFixed(2);
+  document.getElementById('gwVal').textContent = GT.w.toFixed(2);
+  document.getElementById('ghVal').textContent = GT.h.toFixed(2);
+  document.getElementById('posVal').textContent = parseFloat(els.posThr.value).toFixed(2);
+  document.getElementById('negVal').textContent = parseFloat(els.negThr.value).toFixed(2);
+}
+function pushSliders() {
+  els.gx.value = GT.cx; els.gy.value = GT.cy; els.gw.value = GT.w; els.gh.value = GT.h;
+}
+function pullSliders() {
+  GT.cx = parseFloat(els.gx.value); GT.cy = parseFloat(els.gy.value);
+  GT.w = parseFloat(els.gw.value); GT.h = parseFloat(els.gh.value);
+}
+
+['gx', 'gy', 'gw', 'gh'].forEach(id => els[id].addEventListener('input', () => { pullSliders(); syncLabels(); draw(); }));
+['posThr', 'negThr'].forEach(id => els[id].addEventListener('input', () => { syncLabels(); draw(); }));
+
+const canvas = document.getElementById('anchorCanvas');
+let dragging = false, dragOff = { x: 0, y: 0 };
+function pointerUnits(ev) {
+  const rect = canvas.getBoundingClientRect();
+  const px = ev.clientX - rect.left, py = ev.clientY - rect.top;
+  return { ux: mapState.invX(px), uy: mapState.invY(py) };
+}
+canvas.addEventListener('pointerdown', (ev) => {
+  if (!mapState) return;
+  const { ux, uy } = pointerUnits(ev);
+  if (Math.abs(ux - GT.cx) <= GT.w / 2 + 0.3 && Math.abs(uy - GT.cy) <= GT.h / 2 + 0.3) {
+    dragging = true; dragOff.x = ux - GT.cx; dragOff.y = uy - GT.cy;
+    canvas.classList.add('dragging'); canvas.setPointerCapture(ev.pointerId);
+  }
+});
+canvas.addEventListener('pointermove', (ev) => {
+  if (!dragging) return;
+  const { ux, uy } = pointerUnits(ev);
+  GT.cx = Math.max(parseFloat(els.gx.min), Math.min(parseFloat(els.gx.max), ux - dragOff.x));
+  GT.cy = Math.max(parseFloat(els.gy.min), Math.min(parseFloat(els.gy.max), uy - dragOff.y));
+  pushSliders(); syncLabels(); draw();
+});
+function endDrag() { dragging = false; canvas.classList.remove('dragging'); }
+canvas.addEventListener('pointerup', endDrag);
+canvas.addEventListener('pointercancel', endDrag);
+
+/* presets */
+const PRESETS = {
+  center: { cx: 4.6, cy: 3.4, w: 2.6, h: 2.2 },
+  small: { cx: 5.4, cy: 2.6, w: 1.1, h: 1.1 },
+  wide: { cx: 4.6, cy: 3.7, w: 4.4, h: 1.5 },
+  corner: { cx: 7.9, cy: 5.2, w: 2.2, h: 2.4 }
+};
+document.querySelectorAll('#presetRow .mode-button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#presetRow .mode-button').forEach(b => b.classList.remove('is-active'));
+    btn.classList.add('is-active');
+    const p = PRESETS[btn.dataset.preset];
+    GT.cx = p.cx; GT.cy = p.cy; GT.w = p.w; GT.h = p.h;
+    pushSliders(); syncLabels(); draw();
+  });
+});
+
+window.addEventListener('resize', () => { if (mapState) draw(); });
+window.addEventListener('load', () => { pushSliders(); syncLabels(); draw(); });
+</script>
+
+</body>
+</html>

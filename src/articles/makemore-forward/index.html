@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A Char-MLP Language Model, Step by Step</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body, {delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
+
+<style>
+:root {
+  --serif: 'Source Serif 4', Georgia, serif;
+  --sans: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+  --mono: 'IBM Plex Mono', monospace;
+  --bg: #fdfcf9;
+  --paper: #ffffff;
+  --text: #2f2a22;
+  --muted: #6e665b;
+  --border: #e2d8c6;
+  --accent: #2c6fb7;
+  --warm: #d9622b;
+  --success: #1e7770;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; font-family: var(--serif); color: var(--text); background: var(--bg); line-height: 1.65; }
+
+.article { max-width: 980px; margin: 0 auto; padding: 2.5rem 1.5rem 5rem; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; color: var(--muted); text-decoration: none; font-family: var(--sans); font-size: 0.9rem; }
+.back-link:hover { color: var(--text); }
+.article-header { margin-bottom: 3rem; text-align: center; }
+.kicker { margin: 0 0 0.75rem; font-family: var(--sans); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); }
+h1 { margin: 0 auto 1rem; font-size: clamp(2.2rem, 5vw, 3.3rem); line-height: 1.1; letter-spacing: -0.02em; color: #1a1815; max-width: 20ch; }
+.abstract { margin: 0 auto 1rem; max-width: 62ch; font-size: 1.15rem; color: #4d463d; }
+.byline { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-top: 1.4rem; padding-top: 1rem; border-top: 1px solid var(--border); color: var(--muted); font-family: var(--sans); font-size: 0.92rem; }
+
+.step-section {
+  position: relative;
+  margin-top: 4rem;
+  padding: 3rem 2.5rem;
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.03);
+}
+.step-badge {
+  position: absolute;
+  top: -16px;
+  left: 32px;
+  background: var(--accent);
+  color: white;
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.4rem 1.2rem;
+  border-radius: 999px;
+  box-shadow: 0 4px 12px rgba(44, 111, 183, 0.25);
+}
+h2 { margin: 0 0 1rem; font-size: clamp(1.6rem, 3.5vw, 2.2rem); line-height: 1.15; color: #1a1815; }
+h3 { margin-top: 2rem; margin-bottom: 0.8rem; font-size: 1.25rem; color: #1a1815; }
+p { max-width: 68ch; font-size: 1.1rem; }
+ul { max-width: 68ch; font-size: 1.1rem; padding-left: 1.4rem; }
+li { margin-bottom: 0.5rem; }
+.math-block { margin: 1.5rem 0; text-align: center; font-size: 1.05rem; }
+code { font-family: var(--mono); font-size: 0.92em; background: rgba(47,42,34,0.05); padding: 0.1em 0.35em; border-radius: 4px; }
+
+.button-row { display: flex; gap: 0.6rem; flex-wrap: wrap; margin: 1rem 0; align-items: center; }
+.mode-button {
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: 0.92rem;
+  padding: 0.55rem 1.1rem;
+  border-radius: 8px;
+  border: 1.5px solid var(--border);
+  background: var(--paper);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.mode-button:hover { border-color: var(--accent); }
+.mode-button.is-active { background: var(--accent); color: white; border-color: var(--accent); }
+.stage-tabs { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+.stage-tabs .mode-button { min-width: 42px; padding: 0.5rem 0.6rem; font-family: var(--mono); }
+.primary-btn { background: var(--accent); color: #fff; border-color: var(--accent); }
+.primary-btn:hover { background: #245c98; border-color: #245c98; }
+
+.interactive-figure { margin: 1.3rem 0; }
+.interactive-figure canvas {
+  display: block;
+  width: 100%;
+  background: #fbfaf6;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.interactive-figure figcaption { margin-top: 0.7rem; font-size: 0.92rem; color: var(--muted); text-align: center; font-style: italic; }
+
+.stage-formula {
+  margin: 1.1rem 0 0.4rem;
+  padding: 0.9rem 1.2rem;
+  background: rgba(44,111,183,0.05);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  text-align: center;
+  overflow-x: auto;
+}
+.stage-narr {
+  margin: 0.4rem 0 1rem;
+  font-size: 1.06rem;
+  color: #4d463d;
+  min-height: 3.2em;
+}
+.stage-narr b { color: var(--warm); }
+
+.stat-strip { display: flex; gap: 1rem; flex-wrap: wrap; margin: 1.5rem 0; }
+.stat-pill {
+  flex: 1 1 140px;
+  min-width: 140px;
+  background: var(--paper);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  padding: 0.9rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  text-align: left;
+}
+.stat-pill .stat-label { font-family: var(--sans); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; }
+.stat-pill .stat-value { font-family: var(--mono); font-size: 1.5rem; font-weight: 600; color: var(--text); }
+.stat-pill--accent { border-color: var(--accent); }
+.stat-pill--accent .stat-value { color: var(--accent); }
+.stat-pill--warm { border-color: var(--warm); }
+.stat-pill--warm .stat-value { color: var(--warm); }
+.stat-pill--big { flex: 1 1 100%; }
+.stat-pill--big .stat-value { font-size: 2.4rem; }
+
+.callout {
+  margin: 2rem 0 0.5rem;
+  padding: 1.2rem 1.5rem;
+  border-radius: 12px;
+  border-left: 4px solid var(--accent);
+  background: rgba(44,111,183,0.05);
+  font-size: 1.02rem;
+}
+.callout strong { color: var(--accent); }
+.callout--think { border-left-color: var(--success); background: rgba(30,119,112,0.06); }
+.callout--think strong { color: var(--success); }
+.callout--warn { border-left-color: var(--warm); background: rgba(217,98,43,0.06); }
+.callout--warn strong { color: var(--warm); }
+
+footer { margin-top: 4rem; text-align: center; font-family: var(--sans); font-size: 0.85rem; color: var(--muted); }
+
+@media (max-width: 640px) { .step-section { padding: 2rem 1.4rem; } }
+</style>
+</head>
+<body>
+
+<article class="article">
+  <header class="article-header">
+    <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+    <p class="kicker">Interactive Explainer</p>
+    <h1>A Char-MLP Language Model, Step by Step</h1>
+    <p class="abstract">
+      Strip a language model down to its bones: a tiny character&#8209;level MLP that reads the
+      last three characters and guesses the next one. Walk one full training example through it &mdash;
+      embed, concatenate, hidden layer, softmax, loss, and backprop &mdash; one <em>Step</em> at a time,
+      with every number live on the canvas. The finale: the gradient $p - y$ flows back and touches
+      only the embedding rows the example actually used.
+    </p>
+    <div class="byline">
+      <span>~10 min</span>
+      <span>Deep Learning &middot; Language Models &middot; Backprop</span>
+    </div>
+  </header>
+
+  <section class="step-section" id="prelude">
+    <div class="step-badge">Prelude</div>
+    <h2>The whole model on one line</h2>
+    <p>
+      This is <em>makemore</em> in miniature: a vocabulary of $8$ characters, a context of the last
+      $B = 3$ characters, an embedding dimension of $d = 2$, and one hidden layer of width $6$. Every
+      prediction is the same short pipeline:
+    </p>
+    <div class="math-block">
+      $$\underbrace{e_c = E[c]}_{\text{embed}} \;\to\;
+        \underbrace{x = [e_1; e_2; e_3]}_{\text{concat}} \;\to\;
+        \underbrace{h = \tanh(W_1 x + b_1)}_{\text{hidden}} \;\to\;
+        \underbrace{p = \mathrm{softmax}(W_2 h + b_2)}_{\text{next-char probs}}.$$
+    </div>
+    <p>
+      The weights below are small fixed numbers (an untrained net), so the run is fully reproducible.
+      Our example: the context is <code>e&nbsp;m&nbsp;m</code> and the true next character is
+      <code>a</code> &mdash; as in the tail of &ldquo;e&nbsp;m&nbsp;m&nbsp;<b>a</b>.&rdquo; Step through it.
+    </p>
+  </section>
+
+  <section class="step-section" id="lab">
+    <div class="step-badge">The Lab</div>
+    <h2>One forward &amp; backward pass</h2>
+    <p>
+      Press <strong>Step</strong> to advance the pipeline, or jump to any stage with the numbered
+      buttons. The strip below tracks where you are; the panel underneath draws that stage in full.
+    </p>
+
+    <div class="button-row">
+      <div class="stage-tabs" id="stageTabs"></div>
+    </div>
+    <div class="button-row">
+      <button class="mode-button" id="backBtn">&#9664; Back</button>
+      <button class="mode-button primary-btn" id="stepBtn">Step &#9654;</button>
+      <span style="font-family:var(--sans);font-size:0.9rem;color:var(--muted);" id="stageName"></span>
+    </div>
+
+    <figure class="interactive-figure">
+      <canvas id="pipeCanvas" width="900" height="92"></canvas>
+    </figure>
+
+    <div class="stage-formula" id="stageFormula"></div>
+    <p class="stage-narr" id="stageNarr"></p>
+
+    <figure class="interactive-figure">
+      <canvas id="stageCanvas" width="900" height="400"></canvas>
+      <figcaption id="stageCap">The current stage, drawn with live numbers.</figcaption>
+    </figure>
+
+    <div class="stat-strip">
+      <div class="stat-pill stat-pill--accent">
+        <span class="stat-label">Model&rsquo;s top pick</span>
+        <span class="stat-value" id="topVal">&mdash;</span>
+      </div>
+      <div class="stat-pill">
+        <span class="stat-label">Prob of true char &lsquo;a&rsquo;</span>
+        <span class="stat-value" id="ptrueVal">&mdash;</span>
+      </div>
+      <div class="stat-pill stat-pill--warm">
+        <span class="stat-label">Loss $-\log p_{\text{a}}$</span>
+        <span class="stat-value" id="lossVal">&mdash;</span>
+      </div>
+    </div>
+
+    <div class="callout callout--warn">
+      <strong>Watch stage 6.</strong> The gradient on the logits is exactly $p - y$: one negative
+      bar on the true character &lsquo;a&rsquo; (push it up) and positive bars everywhere else (push them
+      down). Trace it back and it reaches the embedding table &mdash; but only rows <code>e</code> and
+      <code>m</code> glow. The other six rows were never indexed this step, so their gradient is exactly zero.
+    </div>
+  </section>
+
+  <section class="step-section" id="why">
+    <div class="step-badge">The Payoff</div>
+    <h2>Next-token prediction, end to end</h2>
+    <p>
+      Every large language model, underneath, is doing what you just stepped through &mdash; only wider,
+      deeper, and with attention in place of a single concatenation. The skeleton is unchanged:
+    </p>
+    <ul>
+      <li><strong>Embed</strong> each context token into a vector by indexing a table $E$.</li>
+      <li><strong>Mix</strong> the context (here: concatenate, then one $\tanh$ layer) into a hidden state.</li>
+      <li><strong>Score &amp; normalise</strong> with a linear layer plus softmax to get next&#8209;token probabilities.</li>
+      <li><strong>Grade</strong> with cross&#8209;entropy $-\log p_{\text{true}}$, and backprop the clean signal $p - y$.</li>
+    </ul>
+    <div class="callout callout--think">
+      <strong>Sparse updates.</strong> Because embeddings are a lookup, one example&rsquo;s gradient
+      only edits the rows it used. Over a whole corpus, characters (or words) that share contexts get
+      nudged in similar directions and drift together &mdash; which is exactly why the embedding
+      geometry ends up meaningful. Embedding &rarr; MLP &rarr; softmax, graded by $p - y$: that is the
+      entire idea of learning to predict the next token.
+    </div>
+  </section>
+
+  <footer>Part of the ES 667 Deep Learning explainer series &middot; Lecture 12: Next-Token Prediction</footer>
+</article>
+
+<script>
+/* ===================== model (fixed, reproducible) ===================== */
+function lcg(seed){ let s = seed >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
+function buildModel(seed){
+  const r = lcg(seed), u = (sc) => (r() * 2 - 1) * sc;
+  const V = 8, d = 2, B = 3, C = B * d, H = 6;
+  const E  = Array.from({length: V}, () => [u(1.0), u(1.0)]);
+  const W1 = Array.from({length: H}, () => Array.from({length: C}, () => u(0.7)));
+  const b1 = Array.from({length: H}, () => u(0.3));
+  const W2 = Array.from({length: V}, () => Array.from({length: H}, () => u(0.7)));
+  const b2 = Array.from({length: V}, () => u(0.3));
+  return { E, W1, b1, W2, b2, V, d, B, C, H };
+}
+function softmax(z){ const m = Math.max(...z); const e = z.map(v => Math.exp(v - m)); const Z = e.reduce((a,b)=>a+b,0); return e.map(v => v / Z); }
+
+const VOCAB = ['.','a','e','i','m','n','o','r'];
+const IDX = Object.fromEntries(VOCAB.map((c,i)=>[c,i]));
+const BLOCK = ['e','m','m'];
+const BLOCK_ID = BLOCK.map(c => IDX[c]);      // [2,4,4]
+const TRUE = 'a', TRUE_ID = IDX[TRUE];         // 1
+const USED = [...new Set(BLOCK_ID)];           // [2,4]
+
+const M = buildModel(42);
+function forward(){
+  const { E, W1, b1, W2, b2, V, C, H } = M;
+  const emb = BLOCK_ID.map(id => E[id]);
+  const x = [];
+  emb.forEach(v => { x.push(v[0], v[1]); });
+  const hpre = [], h = [];
+  for (let j = 0; j < H; j++){ let s = b1[j]; for (let k = 0; k < C; k++) s += W1[j][k] * x[k]; hpre.push(s); h.push(Math.tanh(s)); }
+  const logit = [];
+  for (let c = 0; c < V; c++){ let s = b2[c]; for (let k = 0; k < H; k++) s += W2[c][k] * h[k]; logit.push(s); }
+  const p = softmax(logit);
+  const loss = -Math.log(p[TRUE_ID]);
+  const g = p.map((pv,i) => pv - (i === TRUE_ID ? 1 : 0));  // p - y
+  // backprop to embeddings
+  const dh = Array(H).fill(0);
+  for (let k = 0; k < H; k++){ let s = 0; for (let c = 0; c < V; c++) s += g[c] * W2[c][k]; dh[k] = s; }
+  const dhpre = dh.map((v,j) => v * (1 - h[j]*h[j]));
+  const dx = Array(C).fill(0);
+  for (let k = 0; k < C; k++){ let s = 0; for (let j = 0; j < H; j++) s += dhpre[j] * W1[j][k]; dx[k] = s; }
+  const gradE = {};
+  gradE[BLOCK_ID[0]] = [dx[0], dx[1]];
+  // 'm' used twice -> accumulate
+  gradE[BLOCK_ID[1]] = [(gradE[BLOCK_ID[1]]?.[0]||0) + dx[2] + dx[4], (gradE[BLOCK_ID[1]]?.[1]||0) + dx[3] + dx[5]];
+  return { emb, x, hpre, h, logit, p, loss, g, dx, gradE };
+}
+const F = forward();
+
+/* ===================== colors / helpers ===================== */
+const ACC = '#2c6fb7', WARM = '#d9622b', SUCC = '#1e7770', INK = '#2f2a22', MUT = '#6e665b', FAINT = '#c8bda9';
+function fitCanvas(canvas){
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = Math.max(1, Math.round(rect.width * dpr));
+  canvas.height = Math.max(1, Math.round(rect.height * dpr));
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { ctx, w: rect.width, h: rect.height };
+}
+function roundRect(ctx, x, y, w, h, r){
+  r = Math.min(r, Math.abs(w)/2, Math.abs(h)/2);
+  const yy = Math.min(y, y+h), hh = Math.abs(h);
+  ctx.beginPath();
+  ctx.moveTo(x+r, yy);
+  ctx.arcTo(x+w, yy, x+w, yy+hh, r);
+  ctx.arcTo(x+w, yy+hh, x, yy+hh, r);
+  ctx.arcTo(x, yy+hh, x, yy, r);
+  ctx.arcTo(x, yy, x+w, yy, r);
+  ctx.closePath();
+}
+function heatColor(v, range){
+  const t = Math.max(-1, Math.min(1, v / range));
+  const a = 0.12 + 0.80 * Math.abs(t);
+  return t >= 0 ? `rgba(44,111,183,${a.toFixed(3)})` : `rgba(217,98,43,${a.toFixed(3)})`;
+}
+function label(ch){ return ch === '.' ? '·' : ch; }
+
+/* draw the 8x2 embedding table inside a box; opts.lit (Set of row ids), opts.grad (map id->[gx,gy]) */
+function drawEmbTable(ctx, ox, oy, bw, bh, opts){
+  opts = opts || {};
+  const lit = opts.lit || new Set();
+  const V = M.V, cols = 2;
+  const headH = 18;
+  const gutter = opts.grad ? 104 : 0;
+  const rh = (bh - headH) / V, cw = (bw - 34 - gutter) / cols;
+  const gx0 = ox + 34;
+  ctx.font = '600 10px Manrope, sans-serif';
+  ctx.fillStyle = MUT; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+  ctx.fillText('d0', gx0 + cw*0.5, oy + headH - 3);
+  ctx.fillText('d1', gx0 + cw*1.5, oy + headH - 3);
+  for (let i = 0; i < V; i++){
+    const y = oy + headH + i * rh;
+    const on = lit.has(i);
+    // row label
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.font = (on ? '700 ' : '500 ') + '12px "IBM Plex Mono", monospace';
+    ctx.fillStyle = on ? INK : (opts.dim ? FAINT : MUT);
+    ctx.fillText(label(VOCAB[i]), ox + 2, y + rh/2);
+    for (let c = 0; c < cols; c++){
+      const x = gx0 + c * cw;
+      const v = M.E[i][c];
+      ctx.globalAlpha = on ? 1 : (opts.dim ? 0.28 : 1);
+      ctx.fillStyle = heatColor(v, 1.05);
+      roundRect(ctx, x + 2, y + 2, cw - 4, rh - 4, 4); ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = (Math.abs(v) > 0.85 && on) ? '#fff' : (on ? '#3a352c' : 'rgba(58,53,44,0.5)');
+      ctx.font = (on ? '700 ' : '500 ') + '11px "IBM Plex Mono", monospace';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(v.toFixed(2), x + cw/2, y + rh/2);
+    }
+    if (on){
+      ctx.strokeStyle = ACC; ctx.lineWidth = 2.4;
+      roundRect(ctx, gx0 - 1, y + 1, cw*cols + 2, rh - 2, 5); ctx.stroke();
+    }
+    if (opts.grad && opts.grad[i]){
+      const g = opts.grad[i];
+      ctx.fillStyle = SUCC; ctx.font = '700 9px "IBM Plex Mono", monospace';
+      ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      ctx.fillText('∇=[' + g[0].toFixed(2) + ',' + g[1].toFixed(2) + ']', gx0 + cw*cols + 7, y + rh/2);
+    } else if (opts.grad && !on){
+      ctx.fillStyle = FAINT; ctx.font = '500 9px "IBM Plex Mono", monospace';
+      ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      ctx.fillText('∇ = 0', gx0 + cw*cols + 7, y + rh/2);
+    }
+  }
+}
+
+/* draw a small labelled vector of cells */
+function drawVector(ctx, ox, oy, cellW, cellH, vals, opts){
+  opts = opts || {};
+  const range = opts.range || 1.0;
+  for (let i = 0; i < vals.length; i++){
+    const x = ox + i * cellW;
+    ctx.fillStyle = opts.signed ? heatColor(vals[i], range) : (opts.colors ? opts.colors[i] : heatColor(vals[i], range));
+    roundRect(ctx, x + 2, oy + 2, cellW - 4, cellH - 4, 5); ctx.fill();
+    ctx.fillStyle = Math.abs(vals[i]) > 0.85*range ? '#fff' : '#3a352c';
+    ctx.font = '600 11px "IBM Plex Mono", monospace';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(vals[i].toFixed(2), x + cellW/2, oy + cellH/2);
+  }
+}
+
+/* horizontal signed bars centered at zero (for h, in [-1,1]) */
+function drawSignedBars(ctx, ox, oy, bw, bh, vals, labels, range, title){
+  const n = vals.length;
+  const rowH = bh / n;
+  const midX = ox + bw * 0.5;
+  const scale = (bw * 0.5 - 44) / range;
+  ctx.strokeStyle = 'rgba(47,42,34,0.25)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(midX, oy); ctx.lineTo(midX, oy + bh); ctx.stroke();
+  for (let i = 0; i < n; i++){
+    const cy = oy + i * rowH + rowH/2;
+    const len = vals[i] * scale;
+    ctx.fillStyle = vals[i] >= 0 ? ACC : WARM;
+    const bhh = Math.min(rowH - 8, 18);
+    roundRect(ctx, Math.min(midX, midX + len), cy - bhh/2, Math.abs(len), bhh, 4); ctx.fill();
+    ctx.fillStyle = INK; ctx.font = '600 10px "IBM Plex Mono", monospace';
+    ctx.textAlign = vals[i] >= 0 ? 'left' : 'right'; ctx.textBaseline = 'middle';
+    ctx.fillText((vals[i]>=0?'+':'') + vals[i].toFixed(2), midX + len + (vals[i]>=0?4:-4), cy);
+    if (labels){
+      ctx.fillStyle = MUT; ctx.font = '600 10px Manrope, sans-serif';
+      ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+      ctx.fillText(labels[i], ox + 30, cy);
+    }
+  }
+}
+
+/* vertical probability / signed bar chart over the 8-char vocab */
+function drawVocabBars(ctx, ox, oy, bw, bh, vals, mode){
+  // mode: 'prob' (0..1) or 'grad' (-1..1, signed)
+  const n = vals.length, gap = 10;
+  const barW = (bw - gap*(n+1)) / n;
+  if (mode === 'prob'){
+    const maxP = Math.max(...vals, 0.001);
+    const top = Math.min(1, Math.max(0.35, Math.ceil(maxP*10)/10));
+    const scale = bh / top;
+    // gridlines
+    ctx.font = '500 9px Manrope, sans-serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    for (let t = 0; t <= top + 1e-6; t += (top <= 0.4 ? 0.1 : 0.2)){
+      const y = oy + bh - t*scale;
+      ctx.strokeStyle = t === 0 ? 'rgba(47,42,34,0.25)' : 'rgba(47,42,34,0.07)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(ox, y); ctx.lineTo(ox + bw, y); ctx.stroke();
+      ctx.fillStyle = '#a89b86'; ctx.fillText(t.toFixed(1), ox - 4, y);
+    }
+    for (let i = 0; i < n; i++){
+      const x = ox + gap + i*(barW+gap);
+      const bhh = vals[i]*scale;
+      const isTrue = i === TRUE_ID;
+      ctx.fillStyle = isTrue ? SUCC : ACC;
+      roundRect(ctx, x, oy + bh - bhh, barW, bhh, 4); ctx.fill();
+      if (isTrue){
+        ctx.strokeStyle = '#1a1815'; ctx.lineWidth = 2; ctx.setLineDash([4,3]);
+        ctx.strokeRect(x - 3, oy, barW + 6, bh); ctx.setLineDash([]);
+      }
+      ctx.fillStyle = INK; ctx.font = '700 10px "IBM Plex Mono", monospace';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+      ctx.fillText(vals[i].toFixed(2), x + barW/2, oy + bh - bhh - 3);
+      ctx.fillStyle = isTrue ? '#1a1815' : MUT; ctx.font = (isTrue?'700 ':'600 ') + '12px "IBM Plex Mono", monospace';
+      ctx.textBaseline = 'top';
+      ctx.fillText(label(VOCAB[i]) + (isTrue?' ★':''), x + barW/2, oy + bh + 5);
+    }
+  } else {
+    const mx = Math.max(...vals.map(Math.abs), 0.2);
+    const top = Math.ceil(mx*10)/10;
+    const midY = oy + bh/2, scale = (bh/2) / (top*1.05);
+    for (let g = -top; g <= top+1e-6; g += top/2){
+      const y = midY - g*scale;
+      ctx.strokeStyle = Math.abs(g)<1e-6 ? 'rgba(47,42,34,0.3)' : 'rgba(47,42,34,0.07)'; ctx.lineWidth = Math.abs(g)<1e-6?1.3:1;
+      ctx.beginPath(); ctx.moveTo(ox, y); ctx.lineTo(ox + bw, y); ctx.stroke();
+      ctx.fillStyle = '#a89b86'; ctx.font = '500 9px Manrope, sans-serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+      ctx.fillText((g>0?'+':'') + g.toFixed(1), ox - 4, y);
+    }
+    for (let i = 0; i < n; i++){
+      const x = ox + gap + i*(barW+gap);
+      const bhh = vals[i]*scale;
+      const isTrue = i === TRUE_ID;
+      ctx.fillStyle = vals[i] >= 0 ? WARM : SUCC;
+      roundRect(ctx, x, midY - bhh, barW, bhh, 4); ctx.fill();
+      ctx.fillStyle = INK; ctx.font = '700 9px "IBM Plex Mono", monospace';
+      ctx.textAlign = 'center'; ctx.textBaseline = vals[i] >= 0 ? 'bottom' : 'top';
+      ctx.fillText((vals[i]>=0?'+':'') + vals[i].toFixed(2), x + barW/2, midY - bhh + (vals[i]>=0?-2:2));
+      ctx.fillStyle = isTrue ? '#1a1815' : MUT; ctx.font = (isTrue?'700 ':'600 ') + '12px "IBM Plex Mono", monospace';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      ctx.fillText(label(VOCAB[i]) + (isTrue?' ★':''), x + barW/2, oy + bh + 5);
+    }
+  }
+}
+
+function panelTitle(ctx, x, y, txt){
+  ctx.fillStyle = '#5a5247'; ctx.font = '700 12px Manrope, sans-serif';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillText(txt, x, y);
+}
+function arrow(ctx, x1, y1, x2, y2){
+  ctx.strokeStyle = '#b7a98f'; ctx.lineWidth = 1.6;
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+  const a = Math.atan2(y2 - y1, x2 - x1);
+  ctx.beginPath(); ctx.moveTo(x2, y2);
+  ctx.lineTo(x2 - 7*Math.cos(a - 0.4), y2 - 7*Math.sin(a - 0.4));
+  ctx.lineTo(x2 - 7*Math.cos(a + 0.4), y2 - 7*Math.sin(a + 0.4));
+  ctx.closePath(); ctx.fillStyle = '#b7a98f'; ctx.fill();
+}
+
+/* ===================== stage content ===================== */
+const STAGES = [
+  { name: 'Embed', tab: '1' },
+  { name: 'Concatenate', tab: '2' },
+  { name: 'Hidden layer', tab: '3' },
+  { name: 'Softmax', tab: '4' },
+  { name: 'Loss', tab: '5' },
+  { name: 'Backprop', tab: '6' },
+];
+const FORMULAS = [
+  'e_c = E[\\,c\\,] \\quad\\text{for } c \\in \\{\\texttt{e},\\texttt{m},\\texttt{m}\\}',
+  'x = [\\,e_\\texttt{e};\\; e_\\texttt{m};\\; e_\\texttt{m}\\,] \\in \\mathbb{R}^{6}',
+  'h = \\tanh(W_1 x + b_1) \\in \\mathbb{R}^{6}',
+  'z = W_2 h + b_2, \\qquad p = \\mathrm{softmax}(z) \\in \\mathbb{R}^{8}',
+  '\\mathcal{L} = -\\log p_{\\texttt{a}}',
+  '\\frac{\\partial \\mathcal{L}}{\\partial z} = p - y, \\qquad \\frac{\\partial \\mathcal{L}}{\\partial E[i]} = 0 \\;\\text{ unless } i \\in \\{\\texttt{e},\\texttt{m}\\}'
+];
+const NARR = [
+  'Look up a row of the table E for each character in the context. The block is <b>e, m, m</b> — so rows &lsquo;e&rsquo; and &lsquo;m&rsquo; light up (&lsquo;m&rsquo; is used twice).',
+  'Stack the three 2-D vectors into one length-6 vector. That flat vector is the MLP&rsquo;s input — the network never sees letters, only these numbers.',
+  'One hidden layer: multiply by W&#8321;, add b&#8321;, and squash with tanh into [-1, 1]. Each of the 6 hidden units now blends the whole context.',
+  'A linear layer turns h into 8 logits — one per vocabulary character — and softmax normalises them into next-character probabilities that sum to 1.',
+  'Cross-entropy reads off the probability mass on the <b>true</b> next character &lsquo;a&rsquo; and takes minus its log. Being confidently wrong costs a lot.',
+  'Backprop. The gradient on the logits is exactly <b>p − y</b>: push &lsquo;a&rsquo; up, push the rest down. Flowing back, it lands on <b>only</b> the rows that were looked up — &lsquo;e&rsquo; and &lsquo;m&rsquo;. Every other row of E gets zero.'
+];
+const CAPS = [
+  'Stage 1 — embedding lookup: only the context rows of E are read.',
+  'Stage 2 — concatenation: three 2-D rows become one 6-vector (‘m’ appears twice).',
+  'Stage 3 — hidden layer: h = tanh(W₁x + b₁), six units in [-1, 1].',
+  'Stage 4 — softmax over the 8-character vocabulary.',
+  'Stage 5 — cross-entropy loss on the true character ‘a’ (dashed, ★).',
+  'Stage 6 — the gradient p − y flows back to only the used embedding rows.'
+];
+
+let stage = 0;
+
+function drawPipe(){
+  const { ctx, w, h } = fitCanvas(document.getElementById('pipeCanvas'));
+  ctx.clearRect(0, 0, w, h);
+  const n = STAGES.length, pad = 12, gap = 10;
+  const cw = (w - 2*pad - gap*(n-1)) / n, cy = h/2, ch = 46;
+  for (let i = 0; i < n; i++){
+    const x = pad + i*(cw + gap);
+    const active = i === stage, done = i < stage;
+    ctx.fillStyle = active ? ACC : (done ? 'rgba(44,111,183,0.14)' : '#f2ede2');
+    roundRect(ctx, x, cy - ch/2, cw, ch, 10); ctx.fill();
+    ctx.strokeStyle = active ? ACC : 'var(--border)'; ctx.strokeStyle = active ? ACC : '#e2d8c6';
+    ctx.lineWidth = active ? 2 : 1; roundRect(ctx, x, cy - ch/2, cw, ch, 10); ctx.stroke();
+    ctx.fillStyle = active ? '#fff' : (done ? ACC : MUT);
+    ctx.font = '700 13px "IBM Plex Mono", monospace';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    ctx.fillText(STAGES[i].tab, x + cw/2, cy);
+    ctx.font = '600 10px Manrope, sans-serif'; ctx.textBaseline = 'top';
+    ctx.fillText(STAGES[i].name, x + cw/2, cy + 2);
+    if (i < n-1){
+      const ax = x + cw + gap/2;
+      ctx.strokeStyle = '#c8bda9'; ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.moveTo(x + cw + 1, cy); ctx.lineTo(x + cw + gap - 1, cy); ctx.stroke();
+    }
+  }
+}
+
+function drawStageCanvas(){
+  const { ctx, w, h } = fitCanvas(document.getElementById('stageCanvas'));
+  ctx.clearRect(0, 0, w, h);
+  const PAD = 16;
+  if (stage === 0){
+    // left: E table with lit rows ; right: the three looked-up vectors
+    panelTitle(ctx, PAD, 6, 'table E  —  rows read for context  e · m · m');
+    drawEmbTable(ctx, PAD, 26, w*0.42, h - 40, { lit: new Set(USED), dim: true });
+    // right: three vectors
+    const rx = w*0.52;
+    panelTitle(ctx, rx, 6, 'looked-up vectors');
+    const cellW = 62, cellH = 34;
+    for (let t = 0; t < BLOCK.length; t++){
+      const y = 46 + t * 70;
+      ctx.fillStyle = INK; ctx.font = '700 15px "IBM Plex Mono", monospace';
+      ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      ctx.fillText('‘' + BLOCK[t] + '’', rx, y + cellH/2);
+      arrow(ctx, rx + 34, y + cellH/2, rx + 70, y + cellH/2);
+      drawVector(ctx, rx + 78, y, cellW, cellH, F.emb[t], { range: 1.05 });
+      ctx.fillStyle = MUT; ctx.font = '500 11px Manrope, sans-serif';
+      ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      ctx.fillText('= E[' + BLOCK_ID[t] + ']', rx + 78 + 2*cellW + 8, y + cellH/2);
+    }
+  } else if (stage === 1){
+    panelTitle(ctx, PAD, 6, 'concatenated input   x = [ e_e ; e_m ; e_m ]  ∈  ℝ⁶');
+    const cellW = Math.min(96, (w - 2*PAD) / 6.5), cellH = 54;
+    const ox = (w - 6*cellW) / 2, oy = h*0.42;
+    const grpColors = [ACC, ACC, WARM, WARM, WARM, WARM];
+    drawVector(ctx, ox, oy, cellW, cellH, F.x, { range: 1.05 });
+    // group brackets + source labels
+    const groups = [[0,1,'from ‘e’',ACC],[2,3,'from ‘m’',WARM],[4,5,'from ‘m’ (again)',WARM]];
+    for (const [a,b,txt,col] of groups){
+      const x1 = ox + a*cellW + 2, x2 = ox + (b+1)*cellW - 2;
+      ctx.strokeStyle = col; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(x1, oy - 8); ctx.lineTo(x1, oy - 14); ctx.lineTo(x2, oy - 14); ctx.lineTo(x2, oy - 8); ctx.stroke();
+      ctx.fillStyle = col; ctx.font = '600 11px Manrope, sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+      ctx.fillText(txt, (x1+x2)/2, oy - 18);
+      ctx.fillStyle = MUT; ctx.font = '500 10px "IBM Plex Mono", monospace';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      ctx.fillText('x[' + a + ']', ox + a*cellW + cellW/2, oy + cellH + 6);
+      ctx.fillText('x[' + b + ']', ox + b*cellW + cellW/2, oy + cellH + 6);
+    }
+    ctx.fillStyle = '#8a8072'; ctx.font = 'italic 11px "Source Serif 4", serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillText('the two ‘m’ blocks are identical — same row, copied into two slots', w/2, oy + cellH + 30);
+  } else if (stage === 2){
+    panelTitle(ctx, PAD, 6, 'hidden state   h = tanh( W₁ x + b₁ )   (6 units, range −1 … +1)');
+    drawSignedBars(ctx, PAD + 30, 44, w - 2*PAD - 40, h - 80, F.h,
+      F.h.map((_,i)=>'h'+i), 1.05);
+    ctx.fillStyle = '#8a8072'; ctx.font = 'italic 11px "Source Serif 4", serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    ctx.fillText('blue = positive activation, orange = negative — each unit mixes all 6 inputs', w/2, h - 6);
+  } else if (stage === 3){
+    panelTitle(ctx, PAD, 6, 'softmax over the vocabulary   p = softmax(z)   (sums to 1)');
+    drawVocabBars(ctx, PAD + 26, 42, w - 2*PAD - 30, h - 96, F.p, 'prob');
+  } else if (stage === 4){
+    panelTitle(ctx, PAD, 6, 'cross-entropy loss on the true next character  ‘a’');
+    drawVocabBars(ctx, PAD + 26, 42, w*0.62, h - 96, F.p, 'prob');
+    // big loss box on the right
+    const rx = w*0.68, rw = w - rx - PAD;
+    ctx.fillStyle = INK; ctx.font = '600 12px Manrope, sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillText('p(‘a’) = ' + F.p[TRUE_ID].toFixed(3), rx + rw/2, h*0.34);
+    ctx.fillStyle = WARM; ctx.font = '800 40px "IBM Plex Mono", monospace';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(F.loss.toFixed(2), rx + rw/2, h*0.5);
+    ctx.fillStyle = MUT; ctx.font = '600 12px Manrope, sans-serif';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText('L = −log p(‘a’)', rx + rw/2, h*0.68);
+  } else if (stage === 5){
+    // left: p - y signed bars ; right: E table with only used rows lit + grads
+    panelTitle(ctx, PAD, 6, 'gradient on logits   p − y');
+    drawVocabBars(ctx, PAD + 24, 40, w*0.5 - PAD, h - 120, F.g, 'grad');
+    ctx.fillStyle = '#8a8072'; ctx.font = 'italic 10px "Source Serif 4", serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    ctx.fillText('‘a’ negative → push up · others → push down', PAD + 24 + (w*0.5-PAD)/2, h - 8);
+    const rx = w*0.55;
+    panelTitle(ctx, rx, 6, 'gradient reaches only the used rows of E');
+    drawEmbTable(ctx, rx, 26, w - rx - PAD, h - 40, { lit: new Set(USED), dim: true, grad: F.gradE });
+  }
+}
+
+/* ===================== orchestration ===================== */
+function renderFormula(){
+  const el = document.getElementById('stageFormula');
+  if (window.katex){
+    try { katex.render(FORMULAS[stage], el, { throwOnError: false, displayMode: true }); }
+    catch(e){ el.textContent = ''; }
+  }
+}
+function setStage(s){
+  stage = ((s % STAGES.length) + STAGES.length) % STAGES.length;
+  document.querySelectorAll('#stageTabs .mode-button').forEach((b,i) =>
+    b.classList.toggle('is-active', i === stage));
+  document.getElementById('stageName').textContent = 'Stage ' + (stage+1) + ' / 6 · ' + STAGES[stage].name;
+  document.getElementById('stageNarr').innerHTML = NARR[stage];
+  document.getElementById('stageCap').textContent = CAPS[stage];
+  renderFormula();
+  drawPipe();
+  drawStageCanvas();
+}
+function updateStats(){
+  const top = F.p.indexOf(Math.max(...F.p));
+  document.getElementById('topVal').textContent = '‘' + VOCAB[top] + '’' + (top === TRUE_ID ? ' ✓' : ' ✗');
+  document.getElementById('ptrueVal').textContent = F.p[TRUE_ID].toFixed(3);
+  document.getElementById('lossVal').textContent = F.loss.toFixed(3);
+}
+
+/* build stage tabs */
+const tabWrap = document.getElementById('stageTabs');
+STAGES.forEach((st, i) => {
+  const b = document.createElement('button');
+  b.className = 'mode-button';
+  b.textContent = st.tab;
+  b.title = st.name;
+  b.addEventListener('click', () => setStage(i));
+  tabWrap.appendChild(b);
+});
+document.getElementById('stepBtn').addEventListener('click', () => setStage(stage + 1));
+document.getElementById('backBtn').addEventListener('click', () => setStage(stage - 1));
+
+window.addEventListener('load', () => { updateStats(); setStage(0); });
+window.addEventListener('resize', () => { drawPipe(); drawStageCanvas(); });
+</script>
+
+</body>
+</html>
