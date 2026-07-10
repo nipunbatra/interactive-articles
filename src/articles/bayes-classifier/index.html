@@ -214,7 +214,7 @@ footer { margin-top: 4rem; text-align: center; font-family: var(--sans); font-si
       Top panel: the two class-conditional densities (already weighted by their
       priors, so their areas reflect $\pi$ and $1-\pi$). Bottom panel: the posterior
       $p(Y=1\mid x)$, with the $0.5$ line and the resulting decision boundary. Drag
-      anywhere on the figure &mdash; or use the $x^\*$ slider &mdash; to move the test point.
+      anywhere on the figure &mdash; or use the $x^{*}$ slider &mdash; to move the test point.
     </p>
 
     <div class="control-row">
@@ -239,23 +239,23 @@ footer { margin-top: 4rem; text-align: center; font-family: var(--sans); font-si
         <input type="range" id="prior" min="0.02" max="0.98" step="0.01" value="0.5">
       </div>
       <div class="control-block">
-        <label>Test point $x^\*$ <span id="xstarVal">0.00</span></label>
+        <label>Test point $x^{*}$ <span id="xstarVal">0.00</span></label>
         <input type="range" id="xstar" min="-8" max="8" step="0.05" value="0.0">
       </div>
     </div>
 
     <figure class="interactive-figure">
       <canvas id="bayesCanvas" width="920" height="460"></canvas>
-      <figcaption>Top: prior-weighted densities $\pi\,p(x|Y{=}1)$ and $(1-\pi)\,p(x|Y{=}0)$. Bottom: posterior $p(Y{=}1|x)$. Vertical orange line is $x^\*$; dashed lines are decision boundaries.</figcaption>
+      <figcaption>Top: prior-weighted densities $\pi\,p(x|Y{=}1)$ and $(1-\pi)\,p(x|Y{=}0)$. Bottom: posterior $p(Y{=}1|x)$. Vertical orange line is $x^{*}$; dashed lines are decision boundaries.</figcaption>
     </figure>
 
     <div class="stat-strip">
       <div class="stat-pill stat-pill--warm">
-        <span class="stat-label">Prediction at $x^\*$</span>
+        <span class="stat-label">Prediction at $x^{*}$</span>
         <span class="stat-value" id="predVal">&mdash;</span>
       </div>
       <div class="stat-pill stat-pill--accent">
-        <span class="stat-label">Posterior $p(Y{=}1\mid x^\*)$</span>
+        <span class="stat-label">Posterior $p(Y{=}1\mid x^{*})$</span>
         <span class="stat-value" id="postVal">&mdash;</span>
       </div>
       <div class="stat-pill">
