@@ -1,0 +1,20 @@
+{
+  "slug": "map-regularization",
+  "title": "MAP = Likelihood × Prior",
+  "date": "2026-07-10",
+  "tagline": "Watch regularization appear as a prior multiplying the likelihood in parameter space",
+  "summary": "A 2-parameter model, drawn in parameter space. Overlay three contour sets — the likelihood (data fit), the prior (centered at zero), and their product the posterior — and mark the MLE, the MAP, and the origin. Tighten a Gaussian prior and see L2 shrinkage pull the MAP toward zero; switch to a Laplace prior and see L1 drive a coordinate to exactly zero; add more data and watch the MAP march back to the MLE. Regularization is just a prior.",
+  "readingTime": "11 min",
+  "difficulty": "Intermediate",
+  "collection": "Deep learning",
+  "order": 33,
+  "status": "published",
+  "tags": ["MAP", "Regularization", "Priors", "Bayesian", "Interactive"],
+  "highlights": [
+    "See the posterior is literally the likelihood contours times the prior contours, drawn in 2-D parameter space.",
+    "The MAP estimate sits at the peak of the posterior — between the MLE (data) and the origin (prior).",
+    "Narrow a Gaussian prior and watch L2 regularization shrink both parameters smoothly toward zero.",
+    "Switch to a Laplace prior and watch its diamond contours snap a parameter to exactly zero — that is L1 sparsity.",
+    "Add data or lower the noise and the likelihood tightens, dragging the MAP back onto the MLE — the prior fades away."
+  ]
+}

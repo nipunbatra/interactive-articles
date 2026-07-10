@@ -1,0 +1,20 @@
+{
+  "slug": "bayes-classifier",
+  "title": "A Bayes Classifier, by Hand",
+  "date": "2026-07-10",
+  "tagline": "Two Gaussians and a prior — build the optimal classifier and watch the decision boundary move",
+  "summary": "Two class-conditional Gaussians, one prior slider, and a draggable test point. Multiply likelihood by prior, normalize, and you have the posterior p(Y=1|x) — the provably optimal classifier. Drag the test point to read its predicted class and posterior; slide the prior and watch the decision boundary slide with it. This is the machinery underneath logistic regression, Gaussian discriminant analysis, and naive Bayes.",
+  "readingTime": "10 min",
+  "difficulty": "Intermediate",
+  "collection": "Deep learning",
+  "order": 32,
+  "status": "published",
+  "tags": ["Bayes Classifier", "Posterior", "Generative Models", "Probability", "Interactive"],
+  "highlights": [
+    "See two class-conditional Gaussians and the posterior p(Y=1|x) that Bayes' rule builds from them.",
+    "The decision boundary appears exactly where the posterior crosses 0.5 — drag the sliders and it moves live.",
+    "Lower the prior on class 1 and watch the boundary shift toward class 1's territory, shrinking its region.",
+    "Unequal variances bend the boundary into two crossing points — a peek at quadratic discriminant analysis.",
+    "Drag a test point to read its predicted class and posterior probability, the optimal decision at every location."
+  ]
+}

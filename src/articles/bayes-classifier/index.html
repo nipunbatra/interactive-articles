@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A Bayes Classifier, by Hand</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body, {delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
+
+<style>
+:root {
+  --serif: 'Source Serif 4', Georgia, serif;
+  --sans: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+  --mono: 'IBM Plex Mono', monospace;
+  --bg: #fdfcf9;
+  --paper: #ffffff;
+  --text: #2f2a22;
+  --muted: #6e665b;
+  --border: #e2d8c6;
+  --accent: #2c6fb7;
+  --warm: #d9622b;
+  --success: #1e7770;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; font-family: var(--serif); color: var(--text); background: var(--bg); line-height: 1.65; }
+
+.article { max-width: 980px; margin: 0 auto; padding: 2.5rem 1.5rem 5rem; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; color: var(--muted); text-decoration: none; font-family: var(--sans); font-size: 0.9rem; }
+.back-link:hover { color: var(--text); }
+.article-header { margin-bottom: 3rem; text-align: center; }
+.kicker { margin: 0 0 0.75rem; font-family: var(--sans); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); }
+h1 { margin: 0 auto 1rem; font-size: clamp(2.4rem, 5vw, 3.5rem); line-height: 1.1; letter-spacing: -0.02em; color: #1a1815; max-width: 18ch; }
+.abstract { margin: 0 auto 1rem; max-width: 62ch; font-size: 1.15rem; color: #4d463d; }
+.byline { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-top: 1.4rem; padding-top: 1rem; border-top: 1px solid var(--border); color: var(--muted); font-family: var(--sans); font-size: 0.92rem; }
+
+.step-section {
+  position: relative;
+  margin-top: 4rem;
+  padding: 3rem 2.5rem;
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.03);
+}
+.step-badge {
+  position: absolute;
+  top: -16px;
+  left: 32px;
+  background: var(--accent);
+  color: white;
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.4rem 1.2rem;
+  border-radius: 999px;
+  box-shadow: 0 4px 12px rgba(44, 111, 183, 0.25);
+}
+h2 { margin: 0 0 1rem; font-size: clamp(1.6rem, 3.5vw, 2.2rem); line-height: 1.15; color: #1a1815; }
+h3 { margin-top: 2rem; margin-bottom: 0.8rem; font-size: 1.25rem; color: #1a1815; }
+p { max-width: 68ch; font-size: 1.1rem; }
+ul { max-width: 68ch; font-size: 1.1rem; padding-left: 1.4rem; }
+li { margin-bottom: 0.5rem; }
+.math-block { margin: 1.5rem 0; text-align: center; font-size: 1.05rem; }
+
+.control-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.4rem;
+  margin: 1.6rem 0;
+}
+.control-block { display: flex; flex-direction: column; gap: 0.5rem; }
+.control-block label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-family: var(--sans);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.control-block label span { font-family: var(--mono); color: var(--warm); font-weight: 500; font-size: 0.95rem; }
+input[type="range"] {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px; height: 18px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid var(--paper);
+  box-shadow: 0 2px 6px rgba(44,111,183,0.4);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 18px; height: 18px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid var(--paper);
+}
+
+.interactive-figure { margin: 1.5rem 0; }
+.interactive-figure canvas {
+  display: block;
+  width: 100%;
+  background: #fbfaf6;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  cursor: ew-resize;
+}
+.interactive-figure figcaption { margin-top: 0.7rem; font-size: 0.92rem; color: var(--muted); text-align: center; font-style: italic; }
+
+.stat-strip { display: flex; gap: 1rem; flex-wrap: wrap; margin: 1.5rem 0; }
+.stat-pill {
+  flex: 1 1 140px;
+  min-width: 140px;
+  background: var(--paper);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  padding: 0.9rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  text-align: left;
+}
+.stat-pill .stat-label { font-family: var(--sans); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; }
+.stat-pill .stat-value { font-family: var(--mono); font-size: 1.5rem; font-weight: 600; color: var(--text); }
+.stat-pill--accent { border-color: var(--accent); }
+.stat-pill--accent .stat-value { color: var(--accent); }
+.stat-pill--warm { border-color: var(--warm); }
+.stat-pill--warm .stat-value { color: var(--warm); }
+
+.callout {
+  margin: 2rem 0 0.5rem;
+  padding: 1.2rem 1.5rem;
+  border-radius: 12px;
+  border-left: 4px solid var(--accent);
+  background: rgba(44,111,183,0.05);
+  font-size: 1.02rem;
+}
+.callout strong { color: var(--accent); }
+.callout--think { border-left-color: var(--success); background: rgba(30,119,112,0.06); }
+.callout--think strong { color: var(--success); }
+.callout--warn { border-left-color: var(--warm); background: rgba(217,98,43,0.06); }
+.callout--warn strong { color: var(--warm); }
+
+footer { margin-top: 4rem; text-align: center; font-family: var(--sans); font-size: 0.85rem; color: var(--muted); }
+
+@media (max-width: 640px) { .step-section { padding: 2rem 1.4rem; } }
+</style>
+</head>
+<body>
+
+<article class="article">
+  <header class="article-header">
+    <a class="back-link" href="../">&larr; Explainer Library</a>
+    <p class="kicker">Interactive Explainer</p>
+    <h1>A Bayes Classifier, by Hand</h1>
+    <p class="abstract">
+      If you knew the true distribution of each class, what is the best possible
+      classifier? Bayes' rule answers exactly: form the posterior
+      $p(Y=1\mid x) \propto p(x\mid Y=1)\,p(Y=1)$ and predict the more probable class.
+      Here we build it from two Gaussians and a prior &mdash; and watch the optimal
+      decision boundary appear right where the posterior crosses one half.
+    </p>
+    <div class="byline">
+      <span>~10 min</span>
+      <span>Deep Learning &middot; Probability &middot; Classification</span>
+    </div>
+  </header>
+
+  <section class="step-section" id="prelude">
+    <div class="step-badge">Prelude</div>
+    <h2>Likelihood times prior, normalized</h2>
+    <p>
+      Model each class as a generator of data. Class 0 emits points from
+      $p(x\mid Y=0)=\mathcal{N}(\mu_0,\sigma_0^2)$; class 1 from
+      $p(x\mid Y=1)=\mathcal{N}(\mu_1,\sigma_1^2)$. Add a prior belief $\pi = p(Y=1)$
+      about how common class 1 is. Bayes' rule inverts the generator to tell you,
+      given a point $x$, how probable each class is:
+    </p>
+    <div class="math-block">
+      $$p(Y=1\mid x) = \frac{\overbrace{p(x\mid Y=1)}^{\text{likelihood}}\,\overbrace{\pi}^{\text{prior}}}
+        {p(x\mid Y=1)\,\pi + p(x\mid Y=0)\,(1-\pi)} .$$
+    </div>
+    <p>
+      Predict class 1 wherever this posterior exceeds $\tfrac12$. The set of points
+      where it equals exactly $\tfrac12$ is the <strong>decision boundary</strong>.
+      No classifier can do better on average than this one &mdash; it is the
+      <em>Bayes-optimal</em> rule, the yardstick everything else is measured against.
+    </p>
+  </section>
+
+  <section class="step-section" id="lab">
+    <div class="step-badge">The Lab</div>
+    <h2>Build the classifier</h2>
+    <p>
+      Top panel: the two class-conditional densities (already weighted by their
+      priors, so their areas reflect $\pi$ and $1-\pi$). Bottom panel: the posterior
+      $p(Y=1\mid x)$, with the $0.5$ line and the resulting decision boundary. Drag
+      anywhere on the figure &mdash; or use the $x^\*$ slider &mdash; to move the test point.
+    </p>
+
+    <div class="control-row">
+      <div class="control-block">
+        <label>Mean $\mu_0$ <span id="mu0Val">-1.5</span></label>
+        <input type="range" id="mu0" min="-4" max="4" step="0.1" value="-1.5">
+      </div>
+      <div class="control-block">
+        <label>Mean $\mu_1$ <span id="mu1Val">1.5</span></label>
+        <input type="range" id="mu1" min="-4" max="4" step="0.1" value="1.5">
+      </div>
+      <div class="control-block">
+        <label>Std $\sigma_0$ <span id="s0Val">1.00</span></label>
+        <input type="range" id="s0" min="0.4" max="2.5" step="0.05" value="1.0">
+      </div>
+      <div class="control-block">
+        <label>Std $\sigma_1$ <span id="s1Val">1.00</span></label>
+        <input type="range" id="s1" min="0.4" max="2.5" step="0.05" value="1.0">
+      </div>
+      <div class="control-block">
+        <label>Prior $\pi = p(Y{=}1)$ <span id="priorVal">0.50</span></label>
+        <input type="range" id="prior" min="0.02" max="0.98" step="0.01" value="0.5">
+      </div>
+      <div class="control-block">
+        <label>Test point $x^\*$ <span id="xstarVal">0.00</span></label>
+        <input type="range" id="xstar" min="-8" max="8" step="0.05" value="0.0">
+      </div>
+    </div>
+
+    <figure class="interactive-figure">
+      <canvas id="bayesCanvas" width="920" height="460"></canvas>
+      <figcaption>Top: prior-weighted densities $\pi\,p(x|Y{=}1)$ and $(1-\pi)\,p(x|Y{=}0)$. Bottom: posterior $p(Y{=}1|x)$. Vertical orange line is $x^\*$; dashed lines are decision boundaries.</figcaption>
+    </figure>
+
+    <div class="stat-strip">
+      <div class="stat-pill stat-pill--warm">
+        <span class="stat-label">Prediction at $x^\*$</span>
+        <span class="stat-value" id="predVal">&mdash;</span>
+      </div>
+      <div class="stat-pill stat-pill--accent">
+        <span class="stat-label">Posterior $p(Y{=}1\mid x^\*)$</span>
+        <span class="stat-value" id="postVal">&mdash;</span>
+      </div>
+      <div class="stat-pill">
+        <span class="stat-label">Decision boundary</span>
+        <span class="stat-value" id="boundVal">&mdash;</span>
+      </div>
+    </div>
+
+    <div class="callout callout--think">
+      <strong>Try this.</strong> With equal variances, drag the prior $\pi$ from
+      $0.5$ down toward $0.1$. The boundary slides toward class 1's mean &mdash; if
+      class 1 is rare, you demand stronger evidence (a point deeper into its
+      territory) before predicting it. Then make $\sigma_1$ much larger than
+      $\sigma_0$: the boundary splits into <em>two</em> crossings, and the broad
+      class can win out on both far tails. That curvature is exactly what separates
+      quadratic discriminant analysis from the straight-line logistic boundary.
+    </div>
+  </section>
+
+  <section class="step-section" id="why">
+    <div class="step-badge">The Payoff</div>
+    <h2>Where the boundary comes from</h2>
+    <p>
+      Setting the posterior to $\tfrac12$ is the same as setting the two
+      prior-weighted likelihoods equal: $\pi\,p(x|Y{=}1) = (1-\pi)\,p(x|Y{=}0)$.
+      Take logs of the two Gaussians and the boundary condition becomes a quadratic in $x$:
+    </p>
+    <div class="math-block">
+      $$-\frac{(x-\mu_1)^2}{2\sigma_1^2} - \log\sigma_1 + \log\pi
+        = -\frac{(x-\mu_0)^2}{2\sigma_0^2} - \log\sigma_0 + \log(1-\pi).$$
+    </div>
+    <ul>
+      <li><strong>Equal variances</strong> ($\sigma_0=\sigma_1$): the $x^2$ terms cancel, leaving a <em>single linear</em> boundary. This is exactly the decision rule of logistic regression / linear discriminant analysis.</li>
+      <li><strong>Unequal variances</strong>: the $x^2$ terms survive &mdash; a genuine quadratic with up to <em>two</em> roots. This is quadratic discriminant analysis.</li>
+      <li><strong>The prior</strong> enters only through $\log\frac{\pi}{1-\pi}$, an additive shift &mdash; so changing the prior slides the boundary without changing its shape.</li>
+    </ul>
+    <div class="callout callout--warn">
+      <strong>Takeaway.</strong> A classifier is just a rule for comparing posteriors. Generative models
+      (like this one) get there by modeling $p(x|y)$ and applying Bayes' rule; discriminative models
+      (logistic regression, neural nets) skip straight to modeling $p(y|x)$. Both are chasing the same
+      Bayes-optimal boundary you are dragging around above.
+    </div>
+  </section>
+
+  <footer>Part of the ES 667 Deep Learning explainer series &middot; Lecture 1: Why These Losses?</footer>
+</article>
+
+<script>
+/* ===================== math ===================== */
+function gauss(x, mu, s) {
+  return Math.exp(-0.5 * ((x - mu) / s) ** 2) / (s * Math.sqrt(2 * Math.PI));
+}
+function getVals() {
+  return {
+    mu0: +document.getElementById('mu0').value,
+    mu1: +document.getElementById('mu1').value,
+    s0: +document.getElementById('s0').value,
+    s1: +document.getElementById('s1').value,
+    prior: +document.getElementById('prior').value,
+    xstar: +document.getElementById('xstar').value
+  };
+}
+function posterior(x, v) {
+  const a = v.prior * gauss(x, v.mu1, v.s1);
+  const b = (1 - v.prior) * gauss(x, v.mu0, v.s0);
+  return a / (a + b + 1e-300);
+}
+// decision boundaries where posterior crosses 0.5, via sign changes of g = post-0.5
+function findBoundaries(v, xMin, xMax) {
+  const out = [];
+  const N = 2000;
+  let prevG = posterior(xMin, v) - 0.5, prevSide = prevG >= 0, prevX = xMin;
+  for (let i = 1; i <= N; i++) {
+    const x = xMin + (i / N) * (xMax - xMin);
+    const g = posterior(x, v) - 0.5;
+    const side = g >= 0;
+    if (side !== prevSide) {
+      // linear interpolate the crossing (treats an exact hit as a single crossing)
+      const t = prevG / (prevG - g);
+      const bx = prevX + t * (x - prevX);
+      if (out.length === 0 || Math.abs(bx - out[out.length - 1]) > 1e-3) out.push(bx);
+    }
+    prevG = g; prevSide = side; prevX = x;
+  }
+  return out;
+}
+
+const DOM = { xMin: -8, xMax: 8 };
+
+/* ===================== canvas ===================== */
+function fitCanvas(canvas) {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { ctx, w: rect.width, h: rect.height };
+}
+
+function draw() {
+  const canvas = document.getElementById('bayesCanvas');
+  const { ctx, w, h } = fitCanvas(canvas);
+  ctx.clearRect(0, 0, w, h);
+  const v = getVals();
+
+  const padL = 48, padR = 20;
+  const cw = w - padL - padR;
+  const X = x => padL + (x - DOM.xMin) / (DOM.xMax - DOM.xMin) * cw;
+
+  // vertical layout: top density plot, gap, bottom posterior plot
+  const topT = 26, topH = 200;
+  const botT = topT + topH + 54, botH = 130;
+
+  // ---- boundaries + regions ----
+  const bounds = findBoundaries(v, DOM.xMin, DOM.xMax);
+
+  // shade class regions across full height (light)
+  const shadeStep = 3;
+  for (let px = 0; px < cw; px += shadeStep) {
+    const x = DOM.xMin + (px / cw) * (DOM.xMax - DOM.xMin);
+    const post = posterior(x, v);
+    ctx.fillStyle = post >= 0.5 ? 'rgba(217,98,43,0.06)' : 'rgba(44,111,183,0.06)';
+    ctx.fillRect(padL + px, topT, shadeStep + 1, (botT + botH) - topT);
+  }
+
+  // ---- top: densities ----
+  // peak scale
+  let peak = 0;
+  for (let px = 0; px <= cw; px++) {
+    const x = DOM.xMin + (px / cw) * (DOM.xMax - DOM.xMin);
+    peak = Math.max(peak, v.prior * gauss(x, v.mu1, v.s1), (1 - v.prior) * gauss(x, v.mu0, v.s0));
+  }
+  peak = Math.max(peak, 1e-3);
+  const YT = d => topT + topH - (d / (peak * 1.1)) * topH;
+
+  // baseline
+  ctx.strokeStyle = 'rgba(47,42,34,0.25)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(padL, topT + topH); ctx.lineTo(padL + cw, topT + topH); ctx.stroke();
+
+  function drawDensity(mu, s, weight, color, fill) {
+    ctx.beginPath();
+    for (let px = 0; px <= cw; px++) {
+      const x = DOM.xMin + (px / cw) * (DOM.xMax - DOM.xMin);
+      const d = weight * gauss(x, mu, s);
+      const yy = YT(d);
+      if (px === 0) ctx.moveTo(padL, yy); else ctx.lineTo(padL + px, yy);
+    }
+    ctx.lineTo(padL + cw, topT + topH); ctx.lineTo(padL, topT + topH); ctx.closePath();
+    ctx.fillStyle = fill; ctx.fill();
+    // stroke curve
+    ctx.beginPath();
+    for (let px = 0; px <= cw; px++) {
+      const x = DOM.xMin + (px / cw) * (DOM.xMax - DOM.xMin);
+      const yy = YT(weight * gauss(x, mu, s));
+      if (px === 0) ctx.moveTo(padL, yy); else ctx.lineTo(padL + px, yy);
+    }
+    ctx.strokeStyle = color; ctx.lineWidth = 2.4; ctx.stroke();
+  }
+  drawDensity(v.mu0, v.s0, 1 - v.prior, '#2c6fb7', 'rgba(44,111,183,0.14)');
+  drawDensity(v.mu1, v.s1, v.prior, '#d9622b', 'rgba(217,98,43,0.14)');
+
+  // top labels
+  ctx.font = '600 11px Manrope, sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillStyle = '#2c6fb7'; ctx.fillText('(1−π) · p(x | Y=0)', padL + 6, topT + 2);
+  ctx.fillStyle = '#d9622b'; ctx.fillText('π · p(x | Y=1)', padL + 6, topT + 18);
+
+  // ---- bottom: posterior ----
+  const YB = p => botT + botH - p * botH;
+  // frame + gridlines at 0,0.5,1
+  ctx.font = '500 10px Manrope, sans-serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  [0, 0.5, 1].forEach(t => {
+    const y = YB(t);
+    ctx.strokeStyle = t === 0.5 ? 'rgba(47,42,34,0.35)' : 'rgba(47,42,34,0.12)';
+    ctx.lineWidth = t === 0.5 ? 1.4 : 1;
+    ctx.setLineDash(t === 0.5 ? [5, 4] : []);
+    ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL + cw, y); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#8a8072'; ctx.fillText(t.toFixed(1), padL - 8, y);
+  });
+  // posterior curve
+  ctx.beginPath();
+  for (let px = 0; px <= cw; px++) {
+    const x = DOM.xMin + (px / cw) * (DOM.xMax - DOM.xMin);
+    const yy = YB(posterior(x, v));
+    if (px === 0) ctx.moveTo(padL, yy); else ctx.lineTo(padL + px, yy);
+  }
+  ctx.strokeStyle = '#1e7770'; ctx.lineWidth = 2.6; ctx.stroke();
+  ctx.fillStyle = '#1e7770'; ctx.font = '600 11px Manrope, sans-serif';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillText('posterior  p(Y=1 | x)', padL + 6, botT + 2);
+
+  // ---- x-axis ticks (shared, under bottom plot) ----
+  ctx.font = '500 10px Manrope, sans-serif'; ctx.fillStyle = '#8a8072';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  for (let x = DOM.xMin; x <= DOM.xMax; x += 2) {
+    ctx.strokeStyle = 'rgba(47,42,34,0.08)'; ctx.lineWidth = 1;
+    ctx.fillText(x.toString(), X(x), botT + botH + 6);
+  }
+
+  // ---- decision boundaries ----
+  bounds.forEach(bx => {
+    ctx.strokeStyle = 'rgba(47,42,34,0.55)'; ctx.lineWidth = 1.6;
+    ctx.setLineDash([6, 4]);
+    ctx.beginPath(); ctx.moveTo(X(bx), topT); ctx.lineTo(X(bx), botT + botH); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#5a5247'; ctx.font = '600 10px IBM Plex Mono, monospace';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    ctx.fillText(bx.toFixed(2), X(bx), topT - 2);
+  });
+
+  // ---- test point x* ----
+  const xs = v.xstar;
+  ctx.strokeStyle = '#d9622b'; ctx.lineWidth = 2.5;
+  ctx.beginPath(); ctx.moveTo(X(xs), topT - 6); ctx.lineTo(X(xs), botT + botH + 4); ctx.stroke();
+  // dot on posterior
+  const post = posterior(xs, v);
+  ctx.fillStyle = '#d9622b';
+  ctx.beginPath(); ctx.arc(X(xs), YB(post), 6, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.fillStyle = '#d9622b'; ctx.font = '700 11px Manrope, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+  ctx.fillText('x* = ' + xs.toFixed(2), X(xs), topT - 16);
+
+  // ---- stats ----
+  document.getElementById('predVal').textContent = post >= 0.5 ? 'Class 1' : 'Class 0';
+  document.getElementById('postVal').textContent = post.toFixed(3);
+  document.getElementById('boundVal').textContent =
+    bounds.length === 0 ? 'none in view' : bounds.map(b => b.toFixed(2)).join(', ');
+}
+
+/* ===================== wiring ===================== */
+const sliders = ['mu0', 'mu1', 's0', 's1', 'prior', 'xstar'];
+const fmt = { mu0: 1, mu1: 1, s0: 2, s1: 2, prior: 2, xstar: 2 };
+const labelIds = { mu0: 'mu0Val', mu1: 'mu1Val', s0: 's0Val', s1: 's1Val', prior: 'priorVal', xstar: 'xstarVal' };
+sliders.forEach(id => {
+  document.getElementById(id).addEventListener('input', () => {
+    document.getElementById(labelIds[id]).textContent = (+document.getElementById(id).value).toFixed(fmt[id]);
+    draw();
+  });
+});
+
+// drag on canvas to move x*
+(function enableDrag() {
+  const canvas = document.getElementById('bayesCanvas');
+  const xstar = document.getElementById('xstar');
+  let dragging = false;
+  const setX = (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const px = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+    const padL = 48, padR = 20, cw = rect.width - padL - padR;
+    let x = DOM.xMin + ((px - padL) / cw) * (DOM.xMax - DOM.xMin);
+    x = Math.max(DOM.xMin, Math.min(DOM.xMax, x));
+    xstar.value = x.toFixed(2);
+    document.getElementById('xstarVal').textContent = x.toFixed(2);
+    draw();
+  };
+  canvas.addEventListener('mousedown', e => { dragging = true; setX(e); });
+  window.addEventListener('mousemove', e => { if (dragging) setX(e); });
+  window.addEventListener('mouseup', () => { dragging = false; });
+  canvas.addEventListener('touchstart', e => { dragging = true; setX(e); e.preventDefault(); }, { passive: false });
+  canvas.addEventListener('touchmove', e => { if (dragging) { setX(e); e.preventDefault(); } }, { passive: false });
+  canvas.addEventListener('touchend', () => { dragging = false; });
+})();
+
+window.addEventListener('load', draw);
+window.addEventListener('resize', draw);
+</script>
+
+</body>
+</html>

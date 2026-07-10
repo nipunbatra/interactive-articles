@@ -1,0 +1,20 @@
+{
+  "slug": "softmax-cross-entropy",
+  "title": "Softmax & Cross-Entropy",
+  "date": "2026-07-10",
+  "tagline": "Turn logits into probabilities, read off the loss, and watch the gradient become p minus y",
+  "summary": "Slide three logits, pick the true class, and turn the temperature knob. See the softmax probabilities, the cross-entropy loss -log(p_true) as one big number, and the backprop gradient p - y as signed bars. Four presets — confident-and-right through confident-and-wrong — make the punchline obvious: the loss punishes confident mistakes hardest, and the gradient that fixes them is exactly predicted minus target.",
+  "readingTime": "9 min",
+  "difficulty": "Intermediate",
+  "collection": "Deep learning",
+  "order": 31,
+  "status": "published",
+  "tags": ["Cross-Entropy", "Softmax", "Classification", "Gradients", "Interactive"],
+  "highlights": [
+    "Watch softmax map three logits to a probability simplex, live, with the true class highlighted.",
+    "Read the cross-entropy loss -log(p_true) as one big number and feel how fast it explodes as the true-class probability drops.",
+    "See the gradient of the loss with respect to the logits is exactly p - y, drawn as signed push-up / push-down bars.",
+    "Four one-click presets contrast correct-and-confident with the brutal cost of being confident and wrong.",
+    "A temperature knob sharpens or flattens the distribution so you can connect this page to distillation and calibration."
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "slug": "likelihood-to-loss",
+  "title": "From Likelihood to Loss",
+  "date": "2026-07-10",
+  "tagline": "Every loss function is a noise model in disguise — pick the density, read off the loss",
+  "summary": "Choose a noise model for your residuals — Gaussian, Laplace, Uniform, or Student-t — and watch the loss function fall out as -log p(r). Three live panels stay in sync: the noise density, the per-residual loss curve, and a fitted line over real scatter. Add an outlier and see why squared error (Gaussian) breaks while absolute error (Laplace) and Student-t shrug it off.",
+  "readingTime": "11 min",
+  "difficulty": "Intermediate",
+  "collection": "Deep learning",
+  "order": 30,
+  "status": "published",
+  "tags": ["Loss Functions", "Maximum Likelihood", "Robust Regression", "Deep Learning", "Interactive"],
+  "highlights": [
+    "See the identity loss = -log p(residual) come alive across four noise models in three synchronized panels.",
+    "Gaussian noise gives you squared error; Laplace gives absolute error; Uniform gives a hard interval barrier; Student-t gives a robust, heavy-tailed loss.",
+    "Toggle a single outlier and watch the least-squares line lurch while the robust fits barely move.",
+    "Drag slope and intercept sliders and read the total loss update live as the sum of per-point contributions.",
+    "Understand once and for all why MSE is sensitive to outliers and MAE is robust — it is entirely about the tails of the assumed noise."
+  ]
+}

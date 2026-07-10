@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MAP = Likelihood × Prior</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body, {delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
+
+<style>
+:root {
+  --serif: 'Source Serif 4', Georgia, serif;
+  --sans: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+  --mono: 'IBM Plex Mono', monospace;
+  --bg: #fdfcf9;
+  --paper: #ffffff;
+  --text: #2f2a22;
+  --muted: #6e665b;
+  --border: #e2d8c6;
+  --accent: #2c6fb7;
+  --warm: #d9622b;
+  --success: #1e7770;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; font-family: var(--serif); color: var(--text); background: var(--bg); line-height: 1.65; }
+
+.article { max-width: 980px; margin: 0 auto; padding: 2.5rem 1.5rem 5rem; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; color: var(--muted); text-decoration: none; font-family: var(--sans); font-size: 0.9rem; }
+.back-link:hover { color: var(--text); }
+.article-header { margin-bottom: 3rem; text-align: center; }
+.kicker { margin: 0 0 0.75rem; font-family: var(--sans); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); }
+h1 { margin: 0 auto 1rem; font-size: clamp(2.4rem, 5vw, 3.5rem); line-height: 1.1; letter-spacing: -0.02em; color: #1a1815; max-width: 18ch; }
+.abstract { margin: 0 auto 1rem; max-width: 62ch; font-size: 1.15rem; color: #4d463d; }
+.byline { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-top: 1.4rem; padding-top: 1rem; border-top: 1px solid var(--border); color: var(--muted); font-family: var(--sans); font-size: 0.92rem; }
+
+.step-section {
+  position: relative;
+  margin-top: 4rem;
+  padding: 3rem 2.5rem;
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.03);
+}
+.step-badge {
+  position: absolute;
+  top: -16px;
+  left: 32px;
+  background: var(--accent);
+  color: white;
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.4rem 1.2rem;
+  border-radius: 999px;
+  box-shadow: 0 4px 12px rgba(44, 111, 183, 0.25);
+}
+h2 { margin: 0 0 1rem; font-size: clamp(1.6rem, 3.5vw, 2.2rem); line-height: 1.15; color: #1a1815; }
+h3 { margin-top: 2rem; margin-bottom: 0.8rem; font-size: 1.25rem; color: #1a1815; }
+p { max-width: 68ch; font-size: 1.1rem; }
+ul { max-width: 68ch; font-size: 1.1rem; padding-left: 1.4rem; }
+li { margin-bottom: 0.5rem; }
+.math-block { margin: 1.5rem 0; text-align: center; font-size: 1.05rem; }
+
+.control-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.4rem;
+  margin: 1.6rem 0;
+}
+.control-block { display: flex; flex-direction: column; gap: 0.5rem; }
+.control-block label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-family: var(--sans);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.control-block label span { font-family: var(--mono); color: var(--warm); font-weight: 500; font-size: 0.95rem; }
+input[type="range"] {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px; height: 18px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid var(--paper);
+  box-shadow: 0 2px 6px rgba(44,111,183,0.4);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 18px; height: 18px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid var(--paper);
+}
+input[type="range"]:disabled { opacity: 0.4; }
+
+.button-row { display: flex; gap: 0.6rem; flex-wrap: wrap; margin: 1rem 0; }
+.mode-button {
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: 0.92rem;
+  padding: 0.55rem 1.1rem;
+  border-radius: 8px;
+  border: 1.5px solid var(--border);
+  background: var(--paper);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.mode-button:hover { border-color: var(--accent); }
+.mode-button.is-active { background: var(--accent); color: white; border-color: var(--accent); }
+
+.interactive-figure { margin: 1.5rem 0; }
+.interactive-figure canvas {
+  display: block;
+  width: 100%;
+  background: #fbfaf6;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.interactive-figure figcaption { margin-top: 0.7rem; font-size: 0.92rem; color: var(--muted); text-align: center; font-style: italic; }
+
+.figure-wrap { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 1.4rem; align-items: start; margin: 1.5rem 0; }
+@media (max-width: 760px) { .figure-wrap { grid-template-columns: 1fr; } }
+
+.legend { font-family: var(--sans); font-size: 0.92rem; }
+.legend-item { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.6rem; }
+.legend-swatch { width: 26px; height: 0; border-top-width: 3px; border-top-style: solid; flex: none; }
+.legend-dot { width: 14px; height: 14px; border-radius: 50%; flex: none; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,0.15); }
+
+.stat-strip { display: flex; gap: 1rem; flex-wrap: wrap; margin: 0.5rem 0 0; }
+.stat-pill {
+  flex: 1 1 130px;
+  min-width: 130px;
+  background: var(--paper);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  padding: 0.8rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  text-align: left;
+}
+.stat-pill .stat-label { font-family: var(--sans); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); font-weight: 600; }
+.stat-pill .stat-value { font-family: var(--mono); font-size: 1.25rem; font-weight: 600; color: var(--text); }
+.stat-pill--accent { border-color: var(--accent); }
+.stat-pill--accent .stat-value { color: var(--accent); }
+.stat-pill--warm { border-color: var(--warm); }
+.stat-pill--warm .stat-value { color: var(--warm); }
+
+.callout {
+  margin: 2rem 0 0.5rem;
+  padding: 1.2rem 1.5rem;
+  border-radius: 12px;
+  border-left: 4px solid var(--accent);
+  background: rgba(44,111,183,0.05);
+  font-size: 1.02rem;
+}
+.callout strong { color: var(--accent); }
+.callout--think { border-left-color: var(--success); background: rgba(30,119,112,0.06); }
+.callout--think strong { color: var(--success); }
+.callout--warn { border-left-color: var(--warm); background: rgba(217,98,43,0.06); }
+.callout--warn strong { color: var(--warm); }
+
+footer { margin-top: 4rem; text-align: center; font-family: var(--sans); font-size: 0.85rem; color: var(--muted); }
+
+@media (max-width: 640px) { .step-section { padding: 2rem 1.4rem; } }
+</style>
+</head>
+<body>
+
+<article class="article">
+  <header class="article-header">
+    <a class="back-link" href="../">&larr; Explainer Library</a>
+    <p class="kicker">Interactive Explainer</p>
+    <h1>MAP = Likelihood &times; Prior</h1>
+    <p class="abstract">
+      &ldquo;Add a regularizer to the loss&rdquo; sounds like a hack. It isn't. Put a
+      <em>prior</em> on your parameters, multiply it by the likelihood, and maximize
+      the product &mdash; that's the MAP estimate, and the regularizer falls out
+      automatically. This page draws all three distributions in parameter space so
+      you can see the MAP sit between the data's answer (MLE) and the prior's pull toward zero.
+    </p>
+    <div class="byline">
+      <span>~11 min</span>
+      <span>Deep Learning &middot; Regularization &middot; Bayesian Inference</span>
+    </div>
+  </header>
+
+  <section class="step-section" id="prelude">
+    <div class="step-badge">Prelude</div>
+    <h2>Two peaks, one product</h2>
+    <p>
+      Take a tiny model with just two weights $\theta = (\theta_1, \theta_2)$. The
+      <strong>likelihood</strong> $p(\text{data}\mid\theta)$ is a bump centered on the
+      value that best fits the data &mdash; the MLE. The <strong>prior</strong>
+      $p(\theta)$ is a bump centered at the origin, encoding &ldquo;keep the weights
+      small.&rdquo; Bayes multiplies them into the <strong>posterior</strong>:
+    </p>
+    <div class="math-block">
+      $$\underbrace{p(\theta\mid\text{data})}_{\text{posterior}} \;\propto\;
+        \underbrace{p(\text{data}\mid\theta)}_{\text{likelihood}}\;
+        \underbrace{p(\theta)}_{\text{prior}}.$$
+    </div>
+    <p>
+      Take $-\log$ of both sides and the product becomes a sum &mdash; a data-fit term
+      plus a penalty term:
+    </p>
+    <div class="math-block">
+      $$\hat\theta_{\text{MAP}} = \arg\min_\theta\;
+        \underbrace{-\log p(\text{data}\mid\theta)}_{\text{loss}}
+        \;+\; \underbrace{-\log p(\theta)}_{\text{regularizer}}.$$
+    </div>
+    <p>
+      A Gaussian prior gives $-\log p(\theta) \propto \lVert\theta\rVert_2^2$ &mdash;
+      that's <strong>L2 / ridge</strong>. A Laplace prior gives
+      $-\log p(\theta) \propto \lVert\theta\rVert_1$ &mdash; that's <strong>L1 / lasso</strong>.
+      The regularizer was a prior all along.
+    </p>
+  </section>
+
+  <section class="step-section" id="lab">
+    <div class="step-badge">The Lab</div>
+    <h2>Parameter space, live</h2>
+    <p>
+      The square is parameter space. Blue contours are the likelihood (data fit),
+      teal contours are the prior (centered at the origin), and orange contours are
+      their product, the posterior. The three marked points are the MLE (data's best
+      fit), the MAP (posterior peak), and the origin. Move the controls and watch the
+      MAP get tugged between the data and zero.
+    </p>
+
+    <div class="button-row" id="prior-type">
+      <button class="mode-button is-active" data-type="gaussian">Gaussian prior (L2)</button>
+      <button class="mode-button" data-type="laplace">Laplace prior (L1)</button>
+    </div>
+
+    <div class="control-row">
+      <div class="control-block">
+        <label>Amount of data <span id="dataVal">few</span></label>
+        <input type="range" id="dataAmt" min="0" max="1" step="0.01" value="0.3">
+      </div>
+      <div class="control-block">
+        <label>Noise level <span id="noiseVal">med</span></label>
+        <input type="range" id="noise" min="0" max="1" step="0.01" value="0.4">
+      </div>
+      <div class="control-block">
+        <label>Prior width $\tau$ <span id="tauVal">1.00</span></label>
+        <input type="range" id="tau" min="0.3" max="3" step="0.02" value="1.0">
+      </div>
+      <div class="control-block">
+        <label>Prior correlation $\rho$ <span id="rhoVal">0.00</span></label>
+        <input type="range" id="rho" min="-0.8" max="0.8" step="0.02" value="0.0">
+      </div>
+    </div>
+
+    <div class="figure-wrap">
+      <figure class="interactive-figure" style="margin:0;">
+        <canvas id="mapCanvas" width="600" height="560"></canvas>
+        <figcaption>Contours are iso-density shells (1, 2, 3 &ldquo;sigma&rdquo;). Narrow $\tau$ = strong prior; more data / less noise = tighter likelihood.</figcaption>
+      </figure>
+      <div>
+        <div class="legend">
+          <div class="legend-item"><span class="legend-swatch" style="border-top-color:#2c6fb7;"></span> Likelihood (data fit)</div>
+          <div class="legend-item"><span class="legend-swatch" style="border-top-color:#1e7770;"></span> Prior (toward 0)</div>
+          <div class="legend-item"><span class="legend-swatch" style="border-top-color:#d9622b;"></span> Posterior (product)</div>
+          <div class="legend-item"><span class="legend-dot" style="background:#2c6fb7;"></span> MLE &mdash; data's best fit</div>
+          <div class="legend-item"><span class="legend-dot" style="background:#d9622b;"></span> MAP &mdash; posterior peak</div>
+          <div class="legend-item"><span class="legend-dot" style="background:#8a8072;"></span> Origin (0, 0)</div>
+        </div>
+        <div class="stat-strip" style="margin-top:1.2rem;">
+          <div class="stat-pill stat-pill--accent">
+            <span class="stat-label">MLE $(\theta_1,\theta_2)$</span>
+            <span class="stat-value" id="mleVal">&mdash;</span>
+          </div>
+          <div class="stat-pill stat-pill--warm">
+            <span class="stat-label">MAP $(\theta_1,\theta_2)$</span>
+            <span class="stat-value" id="mapVal">&mdash;</span>
+          </div>
+        </div>
+        <div class="stat-strip" style="margin-top:1rem;">
+          <div class="stat-pill">
+            <span class="stat-label">Shrinkage $\lVert\theta_{\text{MAP}}\rVert / \lVert\theta_{\text{MLE}}\rVert$</span>
+            <span class="stat-value" id="shrinkVal">&mdash;</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout callout--think">
+      <strong>Three things to try.</strong>
+      (1) Drag <em>Prior width $\tau$</em> to the left (narrow, strong prior) with the
+      Gaussian prior: the MAP slides smoothly toward the origin &mdash; L2 shrinks
+      everything a little. (2) Switch to the <em>Laplace prior</em> and narrow $\tau$:
+      the MAP snaps onto an axis, driving $\theta_2$ to <em>exactly</em> zero &mdash;
+      that corner of the diamond is L1 sparsity. (3) Push <em>Amount of data</em> to
+      the right (or drop the noise): the blue likelihood tightens and the MAP marches
+      back onto the MLE &mdash; with enough data, the prior stops mattering.
+    </div>
+  </section>
+
+  <section class="step-section" id="why">
+    <div class="step-badge">The Payoff</div>
+    <h2>Why L1 gives sparsity and L2 doesn't</h2>
+    <p>
+      Look at the prior contours. The <strong>Gaussian</strong> prior draws smooth
+      <em>ellipses</em> &mdash; round everywhere. When the likelihood ellipse presses
+      against it, they meet at a generic point with both coordinates nonzero: L2
+      shrinks weights toward zero but rarely to zero.
+    </p>
+    <p>
+      The <strong>Laplace</strong> prior draws <em>diamonds</em> &mdash; with sharp
+      corners sitting exactly on the axes. A tilted likelihood ellipse is very likely
+      to first touch the diamond at a corner, and a corner has one coordinate equal to
+      zero. That geometric fact &mdash; pointy L1 ball versus round L2 ball &mdash; is
+      the entire reason lasso produces sparse models and ridge does not.
+    </p>
+    <div class="callout callout--warn">
+      <strong>Takeaway.</strong> Regularization strength is prior width: a narrow prior
+      ($\tau\!\downarrow$, big $\lambda$) is a strong belief that weights are near zero;
+      a wide prior ($\tau\!\uparrow$, small $\lambda$) barely constrains them. And the
+      likelihood's grip tightens with data, so $\hat\theta_{\text{MAP}}\to\hat\theta_{\text{MLE}}$
+      as $N\to\infty$. Frequentist regularized regression and Bayesian MAP estimation are the
+      same computation viewed from two sides.
+    </div>
+  </section>
+
+  <footer>Part of the ES 667 Deep Learning explainer series &middot; Lecture 1: Why These Losses?</footer>
+</article>
+
+<script>
+/* ===================== model definition ===================== */
+const H = 3.4;                 // parameter-space half-width
+const THETA_MLE = [1.9, 0.55]; // fixed "best fit to data"
+const C = [[1.4, 0.5], [0.5, 1.0]]; // fixed data curvature (tilted bowl)
+const NG = 150;                // contour grid resolution
+
+let PRIOR_TYPE = 'gaussian';
+
+function readControls() {
+  const dataAmt = +document.getElementById('dataAmt').value;   // 0..1
+  const noise = +document.getElementById('noise').value;       // 0..1
+  const tau = +document.getElementById('tau').value;           // 0.3..3
+  const rho = +document.getElementById('rho').value;           // -0.8..0.8
+  const dataN = 1.5 * Math.pow(40 / 1.5, dataAmt);             // effective sample size 1.5..40
+  const sigma2 = 0.5 + 3.5 * noise;                            // noise variance 0.5..4
+  const sData = dataN / sigma2;                                // likelihood concentration
+  return { dataAmt, noise, tau, rho, sData };
+}
+
+// energies (negative log up to constants); lower = better
+function Edata(t1, t2, p) {
+  const dx = t1 - THETA_MLE[0], dy = t2 - THETA_MLE[1];
+  const q = C[0][0] * dx * dx + 2 * C[0][1] * dx * dy + C[1][1] * dy * dy;
+  return 0.5 * p.sData * q;
+}
+function Eprior(t1, t2, p) {
+  if (PRIOR_TYPE === 'gaussian') {
+    const inv = 1 / (p.tau * p.tau * (1 - p.rho * p.rho));
+    return 0.5 * inv * (t1 * t1 - 2 * p.rho * t1 * t2 + t2 * t2);
+  }
+  // Laplace (L1): b = tau
+  return (Math.abs(t1) + Math.abs(t2)) / p.tau;
+}
+
+/* ===================== canvas ===================== */
+function fitCanvas(canvas) {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { ctx, w: rect.width, h: rect.height };
+}
+
+// marching-squares contour of a scalar field on an NG x NG grid at a given level
+function drawContour(ctx, field, level, X, Y, gx, color, lw, alpha) {
+  ctx.strokeStyle = color;
+  ctx.globalAlpha = alpha;
+  ctx.lineWidth = lw;
+  ctx.beginPath();
+  for (let j = 0; j < NG - 1; j++) {
+    for (let i = 0; i < NG - 1; i++) {
+      const a = field[j * NG + i];         // (i,   j)
+      const b = field[j * NG + i + 1];     // (i+1, j)
+      const c = field[(j + 1) * NG + i + 1]; // (i+1, j+1)
+      const d = field[(j + 1) * NG + i];   // (i,   j+1)
+      const x0 = gx(i), x1 = gx(i + 1), y0 = gx(j), y1 = gx(j + 1);
+      const pts = [];
+      // top edge a-b (y=y0)
+      if ((a < level) !== (b < level)) { const t = (level - a) / (b - a); pts.push([x0 + t * (x1 - x0), y0]); }
+      // right edge b-c (x=x1)
+      if ((b < level) !== (c < level)) { const t = (level - b) / (c - b); pts.push([x1, y0 + t * (y1 - y0)]); }
+      // bottom edge c-d (y=y1)
+      if ((c < level) !== (d < level)) { const t = (level - c) / (d - c); pts.push([x1 + t * (x0 - x1), y1]); }
+      // left edge d-a (x=x0)
+      if ((d < level) !== (a < level)) { const t = (level - d) / (a - d); pts.push([x0, y1 + t * (y0 - y1)]); }
+      if (pts.length === 2) {
+        ctx.moveTo(X(pts[0][0]), Y(pts[0][1]));
+        ctx.lineTo(X(pts[1][0]), Y(pts[1][1]));
+      } else if (pts.length === 4) {
+        ctx.moveTo(X(pts[0][0]), Y(pts[0][1])); ctx.lineTo(X(pts[1][0]), Y(pts[1][1]));
+        ctx.moveTo(X(pts[2][0]), Y(pts[2][1])); ctx.lineTo(X(pts[3][0]), Y(pts[3][1]));
+      }
+    }
+  }
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+}
+
+function draw() {
+  const canvas = document.getElementById('mapCanvas');
+  const { ctx, w, h } = fitCanvas(canvas);
+  ctx.clearRect(0, 0, w, h);
+  const p = readControls();
+
+  const pad = 40;
+  const cw = w - 2 * pad, ch = h - 2 * pad;
+  const scale = Math.min(cw, ch) / (2 * H);
+  const cx = pad + cw / 2, cy = pad + ch / 2;
+  const X = t => cx + t * scale;
+  const Y = t => cy - t * scale;
+  const gx = i => -H + (i / (NG - 1)) * (2 * H); // grid index -> theta coord
+
+  // ---- axes ----
+  ctx.strokeStyle = 'rgba(47,42,34,0.10)'; ctx.lineWidth = 1;
+  ctx.font = '500 10px Manrope, sans-serif'; ctx.fillStyle = '#a89b86';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  for (let t = -3; t <= 3; t++) {
+    ctx.beginPath(); ctx.moveTo(X(t), Y(H)); ctx.lineTo(X(t), Y(-H)); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(X(-H), Y(t)); ctx.lineTo(X(H), Y(t)); ctx.stroke();
+  }
+  // main axes through origin
+  ctx.strokeStyle = 'rgba(47,42,34,0.30)'; ctx.lineWidth = 1.3;
+  ctx.beginPath(); ctx.moveTo(X(0), Y(H)); ctx.lineTo(X(0), Y(-H)); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(X(-H), Y(0)); ctx.lineTo(X(H), Y(0)); ctx.stroke();
+  ctx.fillStyle = '#8a8072'; ctx.font = '600 12px Manrope, sans-serif';
+  ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
+  ctx.fillText('θ₁', X(H) - 4, Y(0) - 4);
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillText('θ₂', X(0) + 6, Y(H) + 2);
+
+  // ---- sample fields ----
+  const fData = new Float64Array(NG * NG);
+  const fPrior = new Float64Array(NG * NG);
+  const fPost = new Float64Array(NG * NG);
+  let postMin = Infinity, postArg = 0;
+  for (let j = 0; j < NG; j++) {
+    const t2 = gx(j);
+    for (let i = 0; i < NG; i++) {
+      const t1 = gx(i);
+      const ed = Edata(t1, t2, p), ep = Eprior(t1, t2, p);
+      const idx = j * NG + i;
+      fData[idx] = ed; fPrior[idx] = ep; fPost[idx] = ed + ep;
+      if (fPost[idx] < postMin) { postMin = fPost[idx]; postArg = idx; }
+    }
+  }
+  const mapT = [gx(postArg % NG), gx(Math.floor(postArg / NG))];
+
+  // ---- contours (1,2,3 "sigma" shells: energy = 0.5 d^2) ----
+  const shells = [0.5, 2.0, 4.5];
+  // likelihood (min 0 at MLE), prior (min 0 at origin), posterior (min postMin)
+  shells.forEach((s, k) => {
+    const al = 0.5 + 0.5 * (1 - k / shells.length);
+    drawContour(ctx, fPrior, s, X, Y, gx, '#1e7770', 1.6, 0.75 * al);
+    drawContour(ctx, fData, s, X, Y, gx, '#2c6fb7', 1.8, 0.85 * al);
+    drawContour(ctx, fPost, postMin + s, X, Y, gx, '#d9622b', 2.4, 0.95 * al);
+  });
+
+  // ---- marked points ----
+  function marker(t, color, r, ring) {
+    ctx.fillStyle = color;
+    ctx.beginPath(); ctx.arc(X(t[0]), Y(t[1]), r, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+    if (ring) { ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(X(t[0]), Y(t[1]), r + 4, 0, Math.PI * 2); ctx.stroke(); }
+  }
+  marker([0, 0], '#8a8072', 5, false);
+  marker(THETA_MLE, '#2c6fb7', 6.5, false);
+  marker(mapT, '#d9622b', 7, true);
+  // label MAP -> origin pull
+  ctx.strokeStyle = 'rgba(217,98,43,0.4)'; ctx.setLineDash([4, 4]); ctx.lineWidth = 1.3;
+  ctx.beginPath(); ctx.moveTo(X(THETA_MLE[0]), Y(THETA_MLE[1])); ctx.lineTo(X(mapT[0]), Y(mapT[1])); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // ---- stats ----
+  const mleNorm = Math.hypot(THETA_MLE[0], THETA_MLE[1]);
+  const mapNorm = Math.hypot(mapT[0], mapT[1]);
+  document.getElementById('mleVal').textContent = `(${THETA_MLE[0].toFixed(2)}, ${THETA_MLE[1].toFixed(2)})`;
+  document.getElementById('mapVal').textContent = `(${mapT[0].toFixed(2)}, ${mapT[1].toFixed(2)})`;
+  document.getElementById('shrinkVal').textContent = (mapNorm / mleNorm).toFixed(2);
+}
+
+/* ===================== wiring ===================== */
+function labelData() {
+  const d = +document.getElementById('dataAmt').value;
+  document.getElementById('dataVal').textContent = d < 0.33 ? 'few' : d < 0.66 ? 'some' : 'many';
+  const n = +document.getElementById('noise').value;
+  document.getElementById('noiseVal').textContent = n < 0.33 ? 'low' : n < 0.66 ? 'med' : 'high';
+  document.getElementById('tauVal').textContent = (+document.getElementById('tau').value).toFixed(2);
+  document.getElementById('rhoVal').textContent = (+document.getElementById('rho').value).toFixed(2);
+}
+['dataAmt', 'noise', 'tau', 'rho'].forEach(id =>
+  document.getElementById(id).addEventListener('input', () => { labelData(); draw(); }));
+
+document.querySelectorAll('#prior-type .mode-button').forEach(b =>
+  b.addEventListener('click', () => {
+    document.querySelectorAll('#prior-type .mode-button').forEach(x => x.classList.remove('is-active'));
+    b.classList.add('is-active');
+    PRIOR_TYPE = b.dataset.type;
+    // correlation only meaningful for the Gaussian prior
+    document.getElementById('rho').disabled = (PRIOR_TYPE === 'laplace');
+    draw();
+  }));
+
+window.addEventListener('load', () => { labelData(); draw(); });
+window.addEventListener('resize', draw);
+</script>
+
+</body>
+</html>

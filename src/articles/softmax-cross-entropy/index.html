@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Softmax &amp; Cross-Entropy</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body, {delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
+
+<style>
+:root {
+  --serif: 'Source Serif 4', Georgia, serif;
+  --sans: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+  --mono: 'IBM Plex Mono', monospace;
+  --bg: #fdfcf9;
+  --paper: #ffffff;
+  --text: #2f2a22;
+  --muted: #6e665b;
+  --border: #e2d8c6;
+  --accent: #2c6fb7;
+  --warm: #d9622b;
+  --success: #1e7770;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; font-family: var(--serif); color: var(--text); background: var(--bg); line-height: 1.65; }
+
+.article { max-width: 980px; margin: 0 auto; padding: 2.5rem 1.5rem 5rem; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; color: var(--muted); text-decoration: none; font-family: var(--sans); font-size: 0.9rem; }
+.back-link:hover { color: var(--text); }
+.article-header { margin-bottom: 3rem; text-align: center; }
+.kicker { margin: 0 0 0.75rem; font-family: var(--sans); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); }
+h1 { margin: 0 auto 1rem; font-size: clamp(2.4rem, 5vw, 3.5rem); line-height: 1.1; letter-spacing: -0.02em; color: #1a1815; max-width: 18ch; }
+.abstract { margin: 0 auto 1rem; max-width: 62ch; font-size: 1.15rem; color: #4d463d; }
+.byline { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-top: 1.4rem; padding-top: 1rem; border-top: 1px solid var(--border); color: var(--muted); font-family: var(--sans); font-size: 0.92rem; }
+
+.step-section {
+  position: relative;
+  margin-top: 4rem;
+  padding: 3rem 2.5rem;
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.03);
+}
+.step-badge {
+  position: absolute;
+  top: -16px;
+  left: 32px;
+  background: var(--accent);
+  color: white;
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.4rem 1.2rem;
+  border-radius: 999px;
+  box-shadow: 0 4px 12px rgba(44, 111, 183, 0.25);
+}
+h2 { margin: 0 0 1rem; font-size: clamp(1.6rem, 3.5vw, 2.2rem); line-height: 1.15; color: #1a1815; }
+h3 { margin-top: 2rem; margin-bottom: 0.8rem; font-size: 1.25rem; color: #1a1815; }
+p { max-width: 68ch; font-size: 1.1rem; }
+ul { max-width: 68ch; font-size: 1.1rem; padding-left: 1.4rem; }
+li { margin-bottom: 0.5rem; }
+.math-block { margin: 1.5rem 0; text-align: center; font-size: 1.05rem; }
+
+.control-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.4rem;
+  margin: 1.6rem 0;
+}
+.control-block { display: flex; flex-direction: column; gap: 0.5rem; }
+.control-block label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-family: var(--sans);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.control-block label span { font-family: var(--mono); color: var(--warm); font-weight: 500; font-size: 0.95rem; }
+input[type="range"] {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px; height: 18px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid var(--paper);
+  box-shadow: 0 2px 6px rgba(44,111,183,0.4);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 18px; height: 18px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid var(--paper);
+}
+
+.button-row { display: flex; gap: 0.6rem; flex-wrap: wrap; margin: 1rem 0; }
+.mode-button {
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: 0.92rem;
+  padding: 0.55rem 1.1rem;
+  border-radius: 8px;
+  border: 1.5px solid var(--border);
+  background: var(--paper);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.mode-button:hover { border-color: var(--accent); }
+.mode-button.is-active { background: var(--accent); color: white; border-color: var(--accent); }
+
+.interactive-figure { margin: 1.5rem 0; }
+.interactive-figure canvas {
+  display: block;
+  width: 100%;
+  background: #fbfaf6;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.interactive-figure figcaption { margin-top: 0.7rem; font-size: 0.92rem; color: var(--muted); text-align: center; font-style: italic; }
+
+.panels-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.2rem; margin: 1.5rem 0; }
+.panels-grid figure { margin: 0; }
+@media (max-width: 720px) { .panels-grid { grid-template-columns: 1fr; } }
+
+.stat-strip { display: flex; gap: 1rem; flex-wrap: wrap; margin: 1.5rem 0; }
+.stat-pill {
+  flex: 1 1 140px;
+  min-width: 140px;
+  background: var(--paper);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  padding: 0.9rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  text-align: left;
+}
+.stat-pill .stat-label { font-family: var(--sans); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; }
+.stat-pill .stat-value { font-family: var(--mono); font-size: 1.5rem; font-weight: 600; color: var(--text); }
+.stat-pill--accent { border-color: var(--accent); }
+.stat-pill--accent .stat-value { color: var(--accent); }
+.stat-pill--warm { border-color: var(--warm); }
+.stat-pill--warm .stat-value { color: var(--warm); }
+.stat-pill--big { flex: 1 1 100%; }
+.stat-pill--big .stat-value { font-size: 2.6rem; }
+
+.callout {
+  margin: 2rem 0 0.5rem;
+  padding: 1.2rem 1.5rem;
+  border-radius: 12px;
+  border-left: 4px solid var(--accent);
+  background: rgba(44,111,183,0.05);
+  font-size: 1.02rem;
+}
+.callout strong { color: var(--accent); }
+.callout--think { border-left-color: var(--success); background: rgba(30,119,112,0.06); }
+.callout--think strong { color: var(--success); }
+.callout--warn { border-left-color: var(--warm); background: rgba(217,98,43,0.06); }
+.callout--warn strong { color: var(--warm); }
+
+.class-toggle { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.class-toggle .mode-button { flex: 1 1 120px; }
+
+footer { margin-top: 4rem; text-align: center; font-family: var(--sans); font-size: 0.85rem; color: var(--muted); }
+
+@media (max-width: 640px) { .step-section { padding: 2rem 1.4rem; } }
+</style>
+</head>
+<body>
+
+<article class="article">
+  <header class="article-header">
+    <a class="back-link" href="../">&larr; Explainer Library</a>
+    <p class="kicker">Interactive Explainer</p>
+    <h1>Softmax &amp; Cross-Entropy</h1>
+    <p class="abstract">
+      Classification networks output raw scores. Softmax turns them into a
+      probability distribution; cross-entropy scores how surprised the model is by
+      the true answer; and &mdash; the beautiful part &mdash; the gradient that
+      trains the network turns out to be exactly <em>predicted minus target</em>,
+      $p - y$. Slide the logits below and watch all three move together.
+    </p>
+    <div class="byline">
+      <span>~9 min</span>
+      <span>Deep Learning &middot; Loss Functions &middot; Classification</span>
+    </div>
+  </header>
+
+  <section class="step-section" id="prelude">
+    <div class="step-badge">Prelude</div>
+    <h2>Three quantities, one picture</h2>
+    <p>
+      For a $K$-class problem the network emits logits $z_1,\dots,z_K$. Softmax with
+      temperature $T$ maps them to probabilities, cross-entropy reads off the loss for
+      a one-hot target $y$, and the gradient with respect to the logits is startlingly clean:
+    </p>
+    <div class="math-block">
+      $$p_k = \frac{e^{z_k/T}}{\sum_j e^{z_j/T}}, \qquad
+        \mathcal{L} = -\log p_{y}, \qquad
+        \frac{\partial \mathcal{L}}{\partial z_k} = p_k - y_k .$$
+    </div>
+    <p>
+      That last identity is why softmax + cross-entropy is the default pairing in
+      deep learning: no messy chain rule survives, just &ldquo;how wrong is each
+      class, signed.&rdquo; The widget below is built entirely around these three formulas.
+    </p>
+  </section>
+
+  <section class="step-section" id="lab">
+    <div class="step-badge">The Lab</div>
+    <h2>Logits in, loss and gradient out</h2>
+    <p>
+      Three classes. Set the logits, choose which class is actually correct, and
+      optionally sharpen or flatten with temperature. The left panel is the softmax
+      distribution (the true class outlined); the right panel is the gradient
+      $p - y$, the signed force each logit feels during backprop.
+    </p>
+
+    <div class="button-row" id="preset-row">
+      <button class="mode-button" data-preset="cc">Correct &amp; confident</button>
+      <button class="mode-button" data-preset="cu">Correct &amp; unsure</button>
+      <button class="mode-button" data-preset="wu">Wrong &amp; unsure</button>
+      <button class="mode-button" data-preset="wc">Wrong &amp; confident</button>
+    </div>
+
+    <div class="control-row">
+      <div class="control-block">
+        <label>Logit <span>$z_1$ = <span id="z0Val">3.00</span></span></label>
+        <input type="range" id="z0" min="-6" max="6" step="0.1" value="3.0">
+      </div>
+      <div class="control-block">
+        <label>Logit <span>$z_2$ = <span id="z1Val">0.50</span></span></label>
+        <input type="range" id="z1" min="-6" max="6" step="0.1" value="0.5">
+      </div>
+      <div class="control-block">
+        <label>Logit <span>$z_3$ = <span id="z2Val">-1.00</span></span></label>
+        <input type="range" id="z2" min="-6" max="6" step="0.1" value="-1.0">
+      </div>
+    </div>
+
+    <div class="control-row">
+      <div class="control-block">
+        <label style="margin-bottom:0.2rem;">True class $y$</label>
+        <div class="class-toggle" id="trueClass">
+          <button class="mode-button is-active" data-cls="0">Class 1</button>
+          <button class="mode-button" data-cls="1">Class 2</button>
+          <button class="mode-button" data-cls="2">Class 3</button>
+        </div>
+      </div>
+      <div class="control-block">
+        <label>Temperature <span>$T$ = <span id="tempVal">1.00</span></span></label>
+        <input type="range" id="temp" min="0.2" max="4.0" step="0.05" value="1.0">
+      </div>
+    </div>
+
+    <div class="panels-grid">
+      <figure class="interactive-figure">
+        <canvas id="probCanvas" width="460" height="320"></canvas>
+        <figcaption>Softmax probabilities $p_k$. The outlined bar is the true class; its height is $p_{\text{true}}$.</figcaption>
+      </figure>
+      <figure class="interactive-figure">
+        <canvas id="gradCanvas" width="460" height="320"></canvas>
+        <figcaption>Gradient $p_k - y_k$. Bars above zero get pushed <em>down</em>; the bar below zero (true class) gets pushed <em>up</em>.</figcaption>
+      </figure>
+    </div>
+
+    <div class="stat-strip">
+      <div class="stat-pill stat-pill--warm stat-pill--big">
+        <span class="stat-label">Cross-entropy loss $\;\mathcal{L} = -\log p_{\text{true}}$</span>
+        <span class="stat-value" id="lossVal">&mdash;</span>
+      </div>
+    </div>
+    <div class="stat-strip">
+      <div class="stat-pill stat-pill--accent">
+        <span class="stat-label">Probability of true class</span>
+        <span class="stat-value" id="ptrueVal">&mdash;</span>
+      </div>
+      <div class="stat-pill">
+        <span class="stat-label">Model's top pick</span>
+        <span class="stat-value" id="predVal">&mdash;</span>
+      </div>
+      <div class="stat-pill">
+        <span class="stat-label">Gradient norm $\lVert p-y\rVert$</span>
+        <span class="stat-value" id="gnormVal">&mdash;</span>
+      </div>
+    </div>
+
+    <div class="callout callout--warn">
+      <strong>Click through the four presets.</strong> Watch the big loss number.
+      <em>Correct &amp; confident</em> is nearly zero. <em>Wrong &amp; confident</em>
+      is huge &mdash; being sure and wrong is the single most expensive thing a
+      classifier can do, because $-\log p_{\text{true}} \to \infty$ as
+      $p_{\text{true}} \to 0$. The gradient bar on the true class also grows toward
+      $-1$: the strongest possible push to fix the mistake.
+    </div>
+  </section>
+
+  <section class="step-section" id="why">
+    <div class="step-badge">The Payoff</div>
+    <h2>Why the gradient is just $p - y$</h2>
+    <p>
+      Cross-entropy looks like it should have an ugly derivative &mdash; there is a
+      $\log$, and a $\sum$ inside the softmax. But the $\log$ and the $\exp$ cancel
+      almost perfectly. For the true class $y$:
+    </p>
+    <div class="math-block">
+      $$\frac{\partial}{\partial z_k}\Big(-\log p_y\Big)
+        = p_k - \mathbb{1}[k = y] = p_k - y_k .$$
+    </div>
+    <ul>
+      <li>For a <strong>non-true</strong> class, $y_k = 0$, so the gradient is $+p_k$ &mdash; push that logit <em>down</em> in proportion to how much probability it wrongly claimed.</li>
+      <li>For the <strong>true</strong> class, $y_k = 1$, so the gradient is $p_{\text{true}} - 1 \le 0$ &mdash; push that logit <em>up</em>, hardest when $p_{\text{true}}$ is small.</li>
+      <li>The gradients sum to zero: probability that leaves the wrong classes flows into the right one. Softmax conserves it.</li>
+    </ul>
+    <div class="callout callout--think">
+      <strong>Practical note.</strong> Because the gradient is $p - y$, frameworks fuse softmax and
+      cross-entropy into a single op (PyTorch's <code>CrossEntropyLoss</code> takes raw logits, not
+      probabilities). Applying softmax yourself and then a separate cross-entropy double-counts and gives
+      wrong, unstable gradients. Feed logits; let the loss do the softmax.
+    </div>
+  </section>
+
+  <footer>Part of the ES 667 Deep Learning explainer series &middot; Lecture 1: Why These Losses?</footer>
+</article>
+
+<script>
+/* ===================== math ===================== */
+function softmax(z, T) {
+  const s = z.map(v => v / T);
+  const m = Math.max(...s);
+  const e = s.map(v => Math.exp(v - m));
+  const Z = e.reduce((a, b) => a + b, 0);
+  return e.map(v => v / Z);
+}
+const COLORS = ['#2c6fb7', '#d9622b', '#1e7770'];
+const CLASS_LABELS = ['Class 1', 'Class 2', 'Class 3'];
+
+/* ===================== state ===================== */
+let trueCls = 0;
+const zEls = [document.getElementById('z0'), document.getElementById('z1'), document.getElementById('z2')];
+const zValEls = [document.getElementById('z0Val'), document.getElementById('z1Val'), document.getElementById('z2Val')];
+const tempEl = document.getElementById('temp');
+
+function getLogits() { return zEls.map(e => parseFloat(e.value)); }
+function getT() { return parseFloat(tempEl.value); }
+
+/* ===================== canvas helpers ===================== */
+function fitCanvas(canvas) {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { ctx, w: rect.width, h: rect.height };
+}
+function roundRect(ctx, x, y, w, h, r) {
+  if (Math.abs(h) < 0.5) { ctx.beginPath(); ctx.rect(x, y, w, h); return; }
+  r = Math.min(r, Math.abs(w) / 2, Math.abs(h) / 2);
+  const y0 = Math.min(y, y + h), hh = Math.abs(h);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y0);
+  ctx.arcTo(x + w, y0, x + w, y0 + hh, r);
+  ctx.arcTo(x + w, y0 + hh, x, y0 + hh, r);
+  ctx.arcTo(x, y0 + hh, x, y0, r);
+  ctx.arcTo(x, y0, x + w, y0, r);
+  ctx.closePath();
+}
+
+/* ===================== probability panel ===================== */
+function drawProbs(p) {
+  const { ctx, w, h } = fitCanvas(document.getElementById('probCanvas'));
+  ctx.clearRect(0, 0, w, h);
+  const padL = 46, padR = 18, padT = 26, padB = 44;
+  const cw = w - padL - padR, ch = h - padT - padB;
+  // gridlines 0..1
+  ctx.font = '500 10px Manrope, sans-serif';
+  ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  for (let t = 0; t <= 1.001; t += 0.25) {
+    const y = padT + ch * (1 - t);
+    ctx.strokeStyle = t === 0 ? 'rgba(47,42,34,0.18)' : 'rgba(47,42,34,0.07)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL + cw, y); ctx.stroke();
+    ctx.fillStyle = '#8a8072'; ctx.fillText(t.toFixed(2), padL - 8, y);
+  }
+  const n = p.length, gap = 26, bw = (cw - gap * (n + 1)) / n;
+  for (let i = 0; i < n; i++) {
+    const x = padL + gap + i * (bw + gap);
+    const bh = p[i] * ch, y = padT + ch - bh;
+    ctx.fillStyle = COLORS[i];
+    roundRect(ctx, x, y, bw, bh, 5); ctx.fill();
+    if (i === trueCls) {
+      ctx.strokeStyle = '#1a1815'; ctx.lineWidth = 2.5;
+      ctx.setLineDash([4, 3]);
+      ctx.strokeRect(x - 3, padT, bw + 6, ch);
+      ctx.setLineDash([]);
+    }
+    ctx.fillStyle = '#2f2a22'; ctx.font = '700 13px Manrope, sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    ctx.fillText(p[i].toFixed(3), x + bw / 2, y - 5);
+    ctx.fillStyle = i === trueCls ? '#1a1815' : '#6e665b';
+    ctx.font = (i === trueCls ? '700 ' : '600 ') + '11px Manrope, sans-serif';
+    ctx.textBaseline = 'top';
+    ctx.fillText(CLASS_LABELS[i] + (i === trueCls ? '  ★' : ''), x + bw / 2, padT + ch + 8);
+  }
+  ctx.fillStyle = '#5a5247'; ctx.font = '600 11px Manrope, sans-serif';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillText('softmax probabilities  p', padL, 6);
+}
+
+/* ===================== gradient panel ===================== */
+function drawGrad(p) {
+  const { ctx, w, h } = fitCanvas(document.getElementById('gradCanvas'));
+  ctx.clearRect(0, 0, w, h);
+  const padL = 46, padR = 18, padT = 26, padB = 44;
+  const cw = w - padL - padR, ch = h - padT - padB;
+  const zeroY = padT + ch / 2;
+  const scale = ch / 2 / 1.05; // gradient range [-1,1]
+  // gridlines
+  ctx.font = '500 10px Manrope, sans-serif';
+  ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  for (let g = -1; g <= 1.001; g += 0.5) {
+    const y = zeroY - g * scale;
+    ctx.strokeStyle = g === 0 ? 'rgba(47,42,34,0.3)' : 'rgba(47,42,34,0.07)';
+    ctx.lineWidth = g === 0 ? 1.4 : 1;
+    ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL + cw, y); ctx.stroke();
+    ctx.fillStyle = '#8a8072';
+    ctx.fillText((g > 0 ? '+' : '') + g.toFixed(1), padL - 8, y);
+  }
+  const n = p.length, gap = 26, bw = (cw - gap * (n + 1)) / n;
+  for (let i = 0; i < n; i++) {
+    const yk = i === trueCls ? 1 : 0;
+    const g = p[i] - yk;
+    const x = padL + gap + i * (bw + gap);
+    const bh = g * scale;
+    const y = zeroY - bh;
+    ctx.fillStyle = g >= 0 ? '#d9622b' : '#1e7770';
+    roundRect(ctx, x, Math.min(zeroY, y), bw, Math.abs(bh), 5); ctx.fill();
+    // value label
+    ctx.fillStyle = '#2f2a22'; ctx.font = '700 12px Manrope, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = g >= 0 ? 'bottom' : 'top';
+    ctx.fillText((g >= 0 ? '+' : '') + g.toFixed(3), x + bw / 2, g >= 0 ? y - 4 : y + 4);
+    // class label
+    ctx.fillStyle = '#6e665b'; ctx.font = '600 11px Manrope, sans-serif';
+    ctx.textBaseline = 'top';
+    ctx.fillText(CLASS_LABELS[i], x + bw / 2, padT + ch + 8);
+  }
+  // annotations
+  ctx.fillStyle = '#5a5247'; ctx.font = '600 11px Manrope, sans-serif';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillText('gradient  p − y', padL, 6);
+  ctx.fillStyle = '#a89b86'; ctx.font = 'italic 10px "Source Serif 4", serif';
+  ctx.textAlign = 'right';
+  ctx.fillText('push logit down ↓', padL + cw, padT + 2);
+  ctx.textBaseline = 'bottom';
+  ctx.fillText('push logit up ↑', padL + cw, padT + ch - 2);
+}
+
+/* ===================== orchestration ===================== */
+function redraw() {
+  const p = softmax(getLogits(), getT());
+  drawProbs(p);
+  drawGrad(p);
+  // stats
+  const ptrue = p[trueCls];
+  const L = -Math.log(Math.max(ptrue, 1e-12));
+  document.getElementById('lossVal').textContent = L.toFixed(3);
+  document.getElementById('ptrueVal').textContent = ptrue.toFixed(3);
+  const top = p.indexOf(Math.max(...p));
+  document.getElementById('predVal').textContent = CLASS_LABELS[top] + (top === trueCls ? ' ✓' : ' ✗');
+  const gnorm = Math.sqrt(p.reduce((a, pv, i) => { const g = pv - (i === trueCls ? 1 : 0); return a + g * g; }, 0));
+  document.getElementById('gnormVal').textContent = gnorm.toFixed(3);
+}
+
+/* ===================== presets ===================== */
+const PRESETS = {
+  cc: { z: [4.5, 0.0, -1.5], cls: 0, T: 1.0 },   // correct & confident
+  cu: { z: [0.6, 0.3, 0.0], cls: 0, T: 1.0 },     // correct & unsure
+  wu: { z: [0.1, 0.5, 0.3], cls: 0, T: 1.0 },     // wrong & unsure (class 2 slightly ahead)
+  wc: { z: [-2.0, 4.5, 0.0], cls: 0, T: 1.0 }     // wrong & confident
+};
+function applyPreset(key) {
+  const P = PRESETS[key];
+  P.z.forEach((v, i) => { zEls[i].value = v; zValEls[i].textContent = v.toFixed(2); });
+  tempEl.value = P.T; document.getElementById('tempVal').textContent = P.T.toFixed(2);
+  setTrueClass(P.cls);
+  redraw();
+}
+function setTrueClass(c) {
+  trueCls = c;
+  document.querySelectorAll('#trueClass .mode-button').forEach(b =>
+    b.classList.toggle('is-active', parseInt(b.dataset.cls) === c));
+}
+
+/* ===================== wiring ===================== */
+zEls.forEach((el, i) => el.addEventListener('input', () => { zValEls[i].textContent = parseFloat(el.value).toFixed(2); redraw(); }));
+tempEl.addEventListener('input', () => { document.getElementById('tempVal').textContent = parseFloat(tempEl.value).toFixed(2); redraw(); });
+document.querySelectorAll('#trueClass .mode-button').forEach(b =>
+  b.addEventListener('click', () => { setTrueClass(parseInt(b.dataset.cls)); redraw(); }));
+document.querySelectorAll('#preset-row .mode-button').forEach(b =>
+  b.addEventListener('click', () => {
+    document.querySelectorAll('#preset-row .mode-button').forEach(x => x.classList.remove('is-active'));
+    b.classList.add('is-active');
+    applyPreset(b.dataset.preset);
+  }));
+
+window.addEventListener('load', redraw);
+window.addEventListener('resize', redraw);
+</script>
+
+</body>
+</html>
