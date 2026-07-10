@@ -1,0 +1,20 @@
+{
+  "slug": "classifier-guidance",
+  "title": "Guidance Bends the Trajectory",
+  "date": "2026-07-10",
+  "tagline": "Guidance steers diffusion sampling toward a class — and trades diversity for fidelity",
+  "summary": "A diffusion model samples by running a learned reverse process that walks noise back toward the data. Unconditionally, samples spread across every mode. A guidance term adds a pull toward a chosen class, over-weighted by a scale w: at w=0 the trajectories scatter over all modes, and as w grows they bend hard toward the target class but collapse onto its centre. Pick a target, sweep the guidance scale, and press Run to watch the reverse trajectories animate while the fidelity and diversity numbers move in opposite directions.",
+  "readingTime": "9 min",
+  "difficulty": "Intermediate",
+  "collection": "Deep learning",
+  "order": 57,
+  "status": "published",
+  "tags": ["Diffusion Models", "Guidance", "Conditional Generation", "Sampling", "Interactive"],
+  "highlights": [
+    "Watch an animated reverse-diffusion process walk a batch of noisy samples back toward three data modes.",
+    "Set the guidance scale from 0 (unconditional, all modes) upward and see trajectories bend toward the chosen class.",
+    "Push the scale high and watch samples collapse onto the target class centre — mode collapse in action.",
+    "Read the fidelity and diversity numbers move in opposite directions as you turn the guidance knob.",
+    "Connect the toy to real systems: the same knob is classifier-free guidance in Stable Diffusion and Imagen."
+  ]
+}

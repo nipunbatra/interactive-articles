@@ -1,0 +1,20 @@
+{
+  "slug": "decoding-lab",
+  "title": "Generate, Token by Token",
+  "date": "2026-07-10",
+  "tagline": "An autoregressive decoding sandbox where temperature, top-k and top-p reshape what the model samples next",
+  "summary": "A language model never writes a sentence at once — it predicts one next token, samples it, appends it, and loops. Pick a prefix over a tiny fixed vocabulary and press Step to run one round: context to logits to a next-token probability bar chart, then a sampled token gets appended and the sequence grows. Turn temperature, top-k and top-p (nucleus) and watch the distribution sharpen, narrow, and grey out its filtered tail — all deterministic given seeded logits — to feel exactly how each knob trades diversity against focus.",
+  "readingTime": "9 min",
+  "difficulty": "Intermediate",
+  "collection": "Deep learning",
+  "order": 54,
+  "status": "published",
+  "tags": ["Decoding", "Sampling", "Temperature", "Top-p", "Interactive"],
+  "highlights": [
+    "Run the autoregressive loop one token at a time: context to logits to a next-token bar chart to a sampled, appended token.",
+    "See temperature sharpen the distribution toward greedy at T<1 and flatten it toward uniform at T>1.",
+    "Watch top-k and top-p (nucleus) hard-filter the tail, greying out removed tokens and renormalizing what remains.",
+    "Compare the after-temperature distribution (dashed) against the after-filter distribution (solid) on the same chart.",
+    "Track live entropy, kept-candidate count and top probability to quantify the diversity-versus-focus trade-off."
+  ]
+}

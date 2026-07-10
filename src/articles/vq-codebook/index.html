@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vector Quantization (VQ-VAE)</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body, {delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
+
+<style>
+:root {
+  --serif: 'Source Serif 4', Georgia, serif;
+  --sans: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+  --mono: 'IBM Plex Mono', monospace;
+  --bg: #fdfcf9;
+  --paper: #ffffff;
+  --text: #2f2a22;
+  --muted: #6e665b;
+  --border: #e2d8c6;
+  --accent: #2c6fb7;
+  --warm: #d9622b;
+  --success: #1e7770;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; font-family: var(--serif); color: var(--text); background: var(--bg); line-height: 1.65; }
+
+.article { max-width: 980px; margin: 0 auto; padding: 2.5rem 1.5rem 5rem; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; color: var(--muted); text-decoration: none; font-family: var(--sans); font-size: 0.9rem; }
+.back-link:hover { color: var(--text); }
+.article-header { margin-bottom: 3rem; text-align: center; }
+.kicker { margin: 0 0 0.75rem; font-family: var(--sans); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); }
+h1 { margin: 0 auto 1rem; font-size: clamp(2.4rem, 5vw, 3.5rem); line-height: 1.1; letter-spacing: -0.02em; color: #1a1815; max-width: 20ch; }
+.abstract { margin: 0 auto 1rem; max-width: 62ch; font-size: 1.15rem; color: #4d463d; }
+.byline { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-top: 1.4rem; padding-top: 1rem; border-top: 1px solid var(--border); color: var(--muted); font-family: var(--sans); font-size: 0.92rem; }
+
+.step-section {
+  position: relative;
+  margin-top: 4rem;
+  padding: 3rem 2.5rem;
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.03);
+}
+.step-badge {
+  position: absolute;
+  top: -16px;
+  left: 32px;
+  background: var(--accent);
+  color: white;
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.4rem 1.2rem;
+  border-radius: 999px;
+  box-shadow: 0 4px 12px rgba(44, 111, 183, 0.25);
+}
+h2 { margin: 0 0 1rem; font-size: clamp(1.6rem, 3.5vw, 2.2rem); line-height: 1.15; color: #1a1815; }
+h3 { margin-top: 2rem; margin-bottom: 0.8rem; font-size: 1.25rem; color: #1a1815; }
+p { max-width: 68ch; font-size: 1.1rem; }
+ul { max-width: 68ch; font-size: 1.1rem; padding-left: 1.4rem; }
+li { margin-bottom: 0.5rem; }
+.math-block { margin: 1.5rem 0; text-align: center; font-size: 1.05rem; overflow-x: auto; }
+
+.control-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.4rem;
+  margin: 1.6rem 0;
+}
+.control-block { display: flex; flex-direction: column; gap: 0.5rem; }
+.control-block label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-family: var(--sans);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.control-block label span { font-family: var(--mono); color: var(--warm); font-weight: 500; font-size: 0.95rem; }
+input[type="range"] {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px; height: 18px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid var(--paper);
+  box-shadow: 0 2px 6px rgba(44,111,183,0.4);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 18px; height: 18px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid var(--paper);
+}
+
+.button-row { display: flex; gap: 0.6rem; flex-wrap: wrap; margin: 1rem 0; }
+.mode-button {
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: 0.92rem;
+  padding: 0.55rem 1.1rem;
+  border-radius: 8px;
+  border: 1.5px solid var(--border);
+  background: var(--paper);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.mode-button:hover { border-color: var(--accent); }
+.mode-button.is-active { background: var(--accent); color: white; border-color: var(--accent); }
+
+.interactive-figure { margin: 1.5rem 0; }
+.interactive-figure canvas {
+  display: block;
+  width: 100%;
+  background: #fbfaf6;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  touch-action: none;
+  cursor: grab;
+}
+.interactive-figure figcaption { margin-top: 0.7rem; font-size: 0.92rem; color: var(--muted); text-align: center; font-style: italic; }
+
+.stat-strip { display: flex; gap: 1rem; flex-wrap: wrap; margin: 1.5rem 0; }
+.stat-pill {
+  flex: 1 1 140px;
+  min-width: 140px;
+  background: var(--paper);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  padding: 0.9rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  text-align: left;
+}
+.stat-pill .stat-label { font-family: var(--sans); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; }
+.stat-pill .stat-value { font-family: var(--mono); font-size: 1.5rem; font-weight: 600; color: var(--text); }
+.stat-pill--accent { border-color: var(--accent); }
+.stat-pill--accent .stat-value { color: var(--accent); }
+.stat-pill--warm { border-color: var(--warm); }
+.stat-pill--warm .stat-value { color: var(--warm); }
+.stat-pill--success { border-color: var(--success); }
+.stat-pill--success .stat-value { color: var(--success); }
+
+.callout {
+  margin: 2rem 0 0.5rem;
+  padding: 1.2rem 1.5rem;
+  border-radius: 12px;
+  border-left: 4px solid var(--accent);
+  background: rgba(44,111,183,0.05);
+  font-size: 1.02rem;
+}
+.callout strong { color: var(--accent); }
+.callout--think { border-left-color: var(--success); background: rgba(30,119,112,0.06); }
+.callout--think strong { color: var(--success); }
+.callout--warn { border-left-color: var(--warm); background: rgba(217,98,43,0.06); }
+.callout--warn strong { color: var(--warm); }
+
+footer { margin-top: 4rem; text-align: center; font-family: var(--sans); font-size: 0.85rem; color: var(--muted); }
+
+@media (max-width: 640px) { .step-section { padding: 2rem 1.4rem; } }
+</style>
+</head>
+<body>
+
+<article class="article">
+  <header class="article-header">
+    <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+    <p class="kicker">Interactive Explainer</p>
+    <h1>Vector Quantization (VQ-VAE)</h1>
+    <p class="abstract">
+      A plain autoencoder has a <em>continuous</em> latent &mdash; any point in space is legal.
+      VQ-VAE instead keeps a small learned <strong>codebook</strong> of $K$ vectors and forces
+      every encoding to snap to its nearest entry. The latent becomes <em>discrete</em>: an index
+      into a lookup table. Drag the encoding point below and watch it jump to the closest code;
+      drag the codes and watch their territories &mdash; the Voronoi cells &mdash; redraw.
+    </p>
+    <div class="byline">
+      <span>~8 min</span>
+      <span>Deep Learning &middot; Generative Models &middot; Discrete Latents</span>
+    </div>
+  </header>
+
+  <section class="step-section" id="prelude">
+    <div class="step-badge">Prelude</div>
+    <h2>One continuous vector becomes one integer</h2>
+    <p>
+      The encoder produces a continuous vector $z \in \mathbb{R}^d$. Vector quantization replaces
+      it with the nearest of $K$ learned code vectors $e_1, \dots, e_K$ (the codebook):
+    </p>
+    <div class="math-block">
+      $$k^{\star} = \arg\min_{k}\; \lVert z - e_k \rVert, \qquad z_q = e_{k^{\star}}.$$
+    </div>
+    <p>
+      The decoder then works from $z_q$ alone, so all it ever receives is one of $K$ possible
+      vectors &mdash; equivalently, the single integer $k^{\star}$. Nearest-neighbour assignment
+      carves the plane into <strong>Voronoi cells</strong>: every point in a cell shares the same
+      closest code. Quantization is just: <em>which cell did $z$ land in?</em>
+    </p>
+  </section>
+
+  <section class="step-section" id="lab">
+    <div class="step-badge">The Lab</div>
+    <h2>Snap to the nearest code</h2>
+    <p>
+      The coloured regions are the Voronoi cells of the codebook; the large ringed dots are the
+      code vectors $e_k$. The dark <strong>diamond is the encoding $z$</strong> &mdash;
+      <strong>drag it</strong> anywhere and the arrow shows it snapping to $z_q$, the code owning
+      whatever cell it is in. <strong>Drag the codes</strong> to move the cell boundaries. Hit
+      <em>Quantize a cloud</em> to drop a batch of encodings and colour each by the code it is
+      assigned to.
+    </p>
+
+    <div class="button-row">
+      <button class="mode-button" id="cloudBtn">Quantize a cloud</button>
+      <button class="mode-button" id="resetBtn">Reset codebook</button>
+    </div>
+
+    <div class="control-row">
+      <div class="control-block">
+        <label>Codebook size <span>$K$ = <span id="kVal">5</span></span></label>
+        <input type="range" id="k" min="2" max="8" step="1" value="5">
+      </div>
+    </div>
+
+    <figure class="interactive-figure">
+      <canvas id="vqCanvas" width="880" height="500" style="height:500px"></canvas>
+      <figcaption>
+        Drag the dark diamond ($z$) or any ringed code ($e_k$). The arrow points from $z$ to its
+        quantized value $z_q$ &mdash; the nearest code. Toggle the cloud to see a whole batch
+        assigned at once.
+      </figcaption>
+    </figure>
+
+    <div class="stat-strip">
+      <div class="stat-pill stat-pill--accent">
+        <span class="stat-label">Assigned code $k^{\star}$</span>
+        <span class="stat-value" id="assignVal">&mdash;</span>
+      </div>
+      <div class="stat-pill stat-pill--warm">
+        <span class="stat-label">Quantization error $\lVert z - z_q\rVert$</span>
+        <span class="stat-value" id="errVal">&mdash;</span>
+      </div>
+      <div class="stat-pill">
+        <span class="stat-label">Bits to store index $\log_2 K$</span>
+        <span class="stat-value" id="bitsVal">&mdash;</span>
+      </div>
+    </div>
+
+    <div class="callout callout--warn">
+      <strong>Drag $z$ slowly across a boundary.</strong> The assigned code and the arrow flip the
+      instant you cross into a new cell &mdash; the map from continuous $z$ to discrete $k^{\star}$
+      is piecewise constant, with jumps exactly at the Voronoi seams. That discreteness is the
+      whole point, and also the reason gradients need a special trick (below).
+    </div>
+  </section>
+
+  <section class="step-section" id="why">
+    <div class="step-badge">The Payoff</div>
+    <h2>How do you train through a hard argmin?</h2>
+    <p>
+      The snap is a non-differentiable step: nudging $z$ within a cell does not change $z_q$ at
+      all, so $\partial z_q / \partial z = 0$ almost everywhere. That would block gradients from
+      ever reaching the encoder. VQ-VAE uses the <strong>straight-through estimator</strong>:
+      on the backward pass, pretend the quantizer was the identity and copy the decoder's gradient
+      straight from $z_q$ onto $z$.
+    </p>
+    <div class="math-block">
+      $$z_q = z + \operatorname{stopgrad}\!\big(e_{k^{\star}} - z\big)
+        \;\;\Longrightarrow\;\; \frac{\partial z_q}{\partial z} \approx 1 .$$
+    </div>
+    <ul>
+      <li><strong>Forward:</strong> the decoder sees the true discrete code $e_{k^{\star}}$.</li>
+      <li><strong>Backward:</strong> the gradient flows as if $z_q = z$, so the encoder still learns.</li>
+      <li><strong>Codebook loss:</strong> extra terms $\lVert \operatorname{sg}[z] - e_k \rVert^2$ and a commitment term $\beta\lVert z - \operatorname{sg}[e_k]\rVert^2$ pull the code to its assigned encodings and keep the encoder from drifting away.</li>
+    </ul>
+    <div class="callout callout--think">
+      <strong>Why discretize at all?</strong> A discrete latent grid is a sequence of integers &mdash;
+      exactly what an autoregressive prior (a PixelCNN or a Transformer) can model. VQ-VAE and its
+      successor VQ-GAN turn images into token grids so that the same machinery used for language can
+      generate pictures. The codebook is the vocabulary.
+    </div>
+  </section>
+
+  <footer>Part of the ES 667 Deep Learning explainer series &middot; Lecture 20: VAEs &amp; Vector Quantization</footer>
+</article>
+
+<script>
+/* ===================== fixed-seed RNG ===================== */
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function randn(rng) {
+  let u = 0, v = 0;
+  while (u === 0) u = rng();
+  while (v === 0) v = rng();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+
+/* ===================== palette ===================== */
+const CODE_COLORS = [
+  '#2c6fb7', '#d9622b', '#1e7770', '#b0338c',
+  '#9a7b1f', '#4c58c0', '#c0453a', '#2f8f6b'
+];
+function withAlpha(hex, a) {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+}
+
+/* ===================== plane in data coords [0,10]x[0,10] ===================== */
+const DOM = { xmin: 0, xmax: 10, ymin: 0, ymax: 10 };
+let K = 5;
+let codes = [];       // {x,y} in data coords
+let z = { x: 6.4, y: 6.2 };
+let cloud = null;     // array of {x,y} or null
+const rng0 = mulberry32(20260710);
+
+function defaultCodes(k) {
+  const arr = [];
+  const r = mulberry32(7);
+  // spread codes roughly over the plane, fixed seed
+  for (let i = 0; i < k; i++) {
+    const ang = (i / k) * Math.PI * 2 + 0.4;
+    const rad = 2.6 + 0.8 * r();
+    arr.push({ x: 5 + rad * Math.cos(ang) + (r() - 0.5), y: 5 + rad * Math.sin(ang) + (r() - 0.5) });
+  }
+  return arr;
+}
+function makeCloud() {
+  const r = mulberry32(99);
+  const pts = [];
+  const centers = [[3, 3.4], [6.6, 3], [5, 7], [7.4, 6.6]];
+  for (let i = 0; i < 180; i++) {
+    const c = centers[i % centers.length];
+    pts.push({ x: c[0] + randn(r) * 0.9, y: c[1] + randn(r) * 0.9 });
+  }
+  return pts;
+}
+
+function nearestCode(p) {
+  let best = 0, bd = Infinity;
+  for (let i = 0; i < codes.length; i++) {
+    const dx = p.x - codes[i].x, dy = p.y - codes[i].y;
+    const d = dx * dx + dy * dy;
+    if (d < bd) { bd = d; best = i; }
+  }
+  return { idx: best, dist: Math.sqrt(bd) };
+}
+
+/* ===================== canvas / coord mapping ===================== */
+let view = null; // {x0,y0,sx,sy} data->px
+function fitCanvas(canvas) {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = Math.round(rect.width * dpr);
+  canvas.height = Math.round(rect.height * dpr);
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { ctx, w: rect.width, h: rect.height };
+}
+function toPx(p) {
+  return { x: view.x0 + (p.x - DOM.xmin) * view.sx, y: view.y0 + (DOM.ymax - p.y) * view.sy };
+}
+function toData(px, py) {
+  return { x: DOM.xmin + (px - view.x0) / view.sx, y: DOM.ymax - (py - view.y0) / view.sy };
+}
+
+/* ===================== Voronoi via half-plane clipping ===================== */
+function clipPolygon(poly, a, b, c) {
+  // keep points with a*x + b*y <= c
+  const out = [];
+  const n = poly.length;
+  for (let i = 0; i < n; i++) {
+    const cur = poly[i], nxt = poly[(i + 1) % n];
+    const dc = a * cur.x + b * cur.y - c;
+    const dn = a * nxt.x + b * nxt.y - c;
+    const curIn = dc <= 1e-9, nxtIn = dn <= 1e-9;
+    if (curIn) out.push(cur);
+    if (curIn !== nxtIn) {
+      const t = dc / (dc - dn);
+      out.push({ x: cur.x + t * (nxt.x - cur.x), y: cur.y + t * (nxt.y - cur.y) });
+    }
+  }
+  return out;
+}
+function voronoiCell(i) {
+  // start with domain rectangle (data coords)
+  let poly = [
+    { x: DOM.xmin, y: DOM.ymin }, { x: DOM.xmax, y: DOM.ymin },
+    { x: DOM.xmax, y: DOM.ymax }, { x: DOM.xmin, y: DOM.ymax }
+  ];
+  const ei = codes[i];
+  for (let j = 0; j < codes.length; j++) {
+    if (j === i) continue;
+    const ej = codes[j];
+    // bisector: keep points closer to ei -> (ej-ei).x*x + (ej-ei).y*y <= (|ej|^2-|ei|^2)/2
+    const a = ej.x - ei.x, b = ej.y - ei.y;
+    const c = (ej.x * ej.x + ej.y * ej.y - ei.x * ei.x - ei.y * ei.y) / 2;
+    poly = clipPolygon(poly, a, b, c);
+    if (poly.length === 0) break;
+  }
+  return poly;
+}
+
+/* ===================== draw ===================== */
+function draw() {
+  const canvas = document.getElementById('vqCanvas');
+  const { ctx, w, h } = fitCanvas(canvas);
+  ctx.clearRect(0, 0, w, h);
+  const pad = 20;
+  const size = Math.min(w, h) - 2 * pad;
+  const x0 = (w - size) / 2, y0 = (h - size) / 2;
+  view = { x0, y0, sx: size / (DOM.xmax - DOM.xmin), sy: size / (DOM.ymax - DOM.ymin) };
+
+  // plane background
+  ctx.fillStyle = '#fbfaf6';
+  ctx.fillRect(x0, y0, size, size);
+
+  // voronoi cells
+  for (let i = 0; i < codes.length; i++) {
+    const cell = voronoiCell(i);
+    if (cell.length < 3) continue;
+    ctx.beginPath();
+    cell.forEach((p, idx) => { const q = toPx(p); idx ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y); });
+    ctx.closePath();
+    ctx.fillStyle = withAlpha(CODE_COLORS[i], 0.14);
+    ctx.fill();
+    ctx.strokeStyle = withAlpha(CODE_COLORS[i], 0.55);
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
+
+  // clip frame
+  ctx.strokeStyle = 'rgba(47,42,34,0.25)';
+  ctx.lineWidth = 1.2;
+  ctx.strokeRect(x0, y0, size, size);
+
+  // cloud points colored by assignment
+  if (cloud) {
+    for (const p of cloud) {
+      const { idx } = nearestCode(p);
+      const q = toPx(p);
+      ctx.fillStyle = withAlpha(CODE_COLORS[idx], 0.95);
+      ctx.beginPath(); ctx.arc(q.x, q.y, 3.1, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  // codes
+  for (let i = 0; i < codes.length; i++) {
+    const q = toPx(codes[i]);
+    ctx.beginPath(); ctx.arc(q.x, q.y, 10, 0, Math.PI * 2);
+    ctx.fillStyle = CODE_COLORS[i];
+    ctx.fill();
+    ctx.lineWidth = 3; ctx.strokeStyle = '#fff'; ctx.stroke();
+    ctx.lineWidth = 1.5; ctx.strokeStyle = withAlpha(CODE_COLORS[i], 0.9); ctx.stroke();
+    ctx.fillStyle = '#fff'; ctx.font = '700 11px Manrope, sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(String(i + 1), q.x, q.y);
+  }
+
+  // snap arrow z -> z_q
+  const { idx } = nearestCode(z);
+  const zq = codes[idx];
+  const pz = toPx(z), pq = toPx(zq);
+  ctx.strokeStyle = '#2f2a22';
+  ctx.lineWidth = 2.5;
+  ctx.setLineDash([6, 4]);
+  ctx.beginPath(); ctx.moveTo(pz.x, pz.y); ctx.lineTo(pq.x, pq.y); ctx.stroke();
+  ctx.setLineDash([]);
+  // arrowhead
+  const ang = Math.atan2(pq.y - pz.y, pq.x - pz.x);
+  const hx = pq.x - 13 * Math.cos(ang), hy = pq.y - 13 * Math.sin(ang);
+  ctx.fillStyle = '#2f2a22';
+  ctx.beginPath();
+  ctx.moveTo(pq.x - 10 * Math.cos(ang), pq.y - 10 * Math.sin(ang));
+  ctx.lineTo(hx - 6 * Math.sin(ang), hy + 6 * Math.cos(ang));
+  ctx.lineTo(hx + 6 * Math.sin(ang), hy - 6 * Math.cos(ang));
+  ctx.closePath(); ctx.fill();
+
+  // z as diamond
+  ctx.save();
+  ctx.translate(pz.x, pz.y); ctx.rotate(Math.PI / 4);
+  ctx.fillStyle = '#2f2a22';
+  ctx.fillRect(-8, -8, 16, 16);
+  ctx.lineWidth = 3; ctx.strokeStyle = '#fff'; ctx.strokeRect(-8, -8, 16, 16);
+  ctx.restore();
+  ctx.fillStyle = '#2f2a22'; ctx.font = '700 12px Manrope, sans-serif';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+  ctx.fillText('z', pz.x + 12, pz.y - 8);
+  ctx.fillStyle = CODE_COLORS[idx]; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillText('z_q', pq.x + 12, pq.y + 8);
+}
+
+/* ===================== stats ===================== */
+function updateStats() {
+  const { idx, dist } = nearestCode(z);
+  document.getElementById('assignVal').textContent = 'e' + (idx + 1);
+  document.getElementById('errVal').textContent = dist.toFixed(2);
+  document.getElementById('bitsVal').textContent = Math.log2(K).toFixed(2);
+}
+function redraw() { draw(); updateStats(); }
+
+/* ===================== interaction: drag z or codes ===================== */
+let drag = null; // {type:'z'} or {type:'code', idx}
+function hit(evt) {
+  const canvas = document.getElementById('vqCanvas');
+  const rect = canvas.getBoundingClientRect();
+  const px = evt.clientX - rect.left, py = evt.clientY - rect.top;
+  // check z first
+  const pz = toPx(z);
+  if ((px - pz.x) ** 2 + (py - pz.y) ** 2 <= 16 * 16) return { type: 'z' };
+  for (let i = 0; i < codes.length; i++) {
+    const q = toPx(codes[i]);
+    if ((px - q.x) ** 2 + (py - q.y) ** 2 <= 14 * 14) return { type: 'code', idx: i };
+  }
+  return null;
+}
+function moveTo(evt) {
+  const canvas = document.getElementById('vqCanvas');
+  const rect = canvas.getBoundingClientRect();
+  let d = toData(evt.clientX - rect.left, evt.clientY - rect.top);
+  d.x = Math.max(DOM.xmin, Math.min(DOM.xmax, d.x));
+  d.y = Math.max(DOM.ymin, Math.min(DOM.ymax, d.y));
+  if (drag.type === 'z') { z = d; }
+  else { codes[drag.idx] = d; }
+  redraw();
+}
+const canvasEl = document.getElementById('vqCanvas');
+canvasEl.addEventListener('pointerdown', (e) => {
+  drag = hit(e);
+  if (!drag) { // clicking empty space moves z there
+    const rect = canvasEl.getBoundingClientRect();
+    let d = toData(e.clientX - rect.left, e.clientY - rect.top);
+    if (d.x >= DOM.xmin && d.x <= DOM.xmax && d.y >= DOM.ymin && d.y <= DOM.ymax) {
+      z = d; redraw();
+    }
+    return;
+  }
+  canvasEl.setPointerCapture(e.pointerId);
+  canvasEl.style.cursor = 'grabbing';
+});
+canvasEl.addEventListener('pointermove', (e) => { if (drag) moveTo(e); });
+canvasEl.addEventListener('pointerup', () => { drag = null; canvasEl.style.cursor = 'grab'; });
+canvasEl.addEventListener('pointerleave', () => { drag = null; canvasEl.style.cursor = 'grab'; });
+
+/* ===================== controls ===================== */
+document.getElementById('k').addEventListener('input', (e) => {
+  K = parseInt(e.target.value);
+  document.getElementById('kVal').textContent = K;
+  codes = defaultCodes(K);
+  redraw();
+});
+document.getElementById('cloudBtn').addEventListener('click', (e) => {
+  if (cloud) { cloud = null; e.target.classList.remove('is-active'); e.target.textContent = 'Quantize a cloud'; }
+  else { cloud = makeCloud(); e.target.classList.add('is-active'); e.target.textContent = 'Hide cloud'; }
+  redraw();
+});
+document.getElementById('resetBtn').addEventListener('click', () => {
+  codes = defaultCodes(K); z = { x: 6.4, y: 6.2 }; redraw();
+});
+
+/* ===================== init ===================== */
+codes = defaultCodes(K);
+window.addEventListener('load', redraw);
+window.addEventListener('resize', redraw);
+redraw();
+</script>
+
+</body>
+</html>

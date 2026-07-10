@@ -1,0 +1,20 @@
+{
+  "slug": "gated-residual",
+  "title": "A Gated Residual Block",
+  "date": "2026-07-10",
+  "tagline": "Step through the WaveNet/TCN unit where a tanh proposes content, a sigmoid gates it, and skip plus residual paths make deep stacks trainable",
+  "summary": "Press Step to reveal one gated residual block stage by stage: input x goes through a dilated causal conv, splits into a tanh content branch and a sigmoid gate branch, multiplies them into z = tanh(W_f*x) o sigma(W_g*x), passes a 1x1 conv, then peels off a skip copy and adds a residual copy back to x. A gate-bias knob opens and shuts the valves so you can watch the product z grow and shrink. The repeating unit behind WaveNet and Temporal Convolutional Networks.",
+  "readingTime": "9 min",
+  "difficulty": "Intermediate",
+  "collection": "Deep learning",
+  "order": 52,
+  "status": "published",
+  "tags": ["Gated Activation", "Residual", "WaveNet", "TCN", "Interactive"],
+  "highlights": [
+    "Step through one block one stage at a time: conv, tanh content, sigmoid gate, product, 1x1 conv, skip, residual add.",
+    "Watch the gated activation z = tanh(W_f*x) o sigma(W_g*x) form as an element-wise product of content and gate.",
+    "Turn a gate-bias knob and see the sigmoid valves open and shut, scaling each channel of the product z.",
+    "See the skip path peel off to the output head while the residual path adds back to x so deep stacks stay trainable.",
+    "Drive the gate to zero and watch the block degrade gracefully to a no-op, with the residual carrying x through untouched."
+  ]
+}

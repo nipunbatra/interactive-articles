@@ -1,0 +1,20 @@
+{
+  "slug": "causal-conv",
+  "title": "Causal Convolution",
+  "date": "2026-07-10",
+  "tagline": "Slide a kernel over a sequence without ever peeking into the future — with left-padding and dilation as the two knobs that matter",
+  "summary": "Drag a causal 1-D convolution across a sequence and watch the rules enforce themselves: the kernel at time t may only touch inputs at t and earlier, so the shaded future stays off-limits. Toggle left-padding to keep the output the same length as the input, and stretch the dilation to grow the receptive field (K-1)d+1 without adding a single weight. The building block behind WaveNet and Temporal Convolutional Networks, made tangible.",
+  "readingTime": "8 min",
+  "difficulty": "Intermediate",
+  "collection": "Deep learning",
+  "order": 51,
+  "status": "published",
+  "tags": ["Causal Convolution", "Dilation", "Sequence Models", "TCN", "Interactive"],
+  "highlights": [
+    "Watch causality as a masking rule: the kernel is physically blocked from crossing the 'now' line into the shaded future.",
+    "Toggle left-padding and see the output length snap from N-(K-1)d back to N, with padding zeros filling the missing past.",
+    "Stretch the dilation from 1 to 4 and watch the receptive field (K-1)d+1 grow while the weight count stays fixed at K.",
+    "Slide 'now' to the far left with padding off and see the oldest taps fall off the edge — no x[-1], no output.",
+    "Connects directly to WaveNet and TCNs, where dilations 1,2,4,8 give an exponentially growing receptive field."
+  ]
+}

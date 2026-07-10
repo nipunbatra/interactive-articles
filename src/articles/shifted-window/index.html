@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shifted Windows (Swin)</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body, {delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
+
+<style>
+:root {
+  --serif: 'Source Serif 4', Georgia, serif;
+  --sans: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+  --mono: 'IBM Plex Mono', monospace;
+  --bg: #fdfcf9;
+  --paper: #ffffff;
+  --text: #2f2a22;
+  --muted: #6e665b;
+  --border: #e2d8c6;
+  --accent: #2c6fb7;
+  --warm: #d9622b;
+  --success: #1e7770;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; font-family: var(--serif); color: var(--text); background: var(--bg); line-height: 1.65; }
+
+.article { max-width: 980px; margin: 0 auto; padding: 2.5rem 1.5rem 5rem; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; color: var(--muted); text-decoration: none; font-family: var(--sans); font-size: 0.9rem; }
+.back-link:hover { color: var(--text); }
+.article-header { margin-bottom: 3rem; text-align: center; }
+.kicker { margin: 0 0 0.75rem; font-family: var(--sans); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); }
+h1 { margin: 0 auto 1rem; font-size: clamp(2.4rem, 5vw, 3.5rem); line-height: 1.1; letter-spacing: -0.02em; color: #1a1815; max-width: 20ch; }
+.abstract { margin: 0 auto 1rem; max-width: 62ch; font-size: 1.15rem; color: #4d463d; }
+.byline { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-top: 1.4rem; padding-top: 1rem; border-top: 1px solid var(--border); color: var(--muted); font-family: var(--sans); font-size: 0.92rem; }
+
+.step-section {
+  position: relative;
+  margin-top: 4rem;
+  padding: 3rem 2.5rem;
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.03);
+}
+.step-badge {
+  position: absolute;
+  top: -16px;
+  left: 32px;
+  background: var(--accent);
+  color: white;
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.4rem 1.2rem;
+  border-radius: 999px;
+  box-shadow: 0 4px 12px rgba(44, 111, 183, 0.25);
+}
+h2 { margin: 0 0 1rem; font-size: clamp(1.6rem, 3.5vw, 2.2rem); line-height: 1.15; color: #1a1815; }
+h3 { margin-top: 2rem; margin-bottom: 0.8rem; font-size: 1.25rem; color: #1a1815; }
+p { max-width: 68ch; font-size: 1.1rem; }
+ul { max-width: 68ch; font-size: 1.1rem; padding-left: 1.4rem; }
+li { margin-bottom: 0.5rem; }
+.math-block { margin: 1.5rem 0; text-align: center; font-size: 1.05rem; overflow-x: auto; }
+
+.control-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.4rem;
+  margin: 1.6rem 0;
+}
+.control-block { display: flex; flex-direction: column; gap: 0.5rem; }
+.control-block label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-family: var(--sans);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.control-block label span { font-family: var(--mono); color: var(--warm); font-weight: 500; font-size: 0.95rem; }
+input[type="range"] {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px; height: 18px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid var(--paper);
+  box-shadow: 0 2px 6px rgba(44,111,183,0.4);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 18px; height: 18px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid var(--paper);
+}
+
+.button-row { display: flex; gap: 0.6rem; flex-wrap: wrap; margin: 1rem 0; }
+.mode-button {
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: 0.92rem;
+  padding: 0.55rem 1.1rem;
+  border-radius: 8px;
+  border: 1.5px solid var(--border);
+  background: var(--paper);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.mode-button:hover { border-color: var(--accent); }
+.mode-button.is-active { background: var(--accent); color: white; border-color: var(--accent); }
+
+.interactive-figure { margin: 1.5rem 0; }
+.interactive-figure canvas {
+  display: block;
+  width: 100%;
+  background: #fbfaf6;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  touch-action: none;
+}
+.interactive-figure figcaption { margin-top: 0.7rem; font-size: 0.92rem; color: var(--muted); text-align: center; font-style: italic; }
+
+.stat-strip { display: flex; gap: 1rem; flex-wrap: wrap; margin: 1.5rem 0; }
+.stat-pill {
+  flex: 1 1 140px;
+  min-width: 140px;
+  background: var(--paper);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  padding: 0.9rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  text-align: left;
+}
+.stat-pill .stat-label { font-family: var(--sans); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; }
+.stat-pill .stat-value { font-family: var(--mono); font-size: 1.5rem; font-weight: 600; color: var(--text); }
+.stat-pill--accent { border-color: var(--accent); }
+.stat-pill--accent .stat-value { color: var(--accent); }
+.stat-pill--warm { border-color: var(--warm); }
+.stat-pill--warm .stat-value { color: var(--warm); }
+.stat-pill--success { border-color: var(--success); }
+.stat-pill--success .stat-value { color: var(--success); }
+
+.callout {
+  margin: 2rem 0 0.5rem;
+  padding: 1.2rem 1.5rem;
+  border-radius: 12px;
+  border-left: 4px solid var(--accent);
+  background: rgba(44,111,183,0.05);
+  font-size: 1.02rem;
+}
+.callout strong { color: var(--accent); }
+.callout--think { border-left-color: var(--success); background: rgba(30,119,112,0.06); }
+.callout--think strong { color: var(--success); }
+.callout--warn { border-left-color: var(--warm); background: rgba(217,98,43,0.06); }
+.callout--warn strong { color: var(--warm); }
+
+footer { margin-top: 4rem; text-align: center; font-family: var(--sans); font-size: 0.85rem; color: var(--muted); }
+
+@media (max-width: 640px) { .step-section { padding: 2rem 1.4rem; } }
+</style>
+</head>
+<body>
+
+<article class="article">
+  <header class="article-header">
+    <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+    <p class="kicker">Interactive Explainer</p>
+    <h1>Shifted Windows (Swin)</h1>
+    <p class="abstract">
+      Full self-attention compares every patch to every other patch &mdash; cost grows
+      with the <em>square</em> of the number of patches. Swin instead attends only
+      <em>within small windows</em>, which is cheap and linear. The trick that keeps it
+      from being blind across window seams: on alternate layers, <em>shift</em> the window
+      grid by half a window so patches that were on opposite sides of a boundary now sit
+      together. Click a patch to see exactly who it can talk to.
+    </p>
+    <div class="byline">
+      <span>~8 min</span>
+      <span>Deep Learning &middot; Vision Transformers &middot; Attention</span>
+    </div>
+  </header>
+
+  <section class="step-section" id="prelude">
+    <div class="step-badge">Prelude</div>
+    <h2>Why not just attend to everything?</h2>
+    <p>
+      A vision transformer chops an image into a grid of $N \times N$ patches, giving
+      $N^2$ tokens. Global self-attention forms every pair, so its cost scales as
+      $(N^2)^2 = N^4$ &mdash; quadratic in the number of tokens. Double the resolution
+      and the attention bill goes up sixteen-fold. That does not survive high-resolution
+      images.
+    </p>
+    <p>
+      Swin's fix is to restrict attention to non-overlapping <strong>windows</strong> of
+      $M \times M$ patches. Each window does full attention <em>inside itself</em> and
+      ignores everything outside. With a fixed window size $M$, the total cost is
+    </p>
+    <div class="math-block">
+      $$\underbrace{\left(\tfrac{N}{M}\right)^{2}}_{\text{\# windows}}
+        \times \underbrace{(M^{2})^{2}}_{\text{pairs per window}}
+        \;=\; N^{2} M^{2},$$
+    </div>
+    <p>
+      which is <em>linear</em> in the number of tokens $N^2$. The catch is obvious: a patch
+      can never attend to anything outside its window. Information cannot cross a seam.
+      The next section shows the cure.
+    </p>
+  </section>
+
+  <section class="step-section" id="lab">
+    <div class="step-badge">The Lab</div>
+    <h2>Windows, and the shift that stitches them</h2>
+    <p>
+      Below is a grid of image patches partitioned into attention windows (drawn with bold
+      seams). <strong>Click any patch</strong> to select it: the patches it can attend to
+      &mdash; exactly its own window &mdash; light up, and everything else dims. Now flip the
+      <strong>Shift</strong> switch. The whole window grid slides by half a window, so your
+      selected patch lands in a new window with new neighbours. Stack an unshifted layer and a
+      shifted layer and, over two layers, a patch reaches across boundaries in every direction.
+    </p>
+
+    <div class="button-row" id="preset-row">
+      <button class="mode-button is-active" data-shift="0">Layer&nbsp;L &middot; no shift</button>
+      <button class="mode-button" data-shift="1">Layer&nbsp;L+1 &middot; shifted</button>
+    </div>
+
+    <div class="control-row">
+      <div class="control-block">
+        <label>Grid size <span>$N$ = <span id="gridVal">8</span></span></label>
+        <input type="range" id="grid" min="4" max="14" step="1" value="8">
+      </div>
+      <div class="control-block">
+        <label>Window size <span>$M$ = <span id="winVal">4</span></span></label>
+        <input type="range" id="win" min="2" max="7" step="1" value="4">
+      </div>
+    </div>
+
+    <figure class="interactive-figure">
+      <canvas id="gridCanvas" width="880" height="520" style="height:520px"></canvas>
+      <figcaption>
+        Each cell is an image patch. Bold lines are window seams; attention stays inside a
+        window. The selected patch is ringed; its window (the patches it attends to) is
+        highlighted. Toggle <em>Shift</em> and watch that set jump across the old seam.
+      </figcaption>
+    </figure>
+
+    <div class="stat-strip">
+      <div class="stat-pill stat-pill--accent">
+        <span class="stat-label">Patches this one attends to</span>
+        <span class="stat-value" id="attendVal">&mdash;</span>
+      </div>
+      <div class="stat-pill">
+        <span class="stat-label">Windows this layer</span>
+        <span class="stat-value" id="nwinVal">&mdash;</span>
+      </div>
+      <div class="stat-pill stat-pill--warm">
+        <span class="stat-label">Full-attention pairs $N^4$</span>
+        <span class="stat-value" id="fullVal">&mdash;</span>
+      </div>
+      <div class="stat-pill stat-pill--success">
+        <span class="stat-label">Windowed pairs $\sum |w|^2$</span>
+        <span class="stat-value" id="winpairVal">&mdash;</span>
+      </div>
+    </div>
+
+    <div class="callout callout--warn">
+      <strong>Push the sliders.</strong> As $N$ grows, the orange &ldquo;full-attention pairs&rdquo;
+      number explodes like $N^4$ while the green &ldquo;windowed pairs&rdquo; number crawls up like
+      $N^2 M^2$. That gap is the entire reason window attention exists: it buys you
+      high-resolution transformers that would otherwise be unaffordable.
+    </div>
+  </section>
+
+  <section class="step-section" id="why">
+    <div class="step-badge">The Payoff</div>
+    <h2>Shift, then shift back: growing the receptive field</h2>
+    <p>
+      A single window layer is myopic &mdash; a patch sees only its $M \times M$ neighbourhood.
+      But Swin alternates: layer $L$ uses the plain partition, layer $L{+}1$ uses the shifted
+      one (displaced by $\lfloor M/2 \rfloor$). A patch near a seam attends to one group in
+      layer $L$, then a <em>different, overlapping</em> group in layer $L{+}1$. Composed, the two
+      layers let information flow across the boundary in every direction &mdash; without ever
+      forming a single global attention matrix.
+    </p>
+    <ul>
+      <li><strong>Cheap.</strong> Every layer stays $O(N^2 M^2)$: linear in tokens, never $N^4$.</li>
+      <li><strong>Connected.</strong> Alternating shifted / unshifted windows knit the seams, so the effective receptive field grows layer by layer until it spans the whole image.</li>
+      <li><strong>Hierarchical.</strong> Swin also merges patches between stages, shrinking the grid and enlarging what each token summarises &mdash; the pyramid that makes it a drop-in backbone for detection and segmentation.</li>
+    </ul>
+    <div class="callout callout--think">
+      <strong>The real implementation.</strong> Rather than build ragged windows at the edges,
+      Swin performs a <em>cyclic shift</em> of the whole feature map, runs ordinary equal-sized
+      window attention, and uses an attention <em>mask</em> so that patches wrapped around from the
+      opposite edge do not actually attend to each other. The picture above draws the honest
+      partition; the trick is just an efficient way to realise the same neighbour sets on a GPU.
+    </div>
+  </section>
+
+  <footer>Part of the ES 667 Deep Learning explainer series &middot; Lecture 19: Vision Transformers &amp; Swin</footer>
+</article>
+
+<script>
+/* ===================== state ===================== */
+let N = 8;        // grid is N x N patches
+let M = 4;        // window is M x M patches
+let shift = 0;    // 0 = no shift, 1 = shifted by floor(M/2)
+let selRow = 3, selCol = 3;
+
+const gridEl = document.getElementById('grid');
+const winEl  = document.getElementById('win');
+
+/* ===================== window assignment ===================== */
+// Shifted partition: boundaries fall at 0, s, s+M, s+2M, ... with s = floor(M/2).
+// Window index along an axis = floor((coord + (M - s)) / M) when shifted, else floor(coord/M).
+function winIndex(coord) {
+  if (!shift) return Math.floor(coord / M);
+  const s = Math.floor(M / 2);
+  return Math.floor((coord + (M - s)) / M);
+}
+function windowKey(r, c) { return winIndex(r) + ',' + winIndex(c); }
+
+// list all patches sharing the window of (r,c)
+function windowMembers(r, c) {
+  const key = windowKey(r, c);
+  const members = [];
+  for (let i = 0; i < N; i++)
+    for (let j = 0; j < N; j++)
+      if (windowKey(i, j) === key) members.push([i, j]);
+  return members;
+}
+
+// enumerate distinct windows and their sizes
+function windowStats() {
+  const sizes = new Map();
+  for (let i = 0; i < N; i++)
+    for (let j = 0; j < N; j++) {
+      const k = windowKey(i, j);
+      sizes.set(k, (sizes.get(k) || 0) + 1);
+    }
+  let sumSq = 0;
+  sizes.forEach(v => { sumSq += v * v; });
+  return { nWindows: sizes.size, sumSq };
+}
+
+/* ===================== synthetic "image" ===================== */
+// Fixed-seed smooth scene so windows contain visibly different content.
+function patchValue(r, c) {
+  const x = (c + 0.5) / N, y = (r + 0.5) / N;
+  const blobs = [
+    { cx: 0.28, cy: 0.30, s: 0.16, a: 1.0 },
+    { cx: 0.72, cy: 0.62, s: 0.20, a: 0.9 },
+    { cx: 0.55, cy: 0.18, s: 0.12, a: 0.7 },
+  ];
+  let v = 0.20 + 0.55 * y;           // gentle top-to-bottom gradient
+  for (const b of blobs) {
+    const d2 = ((x - b.cx) ** 2 + (y - b.cy) ** 2) / (b.s * b.s);
+    v += b.a * Math.exp(-d2);
+  }
+  return Math.max(0, Math.min(1, v));
+}
+// map value -> warm/cool image color ramp
+function rampColor(v) {
+  // cream -> teal -> accent -> warm
+  const stops = [
+    [0.00, [244, 240, 228]],
+    [0.35, [ 90, 168, 158]],
+    [0.68, [ 44, 111, 183]],
+    [1.00, [217,  98,  43]],
+  ];
+  let a = stops[0], b = stops[stops.length - 1];
+  for (let i = 0; i < stops.length - 1; i++) {
+    if (v >= stops[i][0] && v <= stops[i + 1][0]) { a = stops[i]; b = stops[i + 1]; break; }
+  }
+  const t = (v - a[0]) / Math.max(1e-6, (b[0] - a[0]));
+  const ch = k => Math.round(a[1][k] + t * (b[1][k] - a[1][k]));
+  return `rgb(${ch(0)},${ch(1)},${ch(2)})`;
+}
+
+/* ===================== canvas helpers ===================== */
+let geom = null; // {x0,y0,cell} for hit-testing
+function fitCanvas(canvas) {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = Math.round(rect.width * dpr);
+  canvas.height = Math.round(rect.height * dpr);
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { ctx, w: rect.width, h: rect.height };
+}
+
+/* ===================== draw ===================== */
+function draw() {
+  const canvas = document.getElementById('gridCanvas');
+  const { ctx, w, h } = fitCanvas(canvas);
+  ctx.clearRect(0, 0, w, h);
+
+  const pad = 24;
+  const size = Math.min(w, h) - 2 * pad;
+  const cell = size / N;
+  const x0 = (w - size) / 2, y0 = (h - size) / 2;
+  geom = { x0, y0, cell };
+
+  const s = shift ? Math.floor(M / 2) : 0;
+  const members = windowMembers(selRow, selCol);
+  const inSel = new Set(members.map(([i, j]) => i + ',' + j));
+
+  // patches
+  for (let r = 0; r < N; r++) {
+    for (let c = 0; c < N; c++) {
+      const x = x0 + c * cell, y = y0 + r * cell;
+      ctx.fillStyle = rampColor(patchValue(r, c));
+      ctx.fillRect(x, y, cell + 0.5, cell + 0.5);
+      // dim patches outside the selected window
+      if (!inSel.has(r + ',' + c)) {
+        ctx.fillStyle = 'rgba(253,252,249,0.68)';
+        ctx.fillRect(x, y, cell + 0.5, cell + 0.5);
+      }
+      // faint patch grid
+      ctx.strokeStyle = 'rgba(47,42,34,0.10)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x + 0.5, y + 0.5, cell, cell);
+    }
+  }
+
+  // window seams: draw vertical + horizontal boundary lines of the partition
+  ctx.strokeStyle = 'rgba(47,42,34,0.62)';
+  ctx.lineWidth = 3;
+  // vertical seams
+  const seams = [];
+  seams.push(0);
+  if (s > 0) seams.push(s);
+  for (let b = s; b < N; b += M) if (b > 0) seams.push(b);
+  seams.push(N);
+  const uniq = [...new Set(seams)].filter(v => v >= 0 && v <= N).sort((a, b) => a - b);
+  for (const b of uniq) {
+    const xx = x0 + b * cell;
+    ctx.beginPath(); ctx.moveTo(xx, y0); ctx.lineTo(xx, y0 + size); ctx.stroke();
+    const yy = y0 + b * cell;
+    ctx.beginPath(); ctx.moveTo(x0, yy); ctx.lineTo(x0 + size, yy); ctx.stroke();
+  }
+
+  // highlight the selected window border (accent) by outlining the member bbox... but
+  // windows are rectangular in this partition, so outline min/max of members.
+  let rmin = N, rmax = -1, cmin = N, cmax = -1;
+  for (const [i, j] of members) { rmin = Math.min(rmin, i); rmax = Math.max(rmax, i); cmin = Math.min(cmin, j); cmax = Math.max(cmax, j); }
+  ctx.strokeStyle = '#2c6fb7';
+  ctx.lineWidth = 3.5;
+  ctx.strokeRect(x0 + cmin * cell + 1.5, y0 + rmin * cell + 1.5, (cmax - cmin + 1) * cell - 3, (rmax - rmin + 1) * cell - 3);
+
+  // selected patch ring
+  const sx = x0 + selCol * cell, sy = y0 + selRow * cell;
+  ctx.strokeStyle = '#d9622b';
+  ctx.lineWidth = 4;
+  ctx.strokeRect(sx + 2, sy + 2, cell - 4, cell - 4);
+  // little dot on attendable patches
+  ctx.fillStyle = 'rgba(44,111,183,0.9)';
+  for (const [i, j] of members) {
+    if (i === selRow && j === selCol) continue;
+    ctx.beginPath();
+    ctx.arc(x0 + (j + 0.5) * cell, y0 + (i + 0.5) * cell, Math.max(2, cell * 0.09), 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // label the selected patch
+  ctx.fillStyle = '#1a1815';
+  ctx.font = '700 ' + Math.max(9, Math.min(13, cell * 0.34)) + 'px Manrope, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  if (cell > 18) ctx.fillText('q', sx + cell / 2, sy + cell / 2);
+}
+
+/* ===================== stats ===================== */
+function updateStats() {
+  const members = windowMembers(selRow, selCol);
+  const { nWindows, sumSq } = windowStats();
+  document.getElementById('attendVal').textContent = members.length;
+  document.getElementById('nwinVal').textContent = nWindows;
+  document.getElementById('fullVal').textContent = (N * N) * (N * N);
+  document.getElementById('winpairVal').textContent = sumSq;
+}
+
+function redraw() { draw(); updateStats(); }
+
+/* ===================== interaction ===================== */
+function pickPatch(evt) {
+  if (!geom) return;
+  const canvas = document.getElementById('gridCanvas');
+  const rect = canvas.getBoundingClientRect();
+  const px = (evt.clientX - rect.left);
+  const py = (evt.clientY - rect.top);
+  const c = Math.floor((px - geom.x0) / geom.cell);
+  const r = Math.floor((py - geom.y0) / geom.cell);
+  if (r >= 0 && r < N && c >= 0 && c < N) { selRow = r; selCol = c; redraw(); }
+}
+document.getElementById('gridCanvas').addEventListener('pointerdown', pickPatch);
+
+function clampSel() {
+  selRow = Math.min(selRow, N - 1);
+  selCol = Math.min(selCol, N - 1);
+}
+
+gridEl.addEventListener('input', () => {
+  N = parseInt(gridEl.value);
+  document.getElementById('gridVal').textContent = N;
+  if (M > N) { M = N; winEl.value = N; document.getElementById('winVal').textContent = N; }
+  winEl.max = N;
+  clampSel();
+  redraw();
+});
+winEl.addEventListener('input', () => {
+  M = parseInt(winEl.value);
+  document.getElementById('winVal').textContent = M;
+  redraw();
+});
+document.querySelectorAll('#preset-row .mode-button').forEach(b =>
+  b.addEventListener('click', () => {
+    document.querySelectorAll('#preset-row .mode-button').forEach(x => x.classList.remove('is-active'));
+    b.classList.add('is-active');
+    shift = parseInt(b.dataset.shift);
+    redraw();
+  }));
+
+window.addEventListener('load', redraw);
+window.addEventListener('resize', redraw);
+redraw();
+</script>
+
+</body>
+</html>

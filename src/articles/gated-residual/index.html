@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A Gated Residual Block</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body, {delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
+
+<style>
+:root {
+  --serif: 'Source Serif 4', Georgia, serif;
+  --sans: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+  --mono: 'IBM Plex Mono', monospace;
+  --bg: #fdfcf9;
+  --paper: #ffffff;
+  --text: #2f2a22;
+  --muted: #6e665b;
+  --border: #e2d8c6;
+  --accent: #2c6fb7;
+  --warm: #d9622b;
+  --success: #1e7770;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; font-family: var(--serif); color: var(--text); background: var(--bg); line-height: 1.65; }
+
+.article { max-width: 980px; margin: 0 auto; padding: 2.5rem 1.5rem 5rem; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; color: var(--muted); text-decoration: none; font-family: var(--sans); font-size: 0.9rem; }
+.back-link:hover { color: var(--text); }
+.article-header { margin-bottom: 3rem; text-align: center; }
+.kicker { margin: 0 0 0.75rem; font-family: var(--sans); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); }
+h1 { margin: 0 auto 1rem; font-size: clamp(2.4rem, 5vw, 3.5rem); line-height: 1.1; letter-spacing: -0.02em; color: #1a1815; max-width: 18ch; }
+.abstract { margin: 0 auto 1rem; max-width: 62ch; font-size: 1.15rem; color: #4d463d; }
+.byline { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-top: 1.4rem; padding-top: 1rem; border-top: 1px solid var(--border); color: var(--muted); font-family: var(--sans); font-size: 0.92rem; }
+
+.step-section {
+  position: relative;
+  margin-top: 4rem;
+  padding: 3rem 2.5rem;
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.03);
+}
+.step-badge {
+  position: absolute;
+  top: -16px;
+  left: 32px;
+  background: var(--accent);
+  color: white;
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.4rem 1.2rem;
+  border-radius: 999px;
+  box-shadow: 0 4px 12px rgba(44, 111, 183, 0.25);
+}
+h2 { margin: 0 0 1rem; font-size: clamp(1.6rem, 3.5vw, 2.2rem); line-height: 1.15; color: #1a1815; }
+h3 { margin-top: 2rem; margin-bottom: 0.8rem; font-size: 1.25rem; color: #1a1815; }
+p { max-width: 68ch; font-size: 1.1rem; }
+ul { max-width: 68ch; font-size: 1.1rem; padding-left: 1.4rem; }
+li { margin-bottom: 0.5rem; }
+.math-block { margin: 1.5rem 0; text-align: center; font-size: 1.05rem; }
+
+.control-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.4rem;
+  margin: 1.6rem 0;
+}
+.control-block { display: flex; flex-direction: column; gap: 0.5rem; }
+.control-block label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-family: var(--sans);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.control-block label span { font-family: var(--mono); color: var(--warm); font-weight: 500; font-size: 0.95rem; }
+input[type="range"] {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px; height: 18px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid var(--paper);
+  box-shadow: 0 2px 6px rgba(44,111,183,0.4);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 18px; height: 18px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid var(--paper);
+}
+
+.button-row { display: flex; gap: 0.6rem; flex-wrap: wrap; margin: 1rem 0; align-items: center; }
+.mode-button {
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: 0.92rem;
+  padding: 0.55rem 1.1rem;
+  border-radius: 8px;
+  border: 1.5px solid var(--border);
+  background: var(--paper);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.mode-button:hover { border-color: var(--accent); }
+.mode-button:disabled { opacity: 0.4; cursor: not-allowed; }
+.mode-button.is-active { background: var(--accent); color: white; border-color: var(--accent); }
+.mode-button--primary { background: var(--accent); color: white; border-color: var(--accent); }
+.mode-button--primary:hover { background: #245e9c; }
+
+.interactive-figure { margin: 1.5rem 0; }
+.interactive-figure canvas {
+  display: block;
+  width: 100%;
+  background: #fbfaf6;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.interactive-figure figcaption { margin-top: 0.7rem; font-size: 0.92rem; color: var(--muted); text-align: center; font-style: italic; }
+
+.stage-caption {
+  margin: 1rem 0 0.4rem;
+  padding: 0.9rem 1.2rem;
+  border-radius: 12px;
+  border-left: 4px solid var(--accent);
+  background: rgba(44,111,183,0.06);
+  font-size: 1.02rem;
+  min-height: 3.4rem;
+}
+.stage-caption strong { color: var(--accent); font-family: var(--sans); }
+
+.legend-row { display: flex; gap: 1.2rem; flex-wrap: wrap; justify-content: center; margin: 0.8rem 0 0; font-family: var(--sans); font-size: 0.82rem; color: var(--muted); }
+.legend-row span { display: inline-flex; align-items: center; gap: 0.4rem; }
+.legend-swatch { width: 15px; height: 15px; border-radius: 4px; display: inline-block; }
+
+.stat-strip { display: flex; gap: 1rem; flex-wrap: wrap; margin: 1.5rem 0; }
+.stat-pill {
+  flex: 1 1 140px;
+  min-width: 140px;
+  background: var(--paper);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  padding: 0.9rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  text-align: left;
+}
+.stat-pill .stat-label { font-family: var(--sans); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; }
+.stat-pill .stat-value { font-family: var(--mono); font-size: 1.5rem; font-weight: 600; color: var(--text); }
+.stat-pill--accent { border-color: var(--accent); }
+.stat-pill--accent .stat-value { color: var(--accent); }
+.stat-pill--warm { border-color: var(--warm); }
+.stat-pill--warm .stat-value { color: var(--warm); }
+.stat-pill--success { border-color: var(--success); }
+.stat-pill--success .stat-value { color: var(--success); }
+
+.callout {
+  margin: 2rem 0 0.5rem;
+  padding: 1.2rem 1.5rem;
+  border-radius: 12px;
+  border-left: 4px solid var(--accent);
+  background: rgba(44,111,183,0.05);
+  font-size: 1.02rem;
+}
+.callout strong { color: var(--accent); }
+.callout--think { border-left-color: var(--success); background: rgba(30,119,112,0.06); }
+.callout--think strong { color: var(--success); }
+.callout--warn { border-left-color: var(--warm); background: rgba(217,98,43,0.06); }
+.callout--warn strong { color: var(--warm); }
+
+footer { margin-top: 4rem; text-align: center; font-family: var(--sans); font-size: 0.85rem; color: var(--muted); }
+
+@media (max-width: 640px) { .step-section { padding: 2rem 1.4rem; } }
+</style>
+</head>
+<body>
+
+<article class="article">
+  <header class="article-header">
+    <a class="back-link" href="../">&larr; Explainer Library</a>
+    <p class="kicker">Interactive Explainer</p>
+    <h1>A Gated Residual Block</h1>
+    <p class="abstract">
+      This is the repeating unit inside WaveNet and modern Temporal Convolutional
+      Networks. One dilated causal convolution feeds <em>two</em> branches &mdash; a
+      $\tanh$ that proposes content and a $\sigma$ that decides how much of it passes.
+      Their product is reshaped, then a <strong>skip</strong> copy peels off while a
+      <strong>residual</strong> copy adds back to the input. Step through it one stage
+      at a time and turn the gate knob to watch the valve open and close.
+    </p>
+    <div class="byline">
+      <span>~9 min</span>
+      <span>Deep Learning &middot; Sequence Models &middot; TCN / WaveNet</span>
+    </div>
+  </header>
+
+  <section class="step-section" id="prelude">
+    <div class="step-badge">Prelude</div>
+    <h2>Two branches, one product</h2>
+    <p>
+      A plain convolution outputs a single pre-activation and squashes it. A
+      <em>gated</em> block instead computes two projections of the same input and
+      lets one modulate the other. The $\tanh$ branch proposes a signed value in
+      $(-1, 1)$ &mdash; the <em>content</em>. The $\sigma$ branch produces a number
+      in $(0, 1)$ &mdash; a per-channel <em>gate</em>, or valve. Multiply them:
+    </p>
+    <div class="math-block">
+      $$z \;=\; \tanh\!\big(W_f * x\big) \;\odot\; \sigma\!\big(W_g * x\big) .$$
+    </div>
+    <p>
+      Where the gate is near $0$ the channel is shut off; near $1$ the content flows
+      through untouched. On top of this gate sit the two paths that make very deep
+      stacks trainable: a <strong>skip</strong> connection that routes each block's
+      output straight to the final head, and a <strong>residual</strong> connection
+      that adds the block's output back onto its input so gradients have a short,
+      unobstructed route home.
+    </p>
+  </section>
+
+  <section class="step-section" id="lab">
+    <div class="step-badge">The Lab</div>
+    <h2>Step through one block</h2>
+    <p>
+      Press <strong>Step</strong> to reveal the dataflow one stage at a time, from the
+      input $x$ all the way to the residual add that feeds the next block. Each box
+      shows a $4$-channel activation as signed bars. Then drag the <em>gate bias</em>
+      &mdash; it slides the $\sigma$ branch toward shut ($0$) or open ($1$) and you
+      can watch the product $z$ shrink or grow, channel by channel.
+    </p>
+
+    <div class="button-row">
+      <button class="mode-button mode-button--primary" id="stepBtn">Step &rarr;</button>
+      <button class="mode-button" id="backBtn">&larr; Back</button>
+      <button class="mode-button" id="resetBtn">Reset</button>
+      <button class="mode-button" id="autoBtn">Auto-play</button>
+    </div>
+
+    <div class="control-row">
+      <div class="control-block">
+        <label>Gate bias (shifts $\sigma$ branch) <span>$b$ = <span id="biasVal">0.0</span></span></label>
+        <input type="range" id="biasSlider" min="-4" max="4" step="0.1" value="0">
+      </div>
+    </div>
+
+    <figure class="interactive-figure">
+      <canvas id="blockCanvas" width="960" height="500"></canvas>
+      <figcaption>One gated residual block. Content ($\tanh$) is modulated by the gate ($\sigma$); the product is projected, then skips out and adds back.</figcaption>
+    </figure>
+    <div class="legend-row">
+      <span><span class="legend-swatch" style="background:#2c6fb7"></span> content&nbsp;tanh</span>
+      <span><span class="legend-swatch" style="background:#1e7770"></span> gate&nbsp;σ</span>
+      <span><span class="legend-swatch" style="background:#d9622b"></span> product&nbsp;z</span>
+      <span><span class="legend-swatch" style="background:#7a5ea8"></span> 1×1&nbsp;output</span>
+    </div>
+
+    <div class="stage-caption" id="stageCaption"><strong>Stage 0 / 7.</strong> The input activation $x$ enters the block. Press <em>Step</em> to send it through the dilated causal convolution.</div>
+
+    <div class="stat-strip">
+      <div class="stat-pill stat-pill--accent">
+        <span class="stat-label">Stage</span>
+        <span class="stat-value" id="stageVal">0 / 7</span>
+      </div>
+      <div class="stat-pill stat-pill--success">
+        <span class="stat-label">Mean gate $\bar\sigma$</span>
+        <span class="stat-value" id="gateVal">&mdash;</span>
+      </div>
+      <div class="stat-pill stat-pill--warm">
+        <span class="stat-label">Signal let through</span>
+        <span class="stat-value" id="passVal">&mdash;</span>
+      </div>
+    </div>
+
+    <div class="callout callout--warn">
+      <strong>Drive the gate to its extremes.</strong> Slide the bias to $-4$: every
+      $\sigma$ collapses toward $0$, the product $z$ flatlines, and almost nothing
+      reaches the output &mdash; yet the <em>residual</em> path still carries $x$
+      forward untouched, so the block degrades gracefully to a no-op. Slide it to
+      $+4$: the valves open, and the full content passes. The gate is a learned,
+      per-channel volume knob.
+    </div>
+  </section>
+
+  <section class="step-section" id="why">
+    <div class="step-badge">The Payoff</div>
+    <h2>Why gate, skip, and residual all earn their place</h2>
+    <ul>
+      <li><strong>The gate</strong> gives the network a multiplicative, data-dependent switch. Additive activations like ReLU can only push; a $\sigma$ valve can also <em>hold back</em>, which is what lets these models be selective about long-range context.</li>
+      <li><strong>The skip path</strong> collects a contribution from every block and sums them at the output head, so even shallow-depth features reach the prediction without being overwritten.</li>
+      <li><strong>The residual path</strong> makes each block compute a <em>correction</em> $x \leftarrow x + f(x)$ rather than a full replacement. Gradients flow back through the identity term unattenuated &mdash; the same trick that lets ResNets and Transformers stack dozens of layers.</li>
+    </ul>
+    <div class="math-block">
+      $$\text{skip} = W_o * z, \qquad x_{\text{next}} = x + W_o * z .$$
+    </div>
+    <div class="callout callout--think">
+      <strong>Stack them.</strong> WaveNet chains dozens of these blocks with dilations
+      cycling $1, 2, 4, \dots, 512$. Each block is cheap, the residual keeps
+      optimisation stable, the skips aggregate multi-scale evidence, and the gates
+      decide, at every layer, which channels of the past deserve to speak.
+    </div>
+  </section>
+
+  <footer>Part of the ES 667 Deep Learning explainer series &middot; Lecture 14: Convolutional Sequence Models</footer>
+</article>
+
+<script>
+/* ===================== fixed data ===================== */
+const C = 4;
+const XIN = [0.6, -0.3, 0.9, -0.7];      // input activation
+const A_F = [0.8, -1.2, 0.5, 1.4];       // pre-activation, content projection W_f*x
+const A_G = [1.2, -0.4, 2.2, -1.6];      // pre-activation, gate projection W_g*x
+const WO = [                              // 1x1 conv (channel mixing)
+  [ 0.6,  0.2, -0.3,  0.15],
+  [-0.25, 0.7,  0.1, -0.4 ],
+  [ 0.3, -0.15, 0.55, 0.2 ],
+  [ 0.1,  0.35, -0.2, 0.6 ]
+];
+const MAXSTAGE = 7;
+
+/* ===================== state ===================== */
+let stage = 0, bias = 0, auto = false, autoTimer = null;
+const biasSlider = document.getElementById('biasSlider');
+
+function sigmoid(v) { return 1 / (1 + Math.exp(-v)); }
+function compute() {
+  const content = A_F.map(Math.tanh);
+  const gate = A_G.map(v => sigmoid(v + bias));
+  const z = content.map((c, i) => c * gate[i]);
+  const o = WO.map(row => row.reduce((s, wij, j) => s + wij * z[j], 0));
+  const nextx = XIN.map((v, i) => v + o[i]);
+  return { content, gate, z, o, nextx };
+}
+
+/* ===================== canvas helpers ===================== */
+function fitCanvas(canvas) {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { ctx, w: rect.width, h: rect.height };
+}
+function roundRect(ctx, x, y, w, h, r) {
+  r = Math.min(r, Math.abs(w) / 2, Math.abs(h) / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+function drawArrow(ctx, x1, y1, x2, y2, color, dashed) {
+  color = color || 'rgba(47,42,34,0.42)';
+  ctx.strokeStyle = color; ctx.lineWidth = 1.7;
+  if (dashed) ctx.setLineDash([5, 4]);
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+  ctx.setLineDash([]);
+  const a = Math.atan2(y2 - y1, x2 - x1), s = 7;
+  ctx.beginPath();
+  ctx.moveTo(x2, y2);
+  ctx.lineTo(x2 - s * Math.cos(a - 0.42), y2 - s * Math.sin(a - 0.42));
+  ctx.lineTo(x2 - s * Math.cos(a + 0.42), y2 - s * Math.sin(a + 0.42));
+  ctx.closePath(); ctx.fillStyle = color; ctx.fill();
+}
+const BW = 54, BH = 84;
+function drawVec(ctx, cx, cy, vec, range, color, label, highlight) {
+  const x = cx - BW / 2, y = cy - BH / 2;
+  roundRect(ctx, x, y, BW, BH, 8);
+  ctx.fillStyle = '#ffffff'; ctx.fill();
+  ctx.strokeStyle = highlight ? color : '#dbd1bf';
+  ctx.lineWidth = highlight ? 2.6 : 1.2; ctx.stroke();
+  ctx.strokeStyle = 'rgba(47,42,34,0.13)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(x + 5, cy); ctx.lineTo(x + BW - 5, cy); ctx.stroke();
+  const inner = BW - 14, gap = inner / C, barW = gap * 0.62, half = BH / 2 - 8;
+  for (let i = 0; i < C; i++) {
+    const bx = x + 7 + i * gap + (gap - barW) / 2;
+    let v = Math.max(-range, Math.min(range, vec[i]));
+    const bh = (v / range) * half;
+    ctx.fillStyle = color;
+    ctx.fillRect(bx, cy - Math.max(bh, 0), barW, Math.abs(bh));
+  }
+  ctx.fillStyle = '#4d463d'; ctx.font = '700 11px Manrope, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillText(label, cx, y + BH + 6);
+}
+function drawGateVec(ctx, cx, cy, vec, color, label, highlight) {
+  // valves: fill each channel from the bottom to its 0..1 openness
+  const x = cx - BW / 2, y = cy - BH / 2;
+  roundRect(ctx, x, y, BW, BH, 8);
+  ctx.fillStyle = '#ffffff'; ctx.fill();
+  ctx.strokeStyle = highlight ? color : '#dbd1bf';
+  ctx.lineWidth = highlight ? 2.6 : 1.2; ctx.stroke();
+  const inner = BW - 14, gap = inner / C, barW = gap * 0.62, full = BH - 16;
+  for (let i = 0; i < C; i++) {
+    const bx = x + 7 + i * gap + (gap - barW) / 2;
+    const trackTop = y + 8, trackBot = y + BH - 8;
+    ctx.strokeStyle = 'rgba(30,119,112,0.28)'; ctx.lineWidth = 1;
+    ctx.strokeRect(bx, trackTop, barW, full);
+    const fh = full * vec[i];
+    ctx.fillStyle = color;
+    ctx.fillRect(bx, trackBot - fh, barW, fh);
+  }
+  ctx.fillStyle = '#4d463d'; ctx.font = '700 11px Manrope, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillText(label, cx, y + BH + 6);
+}
+function drawOp(ctx, cx, cy, sym, color, highlight) {
+  const r = 15;
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, 2 * Math.PI);
+  ctx.fillStyle = '#ffffff'; ctx.fill();
+  ctx.strokeStyle = highlight ? color : '#c9bfad';
+  ctx.lineWidth = highlight ? 2.6 : 1.5; ctx.stroke();
+  ctx.fillStyle = color; ctx.font = '700 17px Manrope, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(sym, cx, cy + 1);
+}
+function convBox(ctx, cx, cy, title, sub, highlight) {
+  const bw = 62, bh = 64, x = cx - bw / 2, y = cy - bh / 2;
+  roundRect(ctx, x, y, bw, bh, 8);
+  ctx.fillStyle = '#f4f7fb'; ctx.fill();
+  ctx.strokeStyle = highlight ? '#2c6fb7' : '#c3d2e6';
+  ctx.lineWidth = highlight ? 2.6 : 1.3; ctx.stroke();
+  ctx.fillStyle = '#2c6fb7'; ctx.font = '700 12px Manrope, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(title, cx, cy - 7);
+  ctx.fillStyle = '#6e665b'; ctx.font = '500 9.5px Manrope, sans-serif';
+  ctx.fillText(sub, cx, cy + 9);
+}
+
+/* ===================== draw ===================== */
+function draw() {
+  const { ctx, w, h } = fitCanvas(document.getElementById('blockCanvas'));
+  ctx.clearRect(0, 0, w, h);
+  const s = compute();
+  const show = k => stage >= k, cur = k => stage === k;
+
+  const yMid = h * 0.50;
+  const upperY = h * 0.255;
+  const lowerY = h * 0.745;
+  const skipY = h * 0.085;
+  const xIn = w * 0.065, xConv = w * 0.205, xBranch = w * 0.375,
+        xMul = w * 0.515, xZ = w * 0.605, xConv1 = w * 0.745, xAdd = w * 0.855, xNext = w * 0.95;
+
+  const grey = 'rgba(47,42,34,0.42)';
+
+  /* input x (stage 0+) */
+  drawVec(ctx, xIn, yMid, XIN, 1.3, '#8a8072', 'input x', cur(0));
+
+  /* stage 1: conv */
+  if (show(1)) {
+    drawArrow(ctx, xIn + BW / 2, yMid, xConv - 32, yMid, grey);
+    convBox(ctx, xConv, yMid, 'causal conv', 'dilated', cur(1));
+  }
+
+  /* stage 2: content (tanh) branch */
+  if (show(2)) {
+    drawArrow(ctx, xConv + 31, yMid, xBranch - BW / 2, upperY, cur(2) ? '#2c6fb7' : grey);
+    ctx.fillStyle = '#6e665b'; ctx.font = 'italic 10px "Source Serif 4", serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    ctx.fillText('W_f · x', (xConv + 31 + xBranch - BW / 2) / 2, (yMid + upperY) / 2 - 4);
+    drawVec(ctx, xBranch, upperY, s.content, 1, '#2c6fb7', 'content  tanh', cur(2));
+  }
+
+  /* stage 3: gate (sigma) branch */
+  if (show(3)) {
+    drawArrow(ctx, xConv + 31, yMid, xBranch - BW / 2, lowerY, cur(3) ? '#1e7770' : grey);
+    ctx.fillStyle = '#6e665b'; ctx.font = 'italic 10px "Source Serif 4", serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillText('W_g · x', (xConv + 31 + xBranch - BW / 2) / 2, (yMid + lowerY) / 2 + 4);
+    drawGateVec(ctx, xBranch, lowerY, s.gate, '#1e7770', 'gate  σ', cur(3));
+  }
+
+  /* stage 4: element-wise product z */
+  if (show(4)) {
+    drawArrow(ctx, xBranch + BW / 2, upperY, xMul - 13, yMid - 9, cur(4) ? '#2c6fb7' : grey);
+    drawArrow(ctx, xBranch + BW / 2, lowerY, xMul - 13, yMid + 9, cur(4) ? '#1e7770' : grey);
+    drawOp(ctx, xMul, yMid, '×', '#d9622b', cur(4));
+    drawArrow(ctx, xMul + 15, yMid, xZ - BW / 2, yMid, grey);
+    drawVec(ctx, xZ, yMid, s.z, 1, '#d9622b', 'product  z', cur(4));
+    // equation
+    ctx.fillStyle = '#a3421c'; ctx.font = '600 13px "IBM Plex Mono", monospace';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    ctx.fillText('z = tanh(W_f·x)  ⊙  σ(W_g·x)', w * 0.5, h * 0.965);
+  }
+
+  /* stage 5: 1x1 conv */
+  if (show(5)) {
+    drawArrow(ctx, xZ + BW / 2, yMid, xConv1 - 31, yMid, grey);
+    convBox(ctx, xConv1, yMid, '1×1 conv', 'mix channels', cur(5));
+    // recolor title for this box
+    ctx.fillStyle = '#7a5ea8'; ctx.font = '700 12px Manrope, sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('1×1 conv', xConv1, yMid - 7);
+  }
+
+  /* stage 6: skip peels off */
+  if (show(6)) {
+    const topOut = yMid - 32;
+    drawArrow(ctx, xConv1, topOut, xConv1, skipY + 16, cur(6) ? '#1e7770' : grey);
+    // skip bus to a labelled node top-right
+    const sx = w * 0.9;
+    ctx.strokeStyle = cur(6) ? '#1e7770' : grey; ctx.lineWidth = 1.7;
+    ctx.beginPath(); ctx.moveTo(xConv1, skipY); ctx.lineTo(sx - 30, skipY); ctx.stroke();
+    drawArrow(ctx, sx - 30, skipY, sx - 14, skipY, cur(6) ? '#1e7770' : grey);
+    roundRect(ctx, sx - 12, skipY - 14, 58, 28, 7);
+    ctx.fillStyle = '#eaf4f2'; ctx.fill();
+    ctx.strokeStyle = '#1e7770'; ctx.lineWidth = 1.3; ctx.stroke();
+    ctx.fillStyle = '#1e7770'; ctx.font = '700 11px Manrope, sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('skip →', sx + 17, skipY);
+    ctx.fillStyle = '#6e665b'; ctx.font = '500 9.5px Manrope, sans-serif';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillText('to output head', xConv1 + 8, skipY);
+  }
+
+  /* stage 7: residual add -> next block */
+  if (show(7)) {
+    // conv1 -> add
+    drawArrow(ctx, xConv1 + 31, yMid, xAdd - 15, yMid, grey);
+    drawOp(ctx, xAdd, yMid, '+', '#2c6fb7', cur(7));
+    // residual skip: from input x, down and around to the add node
+    const curveY = h * 0.90;
+    ctx.strokeStyle = cur(7) ? '#2c6fb7' : grey; ctx.lineWidth = 1.7;
+    ctx.setLineDash([6, 4]);
+    ctx.beginPath();
+    ctx.moveTo(xIn, yMid + BH / 2);
+    ctx.lineTo(xIn, curveY);
+    ctx.lineTo(xAdd, curveY);
+    ctx.lineTo(xAdd, yMid + 16);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    drawArrow(ctx, xAdd, curveY - (curveY - (yMid + 16)) * 0.5, xAdd, yMid + 16, cur(7) ? '#2c6fb7' : grey);
+    ctx.fillStyle = '#2c6fb7'; ctx.font = 'italic 10px "Source Serif 4", serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    ctx.fillText('residual  (identity x)', (xIn + xAdd) / 2, curveY - 3);
+    // add -> next
+    drawArrow(ctx, xAdd + 15, yMid, xNext - BW / 2, yMid, grey);
+    drawVec(ctx, xNext, yMid, s.nextx, 1.6, '#2f2a22', 'next x', cur(7));
+  }
+}
+
+/* ===================== stage captions ===================== */
+const CAPTIONS = [
+  ['Stage 0 / 7', 'The input activation $x$ enters the block. Press <em>Step</em> to send it through the dilated causal convolution.'],
+  ['Stage 1 / 7', 'The <strong>dilated causal convolution</strong> runs once but produces two linear projections of $x$: one for the content branch ($W_f * x$) and one for the gate branch ($W_g * x$).'],
+  ['Stage 2 / 7', 'The <strong>content branch</strong> applies $\\tanh$, squashing the pre-activation into $(-1, 1)$ — a signed proposal for each channel.'],
+  ['Stage 3 / 7', 'The <strong>gate branch</strong> applies $\\sigma$, producing a valve in $(0, 1)$ for every channel. This is what decides how much content passes.'],
+  ['Stage 4 / 7', 'The <strong>element-wise product</strong> $z = \\tanh(W_f * x) \\odot \\sigma(W_g * x)$ multiplies content by gate. Shut valves zero out their channel; open valves let it through.'],
+  ['Stage 5 / 7', 'A <strong>1×1 convolution</strong> mixes the gated channels back to the model width — a cheap linear recombination.'],
+  ['Stage 6 / 7', 'The <strong>skip connection</strong> peels a copy of this output off to the side. Every block contributes one; they are summed at the final output head.'],
+  ['Stage 7 / 7', 'The <strong>residual add</strong> sends the same output back onto the original input, $x_{\\text{next}} = x + W_o * z$. Gradients flow home through the identity term, and the next block begins.']
+];
+
+/* ===================== orchestration ===================== */
+function refresh() {
+  draw();
+  const s = compute();
+  const meanGate = s.gate.reduce((a, b) => a + b, 0) / C;
+  const sumZ = s.z.reduce((a, b) => a + Math.abs(b), 0);
+  const sumC = s.content.reduce((a, b) => a + Math.abs(b), 0);
+  const passed = sumC > 1e-9 ? sumZ / sumC : 0;
+  document.getElementById('stageVal').textContent = stage + ' / ' + MAXSTAGE;
+  document.getElementById('gateVal').textContent = meanGate.toFixed(2);
+  document.getElementById('passVal').textContent = Math.round(passed * 100) + '%';
+  const cap = CAPTIONS[stage];
+  const el = document.getElementById('stageCaption');
+  el.innerHTML = '<strong>' + cap[0] + '.</strong> ' + cap[1];
+  if (window.renderMathInElement) {
+    renderMathInElement(el, { delimiters: [{ left: '$', right: '$', display: false }], throwOnError: false });
+  }
+  document.getElementById('stepBtn').disabled = stage >= MAXSTAGE;
+  document.getElementById('backBtn').disabled = stage <= 0;
+}
+
+/* ===================== wiring ===================== */
+document.getElementById('stepBtn').addEventListener('click', () => {
+  if (stage < MAXSTAGE) { stage++; refresh(); }
+});
+document.getElementById('backBtn').addEventListener('click', () => {
+  if (stage > 0) { stage--; refresh(); }
+});
+document.getElementById('resetBtn').addEventListener('click', () => {
+  stage = 0; stopAuto(); refresh();
+});
+function stopAuto() {
+  auto = false; clearInterval(autoTimer);
+  const b = document.getElementById('autoBtn');
+  b.textContent = 'Auto-play'; b.classList.remove('is-active');
+}
+document.getElementById('autoBtn').addEventListener('click', function () {
+  auto = !auto;
+  if (auto) {
+    if (stage >= MAXSTAGE) stage = 0;
+    this.textContent = 'Pause'; this.classList.add('is-active');
+    autoTimer = setInterval(() => {
+      if (stage < MAXSTAGE) { stage++; refresh(); } else { stopAuto(); }
+    }, 1100);
+    refresh();
+  } else { stopAuto(); }
+});
+biasSlider.addEventListener('input', () => {
+  bias = parseFloat(biasSlider.value);
+  document.getElementById('biasVal').textContent = bias.toFixed(1);
+  refresh();
+});
+
+window.addEventListener('load', refresh);
+window.addEventListener('resize', draw);
+refresh();
+</script>
+
+</body>
+</html>

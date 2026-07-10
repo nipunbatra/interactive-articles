@@ -1,0 +1,20 @@
+{
+  "slug": "shifted-window",
+  "title": "Shifted Windows (Swin)",
+  "date": "2026-07-10",
+  "tagline": "Window attention is linear, not quadratic — and shifting alternate layers stitches the seams",
+  "summary": "Global self-attention costs N^4 in the number of image patches, which does not survive high resolution. Swin restricts attention to small M-by-M windows (cost N^2 M^2, linear in tokens) and, on alternate layers, shifts the window grid by half a window so information can cross the seams. Click a patch to see exactly which others it can attend to, flip the shift toggle to watch that neighbourhood jump across a boundary, and drag the sliders to feel the N^4 versus N^2 M^2 cost gap open up.",
+  "readingTime": "8 min",
+  "difficulty": "Intermediate",
+  "collection": "Deep learning",
+  "order": 55,
+  "status": "published",
+  "tags": ["Vision Transformers", "Swin", "Attention", "Efficiency", "Interactive"],
+  "highlights": [
+    "Click any patch to light up its attention window — the exact set of patches it can talk to.",
+    "Flip the shift toggle and watch a patch near a seam land in a new window with new neighbours.",
+    "See why window attention is O(N^2 M^2), linear in tokens, while full attention is O(N^4).",
+    "Drag the grid- and window-size sliders and watch the full-attention pair count explode next to the windowed count.",
+    "Understand how alternating shifted and unshifted layers grow the receptive field across the whole image without a global attention matrix."
+  ]
+}

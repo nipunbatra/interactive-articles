@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Causal Convolution</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body, {delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
+
+<style>
+:root {
+  --serif: 'Source Serif 4', Georgia, serif;
+  --sans: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+  --mono: 'IBM Plex Mono', monospace;
+  --bg: #fdfcf9;
+  --paper: #ffffff;
+  --text: #2f2a22;
+  --muted: #6e665b;
+  --border: #e2d8c6;
+  --accent: #2c6fb7;
+  --warm: #d9622b;
+  --success: #1e7770;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; font-family: var(--serif); color: var(--text); background: var(--bg); line-height: 1.65; }
+
+.article { max-width: 980px; margin: 0 auto; padding: 2.5rem 1.5rem 5rem; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; color: var(--muted); text-decoration: none; font-family: var(--sans); font-size: 0.9rem; }
+.back-link:hover { color: var(--text); }
+.article-header { margin-bottom: 3rem; text-align: center; }
+.kicker { margin: 0 0 0.75rem; font-family: var(--sans); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); }
+h1 { margin: 0 auto 1rem; font-size: clamp(2.4rem, 5vw, 3.5rem); line-height: 1.1; letter-spacing: -0.02em; color: #1a1815; max-width: 18ch; }
+.abstract { margin: 0 auto 1rem; max-width: 62ch; font-size: 1.15rem; color: #4d463d; }
+.byline { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-top: 1.4rem; padding-top: 1rem; border-top: 1px solid var(--border); color: var(--muted); font-family: var(--sans); font-size: 0.92rem; }
+
+.step-section {
+  position: relative;
+  margin-top: 4rem;
+  padding: 3rem 2.5rem;
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.03);
+}
+.step-badge {
+  position: absolute;
+  top: -16px;
+  left: 32px;
+  background: var(--accent);
+  color: white;
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.4rem 1.2rem;
+  border-radius: 999px;
+  box-shadow: 0 4px 12px rgba(44, 111, 183, 0.25);
+}
+h2 { margin: 0 0 1rem; font-size: clamp(1.6rem, 3.5vw, 2.2rem); line-height: 1.15; color: #1a1815; }
+h3 { margin-top: 2rem; margin-bottom: 0.8rem; font-size: 1.25rem; color: #1a1815; }
+p { max-width: 68ch; font-size: 1.1rem; }
+ul { max-width: 68ch; font-size: 1.1rem; padding-left: 1.4rem; }
+li { margin-bottom: 0.5rem; }
+.math-block { margin: 1.5rem 0; text-align: center; font-size: 1.05rem; }
+
+.control-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.4rem;
+  margin: 1.6rem 0;
+}
+.control-block { display: flex; flex-direction: column; gap: 0.5rem; }
+.control-block label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-family: var(--sans);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.control-block label span { font-family: var(--mono); color: var(--warm); font-weight: 500; font-size: 0.95rem; }
+input[type="range"] {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px; height: 18px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid var(--paper);
+  box-shadow: 0 2px 6px rgba(44,111,183,0.4);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 18px; height: 18px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid var(--paper);
+}
+
+.button-row { display: flex; gap: 0.6rem; flex-wrap: wrap; margin: 1rem 0; align-items: center; }
+.mode-button {
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: 0.92rem;
+  padding: 0.55rem 1.1rem;
+  border-radius: 8px;
+  border: 1.5px solid var(--border);
+  background: var(--paper);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.mode-button:hover { border-color: var(--accent); }
+.mode-button.is-active { background: var(--accent); color: white; border-color: var(--accent); }
+.mode-button--warm.is-active { background: var(--warm); border-color: var(--warm); }
+
+.interactive-figure { margin: 1.5rem 0; }
+.interactive-figure canvas {
+  display: block;
+  width: 100%;
+  background: #fbfaf6;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.interactive-figure figcaption { margin-top: 0.7rem; font-size: 0.92rem; color: var(--muted); text-align: center; font-style: italic; }
+
+.legend-row { display: flex; gap: 1.2rem; flex-wrap: wrap; justify-content: center; margin: 0.8rem 0 0; font-family: var(--sans); font-size: 0.82rem; color: var(--muted); }
+.legend-row span { display: inline-flex; align-items: center; gap: 0.4rem; }
+.legend-swatch { width: 15px; height: 15px; border-radius: 4px; display: inline-block; }
+
+.stat-strip { display: flex; gap: 1rem; flex-wrap: wrap; margin: 1.5rem 0; }
+.stat-pill {
+  flex: 1 1 140px;
+  min-width: 140px;
+  background: var(--paper);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  padding: 0.9rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  text-align: left;
+}
+.stat-pill .stat-label { font-family: var(--sans); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; }
+.stat-pill .stat-value { font-family: var(--mono); font-size: 1.5rem; font-weight: 600; color: var(--text); }
+.stat-pill--accent { border-color: var(--accent); }
+.stat-pill--accent .stat-value { color: var(--accent); }
+.stat-pill--warm { border-color: var(--warm); }
+.stat-pill--warm .stat-value { color: var(--warm); }
+.stat-pill--success { border-color: var(--success); }
+.stat-pill--success .stat-value { color: var(--success); }
+
+.callout {
+  margin: 2rem 0 0.5rem;
+  padding: 1.2rem 1.5rem;
+  border-radius: 12px;
+  border-left: 4px solid var(--accent);
+  background: rgba(44,111,183,0.05);
+  font-size: 1.02rem;
+}
+.callout strong { color: var(--accent); }
+.callout--think { border-left-color: var(--success); background: rgba(30,119,112,0.06); }
+.callout--think strong { color: var(--success); }
+.callout--warn { border-left-color: var(--warm); background: rgba(217,98,43,0.06); }
+.callout--warn strong { color: var(--warm); }
+
+footer { margin-top: 4rem; text-align: center; font-family: var(--sans); font-size: 0.85rem; color: var(--muted); }
+
+@media (max-width: 640px) { .step-section { padding: 2rem 1.4rem; } }
+</style>
+</head>
+<body>
+
+<article class="article">
+  <header class="article-header">
+    <a class="back-link" href="../">&larr; Explainer Library</a>
+    <p class="kicker">Interactive Explainer</p>
+    <h1>Causal Convolution</h1>
+    <p class="abstract">
+      A convolution slides a small kernel over a sequence. Make it
+      <em>causal</em> and it is forbidden from peeking into the future: the output
+      at time $t$ may only touch inputs at $t$ and earlier. Add <em>left-padding</em>
+      to keep the length intact, and <em>dilation</em> to see far into the past
+      without spending a single extra weight. Drag the kernel below and watch the
+      rules enforce themselves.
+    </p>
+    <div class="byline">
+      <span>~8 min</span>
+      <span>Deep Learning &middot; Sequence Models &middot; TCN / WaveNet</span>
+    </div>
+  </header>
+
+  <section class="step-section" id="prelude">
+    <div class="step-badge">Prelude</div>
+    <h2>One kernel, one rule: no looking ahead</h2>
+    <p>
+      A 1-D convolution with kernel size $K$ computes each output as a weighted sum
+      of $K$ neighbouring inputs. In a plain conv those neighbours straddle the
+      current position &mdash; some are in the future. For streaming data
+      (audio, text, forecasts) that is cheating: at time $t$ you simply do not have
+      $x[t+1]$ yet. A <strong>causal</strong> convolution fixes the window so every
+      tap lands on the present or the past:
+    </p>
+    <div class="math-block">
+      $$y[t] \;=\; \sum_{k=0}^{K-1} w_k \; x[\,t - k\cdot d\,], \qquad t - k\,d \le t .$$
+    </div>
+    <p>
+      Here $d$ is the <em>dilation</em>: the stride between taps. With $d=1$ the taps
+      are adjacent; with $d>1$ they spread out, opening holes so the kernel reaches
+      further back in time using the exact same $K$ weights. The stretch of input a
+      single output can see is its <strong>receptive field</strong>,
+      $(K-1)\,d + 1$.
+    </p>
+  </section>
+
+  <section class="step-section" id="lab">
+    <div class="step-badge">The Lab</div>
+    <h2>Slide the kernel across the sequence</h2>
+    <p>
+      The top row is the input sequence $x$; the bottom row is the output $y$. The
+      dashed orange line is <em>now</em> &mdash; the current time $t$. Everything to
+      its right is the shaded <strong>future</strong>, off-limits to a causal kernel.
+      The blue-outlined cells are the $K$ taps feeding the current output. Move
+      <em>now</em>, resize the kernel, stretch the dilation, and toggle left-padding.
+    </p>
+
+    <div class="control-row">
+      <div class="control-block">
+        <label>Kernel size <span>$K$ = <span id="kVal">3</span></span></label>
+        <input type="range" id="kSlider" min="2" max="4" step="1" value="3">
+      </div>
+      <div class="control-block">
+        <label>Dilation <span>$d$ = <span id="dVal">1</span></span></label>
+        <input type="range" id="dSlider" min="1" max="4" step="1" value="1">
+      </div>
+      <div class="control-block">
+        <label>Now (time $t$) <span>$t$ = <span id="tVal">8</span></span></label>
+        <input type="range" id="tSlider" min="0" max="15" step="1" value="8">
+      </div>
+    </div>
+
+    <div class="button-row">
+      <button class="mode-button" id="stepBtn">Step &rarr;</button>
+      <button class="mode-button" id="playBtn">Play</button>
+      <button class="mode-button mode-button--warm" id="padBtn">Left-padding: off</button>
+    </div>
+
+    <figure class="interactive-figure">
+      <canvas id="convCanvas" width="940" height="380"></canvas>
+      <figcaption>Causal 1-D convolution. Output $y[t]$ reads only taps at $t, t-d, \dots, t-(K{-}1)d$ &mdash; never across the <em>now</em> line.</figcaption>
+    </figure>
+    <div class="legend-row">
+      <span><span class="legend-swatch" style="background:#2c6fb7"></span> kernel tap</span>
+      <span><span class="legend-swatch" style="background:#eef4fb;border:1px solid #2c6fb7"></span> current output</span>
+      <span><span class="legend-swatch" style="background:#f2ece0;border:1px dashed #b3a892"></span> padding zero</span>
+      <span><span class="legend-swatch" style="background:rgba(217,98,43,0.14)"></span> future (masked)</span>
+    </div>
+
+    <div class="stat-strip">
+      <div class="stat-pill stat-pill--accent">
+        <span class="stat-label">Receptive field $(K{-}1)d+1$</span>
+        <span class="stat-value" id="rfVal">&mdash;</span>
+      </div>
+      <div class="stat-pill">
+        <span class="stat-label">Input length</span>
+        <span class="stat-value" id="inLenVal">16</span>
+      </div>
+      <div class="stat-pill stat-pill--success">
+        <span class="stat-label">Output length</span>
+        <span class="stat-value" id="outLenVal">&mdash;</span>
+      </div>
+      <div class="stat-pill stat-pill--warm">
+        <span class="stat-label">Left-pad zeros</span>
+        <span class="stat-value" id="padVal">&mdash;</span>
+      </div>
+    </div>
+
+    <div class="callout callout--warn" id="statusCallout">
+      <strong>Try this.</strong> Turn left-padding <em>off</em> and drag <em>now</em>
+      to the far left. The kernel's oldest taps fall off the edge of the sequence
+      (marked in orange) &mdash; there is no $x[-1]$ to read, so no output can be
+      produced there. That is exactly why the output is shorter than the input, and
+      why the missing left cells are greyed out below.
+    </div>
+  </section>
+
+  <section class="step-section" id="dilation">
+    <div class="step-badge">The Payoff</div>
+    <h2>Why dilation is the whole trick</h2>
+    <p>
+      Push the dilation slider from $1$ to $4$ and keep the kernel size fixed at
+      $K=3$. The kernel still has only three weights &mdash; but its receptive field
+      leaps from $3$ to $9$. Stack a handful of such layers with dilations
+      $1, 2, 4, 8, \dots$ and the receptive field grows <em>exponentially</em> with
+      depth while the parameter count grows only linearly. This is the engine behind
+      WaveNet and Temporal Convolutional Networks (TCNs).
+    </p>
+    <ul>
+      <li><strong>Causality</strong> is a masking rule, not a new operation: forbid any tap with index $> t$. It lets a conv model streaming data honestly.</li>
+      <li><strong>Left-padding</strong> of $(K{-}1)d$ zeros restores the length so the output lines up one-to-one with the input &mdash; essential for stacking layers.</li>
+      <li><strong>Dilation</strong> buys reach for free: the same $K$ weights, spaced $d$ apart, cover $(K{-}1)d+1$ timesteps.</li>
+    </ul>
+    <div class="callout callout--think">
+      <strong>Connect it up.</strong> A causal conv is the convolutional cousin of an
+      RNN: both process a sequence respecting time's arrow. But where an RNN must
+      unroll step by step, a stack of dilated causal convs sees the whole past in
+      parallel &mdash; which is why TCNs often train faster than recurrent models on
+      the same forecasting task.
+    </div>
+  </section>
+
+  <footer>Part of the ES 667 Deep Learning explainer series &middot; Lecture 14: Convolutional Sequence Models</footer>
+</article>
+
+<script>
+/* ===================== config & fixed data ===================== */
+const N = 16;                       // input length
+const W = [0.5, 0.28, -0.18, 0.12]; // kernel weights (first K used)
+// fixed-seed pseudo-random input in [0.15, 0.85]
+const INPUT = (() => {
+  let s = 7, out = [];
+  for (let i = 0; i < N; i++) { s = (s * 9301 + 49297) % 233280; out.push(0.15 + 0.7 * (s / 233280)); }
+  return out;
+})();
+
+/* ===================== state ===================== */
+let K = 3, D = 1, t = 8, pad = false, playing = false, timer = null;
+const kSlider = document.getElementById('kSlider');
+const dSlider = document.getElementById('dSlider');
+const tSlider = document.getElementById('tSlider');
+
+/* ===================== canvas helpers ===================== */
+function fitCanvas(canvas) {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { ctx, w: rect.width, h: rect.height };
+}
+function roundRect(ctx, x, y, w, h, r) {
+  r = Math.min(r, Math.abs(w) / 2, Math.abs(h) / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+/* ===================== compute ===================== */
+function computeState() {
+  const P = (K - 1) * D;
+  const rf = P + 1;
+  const taps = [];
+  for (let k = 0; k < K; k++) taps.push(t - k * D);
+  const minTap = taps[taps.length - 1];
+  const validNow = minTap >= 0 || pad;       // can the current output be computed?
+  const outLen = pad ? N : N - P;
+  return { P, rf, taps, minTap, validNow, outLen };
+}
+function xVal(i) { return (i >= 0 && i < N) ? INPUT[i] : 0; } // padding = 0
+function outVal(o) { // conv output at time o (weights on taps o, o-D, ...)
+  let s = 0;
+  for (let k = 0; k < K; k++) s += W[k] * xVal(o - k * D);
+  return s;
+}
+
+/* ===================== draw ===================== */
+function draw() {
+  const { ctx, w, h } = fitCanvas(document.getElementById('convCanvas'));
+  ctx.clearRect(0, 0, w, h);
+  const st = computeState();
+  const P = st.P;
+
+  const minIndex = pad ? -P : 0;
+  const numSlots = N - minIndex;
+  const marginL = 46, marginR = 16;
+  const gridW = w - marginL - marginR;
+  const cellW = gridW / numSlots;
+  const xOf = i => marginL + (i - minIndex) * cellW;   // left edge of cell i
+  const cx = i => xOf(i) + cellW / 2;
+
+  const inputTop = h * 0.20, inputH = h * 0.19;
+  const inputBot = inputTop + inputH;
+  const outTop = h * 0.62, outH = h * 0.17;
+  const outBot = outTop + outH;
+
+  const nowX = xOf(t) + cellW;   // right edge of cell t = the "now" boundary
+
+  /* ---- forbidden future shading (indices > t) ---- */
+  if (nowX < marginL + gridW - 0.5) {
+    const fx = nowX, fy = inputTop - h * 0.11, fw = (marginL + gridW) - nowX, fh = (outBot - inputTop) + h * 0.20;
+    ctx.save();
+    ctx.beginPath(); ctx.rect(fx, fy, fw, fh); ctx.clip();
+    ctx.fillStyle = 'rgba(217,98,43,0.05)'; ctx.fillRect(fx, fy, fw, fh);
+    ctx.strokeStyle = 'rgba(217,98,43,0.16)'; ctx.lineWidth = 1;
+    for (let x = fx - fh; x < fx + fw; x += 9) { ctx.beginPath(); ctx.moveTo(x, fy + fh); ctx.lineTo(x + fh, fy); ctx.stroke(); }
+    ctx.restore();
+    ctx.fillStyle = '#c06a3a'; ctx.font = '600 11px Manrope, sans-serif';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillText('future — masked out  →', Math.min(nowX + 8, marginL + gridW - 130), inputTop - h * 0.09);
+  }
+
+  /* ---- receptive-field bracket above the taps ---- */
+  {
+    const loI = Math.max(st.minTap, minIndex);
+    const x1 = cx(loI), x2 = cx(t), by = inputTop - 10;
+    ctx.strokeStyle = '#2c6fb7'; ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.moveTo(x1, by + 5); ctx.lineTo(x1, by); ctx.lineTo(x2, by); ctx.lineTo(x2, by + 5);
+    ctx.stroke();
+    ctx.fillStyle = '#2c6fb7'; ctx.font = '600 11px Manrope, sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    ctx.fillText('receptive field = ' + st.rf, (x1 + x2) / 2, by - 2);
+  }
+
+  /* ---- input cells ---- */
+  ctx.textAlign = 'center';
+  for (let i = minIndex; i < N; i++) {
+    const x = xOf(i) + 2, cw = cellW - 4;
+    const isPad = i < 0;
+    const isTap = st.taps.includes(i);
+    const isFuture = i > t;
+    roundRect(ctx, x, inputTop, cw, inputH, 4);
+    if (isPad) {
+      ctx.fillStyle = '#f2ece0'; ctx.fill();
+      ctx.setLineDash([3, 3]); ctx.strokeStyle = '#b3a892'; ctx.lineWidth = 1; ctx.stroke(); ctx.setLineDash([]);
+    } else {
+      ctx.fillStyle = isFuture ? '#f6f3ec' : '#ffffff'; ctx.fill();
+      ctx.strokeStyle = '#e2d8c6'; ctx.lineWidth = 1; ctx.stroke();
+    }
+    if (!isPad) {
+      const v = INPUT[i], bh = (inputH - 8) * v;
+      ctx.fillStyle = isFuture ? 'rgba(110,102,91,0.22)' : 'rgba(44,111,183,0.30)';
+      ctx.fillRect(x + 3, inputTop + inputH - 4 - bh, cw - 6, bh);
+    } else {
+      ctx.fillStyle = '#b3a892'; ctx.font = '600 12px "IBM Plex Mono", monospace';
+      ctx.textBaseline = 'middle'; ctx.fillText('0', cx(i), inputTop + inputH / 2);
+    }
+    if (isTap) {
+      roundRect(ctx, x - 1.5, inputTop - 1.5, cw + 3, inputH + 3, 5);
+      ctx.strokeStyle = '#2c6fb7'; ctx.lineWidth = 2.5; ctx.stroke();
+    }
+    // index label
+    ctx.fillStyle = isTap ? '#2c6fb7' : '#a89b86';
+    ctx.font = (isTap ? '700 ' : '500 ') + '9px "IBM Plex Mono", monospace';
+    ctx.textBaseline = 'top';
+    ctx.fillText(isPad ? '·' : String(i), cx(i), inputBot + 3);
+  }
+  // row label
+  ctx.fillStyle = '#5a5247'; ctx.font = '700 11px Manrope, sans-serif';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+  ctx.fillText('input  x', marginL, inputTop - 26);
+
+  /* ---- connectors: taps -> current output ---- */
+  st.taps.forEach(ti => {
+    const ok = ti >= 0 || pad;
+    let sxRaw = cx(ti);
+    const sx = Math.max(sxRaw, marginL - 4);
+    ctx.beginPath();
+    ctx.moveTo(sx, inputBot + (ok ? 0 : 0));
+    ctx.lineTo(cx(t), outTop);
+    ctx.strokeStyle = ok ? 'rgba(44,111,183,0.55)' : 'rgba(217,98,43,0.7)';
+    ctx.lineWidth = 1.5;
+    if (!ok) ctx.setLineDash([4, 3]);
+    ctx.stroke(); ctx.setLineDash([]);
+    if (!ok) {
+      ctx.fillStyle = '#d9622b'; ctx.font = '700 12px Manrope, sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('✗', marginL - 2, inputBot + 12);
+    }
+  });
+
+  /* ---- output cells ---- */
+  const oBase = outTop + outH * 0.62;   // zero baseline for signed output bars
+  const oScale = outH * 0.44 / 0.7;
+  ctx.textAlign = 'center';
+  for (let o = 0; o < N; o++) {
+    const x = xOf(o) + 2, cw = cellW - 4;
+    const hasOut = pad ? true : (o >= P);
+    const isCur = o === t;
+    roundRect(ctx, x, outTop, cw, outH, 4);
+    if (!hasOut) {
+      ctx.fillStyle = '#f2ece0'; ctx.fill();
+      ctx.setLineDash([3, 3]); ctx.strokeStyle = '#cfc4ae'; ctx.lineWidth = 1; ctx.stroke(); ctx.setLineDash([]);
+      continue;
+    }
+    ctx.fillStyle = '#ffffff'; ctx.fill();
+    ctx.strokeStyle = '#e2d8c6'; ctx.lineWidth = 1; ctx.stroke();
+    // signed value bar
+    const v = outVal(o), bh = v * oScale;
+    ctx.fillStyle = v >= 0 ? 'rgba(30,119,112,0.55)' : 'rgba(217,98,43,0.5)';
+    ctx.fillRect(x + 3, oBase - Math.max(bh, 0), cw - 6, Math.abs(bh));
+    if (isCur && st.validNow) {
+      roundRect(ctx, x - 1.5, outTop - 1.5, cw + 3, outH + 3, 5);
+      ctx.strokeStyle = '#2c6fb7'; ctx.lineWidth = 2.5; ctx.stroke();
+    }
+  }
+  // baseline
+  ctx.strokeStyle = 'rgba(47,42,34,0.15)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(xOf(minIndex < 0 ? 0 : 0), oBase); ctx.lineTo(marginL + gridW, oBase); ctx.stroke();
+  ctx.fillStyle = '#5a5247'; ctx.font = '700 11px Manrope, sans-serif';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+  ctx.fillText('output  y', marginL, outTop - 6);
+
+  /* ---- current-output annotation ---- */
+  if (st.validNow) {
+    ctx.fillStyle = '#2c6fb7'; ctx.font = '700 12px "IBM Plex Mono", monospace';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    ctx.fillText('y[' + t + '] = ' + outVal(t).toFixed(2), cx(t), outTop - 5);
+  } else {
+    ctx.fillStyle = '#d9622b'; ctx.font = '700 12px Manrope, sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    ctx.fillText('y[' + t + '] undefined — needs left-pad', cx(t), outTop - 5);
+  }
+
+  /* ---- now line (drawn last, on top) ---- */
+  ctx.strokeStyle = '#d9622b'; ctx.lineWidth = 1.8; ctx.setLineDash([5, 4]);
+  ctx.beginPath(); ctx.moveTo(nowX, inputTop - h * 0.10); ctx.lineTo(nowX, outBot + 6); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#d9622b'; ctx.font = '700 11px Manrope, sans-serif';
+  ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
+  ctx.fillText('now', nowX - 4, inputTop - h * 0.10 + 12);
+}
+
+/* ===================== orchestration ===================== */
+function refreshStats() {
+  const st = computeState();
+  document.getElementById('rfVal').textContent = st.rf;
+  document.getElementById('inLenVal').textContent = N;
+  document.getElementById('outLenVal').textContent = st.outLen;
+  document.getElementById('padVal').textContent = pad ? st.P : 0;
+  const co = document.getElementById('statusCallout');
+  if (pad) {
+    co.className = 'callout callout--think';
+    co.innerHTML = '<strong>Left-padding is on.</strong> We prepend ' + st.P +
+      ' zero(s) so every output — including the very first — has a full window to read. ' +
+      'The output row now has the same length as the input (' + N + '), and the missing-past ' +
+      'taps simply read the padding zeros. Length preserved; causality intact.';
+  } else {
+    co.className = 'callout callout--warn';
+    co.innerHTML = '<strong>Left-padding is off.</strong> Outputs only exist where the whole ' +
+      'kernel fits inside the past, so the output length shrinks to N − (K−1)d = ' + st.outLen +
+      '. Drag <em>now</em> to the far left and watch the oldest taps fall off the edge (orange ✗) — ' +
+      'no ' + 'x[−1]' + ' to read, no output produced.';
+  }
+}
+function redraw() { draw(); refreshStats(); }
+
+function clampT() {
+  tSlider.min = 0; tSlider.max = N - 1;
+  if (t > N - 1) t = N - 1;
+  if (t < 0) t = 0;
+  tSlider.value = t;
+  document.getElementById('tVal').textContent = t;
+}
+
+/* ===================== wiring ===================== */
+kSlider.addEventListener('input', () => {
+  K = parseInt(kSlider.value); document.getElementById('kVal').textContent = K;
+  clampT(); redraw();
+});
+dSlider.addEventListener('input', () => {
+  D = parseInt(dSlider.value); document.getElementById('dVal').textContent = D;
+  clampT(); redraw();
+});
+tSlider.addEventListener('input', () => {
+  t = parseInt(tSlider.value); document.getElementById('tVal').textContent = t; redraw();
+});
+document.getElementById('stepBtn').addEventListener('click', () => {
+  t = (t + 1) % N; clampT(); redraw();
+});
+document.getElementById('padBtn').addEventListener('click', function () {
+  pad = !pad;
+  this.textContent = 'Left-padding: ' + (pad ? 'on' : 'off');
+  this.classList.toggle('is-active', pad);
+  redraw();
+});
+document.getElementById('playBtn').addEventListener('click', function () {
+  playing = !playing;
+  this.textContent = playing ? 'Pause' : 'Play';
+  this.classList.toggle('is-active', playing);
+  if (playing) {
+    timer = setInterval(() => { t = (t + 1) % N; clampT(); redraw(); }, 650);
+  } else {
+    clearInterval(timer);
+  }
+});
+
+window.addEventListener('load', redraw);
+window.addEventListener('resize', redraw);
+redraw();
+</script>
+
+</body>
+</html>

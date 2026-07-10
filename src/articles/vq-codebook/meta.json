@@ -1,0 +1,20 @@
+{
+  "slug": "vq-codebook",
+  "title": "Vector Quantization (VQ-VAE)",
+  "date": "2026-07-10",
+  "tagline": "Replace a continuous latent with the nearest entry of a learned discrete codebook",
+  "summary": "VQ-VAE swaps the continuous latent of an autoencoder for a discrete one: every encoding snaps to the nearest of K learned code vectors, so the latent is really just an integer index. Drag the encoding point z and watch it jump to its nearest code z_q, drag the codes to redraw their Voronoi territories, and quantize a whole cloud of points at once to see the assignment. A closing section explains the straight-through estimator that lets gradients flow back through the hard argmin.",
+  "readingTime": "8 min",
+  "difficulty": "Intermediate",
+  "collection": "Deep learning",
+  "order": 56,
+  "status": "published",
+  "tags": ["VQ-VAE", "Codebook", "Discrete Latents", "Generative Models", "Interactive"],
+  "highlights": [
+    "Drag the encoding point z and watch the snap arrow jump to z_q, the nearest code vector.",
+    "Drag the K code vectors and see the Voronoi cells — each code's territory — redraw live.",
+    "Quantize a whole cloud of encodings at once, each coloured by the code it is assigned to.",
+    "Read the quantization error and the log2(K) bits it takes to store a discrete index.",
+    "See how the straight-through estimator copies the gradient from z_q back to z so the encoder can still learn through a non-differentiable argmin."
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "slug": "transformer-block",
+  "title": "Inside a Transformer Block",
+  "date": "2026-07-10",
+  "tagline": "Step the residual stream through one block and watch attention mix positions while the FFN works on each alone",
+  "summary": "A transformer is a stack of identical blocks, and every block edits a running residual stream with six little moves. Press Step to walk one block end to end: LayerNorm, self-attention (whose n x n weight matrix blends value vectors across positions), a residual add, LayerNorm again, a position-wise feed-forward network, and a final residual add. A live block diagram highlights the active sublayer while heatmaps show the actual numbers, making the core lesson obvious: attention is the only place information moves between tokens, the FFN processes each token on its own, and the residual stream only ever changes at the two adds.",
+  "readingTime": "10 min",
+  "difficulty": "Intermediate",
+  "collection": "Deep learning",
+  "order": 53,
+  "status": "published",
+  "tags": ["Transformers", "Self-Attention", "Residual Stream", "LayerNorm", "Interactive"],
+  "highlights": [
+    "Step one transformer block through all six moves and watch a live block diagram light up the active sublayer.",
+    "See the n x n attention matrix and how each output row becomes a weighted blend of value vectors across positions.",
+    "Confirm the residual stream changes only at the two '+' adds — LayerNorm, attention and the FFN all compute on a branch first.",
+    "Contrast attention (mixes information between positions) with the feed-forward network (transforms each position independently).",
+    "Read off why residual connections plus pre-norm LayerNorm are what let dozens of these blocks stack and still train."
+  ]
+}

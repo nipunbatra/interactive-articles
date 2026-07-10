@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Generate, Token by Token</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body, {delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
+
+<style>
+:root {
+  --serif: 'Source Serif 4', Georgia, serif;
+  --sans: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+  --mono: 'IBM Plex Mono', monospace;
+  --bg: #fdfcf9;
+  --paper: #ffffff;
+  --text: #2f2a22;
+  --muted: #6e665b;
+  --border: #e2d8c6;
+  --accent: #2c6fb7;
+  --warm: #d9622b;
+  --success: #1e7770;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; font-family: var(--serif); color: var(--text); background: var(--bg); line-height: 1.65; }
+
+.article { max-width: 980px; margin: 0 auto; padding: 2.5rem 1.5rem 5rem; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; color: var(--muted); text-decoration: none; font-family: var(--sans); font-size: 0.9rem; }
+.back-link:hover { color: var(--text); }
+.article-header { margin-bottom: 3rem; text-align: center; }
+.kicker { margin: 0 0 0.75rem; font-family: var(--sans); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); }
+h1 { margin: 0 auto 1rem; font-size: clamp(2.4rem, 5vw, 3.5rem); line-height: 1.1; letter-spacing: -0.02em; color: #1a1815; max-width: 20ch; }
+.abstract { margin: 0 auto 1rem; max-width: 62ch; font-size: 1.15rem; color: #4d463d; }
+.byline { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-top: 1.4rem; padding-top: 1rem; border-top: 1px solid var(--border); color: var(--muted); font-family: var(--sans); font-size: 0.92rem; }
+
+.step-section {
+  position: relative;
+  margin-top: 4rem;
+  padding: 3rem 2.5rem;
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.03);
+}
+.step-badge {
+  position: absolute;
+  top: -16px;
+  left: 32px;
+  background: var(--accent);
+  color: white;
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.4rem 1.2rem;
+  border-radius: 999px;
+  box-shadow: 0 4px 12px rgba(44, 111, 183, 0.25);
+}
+h2 { margin: 0 0 1rem; font-size: clamp(1.6rem, 3.5vw, 2.2rem); line-height: 1.15; color: #1a1815; }
+h3 { margin-top: 2rem; margin-bottom: 0.8rem; font-size: 1.25rem; color: #1a1815; }
+p { max-width: 68ch; font-size: 1.1rem; }
+ul { max-width: 68ch; font-size: 1.1rem; padding-left: 1.4rem; }
+li { margin-bottom: 0.5rem; }
+.math-block { margin: 1.5rem 0; text-align: center; font-size: 1.05rem; }
+
+.control-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.4rem;
+  margin: 1.6rem 0;
+}
+.control-block { display: flex; flex-direction: column; gap: 0.5rem; }
+.control-block label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-family: var(--sans);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.control-block label span { font-family: var(--mono); color: var(--warm); font-weight: 500; font-size: 0.95rem; }
+input[type="range"] {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px; height: 18px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid var(--paper);
+  box-shadow: 0 2px 6px rgba(44,111,183,0.4);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 18px; height: 18px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid var(--paper);
+}
+
+.button-row { display: flex; gap: 0.6rem; flex-wrap: wrap; margin: 1rem 0; align-items: center; }
+.mode-button {
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: 0.92rem;
+  padding: 0.55rem 1.1rem;
+  border-radius: 8px;
+  border: 1.5px solid var(--border);
+  background: var(--paper);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.mode-button:hover { border-color: var(--accent); }
+.mode-button.is-active { background: var(--accent); color: white; border-color: var(--accent); }
+.mode-button--primary { background: var(--warm); color: white; border-color: var(--warm); }
+.mode-button--primary:hover { border-color: var(--warm); filter: brightness(1.05); }
+.mode-button:disabled { opacity: 0.4; cursor: default; }
+
+.interactive-figure { margin: 1.5rem 0; }
+.interactive-figure canvas {
+  display: block;
+  width: 100%;
+  background: #fbfaf6;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.interactive-figure figcaption { margin-top: 0.7rem; font-size: 0.92rem; color: var(--muted); text-align: center; font-style: italic; }
+
+.stat-strip { display: flex; gap: 1rem; flex-wrap: wrap; margin: 1.5rem 0; }
+.stat-pill {
+  flex: 1 1 140px;
+  min-width: 140px;
+  background: var(--paper);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  padding: 0.9rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  text-align: left;
+}
+.stat-pill .stat-label { font-family: var(--sans); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; }
+.stat-pill .stat-value { font-family: var(--mono); font-size: 1.35rem; font-weight: 600; color: var(--text); }
+.stat-pill--accent { border-color: var(--accent); }
+.stat-pill--accent .stat-value { color: var(--accent); }
+.stat-pill--warm { border-color: var(--warm); }
+.stat-pill--warm .stat-value { color: var(--warm); }
+.stat-pill--success { border-color: var(--success); }
+.stat-pill--success .stat-value { color: var(--success); }
+
+.callout {
+  margin: 2rem 0 0.5rem;
+  padding: 1.2rem 1.5rem;
+  border-radius: 12px;
+  border-left: 4px solid var(--accent);
+  background: rgba(44,111,183,0.05);
+  font-size: 1.02rem;
+}
+.callout strong { color: var(--accent); }
+.callout--think { border-left-color: var(--success); background: rgba(30,119,112,0.06); }
+.callout--think strong { color: var(--success); }
+.callout--warn { border-left-color: var(--warm); background: rgba(217,98,43,0.06); }
+.callout--warn strong { color: var(--warm); }
+
+/* ---- widget specific ---- */
+.pipe-row { display:flex; align-items:center; gap:0.4rem; flex-wrap:wrap; margin:1rem 0 0.4rem; font-family:var(--sans); }
+.pipe-box { font-size:0.8rem; font-weight:700; padding:0.4rem 0.7rem; border-radius:8px; border:1.5px solid var(--border); background:#fbfaf6; color:var(--muted); white-space:nowrap; }
+.pipe-box.pipe-hot { border-color:var(--warm); color:var(--warm); background:rgba(217,98,43,0.08); }
+.pipe-arrow { color:#b9ad97; font-weight:700; }
+
+.seq-line { font-family: var(--mono); font-size:0.95rem; margin:1rem 0 0.3rem; display:flex; flex-wrap:wrap; gap:0.4rem; align-items:center; min-height:2.2rem; }
+.seq-tok { padding:0.28rem 0.55rem; border-radius:7px; border:1.5px solid var(--border); background:var(--paper); color:var(--text); }
+.seq-tok.is-prefix { color:var(--muted); background:#fbfaf6; }
+.seq-tok.is-new { border-color:var(--warm); color:var(--warm); background:rgba(217,98,43,0.10); font-weight:600; }
+.seq-caret { color:#b9ad97; }
+
+.chip-row { display:flex; gap:0.4rem; flex-wrap:wrap; align-items:center; margin:0.6rem 0; }
+.chip-lbl { font-family:var(--sans); font-size:0.82rem; font-weight:600; color:var(--muted); margin-right:0.2rem; }
+
+.legend-row { display:flex; gap:1.2rem; flex-wrap:wrap; font-family:var(--sans); font-size:0.8rem; color:var(--muted); margin:0.3rem 0 0; align-items:center; }
+.legend-row .sw { display:inline-block; width:14px; height:14px; border-radius:3px; vertical-align:middle; margin-right:0.3rem; border:1px solid rgba(0,0,0,0.12);}
+.legend-row .swline { display:inline-block; width:14px; height:0; border-top:2px dashed #9a8f7c; vertical-align:middle; margin-right:0.3rem;}
+
+footer { margin-top: 4rem; text-align: center; font-family: var(--sans); font-size: 0.85rem; color: var(--muted); }
+
+@media (max-width: 640px) { .step-section { padding: 2rem 1.4rem; } }
+</style>
+</head>
+<body>
+
+<article class="article">
+  <header class="article-header">
+    <a class="back-link" href="../">&larr; Explainer Library</a>
+    <p class="kicker">Interactive Explainer</p>
+    <h1>Generate, Token by Token</h1>
+    <p class="abstract">
+      A language model does not write a sentence &mdash; it predicts <em>one</em> next
+      token, samples it, sticks it on the end, and does the whole thing again. Press
+      <strong>Step</strong> to run one round of that loop over a tiny vocabulary, and
+      turn the <strong>temperature</strong>, <strong>top-k</strong> and
+      <strong>top-p</strong> knobs to watch the next-token distribution sharpen, narrow,
+      and change what gets sampled.
+    </p>
+    <div class="byline">
+      <span>~9 min</span>
+      <span>Deep Learning &middot; Transformers &middot; Decoding</span>
+    </div>
+  </header>
+
+  <section class="step-section" id="prelude">
+    <div class="step-badge">Prelude</div>
+    <h2>Autoregression is a loop</h2>
+    <p>
+      Give the model a prefix of tokens $x_{1:t}$. It runs one forward pass &mdash;
+      embed, causal self-attention, feed-forward &mdash; and emits a vector of
+      <em>logits</em>, one score per vocabulary word. A softmax turns those into a
+      probability for the next token:
+    </p>
+    <div class="math-block">
+      $$p(x_{t+1}\mid x_{1:t}) = \operatorname{softmax}\!\big(z / T\big), \qquad
+        x_{t+1} \sim p .$$
+    </div>
+    <p>
+      Then the sampled token is appended and the loop repeats with $x_{1:t+1}$. Nothing
+      about the model changes between steps &mdash; only the context grows. The
+      interesting choices all live in that last arrow, $x_{t+1}\sim p$: how we turn a
+      distribution into a single word. Temperature $T$, top-k and top-p (nucleus) are
+      three knobs that reshape $p$ before we draw from it.
+    </p>
+  </section>
+
+  <section class="step-section" id="lab">
+    <div class="step-badge">The Lab</div>
+    <h2>Run the decoding loop</h2>
+    <p>
+      Pick a prefix, set the knobs, and press <strong>Step</strong>. Each press shows the
+      next-token distribution over a fixed 12-word vocabulary, samples one token
+      (highlighted), and appends it. The logits are fixed and seeded &mdash; a small
+      stand-in model &mdash; so the distribution is fully determined by the context and
+      your knob settings.
+    </p>
+
+    <div class="chip-row">
+      <span class="chip-lbl">Prefix:</span>
+      <button class="mode-button is-active" data-prefix="cat">the cat</button>
+      <button class="mode-button" data-prefix="dog">a dog</button>
+      <button class="mode-button" data-prefix="sat">the cat sat on</button>
+      <button class="mode-button" data-prefix="then">then the</button>
+    </div>
+
+    <div class="pipe-row" id="pipeRow">
+      <span class="pipe-box" id="pipePrefix">prefix x₁:ₜ</span>
+      <span class="pipe-arrow">→</span>
+      <span class="pipe-box">embed</span>
+      <span class="pipe-arrow">→</span>
+      <span class="pipe-box">causal self-attention</span>
+      <span class="pipe-arrow">→</span>
+      <span class="pipe-box">FFN</span>
+      <span class="pipe-arrow">→</span>
+      <span class="pipe-box" id="pipeLogits">logits z</span>
+      <span class="pipe-arrow">→</span>
+      <span class="pipe-box" id="pipeSample">sample xₜ₊₁</span>
+    </div>
+
+    <div class="seq-line" id="seqLine"></div>
+
+    <div class="control-row">
+      <div class="control-block">
+        <label>Temperature <span>$T$ = <span id="tempVal">1.00</span></span></label>
+        <input type="range" id="temp" min="0.1" max="2.0" step="0.05" value="1.0">
+      </div>
+      <div class="control-block">
+        <label>Top-k <span><span id="kVal">off</span></span></label>
+        <input type="range" id="topk" min="1" max="12" step="1" value="12">
+      </div>
+      <div class="control-block">
+        <label>Top-p (nucleus) <span>$p$ = <span id="pVal">1.00</span></span></label>
+        <input type="range" id="topp" min="0.1" max="1.0" step="0.05" value="1.0">
+      </div>
+    </div>
+
+    <div class="button-row">
+      <button class="mode-button mode-button--primary" id="stepBtn">Step &rarr;</button>
+      <button class="mode-button" id="genBtn">Generate x6</button>
+      <button class="mode-button" id="resetBtn">Reset to prefix</button>
+      <button class="mode-button" id="seedBtn">New sample</button>
+    </div>
+
+    <figure class="interactive-figure">
+      <canvas id="barCanvas" width="900" height="380"></canvas>
+      <figcaption>Next-token distribution over the vocabulary. Dashed outline = after temperature only; solid bar = after top-k / top-p (renormalized). Grey = filtered out ($p=0$). The arrow marks the token that was sampled.</figcaption>
+    </figure>
+
+    <div class="legend-row">
+      <span><span class="swline"></span>after temperature</span>
+      <span><span class="sw" style="background:#2c6fb7"></span>kept (renormalized)</span>
+      <span><span class="sw" style="background:#cfc6b6"></span>filtered out</span>
+      <span><span class="sw" style="background:#d9622b"></span>sampled token</span>
+    </div>
+
+    <div class="stat-strip">
+      <div class="stat-pill stat-pill--warm">
+        <span class="stat-label">Last sampled</span>
+        <span class="stat-value" id="lastVal">&mdash;</span>
+      </div>
+      <div class="stat-pill stat-pill--accent">
+        <span class="stat-label">Candidates kept</span>
+        <span class="stat-value" id="keptVal">&mdash;</span>
+      </div>
+      <div class="stat-pill stat-pill--success">
+        <span class="stat-label">Entropy (bits)</span>
+        <span class="stat-value" id="entVal">&mdash;</span>
+      </div>
+      <div class="stat-pill">
+        <span class="stat-label">Top prob</span>
+        <span class="stat-value" id="topVal">&mdash;</span>
+      </div>
+    </div>
+
+    <div class="callout callout--warn">
+      <strong>Turn temperature to 0.1.</strong> The distribution collapses onto its
+      single most likely token &mdash; near-greedy, repetitive, safe. Push it to 2.0 and
+      it flattens toward uniform &mdash; surprising, sometimes incoherent. Now set
+      $T=1$ and instead pull <strong>top-p</strong> down to 0.6: the long tail of
+      unlikely words greys out entirely, so you keep the fluency of a warm temperature
+      without ever sampling something absurd. That is why nucleus sampling is the modern
+      default.
+    </div>
+  </section>
+
+  <section class="step-section" id="why">
+    <div class="step-badge">The Payoff</div>
+    <h2>Three knobs, one trade-off</h2>
+    <p>
+      Every decoding knob is negotiating the same tension: <em>diversity</em> (explore
+      more of the distribution) against <em>focus</em> (stay on the high-probability
+      words the model is confident about). They just cut the distribution differently.
+    </p>
+    <ul>
+      <li><strong>Temperature</strong> rescales the logits before softmax. $T<1$ sharpens toward the top token; $T>1$ flattens toward uniform. It reshapes <em>every</em> probability but removes nothing.</li>
+      <li><strong>Top-k</strong> keeps only the $k$ highest-probability tokens and zeroes the rest &mdash; a hard cap on how many candidates survive, regardless of how the mass is spread.</li>
+      <li><strong>Top-p (nucleus)</strong> keeps the smallest set of tokens whose probabilities sum to at least $p$. The cut adapts to the shape: a confident step keeps one or two words, an uncertain step keeps many.</li>
+    </ul>
+    <div class="callout callout--think">
+      <strong>Why sampling at all?</strong> Always taking the arg-max (greedy) is
+      deterministic and often degenerates into loops. Sampling injects the controlled
+      randomness that makes generations varied and human-sounding &mdash; and top-k /
+      top-p are the guardrails that stop that randomness from wandering into the
+      model's low-probability nonsense. Decoding is where a fixed model becomes a
+      writer with a personality you can dial.
+    </div>
+  </section>
+
+  <footer>Part of the ES 667 Deep Learning explainer series &middot; Lecture 16: Transformers I &mdash; Self-Attention</footer>
+</article>
+
+<script>
+/* ===================== deterministic model ===================== */
+function mulberry32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+
+const VOCAB = ['the','a','cat','dog','sat','ran','on','mat','fast','then','slept','.'];
+const V = VOCAB.length;
+const IDX = {}; VOCAB.forEach((w,i)=>IDX[w]=i);
+
+/* seeded bigram-ish logit table B[prev][next] */
+const brng = mulberry32(778201);
+function randn(r){ let u=0,v=0; while(u===0)u=r(); while(v===0)v=r(); return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); }
+const B = [];
+for(let i=0;i<V;i++){ const row=[]; for(let j=0;j<V;j++) row.push(randn(brng)*0.8); B.push(row); }
+const GBIAS = []; for(let i=0;i<V;i++) GBIAS.push(randn(brng)*0.5);
+
+/* hand boosts to give the toy language a little structure */
+const BOOST = {
+  the:['cat','dog','mat'], a:['cat','dog'],
+  cat:['sat','ran'], dog:['sat','ran'],
+  sat:['on','then','.'], ran:['on','fast','.'],
+  on:['the','mat','a'], mat:['.','then'],
+  fast:['.','then'], then:['the','a'],
+  slept:['.','then'], '.':['the','a','then']
+};
+for(const [pv, nexts] of Object.entries(BOOST)){ const pi=IDX[pv]; nexts.forEach(nw=>{ B[pi][IDX[nw]] += 2.4; }); }
+
+/* logits for the next token given the current sequence (context) */
+function logitsFor(seq){
+  const last = seq[seq.length-1];
+  const prev = seq.length>=2 ? seq[seq.length-2] : null;
+  const z = [];
+  for(let v=0; v<V; v++){
+    let s = GBIAS[v]*0.4 + B[last][v];
+    if (prev!==null) s += 0.35*B[prev][v];
+    z.push(s);
+  }
+  return z;
+}
+
+/* ===================== decoding math ===================== */
+function softmaxT(z, T){ const s=z.map(v=>v/T); const m=Math.max(...s); const e=s.map(v=>Math.exp(v-m)); const Z=e.reduce((a,b)=>a+b,0); return e.map(v=>v/Z); }
+
+function filterDist(pBase, k, p){
+  // pBase: softmax after temperature. Apply top-k, then top-p (nucleus). Return {probs, kept[]}.
+  const order = pBase.map((v,i)=>[v,i]).sort((a,b)=>b[0]-a[0]);
+  const keep = new Array(V).fill(false);
+  // top-k
+  const kk = Math.min(k, V);
+  for(let i=0;i<kk;i++) keep[order[i][1]] = true;
+  // top-p within the kept set (nucleus): walk sorted, accumulate until >= p
+  if (p < 0.999){
+    let cum=0, nucleusDone=false;
+    const inNucleus = new Array(V).fill(false);
+    for(let i=0;i<V;i++){
+      const [pv, idx] = order[i];
+      if (!keep[idx]) continue;              // respect top-k first
+      if (!nucleusDone){ inNucleus[idx]=true; cum+=pv; if (cum>=p) nucleusDone=true; }
+    }
+    for(let v=0; v<V; v++) if (keep[v] && !inNucleus[v]) keep[v]=false;
+  }
+  // renormalize over kept
+  let Z=0; for(let v=0;v<V;v++) if(keep[v]) Z+=pBase[v];
+  const probs = pBase.map((v,i)=> keep[i] ? v/Z : 0);
+  const kept = []; for(let v=0;v<V;v++) if(keep[v]) kept.push(v);
+  return { probs, kept };
+}
+
+function entropyBits(p){ let h=0; for(const v of p) if(v>1e-12) h-=v*Math.log2(v); return h; }
+
+/* ===================== state ===================== */
+const PREFIXES = {
+  cat:['the','cat'], dog:['a','dog'], sat:['the','cat','sat','on'], then:['then','the']
+};
+let prefixKey='cat';
+let seq = PREFIXES[prefixKey].map(w=>IDX[w]);
+let prefixLen = seq.length;
+let baseSeed = 91;
+let srng = mulberry32(baseSeed);
+let lastSampled = null;       // idx sampled this step (for arrow)
+let genTimer = null;
+
+function curTemp(){ return parseFloat(document.getElementById('temp').value); }
+function curK(){ return parseInt(document.getElementById('topk').value); }
+function curP(){ return parseFloat(document.getElementById('topp').value); }
+
+/* compute current-step distributions */
+function currentDists(){
+  const z = logitsFor(seq);
+  const T = curTemp();
+  const pTemp = softmaxT(z, T);            // after temperature only
+  const { probs, kept } = filterDist(pTemp, curK(), curP());
+  return { z, pTemp, probs, kept };
+}
+
+/* ===================== canvas ===================== */
+function fitCanvas(canvas){
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = Math.max(1, Math.round(rect.width*dpr));
+  canvas.height = Math.max(1, Math.round(rect.height*dpr));
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  return { ctx, w: rect.width, h: rect.height };
+}
+function drawBars(){
+  const { ctx, w, h } = fitCanvas(document.getElementById('barCanvas'));
+  ctx.clearRect(0,0,w,h);
+  const { pTemp, probs, kept } = currentDists();
+  const keptSet = new Set(kept);
+  const padL=44, padR=16, padT=30, padB=64;
+  const cw=w-padL-padR, ch=h-padT-padB;
+  let maxP = 0.001; for(const v of pTemp) maxP=Math.max(maxP,v); for(const v of probs) maxP=Math.max(maxP,v);
+  maxP*=1.12;
+  const yOf = (p)=> padT+ch*(1-p/maxP);
+
+  // gridlines
+  ctx.font='500 10px Manrope, sans-serif'; ctx.textAlign='right'; ctx.textBaseline='middle';
+  const gstep = maxP>0.5?0.25:(maxP>0.25?0.1:0.05);
+  for(let g=0; g<=maxP+1e-9; g+=gstep){
+    const y=yOf(g);
+    ctx.strokeStyle = g===0?'rgba(47,42,34,0.22)':'rgba(47,42,34,0.07)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(padL+cw,y); ctx.stroke();
+    ctx.fillStyle='#8a8072'; ctx.fillText(g.toFixed(2), padL-8, y);
+  }
+
+  const gap=Math.max(8, cw/V*0.28), bw=(cw-gap*(V+1))/V;
+  for(let i=0;i<V;i++){
+    const x=padL+gap+i*(bw+gap);
+    const isKept=keptSet.has(i), isSamp=(i===lastSampled);
+    // dashed outline = after temperature
+    const yT=yOf(pTemp[i]);
+    ctx.strokeStyle= isKept ? 'rgba(44,111,183,0.55)' : 'rgba(120,110,95,0.5)';
+    ctx.lineWidth=1.4; ctx.setLineDash([4,3]);
+    ctx.strokeRect(x, yT, bw, padT+ch-yT);
+    ctx.setLineDash([]);
+    // solid filled = after filter
+    if (probs[i]>0){
+      const yP=yOf(probs[i]);
+      ctx.fillStyle = isSamp ? '#d9622b' : '#2c6fb7';
+      ctx.fillRect(x, yP, bw, padT+ch-yP);
+      // value label
+      ctx.fillStyle='#2f2a22'; ctx.font='600 10px "IBM Plex Mono", monospace';
+      ctx.textAlign='center'; ctx.textBaseline='bottom';
+      ctx.fillText(probs[i].toFixed(2), x+bw/2, yP-3);
+    } else {
+      // filtered: faint grey fill at baseline to signal removed
+      ctx.fillStyle='rgba(207,198,182,0.5)';
+      ctx.fillRect(x, padT+ch-3, bw, 3);
+    }
+    // sampled arrow
+    if (isSamp){
+      const ay=padT+ch+30;
+      ctx.fillStyle='#d9622b';
+      ctx.beginPath(); ctx.moveTo(x+bw/2, ay-8); ctx.lineTo(x+bw/2-6, ay); ctx.lineTo(x+bw/2+6, ay); ctx.closePath(); ctx.fill();
+      ctx.font='700 10px Manrope, sans-serif'; ctx.textAlign='center'; ctx.textBaseline='top';
+      ctx.fillText('sampled', x+bw/2, ay+2);
+    }
+    // token label
+    ctx.fillStyle = isKept ? '#2f2a22' : '#a89b86';
+    ctx.font=(isSamp?'700 ':'600 ')+'11px Manrope, sans-serif';
+    ctx.textAlign='center'; ctx.textBaseline='top';
+    ctx.save(); ctx.translate(x+bw/2, padT+ch+8); ctx.fillText(VOCAB[i], 0, 0); ctx.restore();
+  }
+  // titles
+  ctx.fillStyle='#5a5247'; ctx.font='700 11px Manrope, sans-serif'; ctx.textAlign='left'; ctx.textBaseline='top';
+  ctx.fillText('P(next token | context)', padL, 8);
+}
+
+/* ===================== sequence line + pipeline ===================== */
+function renderSeq(){
+  const box=document.getElementById('seqLine'); box.innerHTML='';
+  const lbl=document.createElement('span'); lbl.className='chip-lbl'; lbl.textContent='Sequence:'; box.appendChild(lbl);
+  seq.forEach((idx,i)=>{
+    const s=document.createElement('span');
+    const isNew = (i===seq.length-1 && i>=prefixLen && lastSampled!==null);
+    s.className='seq-tok'+(i<prefixLen?' is-prefix':'')+(isNew?' is-new':'');
+    s.textContent=VOCAB[idx];
+    box.appendChild(s);
+  });
+  const caret=document.createElement('span'); caret.className='seq-caret'; caret.textContent='▮'; box.appendChild(caret);
+}
+function flashPipe(){
+  ['pipeLogits','pipeSample'].forEach(id=>{ const e=document.getElementById(id); e.classList.add('pipe-hot'); setTimeout(()=>e.classList.remove('pipe-hot'),450); });
+}
+
+/* ===================== orchestration ===================== */
+function updateStats(){
+  const { probs, kept } = currentDists();
+  document.getElementById('lastVal').textContent = lastSampled===null ? '—' : VOCAB[lastSampled];
+  document.getElementById('keptVal').textContent = kept.length + ' / ' + V;
+  document.getElementById('entVal').textContent = entropyBits(probs).toFixed(2);
+  const top=Math.max(...probs);
+  document.getElementById('topVal').textContent = top.toFixed(2);
+}
+function redraw(){
+  document.getElementById('tempVal').textContent = curTemp().toFixed(2);
+  const k=curK(); document.getElementById('kVal').textContent = (k>=V?'off (all '+V+')':String(k));
+  const p=curP(); document.getElementById('pVal').textContent = p>=0.999?'1.00 (off)':p.toFixed(2);
+  drawBars();
+  renderSeq();
+  updateStats();
+  document.getElementById('stepBtn').disabled = seq.length>=16;
+  document.getElementById('genBtn').disabled = seq.length>=16;
+}
+
+function sampleOnce(){
+  const { probs } = currentDists();
+  const r = srng();
+  let cum=0, choice=probs.length-1;
+  for(let i=0;i<probs.length;i++){ cum+=probs[i]; if(r<=cum){ choice=i; break; } }
+  seq.push(choice);
+  lastSampled=choice;
+  flashPipe();
+  redraw();
+}
+function doStep(){ if(seq.length<16) sampleOnce(); }
+function doGen(){
+  if(genTimer) return;
+  let n=0;
+  genTimer=setInterval(()=>{ if(n>=6 || seq.length>=16){ clearInterval(genTimer); genTimer=null; return; } sampleOnce(); n++; }, 620);
+}
+function doReset(){ if(genTimer){clearInterval(genTimer);genTimer=null;} seq=PREFIXES[prefixKey].map(w=>IDX[w]); prefixLen=seq.length; lastSampled=null; srng=mulberry32(baseSeed); redraw(); }
+function doNewSeed(){ baseSeed=(baseSeed*1664525+1013904223)>>>0 % 100000; doReset(); }
+
+/* ===================== wiring ===================== */
+['temp','topk','topp'].forEach(id=>document.getElementById(id).addEventListener('input', redraw));
+document.querySelectorAll('.chip-row .mode-button').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('.chip-row .mode-button').forEach(x=>x.classList.remove('is-active'));
+  b.classList.add('is-active'); prefixKey=b.dataset.prefix; doReset();
+}));
+document.getElementById('stepBtn').addEventListener('click', doStep);
+document.getElementById('genBtn').addEventListener('click', doGen);
+document.getElementById('resetBtn').addEventListener('click', doReset);
+document.getElementById('seedBtn').addEventListener('click', doNewSeed);
+window.addEventListener('load', redraw);
+window.addEventListener('resize', redraw);
+redraw();
+</script>
+
+</body>
+</html>
