@@ -2,7 +2,7 @@
 // A Visual Proof That One Layer Can Compute Anything
 // Nielsen's construction, made interactive. Everything is real:
 // sigmoids, steps, bumps and towers evaluated live, with 1D plots
-// and 3D surface plots rendered straight to canvas.
+// and 3D surface plots (drag to orbit) rendered straight to canvas.
 // ============================================================
 
 // ---------- Math primitives ----------
@@ -129,10 +129,11 @@ function colormapRGB(t) {
   return [255, 232, 192];
 }
 
+// Neuron palette (for the stacker)
+const NEURON_COLORS = ['#2c6fb7', '#1e7770', '#7558a8', '#c0392b', '#b8860b', '#2e8b57', '#cf5b9b', '#3a6ea5'];
+
 // ============================================================
-// 3D SURFACE RENDERER
-// Draw a G×G height field as a shaded 3D surface (height field
-// viewed from an azimuth/elevation; painter's algorithm).
+// 3D SURFACE RENDERER (height field → shaded surface)
 // ============================================================
 function drawSurface(canvas, field, G, opts = {}) {
   const {
@@ -155,7 +156,6 @@ function drawSurface(canvas, field, G, opts = {}) {
   const ce = Math.cos(elevation), se = Math.sin(elevation);
   const span = vmax - vmin || 1;
 
-  // Project every grid vertex
   const sx = new Float32Array(G * G);
   const sy = new Float32Array(G * G);
   const dep = new Float32Array(G * G);
@@ -189,11 +189,9 @@ function drawSurface(canvas, field, G, opts = {}) {
   const PX = (idx) => sx[idx] * scale + offX;
   const PY = (idx) => sy[idx] * scale + offY;
 
-  // Light direction for lambert shading
   const Lx = -0.4, Ly = -0.5, Lz = 0.78;
   const Llen = Math.sqrt(Lx * Lx + Ly * Ly + Lz * Lz);
 
-  // Build quads with centroid depth, then painter-sort
   const quads = [];
   for (let j = 0; j < G - 1; j++) {
     for (let i = 0; i < G - 1; i++) {
@@ -204,11 +202,10 @@ function drawSurface(canvas, field, G, opts = {}) {
       const depth = (dep[a] + dep[b] + dep[c] + dep[d]) * 0.25;
       const tAvg = (zt[a] + zt[b] + zt[c] + zt[d]) * 0.25;
 
-      // surface normal from height gradient (world units)
       const cell = 1 / (G - 1);
       const dzx = (field[b] - field[a]) / span * heightScale;
       const dzy = (field[d] - field[a]) / span * heightScale;
-      let nx = -dzx * cell, ny = -dzy * cell, nz = cell * cell;
+      const nx = -dzx * cell, ny = -dzy * cell, nz = cell * cell;
       const nlen = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1;
       let lambert = (nx * Lx + ny * Ly + nz * Lz) / (nlen * Llen);
       lambert = clamp(0.55 + 0.5 * lambert, 0.4, 1.12);
@@ -241,6 +238,42 @@ function drawSurface(canvas, field, G, opts = {}) {
   }
 }
 
+// Attach drag-to-orbit (azimuth + elevation) to a group of canvases.
+function attachOrbit(canvases, state, render, slider) {
+  let raf = false;
+  const schedule = () => {
+    if (raf) return;
+    raf = true;
+    requestAnimationFrame(() => { raf = false; render(); });
+  };
+  canvases.forEach((c) => {
+    if (!c) return;
+    c.style.cursor = 'grab';
+    c.style.touchAction = 'none';
+    let dragging = false, sx = 0, sy = 0, az0 = 0, el0 = 0;
+    c.addEventListener('pointerdown', (e) => {
+      dragging = true;
+      try { c.setPointerCapture(e.pointerId); } catch (_) {}
+      sx = e.clientX; sy = e.clientY; az0 = state.az; el0 = state.el;
+      c.style.cursor = 'grabbing';
+    });
+    c.addEventListener('pointermove', (e) => {
+      if (!dragging) return;
+      state.az = az0 - (e.clientX - sx) * 0.012;
+      state.el = clamp(el0 + (e.clientY - sy) * 0.008, 0.12, 1.35);
+      if (slider) {
+        const v = ((state.az % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+        if (v >= +slider.min && v <= +slider.max) slider.value = String(v);
+      }
+      schedule();
+    });
+    const end = () => { dragging = false; c.style.cursor = 'grab'; };
+    c.addEventListener('pointerup', end);
+    c.addEventListener('pointercancel', end);
+    c.addEventListener('lostpointercapture', end);
+  });
+}
+
 // ============================================================
 // STEP 1 — one sigmoid neuron
 // ============================================================
@@ -268,8 +301,8 @@ function initNeuron() {
     drawAxes(ctx, margin, cw, ch, xRange, yRange);
 
     const xs = [], ys = [];
-    for (let i = 0; i <= 400; i++) {
-      const x = i / 400;
+    for (let i = 0; i <= 600; i++) {
+      const x = i / 600;
       xs.push(x);
       ys.push(sigmoid(w * x + b));
     }
@@ -287,6 +320,13 @@ function initNeuron() {
         ctx.textAlign = 'center';
         ctx.fillText(`σ = 0.5 at x = ${mid.toFixed(2)}`, px, py - 12);
       }
+    }
+    // hint when the S has become a step
+    if (Math.abs(w) >= 45) {
+      ctx.fillStyle = 'rgba(217,98,43,0.85)';
+      ctx.font = '600 13px system-ui, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText('↑ at this weight the S has snapped into a step (that\'s Step 2!)', margin.left + 8, margin.top + 16);
     }
   }
 
@@ -349,65 +389,154 @@ function initStep() {
 }
 
 // ============================================================
-// STEP 3 — two steps make a bump
+// STEP 3 — the sigmoid stacker (add/remove, see each + the sum)
 // ============================================================
-function initBump() {
-  const canvas = document.getElementById('bumpCanvas');
+function initStacker() {
+  const canvas = document.getElementById('stackerCanvas');
   if (!canvas) return;
-  const s1S = document.getElementById('bump-s1');
-  const s2S = document.getElementById('bump-s2');
-  const hS = document.getElementById('bump-h');
-  const s1V = document.getElementById('val-bump-s1');
-  const s2V = document.getElementById('val-bump-s2');
-  const hV = document.getElementById('val-bump-h');
+  const rowsBox = document.getElementById('stacker-rows');
+  const addBtn = document.getElementById('btn-stacker-add');
+  const resetBtn = document.getElementById('btn-stacker-reset');
+  const wS = document.getElementById('stacker-w');
+  const wV = document.getElementById('val-stacker-w');
   const margin = { top: 20, right: 30, bottom: 35, left: 45 };
   const xRange = [0, 1];
-  const yRange = [-1.6, 1.6];
-  const W = 50;
+
+  const bumpPreset = () => [
+    { s: 0.35, c: 1.0, on: true },
+    { s: 0.6, c: -1.0, on: true },
+  ];
+  let neurons = bumpPreset();
+
+  function curve(n, W) {
+    return (x) => n.c * sigmoid(W * (x - n.s));
+  }
 
   function draw() {
-    let s1 = parseFloat(s1S.value);
-    let s2 = parseFloat(s2S.value);
-    const h = parseFloat(hS.value);
-    if (s1 > s2) [s1, s2] = [s2, s1];
-    s1V.textContent = s1.toFixed(2);
-    s2V.textContent = s2.toFixed(2);
-    hV.textContent = h.toFixed(2);
+    const W = parseFloat(wS.value);
+    wV.textContent = W.toFixed(0);
 
-    const { ctx, w: cw, h: ch } = setupCanvas(canvas, 920, 320);
+    // dynamic y-range from data
+    const active = neurons.filter((n) => n.on);
+    let lo = -0.2, hi = 1.2;
+    const sample = [];
+    for (let i = 0; i <= 400; i++) sample.push(i / 400);
+    for (const x of sample) {
+      let sum = 0;
+      for (const n of active) {
+        const v = n.c * sigmoid(W * (x - n.s));
+        sum += v;
+        if (v < lo) lo = v;
+        if (v > hi) hi = v;
+      }
+      if (sum < lo) lo = sum;
+      if (sum > hi) hi = sum;
+    }
+    const pad = 0.25;
+    const yRange = [Math.min(-0.4, lo - pad), Math.max(1.3, hi + pad)];
+
+    const { ctx, w: cw, h: ch } = setupCanvas(canvas, 920, 340);
     ctx.clearRect(0, 0, cw, ch);
     drawAxes(ctx, margin, cw, ch, xRange, yRange);
 
-    const xs = [], step1 = [], step2 = [], sum = [];
-    for (let i = 0; i <= 600; i++) {
-      const x = i / 600;
-      const a = h * sigmoid(W * (x - s1));
-      const b = -h * sigmoid(W * (x - s2));
-      xs.push(x);
-      step1.push(a);
-      step2.push(b);
-      sum.push(a + b);
+    // each neuron's individual curve
+    for (let k = 0; k < neurons.length; k++) {
+      const n = neurons[k];
+      if (!n.on) continue;
+      const f = curve(n, W);
+      const ys = sample.map(f);
+      const col = NEURON_COLORS[k % NEURON_COLORS.length];
+      plotCurve(ctx, sample, ys, margin, cw, ch, xRange, yRange, col + 'cc', 2, [6, 4]);
     }
-    plotCurve(ctx, xs, step1, margin, cw, ch, xRange, yRange, 'rgba(44,111,183,0.55)', 2, [6, 4]);
-    plotCurve(ctx, xs, step2, margin, cw, ch, xRange, yRange, 'rgba(30,119,112,0.55)', 2, [6, 4]);
-    plotCurve(ctx, xs, sum, margin, cw, ch, xRange, yRange, '#d9622b', 3.2);
 
+    // aggregate sum
+    const sumY = sample.map((x) => active.reduce((acc, n) => acc + n.c * sigmoid(W * (x - n.s)), 0));
+    plotCurve(ctx, sample, sumY, margin, cw, ch, xRange, yRange, '#d9622b', 3.4);
+
+    // legend
     ctx.font = '600 12px system-ui, sans-serif';
     ctx.textAlign = 'left';
-    ctx.fillStyle = 'rgba(44,111,183,0.85)';
-    ctx.fillText('+h · step(s₁)', margin.left + 8, margin.top + 14);
-    ctx.fillStyle = 'rgba(30,119,112,0.85)';
-    ctx.fillText('−h · step(s₂)', margin.left + 8, margin.top + 30);
+    let ly = margin.top + 14;
+    for (let k = 0; k < neurons.length; k++) {
+      const n = neurons[k];
+      if (!n.on) continue;
+      ctx.fillStyle = NEURON_COLORS[k % NEURON_COLORS.length];
+      ctx.fillText(`σ${k + 1}: ${n.c >= 0 ? '+' : ''}${n.c.toFixed(1)} · step(${n.s.toFixed(2)})`, margin.left + 8, ly);
+      ly += 16;
+    }
     ctx.fillStyle = '#d9622b';
-    ctx.fillText('bump = sum', margin.left + 8, margin.top + 46);
+    ctx.fillText('Σ  aggregate sum', margin.left + 8, ly);
   }
 
-  [s1S, s2S, hS].forEach((el) => el.addEventListener('input', draw));
+  function rebuildRows() {
+    rowsBox.innerHTML = '';
+    neurons.forEach((n, k) => {
+      const row = document.createElement('div');
+      row.className = 'neuron-row' + (n.on ? '' : ' is-off');
+      row.style.borderLeftColor = NEURON_COLORS[k % NEURON_COLORS.length];
+
+      const toggle = document.createElement('button');
+      toggle.className = 'neuron-toggle';
+      toggle.style.background = n.on ? NEURON_COLORS[k % NEURON_COLORS.length] : 'transparent';
+      toggle.style.borderColor = NEURON_COLORS[k % NEURON_COLORS.length];
+      toggle.title = n.on ? 'Turn off' : 'Turn on';
+      toggle.addEventListener('click', () => { n.on = !n.on; rebuildRows(); draw(); });
+
+      const name = document.createElement('span');
+      name.className = 'neuron-name';
+      name.textContent = `σ${k + 1}`;
+
+      const posWrap = document.createElement('label');
+      posWrap.className = 'neuron-ctrl';
+      posWrap.innerHTML = `<span>position s = ${n.s.toFixed(2)}</span>`;
+      const pos = document.createElement('input');
+      pos.type = 'range'; pos.min = '0'; pos.max = '1'; pos.step = '0.01'; pos.value = String(n.s);
+      pos.addEventListener('input', () => { n.s = parseFloat(pos.value); posWrap.querySelector('span').textContent = `position s = ${n.s.toFixed(2)}`; draw(); });
+      posWrap.appendChild(pos);
+
+      const wWrap = document.createElement('label');
+      wWrap.className = 'neuron-ctrl';
+      wWrap.innerHTML = `<span>out weight = ${n.c >= 0 ? '+' : ''}${n.c.toFixed(1)}</span>`;
+      const wgt = document.createElement('input');
+      wgt.type = 'range'; wgt.min = '-1.5'; wgt.max = '1.5'; wgt.step = '0.1'; wgt.value = String(n.c);
+      wgt.addEventListener('input', () => { n.c = parseFloat(wgt.value); wWrap.querySelector('span').textContent = `out weight = ${n.c >= 0 ? '+' : ''}${n.c.toFixed(1)}`; draw(); });
+      wWrap.appendChild(wgt);
+
+      const del = document.createElement('button');
+      del.className = 'neuron-del';
+      del.textContent = '×';
+      del.title = 'Remove this sigmoid';
+      del.addEventListener('click', () => { neurons.splice(k, 1); rebuildRows(); draw(); });
+
+      row.appendChild(toggle);
+      row.appendChild(name);
+      row.appendChild(posWrap);
+      row.appendChild(wWrap);
+      row.appendChild(del);
+      rowsBox.appendChild(row);
+    });
+    addBtn.disabled = neurons.length >= 8;
+  }
+
+  addBtn.addEventListener('click', () => {
+    if (neurons.length >= 8) return;
+    neurons.push({ s: 0.5, c: 0.8, on: true });
+    rebuildRows();
+    draw();
+  });
+  resetBtn.addEventListener('click', () => {
+    neurons = bumpPreset();
+    rebuildRows();
+    draw();
+  });
+  wS.addEventListener('input', draw);
+
+  rebuildRows();
   draw();
 }
 
 // ============================================================
-// σ⁻¹ mini-illustration (the "undo the squish" aside)
+// σ⁻¹ mini-illustration
 // ============================================================
 function initLogitMini() {
   const canvas = document.getElementById('logitMiniCanvas');
@@ -416,11 +545,9 @@ function initLogitMini() {
   const f = (x) => clamp(0.5 + 0.36 * Math.sin(2 * Math.PI * x), 0.04, 0.96);
   const { ctx, w: cw, h: ch } = setupCanvas(canvas, 460, 220);
   ctx.clearRect(0, 0, cw, ch);
-  // left axis 0..1, but logit goes wide → use a shared [-4,4] frame with a 0..1 band marked
   const yRange = [-4, 4];
   const xRange = [0, 1];
   drawAxes(ctx, margin, cw, ch, xRange, yRange, 'x', '');
-  // shade the 0..1 band (where the final answer must live)
   const [, py1] = dataToPixel(0, 1, margin, cw, ch, xRange, yRange);
   const [, py0] = dataToPixel(0, 0, margin, cw, ch, xRange, yRange);
   ctx.fillStyle = 'rgba(217,98,43,0.07)';
@@ -447,13 +574,22 @@ function initLogitMini() {
 // STEP 4 — design a 1D function by hand
 // ============================================================
 const DESIGN_TARGETS = {
+  wave: { label: 'Sine wave', raw: (x) => 0.5 + 0.36 * Math.sin(2 * Math.PI * x) },
   wiggle: {
     label: "Nielsen's wiggle",
     raw: (x) => 0.22 + 0.36 * x * x + 0.32 * x * Math.sin(15 * x) + 0.05 * Math.cos(40 * x),
   },
-  wave: { label: 'Sine wave', raw: (x) => 0.5 + 0.36 * Math.sin(2 * Math.PI * x) },
   hill: { label: 'Single hill', raw: (x) => 0.12 + 0.8 * Math.exp(-Math.pow((x - 0.5) / 0.16, 2)) },
   spike: { label: 'Sharp spike', raw: (x) => 0.1 + 0.85 * Math.exp(-Math.pow((x - 0.5) / 0.05, 2)) },
+  camel: {
+    label: 'Two humps',
+    raw: (x) => 0.12 + 0.78 * (Math.exp(-Math.pow((x - 0.3) / 0.1, 2)) + Math.exp(-Math.pow((x - 0.72) / 0.1, 2))),
+  },
+  staircase: {
+    label: 'Staircase',
+    raw: (x) => 0.12 + 0.24 * (sigmoid(50 * (x - 0.25)) + sigmoid(50 * (x - 0.5)) + sigmoid(50 * (x - 0.75))),
+  },
+  cliff: { label: 'Smooth cliff', raw: (x) => 0.12 + 0.76 * sigmoid(26 * (x - 0.5)) },
   plateaus: {
     label: 'Plateaus',
     raw: (x) => 0.2 + 0.32 * sigmoid(26 * (x - 0.33)) + 0.32 * sigmoid(26 * (x - 0.66)),
@@ -464,7 +600,7 @@ function targetFn(key) {
   return (x) => clamp(raw(x), 0.04, 0.96);
 }
 
-let designState = { target: 'wave', N: 6, p: [], view: 'fn' };
+let designState = { target: 'wave', N: 8, p: [], view: 'fn' };
 
 function initDesign() {
   const canvas = document.getElementById('designCanvas');
@@ -486,9 +622,7 @@ function initDesign() {
   const steepness = () => 24 * designState.N;
   function bumpVal(x, i) {
     const W = steepness();
-    const left = i / designState.N;
-    const right = (i + 1) / designState.N;
-    return sigmoid(W * (x - left)) - sigmoid(W * (x - right));
+    return sigmoid(W * (x - i / designState.N)) - sigmoid(W * (x - (i + 1) / designState.N));
   }
   function hiddenOutput(x) {
     let H = 0;
@@ -504,6 +638,7 @@ function initDesign() {
 
   function rebuildSliders() {
     heightsBox.innerHTML = '';
+    heightsBox.classList.toggle('height-bank--dense', designState.N > 16);
     for (let i = 0; i < designState.N; i++) {
       const slot = document.createElement('div');
       slot.className = 'height-slot';
@@ -523,7 +658,7 @@ function initDesign() {
       tag.className = 'height-tag';
       tag.textContent = i + 1;
       slot.appendChild(input);
-      slot.appendChild(tag);
+      if (designState.N <= 20) slot.appendChild(tag);
       heightsBox.appendChild(slot);
     }
   }
@@ -533,7 +668,7 @@ function initDesign() {
     const logitView = designState.view === 'logit';
     nV.textContent = designState.N;
     neuronsStat.textContent = designState.N * 2;
-    slabStat.textContent = (1 / designState.N).toFixed(2);
+    slabStat.textContent = (1 / designState.N).toFixed(3);
     btnMath.classList.toggle('is-active', logitView);
     btnMath.textContent = logitView ? 'Back to the simple view' : 'Peek: the un-squished goal';
 
@@ -544,19 +679,20 @@ function initDesign() {
     drawAxes(ctx, margin, cw, ch, xRange, yRange, 'x', logitView ? 'σ⁻¹(f)' : 'y');
 
     const plotH = ch - margin.top - margin.bottom;
-    ctx.strokeStyle = 'rgba(120,110,90,0.18)';
-    ctx.lineWidth = 1;
-    for (let i = 1; i < designState.N; i++) {
-      const [px] = dataToPixel(i / designState.N, 0, margin, cw, ch, xRange, yRange);
-      ctx.beginPath();
-      ctx.moveTo(px, margin.top);
-      ctx.lineTo(px, margin.top + plotH);
-      ctx.stroke();
+    if (designState.N <= 20) {
+      ctx.strokeStyle = 'rgba(120,110,90,0.18)';
+      ctx.lineWidth = 1;
+      for (let i = 1; i < designState.N; i++) {
+        const [px] = dataToPixel(i / designState.N, 0, margin, cw, ch, xRange, yRange);
+        ctx.beginPath();
+        ctx.moveTo(px, margin.top);
+        ctx.lineTo(px, margin.top + plotH);
+        ctx.stroke();
+      }
     }
 
-    // --- show the bricks (the individual bumps) ---
+    // bricks
     if (!logitView) {
-      // function view: each bump is the plateau height it sets on its slab
       const [, pyBase] = dataToPixel(0, 0, margin, cw, ch, xRange, yRange);
       for (let i = 0; i < designState.N; i++) {
         const p = designState.p[i];
@@ -567,14 +703,13 @@ function initDesign() {
         ctx.fillStyle = `rgba(${r},${g},${b},0.16)`;
         ctx.fillRect(px0, pyTop, px1 - px0, pyBase - pyTop);
         ctx.strokeStyle = `rgba(${r},${g},${b},0.55)`;
-        ctx.lineWidth = 2;
+        ctx.lineWidth = designState.N > 20 ? 1.2 : 2;
         ctx.beginPath();
         ctx.moveTo(px0 + 1, pyTop);
         ctx.lineTo(px1 - 1, pyTop);
         ctx.stroke();
       }
     } else {
-      // logit view: the bumps add up linearly — draw each additive piece
       for (let i = 0; i < designState.N; i++) {
         const xs2 = [], pcs = [];
         for (let k = 0; k <= 160; k++) {
@@ -582,13 +717,13 @@ function initDesign() {
           xs2.push(x);
           pcs.push(logit(designState.p[i]) * bumpVal(x, i));
         }
-        plotCurve(ctx, xs2, pcs, margin, cw, ch, xRange, yRange, 'rgba(44,111,183,0.28)', 1.5);
+        plotCurve(ctx, xs2, pcs, margin, cw, ch, xRange, yRange, 'rgba(44,111,183,0.26)', 1.4);
       }
     }
 
     const xs = [], goal = [], net = [];
     let err = 0;
-    const M = 500;
+    const M = 600;
     for (let i = 0; i <= M; i++) {
       const x = i / M;
       const H = hiddenOutput(x);
@@ -622,11 +757,7 @@ function initDesign() {
     rebuildSliders();
     draw();
   });
-  btnAuto.addEventListener('click', () => {
-    autofit();
-    rebuildSliders();
-    draw();
-  });
+  btnAuto.addEventListener('click', () => { autofit(); rebuildSliders(); draw(); });
   btnMath.addEventListener('click', () => {
     designState.view = designState.view === 'logit' ? 'fn' : 'logit';
     draw();
@@ -670,8 +801,9 @@ function initTower() {
   const thrV = document.getElementById('val-tower-thr');
   const wV = document.getElementById('val-tower-w');
 
-  const G = 44;
-  let wall, ridge, cross, tower; // cached fields
+  const G = 42;
+  const orbit = { az: 0.7, el: 0.5 };
+  let wall, ridge, cross, tower;
 
   function compute() {
     const cx = parseFloat(cxS.value);
@@ -698,11 +830,10 @@ function initTower() {
       const byBump = sigmoid(W * (y - y0)) - sigmoid(W * (y - y1));
       for (let i = 0; i < G; i++) {
         const x = i / (G - 1);
-        const wallV = sigmoid(W * (x - x0)); // single step in x
         const bxBump = sigmoid(W * (x - x0)) - sigmoid(W * (x - x1));
-        const s = bxBump + byBump; // 0..2
+        const s = bxBump + byBump;
         const idx = j * G + i;
-        wall[idx] = wallV;
+        wall[idx] = sigmoid(W * (x - x0));
         ridge[idx] = bxBump;
         cross[idx] = s;
         tower[idx] = sigmoid(K * (s - thr));
@@ -711,8 +842,7 @@ function initTower() {
   }
 
   function render() {
-    const az = parseFloat(angS.value);
-    const common = { side: 320, azimuth: az, elevation: 0.5, edges: true };
+    const common = { side: 320, azimuth: orbit.az, elevation: orbit.el, edges: true };
     drawSurface(wallC, wall, G, { ...common, vmin: 0, vmax: 1 });
     drawSurface(ridgeC, ridge, G, { ...common, vmin: 0, vmax: 1 });
     drawSurface(crossC, cross, G, { ...common, vmin: 0, vmax: 2 });
@@ -720,12 +850,10 @@ function initTower() {
   }
 
   [cxS, cyS, sizeS, thrS, wS].forEach((el) =>
-    el.addEventListener('input', () => {
-      compute();
-      render();
-    })
+    el.addEventListener('input', () => { compute(); render(); })
   );
-  angS.addEventListener('input', render);
+  angS.addEventListener('input', () => { orbit.az = parseFloat(angS.value); render(); });
+  attachOrbit([wallC, ridgeC, crossC, towerC], orbit, render, angS);
 
   compute();
   render();
@@ -735,16 +863,13 @@ function initTower() {
 // STEP 6 — tile towers into a surface (in 3D)
 // ============================================================
 const SURFACE_TARGETS = {
-  spike: {
-    label: 'Single spike',
-    raw: (x, y) => Math.exp(-(Math.pow(x - 0.5, 2) + Math.pow(y - 0.5, 2)) / 0.008),
-  },
+  spike: { label: 'Single spike', raw: (x, y) => Math.exp(-(Math.pow(x - 0.5, 2) + Math.pow(y - 0.5, 2)) / 0.008) },
   spikes: {
     label: 'Four spikes',
     raw: (x, y) => {
-      const c = [[0.3, 0.3], [0.7, 0.3], [0.3, 0.7], [0.7, 0.7]];
       let v = 0;
-      for (const [a, b] of c) v += Math.exp(-(Math.pow(x - a, 2) + Math.pow(y - b, 2)) / 0.006);
+      for (const [a, b] of [[0.3, 0.3], [0.7, 0.3], [0.3, 0.7], [0.7, 0.7]])
+        v += Math.exp(-(Math.pow(x - a, 2) + Math.pow(y - b, 2)) / 0.006);
       return v;
     },
   },
@@ -754,6 +879,14 @@ const SURFACE_TARGETS = {
       Math.exp(-(Math.pow(x - 0.32, 2) + Math.pow(y - 0.34, 2)) / 0.02) -
       0.8 * Math.exp(-(Math.pow(x - 0.7, 2) + Math.pow(y - 0.68, 2)) / 0.025),
   },
+  mountains: {
+    label: 'Mountains',
+    raw: (x, y) => {
+      const g = (a, b, s) => Math.exp(-(Math.pow(x - a, 2) + Math.pow(y - b, 2)) / s);
+      return g(0.28, 0.32, 0.03) + 0.75 * g(0.62, 0.5, 0.02) + 0.9 * g(0.75, 0.74, 0.025) + 0.5 * g(0.4, 0.7, 0.015);
+    },
+  },
+  saddle: { label: 'Saddle', raw: (x, y) => Math.pow(x - 0.5, 2) - Math.pow(y - 0.5, 2) },
   ripple: {
     label: 'Ripples',
     raw: (x, y) => {
@@ -779,6 +912,7 @@ function initSurface() {
   const buttons = document.querySelectorAll('#surface-target-buttons [data-surface]');
 
   const G = 52;
+  const orbit = { az: 0.7, el: 0.5 };
   let targetField, approxField;
 
   function normalizedTarget(key) {
@@ -861,18 +995,14 @@ function initSurface() {
   }
 
   function render() {
-    const az = parseFloat(angS.value);
-    const common = { side: 430, azimuth: az, elevation: 0.5, vmin: 0, vmax: 1, edges: true };
+    const common = { side: 430, azimuth: orbit.az, elevation: orbit.el, vmin: 0, vmax: 1, edges: true };
     drawSurface(targetCanvas, targetField, G, common);
     drawSurface(approxCanvas, approxField, G, common);
   }
 
-  resS.addEventListener('input', () => {
-    surfaceState.res = parseInt(resS.value, 10);
-    compute();
-    render();
-  });
-  angS.addEventListener('input', render);
+  resS.addEventListener('input', () => { surfaceState.res = parseInt(resS.value, 10); compute(); render(); });
+  angS.addEventListener('input', () => { orbit.az = parseFloat(angS.value); render(); });
+  attachOrbit([targetCanvas, approxCanvas], orbit, render, angS);
   buttons.forEach((b) => {
     b.addEventListener('click', () => {
       buttons.forEach((bb) => bb.classList.remove('is-active'));
@@ -940,7 +1070,7 @@ function init() {
   waitForKatexAndRender();
   initNeuron();
   initStep();
-  initBump();
+  initStacker();
   initLogitMini();
   initDesign();
   initTower();

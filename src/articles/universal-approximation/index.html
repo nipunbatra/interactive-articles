@@ -99,11 +99,11 @@
         <div class="control-row">
           <div class="control-block">
             <label>Weight <span>w = <span id="val-n1-w">8</span></span></label>
-            <input type="range" id="n1-w" min="-30" max="30" step="0.5" value="8" />
+            <input type="range" id="n1-w" min="-100" max="100" step="1" value="8" />
           </div>
           <div class="control-block">
             <label>Bias <span>b = <span id="val-n1-b">-4.0</span></span></label>
-            <input type="range" id="n1-b" min="-15" max="15" step="0.5" value="-4" />
+            <input type="range" id="n1-b" min="-50" max="50" step="0.5" value="-4" />
           </div>
         </div>
 
@@ -118,8 +118,8 @@
           <strong>Notice.</strong>
           The curve always runs from $0$ on the far left to $1$ on the far
           right. Bigger $|w|$ makes the transition sharper. What happens if you
-          crank $w$ all the way to $30$? Hold that thought&mdash;it's the next
-          step.
+          crank $w$ all the way to $80$? The S squeezes into a vertical cliff
+          &mdash; a <em>step</em>. Hold that thought; it's the next move.
         </div>
       </section>
 
@@ -180,54 +180,68 @@
         <div class="step-badge">Step 3</div>
         <h2>Two steps make a bump</h2>
         <p>
-          A single step is monotone&mdash;it goes up and stays up. To get
-          something <em>local</em>, take two steps and subtract. Put a step at
-          $s_1$ with output weight $+h$, and a step at $s_2 &gt; s_1$ with output
-          weight $-h$. Add them:
+          Let's build this one slowly, by stacking sigmoids one at a time. Below
+          is a little workbench: a list of sigmoid neurons and a plot. Each
+          neuron is drawn as a <span style="color:var(--accent);font-weight:600">dashed</span>
+          curve in its own colour; the <span style="color:var(--warm);font-weight:600">orange</span>
+          line is the <strong>running total</strong>&mdash;everything added up.
+          Use the <strong>●</strong> button to switch a neuron on or off, and
+          watch the total change.
+        </p>
+        <p>
+          Start with the two neurons already there but turn the second one
+          <em>off</em>: you're left with a single <strong>rising step</strong>
+          at $s_1$, with output weight $+1$. It goes up and stays up&mdash;not
+          very local. Now turn the second one back on. It's a step at $s_2$, but
+          its output weight is $-1$, so it's a step that goes <em>down</em>. Add
+          the two together:
         </p>
         <div class="math-block" id="math-bump"></div>
         <p>
-          To the left of $s_1$ both steps are $0$, so the sum is $0$. Between
-          $s_1$ and $s_2$ the first step is &ldquo;on&rdquo; but the second
-          isn't, so the sum is $h$. After $s_2$ both are on and cancel back to
-          $0$. The result is a <strong>bump of height $h$</strong> sitting on
-          the interval $[s_1, s_2]$. <em>This is our brick.</em>
+          To the left of $s_1$ both are $0$, so the total is $0$. Between $s_1$
+          and $s_2$ only the first is on, so the total sits at $+1$. After $s_2$
+          the down-step kicks in and cancels it back to $0$. What's left is a
+          <strong>bump</strong>&mdash;a little plateau between the two steps.
+          <em>That's our brick.</em>
         </p>
         <p class="try">
-          Move the edges together for a narrow spike, apart for a wide plateau,
-          and push the height below zero to flip it upside-down.
+          Toggle the second neuron off and on to see the bump appear and vanish.
+          Drag the positions and weights. Then press <strong>Add sigmoid</strong>
+          and stack a few more&mdash;every curve you build is just a sum of these
+          soft steps.
         </p>
 
-        <div class="control-row control-row--three">
+        <div class="control-row">
           <div class="control-block">
-            <label>Left edge <span>s&#8321; = <span id="val-bump-s1">0.30</span></span></label>
-            <input type="range" id="bump-s1" min="0" max="1" step="0.01" value="0.3" />
+            <label>Steepness <span>w = <span id="val-stacker-w">30</span></span> (shared)</label>
+            <input type="range" id="stacker-w" min="6" max="120" step="1" value="30" />
           </div>
-          <div class="control-block">
-            <label>Right edge <span>s&#8322; = <span id="val-bump-s2">0.60</span></span></label>
-            <input type="range" id="bump-s2" min="0" max="1" step="0.01" value="0.6" />
-          </div>
-          <div class="control-block">
-            <label>Height <span>h = <span id="val-bump-h">1.0</span></span></label>
-            <input type="range" id="bump-h" min="-1.5" max="1.5" step="0.05" value="1" />
+          <div class="control-block control-block--actions">
+            <label>Build</label>
+            <div class="stacker-buttons">
+              <button class="action-btn action-btn--ghost action-btn--small" id="btn-stacker-add">+ Add sigmoid</button>
+              <button class="action-btn action-btn--ghost action-btn--small" id="btn-stacker-reset">Reset to a bump</button>
+            </div>
           </div>
         </div>
 
+        <div class="stacker-rows" id="stacker-rows" aria-label="Sigmoid neurons"></div>
+
         <figure class="interactive-figure">
-          <canvas id="bumpCanvas" width="920" height="320"></canvas>
+          <canvas id="stackerCanvas" width="920" height="340"></canvas>
           <figcaption>
-            <span style="color:var(--accent);font-weight:600">Dashed</span>: the
-            two underlying steps ($+h$ and $-h$).
-            <span style="color:var(--warm);font-weight:600">Solid</span>: their
-            sum, a bump of height $h$ on $[s_1, s_2]$.
+            Each <span style="font-weight:600">dashed</span> curve is one
+            sigmoid&rsquo;s contribution; the
+            <span style="color:var(--warm);font-weight:600">solid orange</span>
+            curve is their sum.
           </figcaption>
         </figure>
 
         <div class="callout callout--think">
-          <strong>One brick, three controls.</strong>
-          Width is set by the gap between the edges; height and sign by $h$.
-          That's a movable, stretchable, flippable rectangle. Now we just need a
-          lot of them.
+          <strong>Why subtraction is the trick.</strong>
+          A single step can only go up. Two steps&mdash;one up, one down a little
+          later&mdash;leave a flat island in between. That island is the only
+          shape we'll ever need: a movable, stretchable, flippable bump.
         </div>
       </section>
 
@@ -258,13 +272,16 @@
           <button class="mode-button" data-target="wiggle">Nielsen's wiggle</button>
           <button class="mode-button" data-target="hill">Single hill</button>
           <button class="mode-button" data-target="spike">Sharp spike</button>
+          <button class="mode-button" data-target="camel">Two humps</button>
+          <button class="mode-button" data-target="staircase">Staircase</button>
+          <button class="mode-button" data-target="cliff">Smooth cliff</button>
           <button class="mode-button" data-target="plateaus">Plateaus</button>
         </div>
 
         <div class="control-row control-row--three">
           <div class="control-block">
-            <label>Number of bumps <span>N = <span id="val-design-n">6</span></span></label>
-            <input type="range" id="design-n" min="3" max="14" step="1" value="6" />
+            <label>Number of bumps <span>N = <span id="val-design-n">8</span></span></label>
+            <input type="range" id="design-n" min="3" max="30" step="1" value="8" />
           </div>
           <div class="control-block control-block--actions">
             <label>Shortcut</label>
@@ -368,7 +385,8 @@
           <strong>wall</strong>: it only listens to $x$, so it's a cliff running
           all the way along $y$. Watch the four panels below&mdash;they're the
           same construction as before, just lifted into 3-D. Drag any slider;
-          all four update together. <strong>Rotate</strong> to look around.
+          all four update together. <strong>Drag any panel to orbit it</strong>
+          (or use the Rotate slider) and look around the build.
         </p>
         <ol class="stage-legend">
           <li><strong>1. Wall.</strong> One step in $x$ &mdash; a cliff.</li>
@@ -457,14 +475,16 @@
           The <strong>Single spike</strong> target makes the towers easy to
           see&mdash;they stack into a little stepped pyramid. Drag
           <strong>resolution</strong> up to add towers and watch the blocks
-          shrink toward the smooth target. <strong>Rotate</strong> to admire the
-          skyline.
+          shrink toward the smooth target. <strong>Drag a surface to orbit
+          it</strong> (or use the Rotate slider) and admire the skyline.
         </p>
 
         <div class="button-row" id="surface-target-buttons" role="group" aria-label="Target surface">
           <button class="mode-button is-active" data-surface="spike">Single spike</button>
           <button class="mode-button" data-surface="spikes">Four spikes</button>
           <button class="mode-button" data-surface="peaks">Peak &amp; pit</button>
+          <button class="mode-button" data-surface="mountains">Mountains</button>
+          <button class="mode-button" data-surface="saddle">Saddle</button>
           <button class="mode-button" data-surface="ripple">Ripples</button>
         </div>
 
