@@ -1,64 +1,666 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>BatchNorm vs LayerNorm vs RMSNorm</title>
-    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="../vendor/katex/katex.min.css" />
-    <link rel="stylesheet" href="../shared.css" />
-    <link rel="stylesheet" href="styles.css" />
-  </head>
-  <body>
-    <article class="article">
-      <header class="article-header">
-        <a class="back-link" href="../index.html">&larr; Explainer Library</a>
-        <p class="kicker">Interactive Explainer</p>
-        <h1>BatchNorm vs LayerNorm vs RMSNorm</h1>
-        <p class="abstract">
-          Three normalizations. Same equation shape: subtract a mean,
-          divide by a std (RMSNorm skips the mean). The only difference is
-          <em>which slice of the tensor</em> the statistics come from. That
-          one design choice is why BN dominated CNNs and LN dominates
-          Transformers.
-        </p>
-        <div class="byline">
-          <span>~12 min</span>
-          <span>Regularization &middot; Normalization</span>
-        </div>
-      </header>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BatchNorm vs LayerNorm vs GroupNorm vs InstanceNorm</title>
 
-      <section class="step-section">
-        <div class="step-badge">Step 1</div>
-        <h2>One equation, three slices</h2>
-        <p>All three follow: $\hat x = \gamma \cdot (x - \mu)/\sigma + \beta$.</p>
-        <ul class="explanation-list">
-          <li><strong>BatchNorm</strong> &middot; $\mu, \sigma$ from <em>each channel, across batch + spatial</em>.</li>
-          <li><strong>LayerNorm</strong> &middot; $\mu, \sigma$ from <em>each example, across channels</em>.</li>
-          <li><strong>RMSNorm</strong> &middot; like LN but skip the mean: $\hat x = \gamma \cdot x / \text{RMS}(x)$.</li>
-        </ul>
-      </section>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 
-      <section class="step-section">
-        <div class="step-badge">Try it</div>
-        <h2>The widget</h2>
-        <div id="widget-root">
-          <p><em>Interactive tensor viewer with BN / LN / RMSNorm toggle.</em></p>
-          <p><em>Highlights the exact slice each method averages over.</em></p>
-          <p><em>Shows train vs eval running-stat divergence for BN.</em></p>
-          <p style="color:#888"><em>Status: scaffold. Implementation pending.</em></p>
-        </div>
-      </section>
+<link rel="stylesheet" href="../vendor/katex/katex.min.css">
+<script defer src="../vendor/katex/katex.min.js"></script>
 
-      <section class="step-section">
-        <div class="step-badge">Step 2</div>
-        <h2>Why each wins where it wins</h2>
-        <ul class="explanation-list">
-          <li><strong>CNNs &middot; BN.</strong> Channels are repeated detectors; batch + spatial is a lot of samples.</li>
-          <li><strong>Transformers &middot; LN/RMSNorm.</strong> Sequences vary in length; no batch dependence is essential.</li>
-          <li><strong>2024+ &middot; RMSNorm wins.</strong> One fewer parameter, similar accuracy, $\sim$5% faster.</li>
-        </ul>
-      </section>
-    </article>
-  </body>
+<style>
+:root {
+  --serif: 'Source Serif 4', Georgia, serif;
+  --sans: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+  --mono: 'IBM Plex Mono', monospace;
+  --bg: #fdfcf9;
+  --paper: #ffffff;
+  --text: #2f2a22;
+  --muted: #6e665b;
+  --border: #e2d8c6;
+  --accent: #2c6fb7;
+  --warm: #d9622b;
+  --success: #1e7770;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; font-family: var(--serif); color: var(--text); background: var(--bg); line-height: 1.65; }
+
+.article { max-width: 980px; margin: 0 auto; padding: 2.5rem 1.5rem 5rem; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; color: var(--muted); text-decoration: none; font-family: var(--sans); font-size: 0.9rem; }
+.back-link:hover { color: var(--text); }
+.article-header { margin-bottom: 3rem; text-align: center; }
+.kicker { margin: 0 0 0.75rem; font-family: var(--sans); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); }
+h1 { margin: 0 auto 1rem; font-size: clamp(2.1rem, 4.6vw, 3.1rem); line-height: 1.1; letter-spacing: -0.02em; color: #1a1815; max-width: 22ch; }
+.abstract { margin: 0 auto 1rem; max-width: 64ch; font-size: 1.15rem; color: #4d463d; }
+.byline { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-top: 1.4rem; padding-top: 1rem; border-top: 1px solid var(--border); color: var(--muted); font-family: var(--sans); font-size: 0.92rem; }
+
+.step-section {
+  position: relative;
+  margin-top: 4rem;
+  padding: 3rem 2.5rem;
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.03);
+}
+.step-badge {
+  position: absolute;
+  top: -16px;
+  left: 32px;
+  background: var(--accent);
+  color: white;
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.4rem 1.2rem;
+  border-radius: 999px;
+  box-shadow: 0 4px 12px rgba(44, 111, 183, 0.25);
+}
+h2 { margin: 0 0 1rem; font-size: clamp(1.55rem, 3.4vw, 2.1rem); line-height: 1.15; color: #1a1815; }
+h3 { margin-top: 2rem; margin-bottom: 0.8rem; font-size: 1.2rem; color: #1a1815; }
+p { max-width: 68ch; font-size: 1.1rem; }
+ul { max-width: 68ch; font-size: 1.1rem; padding-left: 1.4rem; }
+li { margin-bottom: 0.5rem; }
+.math-block { margin: 1.5rem 0; text-align: center; font-size: 1.05rem; overflow-x: auto; }
+
+/* ---------- SEGMENTED NORM TOGGLE ---------- */
+.norm-toggle { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.4rem 0 1.6rem; }
+.norm-toggle button {
+  font-family: var(--sans); font-weight: 600; font-size: 0.9rem;
+  padding: 0.6rem 1.15rem; border-radius: 10px;
+  border: 1.5px solid var(--border); background: var(--paper); color: var(--text);
+  cursor: pointer; transition: all 0.15s ease;
+}
+.norm-toggle button:hover { border-color: var(--accent); color: var(--accent); }
+.norm-toggle button.active {
+  background: var(--accent); color: #fff; border-color: var(--accent);
+  box-shadow: 0 4px 12px rgba(44, 111, 183, 0.25);
+}
+.norm-toggle button .sub { display: block; font-weight: 500; font-size: 0.72rem; opacity: 0.75; margin-top: 1px; }
+
+/* ---------- CONTROLS ---------- */
+.control-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 1.4rem;
+  margin: 1.4rem 0;
+}
+.control-block { display: flex; flex-direction: column; gap: 0.5rem; transition: opacity 0.15s; }
+.control-block.dim { opacity: 0.35; pointer-events: none; }
+.control-block label {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-family: var(--sans); font-size: 0.9rem; font-weight: 600; color: var(--text);
+}
+.control-block label span { font-family: var(--mono); color: var(--warm); font-weight: 500; font-size: 0.95rem; }
+input[type="range"] {
+  -webkit-appearance: none; appearance: none;
+  width: 100%; height: 4px; background: var(--border); border-radius: 2px; outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 18px; height: 18px; background: var(--accent);
+  border-radius: 50%; cursor: pointer; border: 3px solid var(--paper);
+  box-shadow: 0 2px 6px rgba(44, 111, 183, 0.4);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 18px; height: 18px; background: var(--accent); border-radius: 50%;
+  cursor: pointer; border: 3px solid var(--paper);
+}
+
+/* ---------- TENSOR FIGURE ---------- */
+.interactive-figure { margin: 1.4rem 0 0.6rem; }
+.interactive-figure canvas {
+  display: block; width: 100%;
+  background: #fbfaf6; border: 1px solid var(--border);
+  border-radius: 12px; cursor: pointer;
+}
+.interactive-figure figcaption { margin-top: 0.7rem; font-size: 0.92rem; color: var(--muted); text-align: center; font-style: italic; }
+
+.legend { display: flex; gap: 1.3rem; flex-wrap: wrap; justify-content: center; font-family: var(--sans); font-size: 0.85rem; color: var(--muted); margin: 0.6rem 0 0; }
+.legend .chip { display: inline-flex; align-items: center; gap: 0.42rem; }
+.legend .sw { width: 15px; height: 15px; border-radius: 4px; display: inline-block; border: 1px solid rgba(0,0,0,0.08); }
+.legend .sw-ring { width: 15px; height: 15px; border-radius: 4px; display: inline-block; border: 2.5px solid var(--warm); }
+
+/* ---------- FORMULA + USED NOTE ---------- */
+.norm-formula { margin: 1.6rem 0 0.4rem; text-align: center; overflow-x: auto; min-height: 2.6rem; }
+.used-note {
+  margin: 1.2rem 0 0; padding: 0.95rem 1.2rem; border-radius: 12px;
+  border-left: 4px solid var(--accent); background: rgba(44, 111, 183, 0.06);
+  font-size: 1.02rem; font-family: var(--serif);
+}
+.used-note strong { color: var(--accent); }
+
+/* ---------- STAT PILLS ---------- */
+.stat-strip { display: flex; gap: 1rem; flex-wrap: wrap; margin: 1.5rem 0 0; }
+.stat-pill {
+  flex: 1 1 150px; min-width: 150px; background: var(--paper);
+  border: 1.5px solid var(--border); border-radius: 12px;
+  padding: 0.9rem 1.1rem; display: flex; flex-direction: column; gap: 0.2rem; text-align: left;
+}
+.stat-pill .stat-label { font-family: var(--sans); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; }
+.stat-pill .stat-value { font-family: var(--mono); font-size: 1.5rem; font-weight: 600; color: var(--text); }
+.stat-pill--accent { border-color: var(--accent); }
+.stat-pill--accent .stat-value { color: var(--accent); }
+.stat-pill--warm { border-color: var(--warm); }
+.stat-pill--warm .stat-value { color: var(--warm); }
+.stat-sub { font-family: var(--sans); font-size: 0.78rem; color: var(--muted); }
+
+/* ---------- CALLOUTS ---------- */
+.callout {
+  margin: 2rem 0 0.5rem; padding: 1.2rem 1.5rem; border-radius: 12px;
+  border-left: 4px solid var(--accent); background: rgba(44, 111, 183, 0.05); font-size: 1.02rem;
+}
+.callout strong { color: var(--accent); }
+.callout--think { border-left-color: var(--success); background: rgba(30, 119, 112, 0.06); }
+.callout--think strong { color: var(--success); }
+.callout--warn { border-left-color: var(--warm); background: rgba(217, 98, 43, 0.06); }
+.callout--warn strong { color: var(--warm); }
+
+footer { margin-top: 4rem; text-align: center; font-family: var(--sans); font-size: 0.85rem; color: var(--muted); }
+
+@media (max-width: 640px) { .step-section { padding: 2rem 1.4rem; } }
+</style>
+</head>
+<body>
+
+<article class="article">
+  <header class="article-header">
+    <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+    <p class="kicker">Interactive Explainer</p>
+    <h1>BatchNorm vs LayerNorm vs GroupNorm vs InstanceNorm</h1>
+    <p class="abstract">
+      Four normalization layers, one equation shape: subtract a mean, divide by a
+      standard deviation. The <em>only</em> thing that changes is <strong>which slice
+      of the activation tensor</strong> the mean and variance are pooled over. That
+      single design choice is why BatchNorm ruled CNNs, LayerNorm rules Transformers,
+      and GroupNorm rescued small-batch training. Pick a norm below and watch exactly
+      which elements share one statistic.
+    </p>
+    <div class="byline">
+      <span>~12 min</span>
+      <span>Normalization &middot; CNNs &middot; Transformers</span>
+    </div>
+  </header>
+
+  <section class="step-section" id="prelude">
+    <div class="step-badge">Prelude</div>
+    <h2>One equation, four slices</h2>
+    <p>
+      Take a batch of activations shaped $(N, C, H, W)$ &mdash; $N$ examples, $C$
+      channels, and an $H\times W$ spatial map per channel. Every normalization layer
+      applies the same transform to each element, then a learned scale $\gamma$ and
+      shift $\beta$:
+    </p>
+    <div class="math-block">
+      $$\hat{x} = \gamma \cdot \frac{x - \mu}{\sqrt{\sigma^2 + \epsilon}} + \beta .$$
+    </div>
+    <p>
+      The mean $\mu$ and variance $\sigma^2$ are what differ. Each method sums over a
+      different set of axes &mdash; a different <em>slice</em> of the tensor &mdash;
+      and therefore produces a different number of independent statistics:
+    </p>
+    <ul>
+      <li><strong>BatchNorm</strong> &middot; pool over $N, H, W$ &mdash; one $(\mu,\sigma^2)$ <em>per channel</em>.</li>
+      <li><strong>LayerNorm</strong> &middot; pool over $C, H, W$ &mdash; one <em>per sample</em>.</li>
+      <li><strong>InstanceNorm</strong> &middot; pool over $H, W$ &mdash; one <em>per (sample, channel)</em>.</li>
+      <li><strong>GroupNorm</strong> &middot; pool over a channel group $+\,H, W$ &mdash; one <em>per (sample, group)</em>.</li>
+    </ul>
+  </section>
+
+  <section class="step-section" id="lab">
+    <div class="step-badge">The Lab</div>
+    <h2>Which elements share one statistic?</h2>
+    <p>
+      Below is one activation tensor. Rows are the $N$ examples in the batch, columns
+      are the $C$ channels, and each little tile is that channel's $H\times W$ spatial
+      map (here $2\times2$). Choose a normalization scheme &mdash; the highlighted cells
+      are <strong>exactly the elements averaged together for one</strong> $(\mu,\sigma^2)$.
+      <em>Click any tile</em> to move the reference cell and see which slice it belongs to.
+    </p>
+
+    <div class="norm-toggle" id="normToggle">
+      <button data-norm="bn" class="active">BatchNorm<span class="sub">over N, H, W</span></button>
+      <button data-norm="ln">LayerNorm<span class="sub">over C, H, W</span></button>
+      <button data-norm="gn">GroupNorm<span class="sub">over group, H, W</span></button>
+      <button data-norm="in">InstanceNorm<span class="sub">over H, W</span></button>
+    </div>
+
+    <div class="control-row">
+      <div class="control-block" id="ctlN">
+        <label>Batch size $N$ <span id="nVal">4</span></label>
+        <input type="range" id="nSlider" min="1" max="6" step="1" value="4">
+      </div>
+      <div class="control-block" id="ctlC">
+        <label>Channels $C$ <span id="cVal">6</span></label>
+        <input type="range" id="cSlider" min="1" max="8" step="1" value="6">
+      </div>
+      <div class="control-block dim" id="ctlG">
+        <label>Channels / group $G$ <span id="gVal">3</span></label>
+        <input type="range" id="gSlider" min="1" max="8" step="1" value="3">
+      </div>
+    </div>
+
+    <figure class="interactive-figure">
+      <canvas id="tensorCanvas" width="880" height="360"></canvas>
+      <figcaption id="figCap">Each tile is a channel's 2&times;2 spatial map. Blue tiles are pooled into one mean &amp; variance.</figcaption>
+    </figure>
+
+    <div class="legend">
+      <span class="chip"><span class="sw" style="background:#2c6fb7"></span> averaged together (one $\mu,\sigma^2$)</span>
+      <span class="chip"><span class="sw" style="background:#c9c2b6"></span> other elements</span>
+      <span class="chip"><span class="sw-ring"></span> reference cell &middot; click to move</span>
+    </div>
+
+    <div class="norm-formula" id="normFormula"></div>
+
+    <div class="stat-strip">
+      <div class="stat-pill stat-pill--accent">
+        <span class="stat-label">Mean $\mu$ of highlighted</span>
+        <span class="stat-value" id="meanVal">&mdash;</span>
+      </div>
+      <div class="stat-pill stat-pill--warm">
+        <span class="stat-label">Variance $\sigma^2$ of highlighted</span>
+        <span class="stat-value" id="varVal">&mdash;</span>
+      </div>
+      <div class="stat-pill">
+        <span class="stat-label">Elements pooled</span>
+        <span class="stat-value" id="cntVal">&mdash;</span>
+        <span class="stat-sub" id="cntSub">&mdash;</span>
+      </div>
+    </div>
+
+    <div class="used-note" id="usedNote"></div>
+
+    <div class="callout callout--think">
+      <strong>Try this.</strong> Keep the reference tile fixed and flip between
+      <em>BatchNorm</em> and <em>LayerNorm</em>. Watch the mean pill: BatchNorm pools a
+      whole channel across the batch, so its statistic barely moves when you click a
+      different sample &mdash; but LayerNorm re-computes a fresh mean for <em>each</em>
+      sample, so it jumps. That batch-vs-sample split is the entire story: BatchNorm
+      couples examples together (great with big batches, fragile with tiny ones);
+      LayerNorm treats every example alone (perfect for variable-length Transformer
+      sequences). Now drag $G$ under GroupNorm from $1$ up to $C$ &mdash; at $G=1$ it
+      <em>is</em> InstanceNorm, and at $G=C$ it <em>is</em> LayerNorm.
+    </div>
+  </section>
+
+  <section class="step-section" id="why">
+    <div class="step-badge">The Payoff</div>
+    <h2>Why each wins where it wins</h2>
+    <ul>
+      <li>
+        <strong>CNNs with large batches &middot; BatchNorm.</strong> A channel is a
+        repeated feature detector applied at every spatial location and every image, so
+        $N\!\cdot\!H\!\cdot\!W$ samples give a stable estimate of its mean. The catch:
+        the statistic depends on the <em>whole batch</em>, so a batch of 2&ndash;4 (common
+        in detection/segmentation) makes it noisy, and train vs eval must swap in running
+        averages.
+      </li>
+      <li>
+        <strong>Transformers &amp; RNNs &middot; LayerNorm.</strong> Sequence lengths
+        vary and batches can be size 1, so <em>no batch dependence</em> is essential.
+        LayerNorm normalizes each token's feature vector on its own &mdash; identical
+        behaviour at train and eval, no running stats.
+      </li>
+      <li>
+        <strong>Small-batch vision &middot; GroupNorm.</strong> It keeps LayerNorm's
+        batch-independence but splits channels into groups, recovering some of the
+        per-channel structure BatchNorm exploited. It matches BatchNorm's accuracy on
+        ImageNet at batch size 2, where BatchNorm collapses.
+      </li>
+      <li>
+        <strong>Style transfer &middot; InstanceNorm.</strong> Normalizing each image
+        and channel independently strips out per-image contrast and colour statistics
+        &mdash; exactly the "style" you then want to repaint, which is why it is the
+        default in style-transfer and many GAN generators.
+      </li>
+    </ul>
+    <div class="callout callout--warn">
+      <strong>And RMSNorm?</strong> The modern Transformer favourite is just LayerNorm
+      with the mean-centering dropped: $\hat{x} = \gamma \cdot x / \sqrt{\overline{x^2} + \epsilon}$.
+      Same slice as LayerNorm (across $C$), but it skips subtracting $\mu$ &mdash; one
+      fewer statistic and one fewer parameter for near-identical accuracy. Every method
+      here is a variation on the same question you were just clicking through:
+      <em>over which axes do we pool?</em>
+    </div>
+  </section>
+
+  <footer>Part of the ES 667 Deep Learning explainer series &middot; Normalization</footer>
+</article>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+  /* ================= config ================= */
+  var HW = 2, S = HW * HW;          // spatial map is HW x HW
+  var MAXN = 6, MAXC = 8;
+  var cfg = { N: 4, C: 6, G: 3, norm: 'bn', n0: 0, c0: 0 };
+
+  /* ================= seeded activations ================= */
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = a + 0x6D2B79F5 | 0;
+      var t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  var rng = mulberry32(20260523);
+  var spare = null;
+  function randn() {
+    if (spare !== null) { var s = spare; spare = null; return s; }
+    var u, v, q;
+    do { u = 2 * rng() - 1; v = 2 * rng() - 1; q = u * u + v * v; } while (q >= 1 || q === 0);
+    var m = Math.sqrt(-2 * Math.log(q) / q);
+    spare = v * m; return u * m;
+  }
+  // Each channel gets its own base level so BatchNorm (per-channel) is tight
+  // while LayerNorm (across channels) sees more spread — pedagogically honest.
+  var chBase = [];
+  for (var c = 0; c < MAXC; c++) chBase[c] = 0.30 + 0.45 * rng();
+  var vals = new Float64Array(MAXN * MAXC * S);
+  for (var n = 0; n < MAXN; n++)
+    for (var cc = 0; cc < MAXC; cc++)
+      for (var s2 = 0; s2 < S; s2++) {
+        var x = chBase[cc] + 0.12 * randn();
+        x = Math.max(0.03, Math.min(0.97, x));
+        vals[(n * MAXC + cc) * S + s2] = x;
+      }
+  function getVal(n, c, s) { return vals[(n * MAXC + c) * S + s]; }
+
+  /* ================= membership ================= */
+  function grp(c) { return Math.floor(c / cfg.G); }
+  function inSet(n, c) {
+    switch (cfg.norm) {
+      case 'bn': return c === cfg.c0;
+      case 'ln': return n === cfg.n0;
+      case 'in': return n === cfg.n0 && c === cfg.c0;
+      case 'gn': return n === cfg.n0 && grp(c) === grp(cfg.c0);
+    }
+    return false;
+  }
+  function groupSize(gi) {
+    var cnt = 0;
+    for (var c = 0; c < cfg.C; c++) if (grp(c) === gi) cnt++;
+    return cnt;
+  }
+
+  /* ================= colours ================= */
+  var GRAY_LO = [238, 235, 229], GRAY_HI = [150, 142, 130];
+  var BLUE_LO = [204, 224, 245], BLUE_HI = [26, 82, 146];
+  function lerp(a, b, t) {
+    return 'rgb(' + Math.round(a[0] + (b[0] - a[0]) * t) + ',' +
+      Math.round(a[1] + (b[1] - a[1]) * t) + ',' +
+      Math.round(a[2] + (b[2] - a[2]) * t) + ')';
+  }
+  function heat(v, hot) {
+    return hot ? lerp(BLUE_LO, BLUE_HI, v) : lerp(GRAY_LO, GRAY_HI, v);
+  }
+  function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  /* ================= layout ================= */
+  var canvas = document.getElementById('tensorCanvas');
+  var LAY = null;
+  function computeLayout() {
+    var host = canvas.parentElement;
+    var cssW = Math.max(320, Math.min(host.clientWidth || 880, 880));
+    var leftM = 54, topM = 34, rightM = 14, botM = 10, gap = 8;
+    var availW = cssW - leftM - rightM;
+    var blockW = (availW - (cfg.C - 1) * gap) / cfg.C;
+    blockW = Math.max(24, Math.min(blockW, 88));
+    var blockH = blockW;
+    var usedW = cfg.C * blockW + (cfg.C - 1) * gap;
+    var x0 = leftM + Math.max(0, (availW - usedW) / 2);
+    var cssH = topM + cfg.N * blockH + (cfg.N - 1) * gap + botM;
+    return { cssW: cssW, cssH: cssH, leftM: leftM, topM: topM, gap: gap,
+             blockW: blockW, blockH: blockH, x0: x0, usedW: usedW };
+  }
+  function blockX(L, c) { return L.x0 + c * (L.blockW + L.gap); }
+  function blockY(L, n) { return L.topM + n * (L.blockH + L.gap); }
+
+  function setupCanvas(cssW, cssH) {
+    var dpr = window.devicePixelRatio || 1;
+    canvas.style.width = cssW + 'px';
+    canvas.style.height = cssH + 'px';
+    canvas.width = Math.round(cssW * dpr);
+    canvas.height = Math.round(cssH * dpr);
+    var ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return ctx;
+  }
+
+  /* ================= draw ================= */
+  function draw() {
+    var L = computeLayout();
+    LAY = L;
+    var ctx = setupCanvas(L.cssW, L.cssH);
+    ctx.clearRect(0, 0, L.cssW, L.cssH);
+
+    var subGap = HW > 1 ? 2 : 0;
+    var subW = (L.blockW - (HW - 1) * subGap) / HW;
+
+    // axis captions
+    ctx.fillStyle = '#8a8072';
+    ctx.font = '600 11px Manrope, sans-serif';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+    ctx.fillText('channels (c) →', L.x0, 14);
+    ctx.save();
+    ctx.translate(15, L.topM + (cfg.N * L.blockH + (cfg.N - 1) * L.gap) / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.textAlign = 'center';
+    ctx.fillText('batch (n) →', 0, 0);
+    ctx.restore();
+
+    // group separators (GroupNorm only) — faint dashed verticals between groups
+    if (cfg.norm === 'gn' && cfg.G < cfg.C) {
+      ctx.strokeStyle = 'rgba(47,42,34,0.18)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 4]);
+      for (var c = cfg.G; c < cfg.C; c += cfg.G) {
+        var gx = blockX(L, c) - L.gap / 2;
+        ctx.beginPath();
+        ctx.moveTo(gx, L.topM - 6);
+        ctx.lineTo(gx, L.topM + cfg.N * L.blockH + (cfg.N - 1) * L.gap + 2);
+        ctx.stroke();
+      }
+      ctx.setLineDash([]);
+    }
+
+    // column (channel) labels
+    ctx.font = '600 11px IBM Plex Mono, monospace';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    for (var cl = 0; cl < cfg.C; cl++) {
+      ctx.fillStyle = (cl === cfg.c0) ? '#d9622b' : '#a49a89';
+      ctx.fillText(cl, blockX(L, cl) + L.blockW / 2, L.topM - 8);
+    }
+    // row (batch) labels
+    ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    for (var rl = 0; rl < cfg.N; rl++) {
+      ctx.fillStyle = (rl === cfg.n0) ? '#d9622b' : '#a49a89';
+      ctx.fillText(rl, L.x0 - 8, blockY(L, rl) + L.blockH / 2);
+    }
+
+    // blocks
+    for (var nn = 0; nn < cfg.N; nn++) {
+      for (var ch = 0; ch < cfg.C; ch++) {
+        var bx = blockX(L, ch);
+        var by = blockY(L, nn);
+        var hot = inSet(nn, ch);
+        for (var s = 0; s < S; s++) {
+          var sr = Math.floor(s / HW), sc = s % HW;
+          var x = bx + sc * (subW + subGap);
+          var y = by + sr * (subW + subGap);
+          ctx.fillStyle = heat(getVal(nn, ch, s), hot);
+          roundRect(ctx, x, y, subW, subW, Math.min(3, subW / 4));
+          ctx.fill();
+        }
+        // block outline
+        if (hot) {
+          ctx.strokeStyle = '#1a5292';
+          ctx.lineWidth = 2.4;
+        } else {
+          ctx.strokeStyle = 'rgba(47,42,34,0.10)';
+          ctx.lineWidth = 1;
+        }
+        roundRect(ctx, bx - 1.5, by - 1.5, L.blockW + 3, L.blockH + 3, 5);
+        ctx.stroke();
+      }
+    }
+
+    // reference-cell ring
+    var rx = blockX(L, cfg.c0), ry = blockY(L, cfg.n0);
+    ctx.strokeStyle = '#d9622b';
+    ctx.lineWidth = 2.8;
+    roundRect(ctx, rx - 3.5, ry - 3.5, L.blockW + 7, L.blockH + 7, 7);
+    ctx.stroke();
+  }
+
+  /* ================= stats + formula + notes ================= */
+  var FORMULA = {
+    bn: '\\mu_c=\\dfrac{1}{N\\,H\\,W}\\sum_{n}\\sum_{h,w} x_{nchw}',
+    ln: '\\mu_n=\\dfrac{1}{C\\,H\\,W}\\sum_{c}\\sum_{h,w} x_{nchw}',
+    in: '\\mu_{nc}=\\dfrac{1}{H\\,W}\\sum_{h,w} x_{nchw}',
+    gn: '\\mu_{ng}=\\dfrac{1}{(C/G)\\,H\\,W}\\sum_{c\\in\\mathcal{G}_g}\\sum_{h,w} x_{nchw}'
+  };
+  var USED = {
+    bn: '<strong>BatchNorm</strong> &middot; CNNs with a large batch. Statistics pool the whole batch per channel, so they are stable only when the batch is big &mdash; and train vs eval must swap in running averages.',
+    ln: '<strong>LayerNorm</strong> &middot; Transformers &amp; RNNs. No batch dependence, so it behaves identically at batch size 1 and with variable-length sequences.',
+    in: '<strong>InstanceNorm</strong> &middot; style transfer &amp; GANs. Normalizing each image-channel on its own erases per-image contrast so a new style can be painted in.',
+    gn: '<strong>GroupNorm</strong> &middot; detection &amp; small-batch training. A middle ground: batch-independent like LayerNorm, but grouped channels keep some of BatchNorm’s per-channel structure.'
+  };
+
+  function computeStats() {
+    var sum = 0, k = 0, arr = [];
+    for (var n = 0; n < cfg.N; n++)
+      for (var c = 0; c < cfg.C; c++)
+        if (inSet(n, c))
+          for (var s = 0; s < S; s++) { var v = getVal(n, c, s); sum += v; k++; arr.push(v); }
+    var mean = sum / k, vs = 0;
+    for (var i = 0; i < arr.length; i++) vs += (arr[i] - mean) * (arr[i] - mean);
+    return { mean: mean, varr: vs / k, count: k };
+  }
+  function setDesc() {
+    var sp = HW + '×' + HW;
+    switch (cfg.norm) {
+      case 'bn': return cfg.N + ' samples × 1 channel × ' + sp;
+      case 'ln': return '1 sample × ' + cfg.C + ' channels × ' + sp;
+      case 'in': return '1 sample × 1 channel × ' + sp;
+      case 'gn': return '1 sample × ' + groupSize(grp(cfg.c0)) + ' channels × ' + sp;
+    }
+    return '';
+  }
+
+  var katexReady = false;
+  function renderFormula() {
+    var el = document.getElementById('normFormula');
+    function go() {
+      if (window.katex) {
+        katexReady = true;
+        try {
+          katex.render(FORMULA[cfg.norm], el, { displayMode: true, throwOnError: false });
+        } catch (e) { el.textContent = FORMULA[cfg.norm]; }
+      } else if (!katexReady) {
+        setTimeout(go, 60);
+      }
+    }
+    go();
+  }
+
+  function updatePanels() {
+    var st = computeStats();
+    document.getElementById('meanVal').textContent = st.mean.toFixed(3);
+    document.getElementById('varVal').textContent = st.varr.toFixed(4);
+    document.getElementById('cntVal').textContent = st.count;
+    document.getElementById('cntSub').textContent = setDesc();
+    document.getElementById('usedNote').innerHTML = USED[cfg.norm];
+    var ng = Math.ceil(cfg.C / cfg.G);
+    document.getElementById('figCap').innerHTML =
+      cfg.norm === 'gn'
+        ? 'Channels split into <strong>' + ng + '</strong> group' + (ng === 1 ? '' : 's')
+          + ' of ' + cfg.G + '. Blue tiles share one mean &amp; variance.'
+        : 'Each tile is a channel’s ' + HW + '×' + HW
+          + ' spatial map. Blue tiles are pooled into one mean &amp; variance.';
+    renderFormula();
+  }
+
+  /* ================= full render ================= */
+  function render() { draw(); updatePanels(); }
+
+  /* ================= interaction ================= */
+  // click a tile -> set reference (n0, c0)
+  canvas.addEventListener('click', function (e) {
+    if (!LAY) return;
+    var rect = canvas.getBoundingClientRect();
+    var px = e.clientX - rect.left, py = e.clientY - rect.top;
+    for (var n = 0; n < cfg.N; n++) {
+      for (var c = 0; c < cfg.C; c++) {
+        var bx = blockX(LAY, c), by = blockY(LAY, n);
+        if (px >= bx - 3 && px <= bx + LAY.blockW + 3 &&
+            py >= by - 3 && py <= by + LAY.blockH + 3) {
+          cfg.n0 = n; cfg.c0 = c; render(); return;
+        }
+      }
+    }
+  });
+
+  // norm toggle
+  var toggleBtns = document.querySelectorAll('#normToggle button');
+  toggleBtns.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      toggleBtns.forEach(function (b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      cfg.norm = btn.dataset.norm;
+      document.getElementById('ctlG').classList.toggle('dim', cfg.norm !== 'gn');
+      render();
+    });
+  });
+
+  // sliders
+  var nS = document.getElementById('nSlider');
+  var cS = document.getElementById('cSlider');
+  var gS = document.getElementById('gSlider');
+  nS.addEventListener('input', function () {
+    cfg.N = +nS.value;
+    document.getElementById('nVal').textContent = cfg.N;
+    if (cfg.n0 >= cfg.N) cfg.n0 = cfg.N - 1;
+    render();
+  });
+  cS.addEventListener('input', function () {
+    cfg.C = +cS.value;
+    document.getElementById('cVal').textContent = cfg.C;
+    gS.max = cfg.C;
+    if (cfg.G > cfg.C) { cfg.G = cfg.C; gS.value = cfg.G; document.getElementById('gVal').textContent = cfg.G; }
+    if (cfg.c0 >= cfg.C) cfg.c0 = cfg.C - 1;
+    render();
+  });
+  gS.addEventListener('input', function () {
+    cfg.G = +gS.value;
+    document.getElementById('gVal').textContent = cfg.G;
+    render();
+  });
+
+  window.addEventListener('resize', function () { draw(); });
+
+  /* ================= go ================= */
+  gS.max = cfg.C;
+  render();
+});
+</script>
+
+</body>
 </html>

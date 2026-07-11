@@ -476,10 +476,17 @@ figcaption {
   flex: 0 1 180px;
 }
 
+.corruption-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(220px, 0.75fr);
+  gap: 1rem;
+  padding: 1.2rem 1.1rem;
+  align-items: start;
+}
+
 .corruption-grid {
   display: grid;
   gap: 0.6rem;
-  padding: 1.2rem 1.1rem;
 }
 
 .corrupt-row {
@@ -494,6 +501,67 @@ figcaption {
   color: var(--muted);
   width: 80px;
   text-align: right;
+}
+
+/* ── Masking schedule mini-chart ── */
+
+.schedule-panel {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem 1.05rem 1.1rem;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #fbfbfd;
+}
+
+.schedule-panel canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 260 / 170;
+}
+
+.schedule-readout {
+  display: flex;
+  gap: 0.9rem;
+}
+
+.schedule-stat {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.schedule-stat-label {
+  font-family: var(--sans);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+}
+
+.schedule-stat strong {
+  font-family: var(--mono);
+  font-size: 1.15rem;
+  font-weight: 600;
+}
+
+.schedule-bar {
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(60, 104, 207, 0.16);
+  overflow: hidden;
+}
+
+.schedule-bar__masked {
+  height: 100%;
+  width: 45%;
+  border-radius: 999px;
+  background: var(--coral);
+  transition: width 90ms ease;
+}
+
+.aside--contrast {
+  border-left: 3px solid var(--coral);
 }
 
 .char-row {
@@ -924,8 +992,13 @@ figcaption {
   .compare-grid,
   .step-compare,
   .training-shell,
-  .sampling-shell {
+  .sampling-shell,
+  .corruption-shell {
     grid-template-columns: 1fr;
+  }
+
+  .schedule-panel {
+    max-width: 360px;
   }
 
   .toc ul {

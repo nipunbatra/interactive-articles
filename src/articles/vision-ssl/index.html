@@ -17,12 +17,12 @@
         <p class="kicker">Interactive Explainer</p>
         <h1>Vision Pretraining, Without Labels</h1>
         <p class="abstract">
-          Mask 75% of an image, predict the rest. Or pull augmentations
-          of the same image together. Or distil a teacher that's
-          itself an EMA of the student. Or predict a discrete
-          tokenisation of patches. Four recipes, all label-free, all
-          production. Live MAE demo + the table that tells you which
-          to pick.
+          Pull two augmentations of the same image together, push everything
+          else apart. Or mask 75% of an image and predict the rest. Two
+          label-free recipes that pretrain every modern vision backbone. Below:
+          a live contrastive lab where you augment an image, watch its embedding
+          barely move, and read the InfoNCE loss straight off a similarity
+          matrix &mdash; plus a mask-and-reconstruct MAE demo.
         </p>
         <div class="byline">
           <span>~20 min</span>
@@ -34,39 +34,171 @@
         <div class="step-badge">Prelude</div>
         <h2>Why we don't train from scratch any more</h2>
         <p>
-          ImageNet has 1.2M labelled images. A typical applied vision task has, optimistically, a few thousand labelled examples. A ViT-Base trained from scratch on that would overfit catastrophically. Self-supervised pretraining
-          on the much larger pool of <em>unlabelled</em> images
-          (millions, easy to scrape; billions, with a bit of
-          ingenuity) gets you a backbone that needs only a thin
-          fine-tune on labels.
+          ImageNet has 1.2M labelled images. A typical applied vision task has,
+          optimistically, a few thousand labelled examples. A ViT-Base trained
+          from scratch on that would overfit catastrophically. Self-supervised
+          pretraining on the much larger pool of <em>unlabelled</em> images
+          (millions, easy to scrape; billions, with a bit of ingenuity) gets you
+          a backbone that needs only a thin fine-tune on labels.
+        </p>
+        <p>
+          Every recipe here invents a <strong>pretext task</strong>: a
+          supervised-looking objective whose labels come free from the image
+          itself. Two big families dominate. <strong>Contrastive</strong>
+          methods (SimCLR, MoCo, CLIP) make representations of two views of one
+          image agree while disagreeing with other images.
+          <strong>Generative</strong> methods (MAE, BEiT) hide part of the image
+          and reconstruct it. We'll build a live demo of each.
         </p>
         <div class="callout callout--key">
           <strong>The slogan.</strong>
-          Spend your unlabelled-data calories on a self-supervised
-          pretext task. Save labelling budget for the part that
-          actually needs labels (the head, sometimes a thin LoRA
-          through the backbone).
+          Spend your unlabelled-data calories on a self-supervised pretext task.
+          Save labelling budget for the part that actually needs labels (the
+          head, sometimes a thin LoRA through the backbone).
         </div>
       </section>
 
-      <section class="step-section" id="step-1">
+      <section class="step-section" id="contrastive">
         <div class="step-badge">Step 1</div>
-        <h2>The MAE recipe — mask and reconstruct</h2>
+        <h2>Contrastive learning &amp; the InfoNCE loss</h2>
         <p>
-          Masked autoencoders (He et&nbsp;al., 2022) are the simplest
-          recipe that works at scale. Take an image, divide into
-          patches, randomly mask a large fraction (75% is the headline
-          number), feed only the visible patches into a ViT encoder,
-          and ask a small decoder to reconstruct the masked patches.
-          Loss is mean-squared error in pixel space, only on the
-          masked patches.
+          Take an image, make two randomly augmented <em>views</em> of it (crop,
+          flip, colour-jitter, blur). Push both through an encoder to get
+          embeddings $z_i$ and $z_j$. These two views came from the same image,
+          so they form a <strong>positive pair</strong> and their embeddings
+          should be close. Every <em>other</em> image in the batch is a
+          <strong>negative</strong>, and should sit far away. The InfoNCE loss
+          makes that a softmax classification &mdash; "which of the $2N$ views is
+          my positive?":
         </p>
-        <div class="math-block" id="math-mae"></div>
+        <div class="math-block">
+          $$
+          \mathcal{L}_{i} = -\log
+          \frac{\exp\!\big(\operatorname{sim}(z_i, z_j)/\tau\big)}
+               {\sum_{k=1}^{2N}\mathbb{1}[k\neq i]\,\exp\!\big(\operatorname{sim}(z_i, z_k)/\tau\big)}
+          $$
+        </div>
         <p>
-          The asymmetry &mdash; an encoder that sees only 25% of the
-          patches, a decoder that sees the full set with placeholders
-          for the masked ones &mdash; is what makes this fast.
-          Pretraining on ImageNet-1k takes under a day on 8 GPUs.
+          $\operatorname{sim}(a,b)=\tfrac{a\cdot b}{\lVert a\rVert\,\lVert b\rVert}$
+          is cosine similarity and $\tau$ is a temperature (smaller = harder
+          negatives, sharper contrast). The numerator pulls the positive pair
+          together; the denominator pushes against every negative in the batch
+          &mdash; which is why <strong>SimCLR needs large batches</strong>
+          (~4k&ndash;8k) to see enough negatives, and why MoCo swaps the batch
+          negatives for a momentum-updated queue.
+        </p>
+
+        <div class="lab" id="sim-lab">
+          <div class="lab-controls">
+            <div class="ctrl">
+              <label>crop + noise strength <span class="ctrl-val" id="sim-aug-val">0.35</span></label>
+              <input type="range" id="sim-aug" min="0" max="1" step="0.01" value="0.35" />
+            </div>
+            <div class="ctrl">
+              <label>colour-jitter strength <span class="ctrl-val" id="sim-color-val">0.65</span></label>
+              <input type="range" id="sim-color" min="0" max="1" step="0.01" value="0.65" />
+            </div>
+            <div class="ctrl">
+              <label>temperature $\tau$ <span class="ctrl-val" id="sim-temp-val">0.20</span></label>
+              <input type="range" id="sim-temp" min="0.05" max="0.5" step="0.01" value="0.20" />
+            </div>
+            <button class="action-btn action-btn--ghost" id="sim-reroll">Re-sample views</button>
+          </div>
+
+          <div class="lab-top">
+            <div class="lab-views">
+              <div class="lab-view">
+                <div class="panel-label">anchor image</div>
+                <canvas id="sim-orig" width="112" height="112"></canvas>
+              </div>
+              <div class="lab-arrow" aria-hidden="true">
+                <span>augment</span>&nbsp;&rarr;
+              </div>
+              <div class="lab-view">
+                <div class="panel-label">view A &nbsp;(positive)</div>
+                <canvas id="sim-viewA" width="112" height="112"></canvas>
+              </div>
+              <div class="lab-view">
+                <div class="panel-label">view B &nbsp;(positive)</div>
+                <canvas id="sim-viewB" width="112" height="112"></canvas>
+              </div>
+            </div>
+            <figure class="lab-scatter">
+              <canvas id="sim-scatter" width="300" height="300"></canvas>
+              <figcaption>Embedding space. Each dot is one view's 2-D embedding; the orange line joins the two anchor views. Direction encodes orientation, distance-from-centre encodes how confident the encoder is.</figcaption>
+            </figure>
+          </div>
+
+          <figure class="lab-matrix">
+            <canvas id="sim-matrix" width="366" height="366"></canvas>
+            <figcaption>Cosine-similarity matrix over all $2N=8$ views (4 images &times; 2 views). Orange squares are the positive pairs; InfoNCE wants them to be the brightest entry in their row.</figcaption>
+          </figure>
+
+          <div class="stat-strip">
+            <div class="stat-pill stat-pill--warm">
+              <span class="stat-label">Positive similarity</span>
+              <span class="stat-value" id="sim-pos">&mdash;</span>
+            </div>
+            <div class="stat-pill stat-pill--accent">
+              <span class="stat-label">Mean negative sim</span>
+              <span class="stat-value" id="sim-neg">&mdash;</span>
+            </div>
+            <div class="stat-pill">
+              <span class="stat-label">InfoNCE loss (anchor)</span>
+              <span class="stat-value" id="sim-loss">&mdash;</span>
+            </div>
+            <div class="stat-pill">
+              <span class="stat-label">Positive is nearest?</span>
+              <span class="stat-value" id="sim-nn">&mdash;</span>
+            </div>
+          </div>
+
+          <div class="callout callout--think">
+            <strong>Two knobs, two lessons.</strong>
+            Crank <em>colour-jitter</em> to the max: the two views look wildly
+            different in colour, yet the positive similarity barely dips and the
+            positive pair stays the brightest cell in its row. The encoder here
+            is colour-blind by construction &mdash; that is the
+            <em>invariance</em> InfoNCE is training in. Now crank
+            <em>crop + noise</em>: augment too aggressively and the views lose
+            their shared structure, the positive dot drifts toward the centre,
+            similarity collapses, and eventually a negative wins &mdash; the loss
+            spikes. Good augmentations are strong but structure-preserving.
+          </div>
+        </div>
+        <p>
+          Augmentations are the whole inductive bias: the network is forced to
+          produce the same embedding for both views, so it learns features
+          <em>invariant to whatever you augmented over</em>. Random crop +
+          colour jitter + Gaussian blur is the standard recipe; dropping any one
+          costs 5&ndash;10 ImageNet linear-probe points.
+        </p>
+      </section>
+
+      <section class="step-section" id="mae">
+        <div class="step-badge">Step 2</div>
+        <h2>The MAE recipe &mdash; mask and reconstruct</h2>
+        <p>
+          Masked autoencoders (He et&nbsp;al., 2022) are the simplest generative
+          recipe that works at scale. Divide the image into patches, randomly
+          mask a large fraction (75% is the headline number), feed only the
+          <em>visible</em> patches into a ViT encoder, and ask a small decoder to
+          reconstruct the masked patches. The loss is mean-squared error in pixel
+          space, computed only on the masked patches:
+        </p>
+        <div class="math-block">
+          $$
+          \mathcal{L}_{\text{MAE}} = \frac{1}{|\mathcal{M}|}
+          \sum_{p\,\in\,\mathcal{M}} \big\lVert \hat{x}_p - x_p \big\rVert^2,
+          \qquad \mathcal{M} = \text{masked patches}
+          $$
+        </div>
+        <p>
+          The asymmetry &mdash; an encoder that sees only 25% of the patches, a
+          decoder that sees the full set with placeholders for the masked ones
+          &mdash; is what makes this fast. Pretraining on ImageNet-1k takes under
+          a day on 8 GPUs. Drag the mask ratio and watch reconstruction quality
+          degrade as fewer patches survive:
         </p>
         <div class="train-controls">
           <label>mask ratio &nbsp;<span id="mae-ratio-val">0.75</span> <input type="range" id="mae-ratio" min="0.05" max="0.95" step="0.05" value="0.75"></label>
@@ -84,72 +216,82 @@
           <div class="ssl-panel">
             <div class="panel-label">Reconstruction (decoder output)</div>
             <canvas id="mae-recon" width="224" height="224"></canvas>
-            <div class="panel-meta" id="mae-mse">—</div>
           </div>
         </div>
+        <div class="panel-meta" id="mae-mse" style="text-align:center;">&mdash;</div>
         <div class="callout callout--think">
           <strong>What the demo can and can't show.</strong>
-          We don't run a real ViT in your browser; instead, the
-          'reconstruction' is a smart interpolation that uses the
-          visible patches (this is roughly what an MAE decoder
-          converges to on a smooth image). Real MAE reconstructions
-          on natural images preserve global structure but blur fine
-          texture &mdash; identical to the qualitative behaviour you
-          see here as you push the mask ratio up.
+          We don't run a real ViT in your browser; the 'reconstruction' is a
+          smart interpolation from the visible patches (roughly what an MAE
+          decoder converges to on a smooth scene). Real MAE reconstructions on
+          natural images preserve global structure but blur fine texture &mdash;
+          the same qualitative behaviour you see here as you push the mask ratio
+          up.
         </div>
       </section>
 
-      <section class="step-section" id="step-1a">
-        <div class="step-badge">Step 1½</div>
-        <h2>SimCLR &amp; the contrastive loss</h2>
-        <p>
-          Contrastive SSL takes a different angle. Make two augmented views of the same image; their representations should be similar. Take a different image; its representation should be different. The InfoNCE loss formalises this:
-        </p>
-        <div class="math-block" id="math-infonce"></div>
-        <p>
-          $z_i, z_j$ are projections of two augmentations of image $i$. The numerator pulls them together; the denominator pushes against all <em>other</em> images in the batch. $\tau$ is a temperature (smaller = harder negatives = more contrast). The negatives come from the batch, which is why <strong>SimCLR needs huge batches</strong> (~4k–8k) to get enough negatives; MoCo replaces the batch negatives with a momentum-updated queue to decouple negative count from batch size.
-        </p>
-        <p>
-          Augmentations matter enormously. Random crop + colour jitter + Gaussian blur is the standard recipe. Removing any one of these hurts ImageNet linear-probe by 5–10 points. The intuition: the model must learn features <em>invariant</em> to whatever you augment away, so the augmentation set is the inductive bias.
-        </p>
-      </section>
-
-      <section class="step-section" id="step-1b">
-        <div class="step-badge">Step 1¾</div>
+      <section class="step-section" id="dino">
+        <div class="step-badge">Step 3</div>
         <h2>DINO &amp; self-distillation without labels</h2>
         <p>
-          DINO (Caron et&nbsp;al., 2021) and DINOv2 (Oquab et&nbsp;al., 2023) are the most-used non-contrastive recipe. The idea: a student network must match the predictions of a teacher network on a different view of the same image; the teacher is an <em>exponential moving average</em> of the student.
+          DINO (Caron et&nbsp;al., 2021) and DINOv2 (Oquab et&nbsp;al., 2023) are
+          the most-used non-contrastive recipe. A student network must match the
+          predictions of a teacher network on a different view of the same image;
+          the teacher is an <em>exponential moving average</em> of the student:
         </p>
-        <div class="math-block" id="math-dino"></div>
-        <p>
-          The trick is preventing collapse — both networks predicting a constant. Two stabilisers:
-        </p>
+        <div class="math-block">
+          $$
+          \mathcal{L}_{\text{DINO}} = -\sum_x p_t(x)\,\log p_s(x),
+          \quad
+          p_t = \operatorname{softmax}\!\Big(\tfrac{f_t(x)-c}{\tau_t}\Big),
+          \quad
+          p_s = \operatorname{softmax}\!\Big(\tfrac{f_s(x)}{\tau_s}\Big)
+          $$
+        </div>
+        <p>The trick is preventing collapse &mdash; both networks predicting a constant. Two stabilisers:</p>
         <ul class="explanation-list">
-          <li><strong>Centering.</strong> Subtract a running mean from the teacher's output before softmaxing. Removes the easy "always predict the same vector" attractor.</li>
+          <li><strong>Centering.</strong> Subtract a running mean $c$ from the teacher's output before softmax. Removes the easy "always predict the same vector" attractor.</li>
           <li><strong>Sharpening.</strong> Teacher temperature $\tau_t \ll \tau_s$. The teacher's distribution is sharper than the student's, forcing the student to commit to a confident prediction.</li>
         </ul>
         <p>
-          DINOv2 added Sinkhorn-Knopp centering, $i$BOT-style patch-level loss (the student must also match the teacher on masked patches), and curated pretraining data. The resulting features are <em>spatially</em> well-organised: features at unrelated parts of the image are clearly separated, which is why DINOv2 is the current default for any downstream segmentation or detection task.
+          DINOv2 added Sinkhorn-Knopp centering, iBOT-style patch-level loss (the
+          student must also match the teacher on masked patches), and curated
+          pretraining data. The resulting features are <em>spatially</em>
+          well-organised, which is why DINOv2 is the current default for any
+          downstream segmentation or detection task.
         </p>
       </section>
 
-      <section class="step-section" id="step-1c">
-        <div class="step-badge">Step 1⅞</div>
-        <h2>JEPA — predict features, not pixels</h2>
+      <section class="step-section" id="jepa">
+        <div class="step-badge">Step 4</div>
+        <h2>JEPA &mdash; predict features, not pixels</h2>
         <p>
-          MAE wastes capacity predicting pixels: the loss in pixel space punishes you for getting fine textures wrong, which doesn't help downstream semantics. Joint Embedding Predictive Architectures (I-JEPA, V-JEPA; LeCun et&nbsp;al., 2022–24) sidestep this:
+          MAE spends capacity predicting pixels: the loss in pixel space punishes
+          you for getting fine textures wrong, which doesn't help downstream
+          semantics. Joint Embedding Predictive Architectures (I-JEPA, V-JEPA;
+          LeCun et&nbsp;al., 2022&ndash;24) sidestep this by predicting in
+          <em>feature</em> space:
         </p>
-        <div class="math-block" id="math-jepa"></div>
+        <div class="math-block">
+          $$
+          \mathcal{L}_{\text{JEPA}} =
+          \big\lVert\, g\!\big(f(x_{\text{context}}),\, \ell_{\text{target}}\big)
+          - \operatorname{sg}\!\big[f(x_{\text{target}})\big] \,\big\rVert^2
+          $$
+        </div>
         <p>
-          Both context and target are passed through (the same) encoder $f$. A small predictor $g$ predicts the <em>feature</em> embedding of the target from the context's embedding plus a target location code. The loss is in feature space, not pixel space.
-        </p>
-        <p>
-          Why this matters: by skipping pixel prediction, JEPA spends its parameters on representations that are useful for downstream tasks. V-JEPA (and 2024+) is increasingly competitive on linear-probe benchmarks at a fraction of MAE's compute.
+          Both context and target pass through the (same) encoder $f$. A small
+          predictor $g$ predicts the feature embedding of the target from the
+          context's embedding plus a target location code $\ell_{\text{target}}$;
+          $\operatorname{sg}[\cdot]$ is a stop-gradient. By skipping pixel
+          prediction, JEPA spends its parameters on representations useful for
+          downstream tasks, and is increasingly competitive on linear-probe
+          benchmarks at a fraction of MAE's compute.
         </p>
       </section>
 
-      <section class="step-section" id="step-2">
-        <div class="step-badge">Step 2</div>
+      <section class="step-section" id="families">
+        <div class="step-badge">Step 5</div>
         <h2>The four families of SSL recipes</h2>
         <div class="examples-table-wrap">
           <table class="examples-table">
@@ -187,25 +329,23 @@
           </table>
         </div>
         <p>
-          A useful rule of thumb: for classification-flavoured tasks
-          and small labelled fine-tune sets, prefer DINOv2 or CLIP.
-          For dense prediction, segmentation, or any task where
-          spatial detail matters, prefer DINOv2 or MAE. For unusual
-          modalities (thermal, satellite, hyperspectral) MAE is the
-          easiest to retrofit.
+          A useful rule of thumb: for classification-flavoured tasks and small
+          labelled fine-tune sets, prefer DINOv2 or CLIP. For dense prediction,
+          segmentation, or any task where spatial detail matters, prefer DINOv2
+          or MAE. For unusual modalities (thermal, satellite, hyperspectral) MAE
+          is the easiest to retrofit.
         </p>
       </section>
 
-      <section class="step-section" id="step-3">
-        <div class="step-badge">Step 3</div>
+      <section class="step-section" id="probe">
+        <div class="step-badge">Step 6</div>
         <h2>Why this matters: linear-probe efficiency</h2>
         <p>
-          The best way to evaluate pretraining is to freeze the
-          backbone and train a single linear head on a small labelled
-          set. The slope of that "labelled-data vs accuracy" curve is
-          the SSL value. Below: a synthetic curve illustrating
-          <em>random init</em> vs <em>SSL pretrained</em> as you grow
-          labelled fraction.
+          The cleanest way to evaluate pretraining is to freeze the backbone and
+          train a single linear head on a small labelled set. The slope of that
+          "labelled-data vs accuracy" curve is the SSL value. Below: a synthetic
+          curve contrasting <em>random init</em> with <em>SSL pretrained</em> as
+          you grow the labelled fraction.
         </p>
         <div class="ssl-figure">
           <canvas id="probe-canvas" width="880" height="320"></canvas>
@@ -213,60 +353,67 @@
         </div>
       </section>
 
-      <section class="step-section" id="step-4">
-        <div class="step-badge">Step 4</div>
-        <h2>Practical recipes</h2>
-        <ul class="explanation-list">
-          <li><strong>Custom-modality pretraining.</strong> If your domain (thermal, medical, satellite, hyperspectral, microscopy) is unlike ImageNet, an off-the-shelf backbone helps less. Pretrain MAE on tens to hundreds of thousands of in-domain unlabelled images; fine-tune on the few hundred labels you actually have. The features learn the modality's natural statistics.</li>
-          <li><strong>Continual pretraining of a public backbone.</strong> Cheaper alternative: start from DINOv2 or CLIP weights, run a short MAE-style continual pretrain on your in-domain data, then fine-tune. Gets you both the big-pretrain generality and the modality alignment.</li>
-          <li><strong>Linear probe before fine-tune.</strong> Always evaluate the frozen backbone with a single linear head first. If the linear probe is bad, fine-tuning won't save it.</li>
-          <li><strong>Vision-language alignment.</strong> CLIP-style training on (image, caption) pairs gives you zero-shot classification and free-text retrieval. The captions don't need to be high quality — Web noise is enough.</li>
-          <li><strong>Don't reinvent.</strong> Public DINOv2, CLIP, and SAM backbones cover most "I need a strong vision encoder" needs in 2026. Pretrain from scratch only when no public backbone is in your domain.</li>
-        </ul>
-        <div class="callout callout--think">
-          <strong>Final takeaway.</strong>
-          The hardest part of applied vision isn't
-          training; it's labelling. SSL pretraining lets the unlabelled
-          mountain do the heavy lifting and your annotators only
-          touch the part that fundamentally needs human judgement.
-        </div>
-      </section>
-
-      <section class="step-section" id="step-5">
-        <div class="step-badge">Step 5</div>
+      <section class="step-section" id="augment">
+        <div class="step-badge">Step 7</div>
         <h2>The augmentation-as-prior view</h2>
         <p>
-          The single biggest knob in any non-generative SSL recipe is the augmentation set. The reason: contrastive/distillation losses force the network to produce the same representation for two augmented views, which means the network is learning <em>features invariant to whatever you augmented over</em>. Whatever you don't include is what the model can latch onto.
+          The single biggest knob in any non-generative SSL recipe is the
+          augmentation set, for the reason the contrastive lab above made
+          tangible: the loss forces the same representation for two augmented
+          views, so the network learns <em>features invariant to whatever you
+          augmented over</em>. Whatever you don't augment is what the model is
+          free to latch onto.
         </p>
         <ul class="explanation-list">
           <li><strong>Random crop.</strong> Locality + scale invariance. Removing it tanks ImageNet linear probe by ~25 points.</li>
           <li><strong>Colour jitter.</strong> Colour-invariance. Crucial for natural images where colour is unreliable.</li>
           <li><strong>Gaussian blur.</strong> Texture-invariance. Helps especially when the target task cares about shape, not texture.</li>
           <li><strong>Solarisation / random greyscale.</strong> Used in DINO; further weakens colour as a shortcut.</li>
-          <li><strong>What to <em>not</em> augment.</strong> If your downstream task cares about a property (rotation in medical scans, exact pixel intensity in remote sensing), <em>don't</em> include the corresponding augmentation — the model will learn to ignore it.</li>
+          <li><strong>What to <em>not</em> augment.</strong> If your downstream task cares about a property (rotation in medical scans, exact pixel intensity in remote sensing), <em>don't</em> augment it away &mdash; the model will learn to ignore exactly the thing you need.</li>
         </ul>
         <div class="callout callout--key">
           <strong>The lesson.</strong>
-          Your augmentation set <em>is</em> your inductive bias. Choose with care; revisit it for new modalities.
+          Your augmentation set <em>is</em> your inductive bias. Choose with care; revisit it for every new modality.
         </div>
       </section>
 
-      <section class="step-section" id="step-6">
-        <div class="step-badge">Step 6</div>
+      <section class="step-section" id="recipes">
+        <div class="step-badge">Step 8</div>
+        <h2>Practical recipes</h2>
+        <ul class="explanation-list">
+          <li><strong>Custom-modality pretraining.</strong> If your domain (thermal, medical, satellite, hyperspectral, microscopy) is unlike ImageNet, an off-the-shelf backbone helps less. Pretrain MAE on tens to hundreds of thousands of in-domain unlabelled images; fine-tune on the few hundred labels you actually have.</li>
+          <li><strong>Continual pretraining of a public backbone.</strong> Cheaper: start from DINOv2 or CLIP weights, run a short MAE-style continual pretrain on your in-domain data, then fine-tune. You get both the big-pretrain generality and the modality alignment.</li>
+          <li><strong>Linear probe before fine-tune.</strong> Always evaluate the frozen backbone with a single linear head first. If the linear probe is bad, fine-tuning rarely saves it.</li>
+          <li><strong>Vision-language alignment.</strong> CLIP-style training on (image, caption) pairs gives you zero-shot classification and free-text retrieval. The captions don't need to be high quality &mdash; Web noise is enough.</li>
+          <li><strong>Don't reinvent.</strong> Public DINOv2, CLIP, and SAM backbones cover most "I need a strong vision encoder" needs in 2026. Pretrain from scratch only when no public backbone lives in your domain.</li>
+        </ul>
+        <div class="callout callout--think">
+          <strong>Final takeaway.</strong>
+          The hardest part of applied vision isn't training; it's labelling. SSL
+          pretraining lets the unlabelled mountain do the heavy lifting so your
+          annotators only touch the part that fundamentally needs human
+          judgement.
+        </div>
+      </section>
+
+      <section class="step-section" id="reading">
+        <div class="step-badge">Coda</div>
         <h2>Reading list</h2>
         <ul class="explanation-list">
-          <li><strong>Chen, Kornblith, Norouzi, Hinton (2020)</strong> &mdash; <em>SimCLR.</em></li>
-          <li><strong>He et&nbsp;al. (2020)</strong> &mdash; <em>MoCo.</em></li>
+          <li><strong>Chen, Kornblith, Norouzi, Hinton (2020)</strong> &mdash; <em>SimCLR.</em> The contrastive lab above.</li>
+          <li><strong>He et&nbsp;al. (2020)</strong> &mdash; <em>MoCo.</em> Momentum queue of negatives.</li>
           <li><strong>Caron et&nbsp;al. (2021)</strong> &mdash; <em>DINO.</em></li>
-          <li><strong>He, Chen, Xie, Li, Dollár, Girshick (2022)</strong> &mdash; <em>Masked Autoencoders Are Scalable Vision Learners (MAE).</em></li>
+          <li><strong>He, Chen, Xie, Li, Doll&aacute;r, Girshick (2022)</strong> &mdash; <em>Masked Autoencoders Are Scalable Vision Learners (MAE).</em></li>
           <li><strong>Assran et&nbsp;al. (2023)</strong> &mdash; <em>I-JEPA.</em></li>
           <li><strong>Oquab et&nbsp;al. (2023)</strong> &mdash; <em>DINOv2.</em> The currently dominant SSL backbone.</li>
           <li><strong>Bardes et&nbsp;al. (2024)</strong> &mdash; <em>V-JEPA.</em> Video extension.</li>
         </ul>
       </section>
+
+      <footer class="article-footer">Part of the ES 667 Deep Learning explainer series &middot; Computer Vision &middot; Self-Supervised Pretraining</footer>
     </article>
 
     <script src="../vendor/katex/katex.min.js"></script>
-    <script type="module" src="main.js"></script>
+    <script src="main.js"></script>
   </body>
 </html>

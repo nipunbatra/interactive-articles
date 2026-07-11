@@ -1,450 +1,712 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Dropout Playground</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="../shared/site.css" />
-    <style>
-      :root {
-        --ink: #1f1f1e;
-        --paper: #faf8f3;
-        --paper-alt: #f0eee5;
-        --rule: #c9c4b5;
-        --muted: #6b6a65;
-        --accent: #d97757;
-        --accent-soft: #ead3c5;
-        --sage: #7b9e89;
-        --slate: #4a6670;
-        --wine: #a8324b;
-      }
-      body {
-        font-family: "Source Serif 4", Georgia, serif;
-        background: var(--paper);
-        color: var(--ink);
-        line-height: 1.55;
-        max-width: 800px;
-        margin: 0 auto;
-        padding: 40px 24px 80px 24px;
-      }
-      .kicker {
-        font-family: "Manrope", sans-serif;
-        font-size: 12px;
-        letter-spacing: 0.12em;
-        text-transform: uppercase;
-        color: var(--muted);
-        margin: 0 0 6px 0;
-      }
-      h1 {
-        font-family: "Source Serif 4", Georgia, serif;
-        font-size: 44px;
-        line-height: 1.1;
-        margin: 0 0 16px 0;
-      }
-      h2 {
-        font-family: "Source Serif 4", Georgia, serif;
-        font-size: 28px;
-        line-height: 1.2;
-        margin: 48px 0 14px 0;
-      }
-      .abstract {
-        font-size: 18px;
-        color: var(--muted);
-        font-style: italic;
-        margin: 0 0 16px 0;
-      }
-      .byline {
-        font-family: "Manrope", sans-serif;
-        font-size: 13px;
-        color: var(--muted);
-        border-top: 1px solid var(--rule);
-        border-bottom: 1px solid var(--rule);
-        padding: 12px 0;
-        margin-bottom: 36px;
-      }
-      .byline span { margin-right: 14px; }
-      a.back-link {
-        font-family: "Manrope", sans-serif;
-        font-size: 13px;
-        color: var(--accent);
-        text-decoration: none;
-        display: inline-block;
-        margin-bottom: 24px;
-      }
-      a.back-link:hover { text-decoration: underline; }
-      p { margin: 0 0 16px 0; }
-      code {
-        font-family: "IBM Plex Mono", monospace;
-        font-size: 0.9em;
-        background: var(--paper-alt);
-        padding: 2px 6px;
-        border-radius: 3px;
-      }
-      .figure {
-        background: var(--paper-alt);
-        border: 1px solid var(--rule);
-        border-radius: 6px;
-        padding: 20px;
-        margin: 24px 0;
-      }
-      .controls {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 18px;
-        align-items: center;
-        margin-bottom: 16px;
-        font-family: "Manrope", sans-serif;
-        font-size: 14px;
-      }
-      .controls label {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-      }
-      input[type="range"] { width: 180px; accent-color: var(--accent); }
-      button {
-        font-family: "Manrope", sans-serif;
-        font-size: 13px;
-        padding: 6px 14px;
-        background: var(--accent);
-        color: var(--paper);
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-      }
-      button:hover { background: var(--wine); }
-      button.ghost {
-        background: var(--paper);
-        color: var(--ink);
-        border: 1px solid var(--rule);
-      }
-      .mode-toggle {
-        display: inline-flex;
-        border: 1px solid var(--rule);
-        border-radius: 4px;
-        overflow: hidden;
-      }
-      .mode-toggle button {
-        background: var(--paper);
-        color: var(--muted);
-        border-radius: 0;
-        border-right: 1px solid var(--rule);
-      }
-      .mode-toggle button:last-child { border-right: none; }
-      .mode-toggle button.active {
-        background: var(--accent);
-        color: var(--paper);
-      }
-      .stats {
-        font-family: "IBM Plex Mono", monospace;
-        font-size: 13px;
-        color: var(--ink);
-        margin-top: 12px;
-        display: flex;
-        gap: 24px;
-        flex-wrap: wrap;
-      }
-      .stats span b { color: var(--accent); }
-      svg { display: block; margin: 0 auto; }
-      .note {
-        border-left: 3px solid var(--accent);
-        background: var(--accent-soft);
-        padding: 12px 16px;
-        margin: 20px 0;
-        font-size: 15px;
-      }
-      .note strong { color: var(--wine); }
-    </style>
-  </head>
-  <body>
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Dropout Playground</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+<link rel="stylesheet" href="../vendor/katex/katex.min.css" />
+
+<style>
+:root {
+  --serif: 'Source Serif 4', Georgia, serif;
+  --sans: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+  --mono: 'IBM Plex Mono', monospace;
+  --bg: #fdfcf9;
+  --paper: #ffffff;
+  --text: #2f2a22;
+  --muted: #6e665b;
+  --border: #e2d8c6;
+  --accent: #2c6fb7;
+  --warm: #d9622b;
+  --success: #1e7770;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; font-family: var(--serif); color: var(--text); background: var(--bg); line-height: 1.65; }
+
+.article { max-width: 980px; margin: 0 auto; padding: 2.5rem 1.5rem 5rem; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; color: var(--muted); text-decoration: none; font-family: var(--sans); font-size: 0.9rem; }
+.back-link:hover { color: var(--text); }
+.article-header { margin-bottom: 3rem; text-align: center; }
+.kicker { margin: 0 0 0.75rem; font-family: var(--sans); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); }
+h1 { margin: 0 auto 1rem; font-size: clamp(2.4rem, 5vw, 3.5rem); line-height: 1.1; letter-spacing: -0.02em; color: #1a1815; max-width: 16ch; }
+.abstract { margin: 0 auto 1rem; max-width: 64ch; font-size: 1.15rem; color: #4d463d; }
+.byline { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-top: 1.4rem; padding-top: 1rem; border-top: 1px solid var(--border); color: var(--muted); font-family: var(--sans); font-size: 0.92rem; }
+
+.step-section {
+  position: relative;
+  margin-top: 4rem;
+  padding: 3rem 2.5rem;
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.03);
+}
+.step-badge {
+  position: absolute;
+  top: -16px;
+  left: 32px;
+  background: var(--accent);
+  color: white;
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.4rem 1.2rem;
+  border-radius: 999px;
+  box-shadow: 0 4px 12px rgba(44, 111, 183, 0.25);
+}
+h2 { margin: 0 0 1rem; font-size: clamp(1.6rem, 3.5vw, 2.2rem); line-height: 1.15; color: #1a1815; }
+h3 { margin-top: 2rem; margin-bottom: 0.8rem; font-size: 1.2rem; color: #1a1815; }
+p { max-width: 70ch; font-size: 1.1rem; }
+ul { max-width: 70ch; font-size: 1.08rem; padding-left: 1.4rem; }
+li { margin-bottom: 0.55rem; }
+code { font-family: var(--mono); font-size: 0.86em; background: #f3ede1; padding: 0.1em 0.4em; border-radius: 4px; color: #5a5044; }
+.math-block { margin: 1.5rem 0; text-align: center; font-size: 1.05rem; overflow-x: auto; }
+
+/* ---------- widget ---------- */
+.lab-figure {
+  margin: 1.6rem 0 0.6rem;
+  background: #fbfaf6;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 1.4rem 1.4rem 1.1rem;
+}
+.control-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1.4rem 1.8rem;
+  margin-bottom: 1.2rem;
+  font-family: var(--sans);
+}
+.control-block { display: flex; flex-direction: column; gap: 0.45rem; min-width: 210px; }
+.control-block label {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-size: 0.9rem; font-weight: 600; color: var(--text);
+}
+.control-block label span { font-family: var(--mono); color: var(--warm); font-weight: 500; }
+input[type="range"] {
+  -webkit-appearance: none; appearance: none;
+  width: 100%; height: 4px; background: var(--border); border-radius: 2px; outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 18px; height: 18px; background: var(--accent);
+  border-radius: 50%; cursor: pointer; border: 3px solid var(--paper);
+  box-shadow: 0 2px 6px rgba(44,111,183,0.4);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 18px; height: 18px; background: var(--accent); border-radius: 50%;
+  cursor: pointer; border: 3px solid var(--paper);
+}
+.btn {
+  font-family: var(--sans); font-size: 0.85rem; font-weight: 600;
+  padding: 0.5rem 1rem; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--accent); background: var(--accent); color: #fff;
+  transition: background 120ms ease, transform 80ms ease;
+}
+.btn:hover { background: #245a97; }
+.btn:active { transform: translateY(1px); }
+.btn.ghost { background: var(--paper); color: var(--text); border-color: var(--border); }
+.btn.ghost:hover { border-color: var(--accent); color: var(--accent); }
+.control-group { display: flex; flex-direction: column; gap: 0.45rem; }
+.control-group > .cg-label { font-family: var(--sans); font-size: 0.9rem; font-weight: 600; color: var(--text); }
+.mode-toggle { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.mode-toggle button {
+  font-family: var(--sans); font-size: 0.85rem; font-weight: 600;
+  padding: 0.5rem 1rem; background: var(--paper); color: var(--muted);
+  border: none; border-right: 1px solid var(--border); cursor: pointer;
+}
+.mode-toggle button:last-child { border-right: none; }
+.mode-toggle button.active { background: var(--success); color: #fff; }
+.button-row { display: flex; gap: 0.7rem; align-items: flex-end; }
+
+.net-wrap { width: 100%; overflow-x: auto; }
+svg#net { display: block; width: 100%; height: auto; max-width: 720px; margin: 0 auto; }
+
+.act-caption { margin: 0.4rem 0 0; text-align: center; font-family: var(--sans); font-size: 0.82rem; color: var(--muted); font-style: italic; max-width: none; }
+
+.stat-strip { display: flex; gap: 0.8rem; flex-wrap: wrap; margin: 1.3rem 0 0.2rem; }
+.stat-pill {
+  flex: 1 1 120px; min-width: 120px; background: var(--paper);
+  border: 1.5px solid var(--border); border-radius: 12px; padding: 0.75rem 0.9rem;
+  display: flex; flex-direction: column; gap: 0.15rem; text-align: left;
+}
+.stat-pill .stat-label { font-family: var(--sans); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 700; }
+.stat-pill .stat-value { font-family: var(--mono); font-size: 1.3rem; font-weight: 600; color: var(--text); }
+.stat-pill--accent { border-color: var(--accent); }
+.stat-pill--accent .stat-value { color: var(--accent); }
+.stat-pill--warm { border-color: var(--warm); }
+.stat-pill--warm .stat-value { color: var(--warm); }
+.stat-pill--success { border-color: var(--success); }
+.stat-pill--success .stat-value { color: var(--success); }
+
+.conv-wrap { margin-top: 1.3rem; }
+.conv-wrap canvas { display: block; width: 100%; max-width: 720px; margin: 0 auto; background: var(--paper); border: 1px solid var(--border); border-radius: 12px; }
+
+.callout {
+  margin: 2rem 0 0.5rem; padding: 1.2rem 1.5rem; border-radius: 12px;
+  border-left: 4px solid var(--accent); background: rgba(44,111,183,0.05); font-size: 1.02rem;
+}
+.callout p { max-width: none; margin: 0.4rem 0 0; }
+.callout p:first-child { margin-top: 0; }
+.callout strong { color: var(--accent); }
+.callout--think { border-left-color: var(--success); background: rgba(30,119,112,0.06); }
+.callout--think strong { color: var(--success); }
+.callout--warn { border-left-color: var(--warm); background: rgba(217,98,43,0.06); }
+.callout--warn strong { color: var(--warm); }
+
+footer { margin-top: 4rem; text-align: center; font-family: var(--sans); font-size: 0.85rem; color: var(--muted); }
+
+@media (max-width: 640px) {
+  .step-section { padding: 2rem 1.3rem; }
+  .control-block { min-width: 100%; }
+}
+</style>
+</head>
+<body>
+
+<article class="article">
+  <header class="article-header">
     <a class="back-link" href="../index.html">&larr; Explainer Library</a>
     <p class="kicker">Interactive Explainer</p>
     <h1>Dropout Playground</h1>
     <p class="abstract">
-      Slide the dropout probability and watch a small network flicker. Every
-      frame is a different sub-network. Over many frames you're training an
-      exponential ensemble with shared weights — the core intuition behind
+      Slide the drop probability $p$ and watch a small network flicker. Every
+      forward pass silences a different random subset of hidden units, so every
+      pass is a different sub-network. Over many passes you are training an
+      exponential ensemble with shared weights &mdash; the core intuition behind
       the most influential regularizer of 2012.
     </p>
     <div class="byline">
-      <span>~8 min</span>
+      <span>~8 min read</span>
       <span>Deep Learning &middot; Regularization</span>
     </div>
+  </header>
 
+  <section class="step-section" id="idea">
+    <div class="step-badge">The Idea</div>
+    <h2>Silence neurons at random</h2>
     <p>
-      Dropout was Hinton's 2012 insight: on every forward pass, randomly
-      silence a fraction <code>p</code> of the hidden units. At inference,
-      turn dropout off and use the whole network. In effect, you train an
-      ensemble of <em>2<sup>N</sup></em> thinned networks that all share
-      weights — for the price of one forward pass per batch.
+      Dropout was Hinton's 2012 trick: on every training forward pass, randomly
+      set a fraction of the hidden activations to zero. A unit survives with
+      <em>keep probability</em> $1-p$ and is dropped with probability $p$. Write
+      the per-unit switch as a Bernoulli variable $m_i$ and the dropped
+      activation as $\tilde h_i$:
+    </p>
+    <div class="math-block">
+      $$\tilde h_i = \frac{m_i}{\,1-p\,}\; h_i, \qquad m_i \sim \mathrm{Bernoulli}(1-p).$$
+    </div>
+    <p>
+      Two things are happening at once. The mask $m_i$ zeroes out a random subset
+      of units. The factor $\tfrac{1}{1-p}$ rescales the survivors so the layer's
+      <em>expected</em> output does not change &mdash; this is the "inverted dropout"
+      convention PyTorch and every modern framework use, and it is exactly why the
+      test-time path can be the plain identity. Play with both effects below.
+    </p>
+  </section>
+
+  <section class="step-section" id="lab">
+    <div class="step-badge">The Lab</div>
+    <h2>One mask per forward pass</h2>
+    <p>
+      A tiny MLP: four inputs, ten hidden units, one output. The hidden
+      activations $h_i$ are fixed (the weights don't change here) &mdash; only the
+      dropout mask is resampled. In <strong>train</strong> mode each surviving unit
+      is scaled by $\tfrac{1}{1-p}$; dropped units and their edges grey out. In
+      <strong>eval</strong> mode dropout is off: all units fire, nothing is scaled.
     </p>
 
-    <h2>The playground</h2>
-    <div class="figure">
-      <div class="controls">
-        <label>
-          Drop rate <code>p</code>:
-          <input type="range" id="p-slider" min="0" max="0.9" step="0.05" value="0.5" />
-          <span id="p-value" style="font-family: 'IBM Plex Mono', monospace; min-width: 30px;">0.50</span>
-        </label>
-        <div class="mode-toggle">
-          <button id="mode-train" class="active">Train mode</button>
-          <button id="mode-eval">Eval mode</button>
+    <div class="lab-figure">
+      <div class="control-row">
+        <div class="control-block">
+          <label>Drop probability <span id="pVal">0.50</span></label>
+          <input type="range" id="pSlider" min="0" max="0.9" step="0.05" value="0.5" />
         </div>
-        <button id="resample">Resample</button>
-        <button id="autoplay" class="ghost">▶ Auto-resample</button>
+        <div class="control-group">
+          <span class="cg-label">Mode</span>
+          <div class="mode-toggle">
+            <button id="modeTrain" class="active">Train</button>
+            <button id="modeEval">Eval</button>
+          </div>
+        </div>
+        <div class="button-row">
+          <button class="btn" id="resample">Resample mask</button>
+          <button class="btn ghost" id="autoplay">&#9654; Auto</button>
+        </div>
       </div>
-      <svg id="net" width="700" height="360" viewBox="0 0 700 360"></svg>
-      <div class="stats">
-        <span>Layer 1 alive: <b id="alive-l1">–</b></span>
-        <span>Layer 2 alive: <b id="alive-l2">–</b></span>
-        <span>Active edges: <b id="alive-edges">–</b></span>
-        <span>Scale factor (inverted): <b id="scale-factor">1.11</b></span>
+
+      <div class="net-wrap">
+        <svg id="net" viewBox="0 0 720 470" role="img" aria-label="Multilayer perceptron with dropout mask"></svg>
+      </div>
+      <p class="act-caption">
+        Numbers on the hidden nodes are the post-dropout activations
+        &#732;h<sub>i</sub>. Survivors carry the &times;1/(1&minus;p) boost; dropped
+        units read 0.
+      </p>
+
+      <div class="stat-strip">
+        <div class="stat-pill">
+          <span class="stat-label">Units kept</span>
+          <span class="stat-value" id="keptVal">&mdash;</span>
+        </div>
+        <div class="stat-pill stat-pill--warm">
+          <span class="stat-label">Scale 1/(1&minus;p)</span>
+          <span class="stat-value" id="scaleVal">&mdash;</span>
+        </div>
+        <div class="stat-pill stat-pill--accent">
+          <span class="stat-label">Output y (this pass)</span>
+          <span class="stat-value" id="yPassVal">&mdash;</span>
+        </div>
+        <div class="stat-pill stat-pill--success">
+          <span class="stat-label">Eval output y*</span>
+          <span class="stat-value" id="yEvalVal">&mdash;</span>
+        </div>
+        <div class="stat-pill">
+          <span class="stat-label">Mean over N passes</span>
+          <span class="stat-value" id="yMeanVal">&mdash;</span>
+        </div>
+      </div>
+
+      <div class="conv-wrap">
+        <canvas id="conv" width="1440" height="300"></canvas>
       </div>
     </div>
 
-    <p>
-      <strong>Try this:</strong> set <code>p = 0.5</code> and press
-      <em>Auto-resample</em>. Each frame you see a <em>different</em> sub-network.
-      Switch to <em>Eval mode</em> — dropout turns off, every unit fires,
-      and predictions become deterministic.
-    </p>
+    <div class="callout callout--think">
+      <strong>Try this.</strong> Set $p = 0.5$ and hit <em>Auto</em>. Each frame
+      is a different thinned network, and the per-pass output (blue dots) scatters
+      around the eval output (green line). Watch the running mean (orange) settle
+      onto the green line: inverted scaling keeps the <em>expected</em> output
+      constant, mask after mask. Now push $p$ toward $0.9$ &mdash; the survivors get
+      scaled up by 10&times;, individual passes swing wildly, but the mean still
+      homes in on $y^{*}$. Flip to <em>Eval</em> and the flicker stops: one
+      deterministic answer.
+    </div>
+  </section>
 
-    <h2>Why the 1/p rescale?</h2>
+  <section class="step-section" id="why-scale">
+    <div class="step-badge">The Payoff</div>
+    <h2>Why the 1/(1&minus;p) rescale?</h2>
     <p>
-      Naive dropout would make activations at eval time (all units alive)
-      systematically larger than at train time (only a fraction alive). To
-      keep the <em>expected</em> activation constant, we scale the surviving
-      units up by <code>1/p</code> during training:
+      Without rescaling, a layer that keeps only a fraction $1-p$ of its units at
+      train time would fire much weaker than the full layer at test time &mdash; the
+      distributions the next layer sees would not match. Inverted dropout fixes
+      this by construction. Because $\mathbb{E}[m_i] = 1-p$,
     </p>
-    <p style="text-align: center; font-family: 'IBM Plex Mono', monospace; font-size: 15px; margin: 24px 0;">
-      h<sub>drop</sub> = (h &odot; mask) / p&nbsp;&nbsp;&nbsp;&nbsp;mask ~ Bernoulli(p)
-    </p>
+    <div class="math-block">
+      $$\mathbb{E}[\tilde h_i] \;=\; \frac{h_i}{1-p}\,\mathbb{E}[m_i] \;=\; \frac{h_i}{1-p}\,(1-p) \;=\; h_i,$$
+    </div>
     <p>
-      This is called <em>inverted dropout</em>. It's the form PyTorch uses.
-      Because the rescaling happens at training time, the eval path stays
-      the simplest thing: identity.
+      so the expected activation is unchanged, and therefore the expected output is
+      exactly the deterministic eval output:
     </p>
-
-    <div class="note">
-      <strong>Common bug.</strong> Forgetting <code>model.eval()</code> at
-      inference means dropout stays on — your predictions will flicker
-      randomly, and calibration will be broken.
+    <div class="math-block">
+      $$\mathbb{E}\!\left[\sum_i v_i\,\tilde h_i\right] \;=\; \sum_i v_i\,\mathbb{E}[\tilde h_i] \;=\; \sum_i v_i\,h_i \;=\; y^{*}.$$
+    </div>
+    <p>
+      That equality is what the orange running-mean line demonstrates above. The
+      price you pay is variance &mdash; a single masked pass is a noisy estimate of
+      $y^{*}$, and the noise grows sharply as $p \to 1$:
+    </p>
+    <div class="math-block">
+      $$\mathrm{Var}[\tilde h_i] \;=\; h_i^{2}\,\frac{p}{1-p}.$$
     </div>
 
-    <h2>Two intuitions for why it works</h2>
-    <p>
-      <strong>Ensemble view.</strong> Each minibatch trains a different
-      thinned network. Over training you're implicitly training
-      2<sup>N</sup> networks that all share weights. At test time, no mask
-      &rArr; you get the geometric-mean ensemble for free.
-    </p>
-    <p>
-      <strong>Co-adaptation view.</strong> Without dropout, unit <em>j</em>
-      relies on unit <em>k</em> being alive to do its job. Dropout forces
-      every unit to be useful on its own, distributing the representation
-      rather than localizing it.
-    </p>
+    <div class="callout callout--warn">
+      <strong>Common bug.</strong> Forgetting <code>model.eval()</code> at inference
+      leaves dropout on: predictions flicker between runs and probability
+      calibration breaks. The mirror-image bug is calling <code>model.train()</code>
+      but never zeroing gradients &mdash; different failure, same "why is my model
+      random?" symptom.
+    </div>
+  </section>
 
+  <section class="step-section" id="why-works">
+    <div class="step-badge">Two Intuitions</div>
+    <h2>Why silencing neurons regularizes</h2>
+    <h3>The ensemble view</h3>
+    <p>
+      A hidden layer of $N$ units has $2^{N}$ possible on/off masks. Each minibatch
+      trains one randomly-drawn thinned network, but all of them <em>share the same
+      weights</em>. Over training you are implicitly fitting an exponential ensemble
+      for the price of a single model. At test time you drop the mask and use the
+      full network, which approximates the geometric-mean prediction of that whole
+      ensemble &mdash; ensembling for free.
+    </p>
+    <h3>The co-adaptation view</h3>
+    <p>
+      Without dropout, unit $j$ can learn to lean on unit $k$ always being present
+      &mdash; a brittle conspiracy that fits training noise. Since any teammate might
+      vanish on the next pass, dropout forces each unit to be useful on its own and
+      spreads the representation across many units instead of a fragile few. The
+      result is a smoother function that generalizes better.
+    </p>
+  </section>
+
+  <section class="step-section" id="practice">
+    <div class="step-badge">In Practice</div>
     <h2>Where dropout lives in 2026</h2>
     <ul>
-      <li><strong>Transformers</strong> — <code>p = 0.1</code> after attention and FFN. Still the default.</li>
-      <li><strong>Modern CNNs</strong> — usually 0. BatchNorm + augmentation carry the regularization budget.</li>
-      <li><strong>LoRA fine-tuning</strong> — typically 0 or 0.05. Training data is scarce; over-regularizing hurts.</li>
-      <li><strong>Classical MLPs</strong> — <code>p = 0.5</code> between hidden layers. The original 2012 regime.</li>
+      <li><strong>Transformers</strong> &mdash; <code>p = 0.1</code> after attention and the FFN. Still the default in most training recipes.</li>
+      <li><strong>Modern CNNs</strong> &mdash; usually <code>0</code>. BatchNorm plus heavy augmentation carry the regularization budget.</li>
+      <li><strong>LoRA fine-tuning</strong> &mdash; typically <code>0</code> or <code>0.05</code>. Adaptation data is scarce, so over-regularizing hurts.</li>
+      <li><strong>Classical MLPs</strong> &mdash; <code>p = 0.5</code> between hidden layers. The original 2012 regime, and the one in the playground above.</li>
     </ul>
 
-    <h2>Variants worth knowing</h2>
+    <h3>Variants worth knowing</h3>
     <ul>
-      <li><strong>SpatialDropout / DropBlock.</strong> For CNNs, dropping individual pixels does little because neighbours are correlated. SpatialDropout drops entire feature maps; DropBlock (Ghiasi et&nbsp;al., 2018) drops contiguous square regions. Both are stronger regularisers for CNNs than vanilla dropout.</li>
-      <li><strong>DropPath / stochastic depth (Huang et&nbsp;al., 2016).</strong> Randomly drop <em>entire residual blocks</em> during training. Standard in ResNet-1001, EfficientNet, modern ViTs. Reduces effective depth and acts as ensemble over depth.</li>
-      <li><strong>DropConnect (Wan et&nbsp;al., 2013).</strong> Drop individual weights instead of activations. More variance per minibatch; rarely used in practice because dropout is cheaper.</li>
-      <li><strong>Variational dropout</strong> (Gal &amp; Ghahramani, 2016). Apply the <em>same</em> dropout mask at every time step (for RNNs) or every batch (for Bayesian interpretation). Forms the basis of MC-dropout for uncertainty estimation.</li>
-      <li><strong>Attention dropout.</strong> Apply dropout inside the attention softmax output. Used in original Transformer; mild effect, rarely tuned.</li>
+      <li><strong>SpatialDropout / DropBlock.</strong> Dropping individual pixels does little in CNNs because neighbours are correlated. SpatialDropout drops whole feature maps; DropBlock (Ghiasi et&nbsp;al., 2018) drops contiguous square regions &mdash; both far stronger for conv nets than vanilla dropout.</li>
+      <li><strong>DropPath / stochastic depth</strong> (Huang et&nbsp;al., 2016). Randomly drop <em>entire residual blocks</em>. Standard in very deep ResNets, EfficientNet and modern ViTs; it ensembles over network depth.</li>
+      <li><strong>DropConnect</strong> (Wan et&nbsp;al., 2013). Drop individual weights instead of activations. Higher variance per minibatch; rarely used because plain dropout is cheaper.</li>
+      <li><strong>Variational / MC dropout</strong> (Gal &amp; Ghahramani, 2016). Reuse the same mask across time steps, or keep dropout on at inference to sample an approximate posterior for uncertainty.</li>
     </ul>
 
-    <h2>MC dropout — dropout for uncertainty</h2>
+    <h3>MC dropout &mdash; dropout for uncertainty</h3>
     <p>
-      Gal &amp; Ghahramani (2016) noticed that dropout at <em>inference time</em> turns a deterministic neural net into a Bayesian one — each forward pass with a different mask is a sample from an approximate posterior. Run $K$ forward passes with dropout on; the variance of predictions is an uncertainty estimate.
+      Gal &amp; Ghahramani (2016) showed that leaving dropout <em>on</em> at inference
+      turns a deterministic net into an approximate Bayesian one: each masked pass is
+      a sample from a posterior. Run $K$ forward passes and the spread of predictions
+      is a cheap uncertainty estimate &mdash; exactly the blue-dot scatter above, now
+      read as a posterior rather than as noise to average away.
     </p>
     <p>
-      MC dropout is cheap and easy ("just turn off model.eval"), but the resulting uncertainties are usually under-confident and don't compete with deep ensembles. Use it as a baseline; reach for ensembles or BNNs when you need better calibration. Always wrap with the <a href="../calibration/index.html">temperature scaling</a> and <a href="../conformal/index.html">conformal</a> tools for actionable confidence.
+      It is cheap and easy, but MC-dropout uncertainties are usually under-confident
+      and rarely beat deep ensembles. Treat it as a baseline; reach for ensembles
+      when calibration matters, and pair either with
+      <a href="../calibration/index.html">temperature scaling</a> or
+      <a href="../conformal/index.html">conformal prediction</a> for confidence you
+      can actually act on.
     </p>
 
-    <h2>Reading list</h2>
-    <ul>
-      <li><strong>Srivastava, Hinton, Krizhevsky, Sutskever, Salakhutdinov (2014)</strong> — <em>Dropout: A Simple Way to Prevent Neural Networks from Overfitting.</em></li>
-      <li><strong>Wan et&nbsp;al. (2013)</strong> — <em>Regularization of Neural Networks using DropConnect.</em></li>
-      <li><strong>Huang et&nbsp;al. (2016)</strong> — <em>Deep Networks with Stochastic Depth.</em></li>
-      <li><strong>Gal &amp; Ghahramani (2016)</strong> — <em>Dropout as a Bayesian Approximation.</em></li>
-      <li><strong>Ghiasi, Lin, Le (2018)</strong> — <em>DropBlock.</em></li>
-    </ul><script>
-      // ---------- Network layout ----------
-      const LAYER_X = [140, 350, 560];
-      const N1 = 6, N2 = 6, N_OUT = 3;
-      const N_IN = 4;
-      const LAYERS = [N_IN, N1, N2, N_OUT];
-      const Y_MARGIN = 40;
-      const HEIGHT = 360;
+    <div class="callout">
+      <strong>Reading list.</strong>
+      <p>Srivastava, Hinton, Krizhevsky, Sutskever &amp; Salakhutdinov (2014) &mdash; <em>Dropout: A Simple Way to Prevent Neural Networks from Overfitting.</em></p>
+      <p>Wan et&nbsp;al. (2013) &mdash; <em>Regularization of Neural Networks using DropConnect.</em> &middot; Huang et&nbsp;al. (2016) &mdash; <em>Deep Networks with Stochastic Depth.</em></p>
+      <p>Gal &amp; Ghahramani (2016) &mdash; <em>Dropout as a Bayesian Approximation.</em> &middot; Ghiasi, Lin &amp; Le (2018) &mdash; <em>DropBlock.</em></p>
+    </div>
+  </section>
 
-      function nodesForLayer(n) {
-        const gap = (HEIGHT - 2 * Y_MARGIN) / Math.max(n - 1, 1);
-        return Array.from({ length: n }, (_, i) => Y_MARGIN + i * gap);
-      }
+  <footer>Part of the ES 667 Deep Learning explainer series &middot; Regularization</footer>
+</article>
 
-      const LAYER_COORDS = [
-        [100, ...nodesForLayer(N_IN).map((y) => null)], // placeholder
-      ];
+<script>
+/* ============================ seeded RNG ============================ */
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
 
-      const LAYER_DATA = LAYERS.map((n, i) => ({
-        n,
-        x: i === 0 ? 40 : i === LAYERS.length - 1 ? 660 : LAYER_X[i - 1],
-        ys: nodesForLayer(n),
+/* ============ fixed little network (weights never change) ============ */
+const NIN = 4, NH = 10;
+const netRng = mulberry32(20240418);
+function sigmoid(z) { return 1 / (1 + Math.exp(-z)); }
+
+const xIn = Array.from({ length: NIN }, () => netRng() * 2 - 1);
+const W = Array.from({ length: NH }, () =>
+  Array.from({ length: NIN }, () => netRng() * 2 - 1));
+const bh = Array.from({ length: NH }, () => netRng() * 0.6 - 0.3);
+const vOut = Array.from({ length: NH }, () => netRng() * 1.3 - 0.15);
+// base (pre-dropout) hidden activations, in (0,1)
+const hBase = W.map((wi, i) => sigmoid(wi.reduce((s, w, j) => s + w * xIn[j], 0) + bh[i]));
+const Y_EVAL = hBase.reduce((s, h, i) => s + vOut[i] * h, 0);
+
+/* ============================ state ============================ */
+let p = 0.5;
+let mode = 'train';           // 'train' | 'eval'
+let mask = new Array(NH).fill(1);
+let hd = hBase.slice();       // current post-dropout activations
+let yPass = Y_EVAL;
+let sum = 0, count = 0;       // running mean accumulator (train only)
+const history = [];           // recent per-pass outputs
+const HIST_MAX = 60;
+let autoTimer = null;
+const maskRng = mulberry32(777);
+
+/* ============================ geometry ============================ */
+const NS = 'http://www.w3.org/2000/svg';
+const svg = document.getElementById('net');
+const VW = 720, VH = 470, TOP = 34, BOT = 430;
+const LX = { in: 96, hid: 360, out: 624 };
+
+function colY(n, i) {
+  if (n === 1) return (TOP + BOT) / 2;
+  return TOP + (i * (BOT - TOP)) / (n - 1);
+}
+function el(name, attrs) {
+  const e = document.createElementNS(NS, name);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  return e;
+}
+
+/* ============================ sampling ============================ */
+function resample() {
+  const q = 1 - p;
+  if (mode === 'eval') {
+    mask = new Array(NH).fill(1);
+    hd = hBase.slice();
+  } else {
+    const scale = q > 0 ? 1 / q : 1;
+    mask = hBase.map(() => (maskRng() < q ? 1 : 0));
+    hd = hBase.map((h, i) => mask[i] * h * scale);
+  }
+  yPass = hd.reduce((s, h, i) => s + vOut[i] * h, 0);
+  if (mode === 'train') {
+    sum += yPass; count += 1;
+    history.push(yPass);
+    if (history.length > HIST_MAX) history.shift();
+  }
+  render();
+}
+
+function resetAccum() { sum = 0; count = 0; history.length = 0; }
+
+/* ============================ draw net ============================ */
+function drawNet() {
+  while (svg.firstChild) svg.removeChild(svg.firstChild);
+  const q = 1 - p;
+  const scale = mode === 'eval' ? 1 : (q > 0 ? 1 / q : 1);
+
+  const inY = Array.from({ length: NIN }, (_, i) => colY(NIN, i));
+  const hY = Array.from({ length: NH }, (_, i) => colY(NH, i));
+  const outY = colY(1, 0);
+
+  // edges input -> hidden
+  for (let i = 0; i < NIN; i++) {
+    for (let j = 0; j < NH; j++) {
+      const alive = mask[j] === 1;
+      svg.appendChild(el('line', {
+        x1: LX.in, y1: inY[i], x2: LX.hid, y2: hY[j],
+        stroke: alive ? '#8aa0c4' : '#ddd5c6',
+        'stroke-width': alive ? 1 : 0.6,
+        opacity: alive ? 0.55 : 0.25
       }));
+    }
+  }
+  // edges hidden -> output
+  for (let j = 0; j < NH; j++) {
+    const alive = mask[j] === 1;
+    svg.appendChild(el('line', {
+      x1: LX.hid, y1: hY[j], x2: LX.out, y2: outY,
+      stroke: alive ? (vOut[j] >= 0 ? '#6fae9a' : '#d29a86') : '#ddd5c6',
+      'stroke-width': alive ? Math.min(3, 0.6 + Math.abs(vOut[j]) * 1.6) : 0.6,
+      opacity: alive ? 0.6 : 0.22
+    }));
+  }
 
-      // ---------- State ----------
-      let p = 0.5;
-      let mode = "train"; // 'train' | 'eval'
-      let masks = []; // [mask_l1, mask_l2]
-      let autoplay = null;
+  // input nodes
+  for (let i = 0; i < NIN; i++) {
+    svg.appendChild(el('circle', {
+      cx: LX.in, cy: inY[i], r: 12, fill: '#efe9dd', stroke: '#b9ad99', 'stroke-width': 1.3
+    }));
+    const t = el('text', {
+      x: LX.in - 20, y: inY[i], 'text-anchor': 'end', 'dominant-baseline': 'middle',
+      'font-family': 'IBM Plex Mono, monospace', 'font-size': 10, fill: '#8a7f6c'
+    });
+    t.textContent = xIn[i].toFixed(2);
+    svg.appendChild(t);
+  }
 
-      // ---------- Draw ----------
-      const svg = document.getElementById("net");
-      const NS = "http://www.w3.org/2000/svg";
+  // hidden nodes + activation labels
+  for (let j = 0; j < NH; j++) {
+    const alive = mask[j] === 1;
+    svg.appendChild(el('circle', {
+      cx: LX.hid, cy: hY[j], r: alive ? 13 : 9,
+      fill: alive ? '#dfeaf6' : '#eee8dc',
+      stroke: alive ? '#2c6fb7' : '#c3b8a4',
+      'stroke-width': alive ? 1.8 : 1,
+      'stroke-dasharray': alive ? 'none' : '3 3',
+      opacity: alive ? 1 : 0.55
+    }));
+    // activation value with a paper halo so it reads over the edges
+    const label = alive ? hd[j].toFixed(2) : '0';
+    const lx = LX.hid + 20;
+    const halo = el('rect', {
+      x: lx - 2, y: hY[j] - 8, width: 30, height: 16, rx: 4,
+      fill: '#fbfaf6', opacity: alive ? 0.92 : 0.7
+    });
+    svg.appendChild(halo);
+    const t = el('text', {
+      x: lx, y: hY[j], 'dominant-baseline': 'middle',
+      'font-family': 'IBM Plex Mono, monospace', 'font-size': 10.5,
+      'font-weight': alive ? 600 : 400,
+      fill: alive ? '#2c6fb7' : '#b3a891'
+    });
+    t.textContent = label;
+    svg.appendChild(t);
+  }
 
-      function draw() {
-        svg.innerHTML = "";
+  // output node
+  svg.appendChild(el('circle', {
+    cx: LX.out, cy: outY, r: 16, fill: '#dcefe9', stroke: '#1e7770', 'stroke-width': 2
+  }));
+  const yt = el('text', {
+    x: LX.out + 24, y: outY, 'dominant-baseline': 'middle',
+    'font-family': 'IBM Plex Mono, monospace', 'font-size': 13, 'font-weight': 700, fill: '#1e7770'
+  });
+  yt.textContent = 'y = ' + yPass.toFixed(2);
+  svg.appendChild(yt);
 
-        // Compute masks
-        const m1 = LAYER_DATA[1].ys.map(() => (mode === "eval" ? 1 : Math.random() > p ? 1 : 0));
-        const m2 = LAYER_DATA[2].ys.map(() => (mode === "eval" ? 1 : Math.random() > p ? 1 : 0));
-        masks = [m1, m2];
+  // layer labels
+  const labels = [['input', LX.in], ['hidden (×' + scale.toFixed(2) + ')', LX.hid], ['output', LX.out]];
+  labels.forEach(([txt, x]) => {
+    const t = el('text', {
+      x, y: BOT + 26, 'text-anchor': 'middle',
+      'font-family': 'Manrope, sans-serif', 'font-size': 12, fill: '#8a7f6c', 'font-weight': 600
+    });
+    t.textContent = txt;
+    svg.appendChild(t);
+  });
 
-        let aliveEdges = 0;
-        let totalEdges = 0;
+  // mode banner
+  const banner = el('text', {
+    x: VW / 2, y: 18, 'text-anchor': 'middle',
+    'font-family': 'Manrope, sans-serif', 'font-size': 12.5, 'font-weight': 700,
+    fill: mode === 'eval' ? '#1e7770' : '#d9622b'
+  });
+  banner.textContent = mode === 'eval'
+    ? 'EVAL · dropout off · all units active, no scaling'
+    : 'TRAIN · dropout p = ' + p.toFixed(2) + ' · survivors × ' + scale.toFixed(2);
+  svg.appendChild(banner);
+}
 
-        // Draw edges first (so nodes sit on top)
-        for (let li = 0; li < LAYER_DATA.length - 1; li++) {
-          const L = LAYER_DATA[li];
-          const R = LAYER_DATA[li + 1];
-          const leftMask = li === 0 ? Array(L.n).fill(1) : masks[li - 1] || Array(L.n).fill(1);
-          const rightMask = li === LAYER_DATA.length - 2 ? Array(R.n).fill(1) : masks[li] || Array(R.n).fill(1);
+/* ===================== convergence chart ===================== */
+function drawConv() {
+  const canvas = document.getElementById('conv');
+  const ctx = canvas.getContext('2d');
+  const W2 = canvas.width, H2 = canvas.height;
+  ctx.clearRect(0, 0, W2, H2);
+  ctx.save();
+  ctx.scale(2, 2); // canvas is 2x for crispness
+  const w = W2 / 2, h = H2 / 2;
+  const padL = 54, padR = 96, padT = 16, padB = 26;
+  const plotW = w - padL - padR, plotH = h - padT - padB;
 
-          for (let i = 0; i < L.n; i++) {
-            for (let j = 0; j < R.n; j++) {
-              totalEdges++;
-              const alive = leftMask[i] && rightMask[j];
-              if (alive) aliveEdges++;
-              const line = document.createElementNS(NS, "line");
-              line.setAttribute("x1", L.x);
-              line.setAttribute("y1", L.ys[i]);
-              line.setAttribute("x2", R.x);
-              line.setAttribute("y2", R.ys[j]);
-              line.setAttribute("stroke", alive ? "#6b6a65" : "#c9c4b5");
-              line.setAttribute("stroke-width", alive ? "0.7" : "0.3");
-              line.setAttribute("opacity", alive ? "0.5" : "0.15");
-              svg.appendChild(line);
-            }
-          }
-        }
+  // y-range around eval and samples
+  let lo = Y_EVAL, hi = Y_EVAL;
+  history.forEach(v => { lo = Math.min(lo, v); hi = Math.max(hi, v); });
+  if (mode === 'eval' || history.length === 0) { lo = Y_EVAL - 1; hi = Y_EVAL + 1; }
+  const pad = (hi - lo) * 0.18 || 0.5;
+  lo -= pad; hi += pad;
+  const Y = v => padT + plotH - ((v - lo) / (hi - lo)) * plotH;
 
-        // Draw nodes
-        for (let li = 0; li < LAYER_DATA.length; li++) {
-          const L = LAYER_DATA[li];
-          const mask = li === 0 || li === LAYER_DATA.length - 1 ? Array(L.n).fill(1) : masks[li - 1];
+  // frame baseline
+  ctx.strokeStyle = 'rgba(47,42,34,0.15)'; ctx.lineWidth = 1;
+  ctx.strokeRect(padL, padT, plotW, plotH);
 
-          for (let i = 0; i < L.n; i++) {
-            const alive = mask[i];
-            const circle = document.createElementNS(NS, "circle");
-            circle.setAttribute("cx", L.x);
-            circle.setAttribute("cy", L.ys[i]);
-            circle.setAttribute("r", alive ? 14 : 10);
-            if (li === 0) {
-              circle.setAttribute("fill", "#eae7dc");
-              circle.setAttribute("stroke", "#6b6a65");
-              circle.setAttribute("stroke-width", "1");
-            } else if (li === LAYER_DATA.length - 1) {
-              circle.setAttribute("fill", "#d8e3de");
-              circle.setAttribute("stroke", "#7b9e89");
-              circle.setAttribute("stroke-width", "1.2");
-            } else if (alive) {
-              circle.setAttribute("fill", "#ead3c5");
-              circle.setAttribute("stroke", "#d97757");
-              circle.setAttribute("stroke-width", "1.3");
-            } else {
-              circle.setAttribute("fill", "#c9c4b5");
-              circle.setAttribute("stroke", "#6b6a65");
-              circle.setAttribute("stroke-width", "0.9");
-              circle.setAttribute("opacity", "0.35");
-            }
-            svg.appendChild(circle);
-          }
+  // eval line
+  const yE = Y(Y_EVAL);
+  ctx.strokeStyle = '#1e7770'; ctx.lineWidth = 2; ctx.setLineDash([]);
+  ctx.beginPath(); ctx.moveTo(padL, yE); ctx.lineTo(padL + plotW, yE); ctx.stroke();
+  ctx.fillStyle = '#1e7770'; ctx.font = '600 11px Manrope, sans-serif';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  ctx.fillText('y* = ' + Y_EVAL.toFixed(3), padL + plotW + 8, yE);
 
-          // Layer label
-          const label = document.createElementNS(NS, "text");
-          label.setAttribute("x", L.x);
-          label.setAttribute("y", HEIGHT - 8);
-          label.setAttribute("text-anchor", "middle");
-          label.setAttribute("fill", "#6b6a65");
-          label.setAttribute("font-family", "Manrope, sans-serif");
-          label.setAttribute("font-size", "11px");
-          const names = ["input", "hidden 1", "hidden 2", "output"];
-          label.textContent = names[li];
-          svg.appendChild(label);
-        }
+  if (mode === 'eval') {
+    ctx.fillStyle = '#6e665b'; ctx.font = 'italic 12px Manrope, sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('Eval mode — deterministic output, no sampling.', padL + plotW / 2, padT + plotH / 2 + 22);
+    ctx.restore();
+    return;
+  }
 
-        // Stats
-        document.getElementById("alive-l1").textContent = `${m1.reduce((a, b) => a + b, 0)}/${N1}`;
-        document.getElementById("alive-l2").textContent = `${m2.reduce((a, b) => a + b, 0)}/${N2}`;
-        document.getElementById("alive-edges").textContent = `${aliveEdges}/${totalEdges}`;
-        const scale = mode === "eval" ? "1.00 (off)" : (p > 0 ? (1 / (1 - p)).toFixed(2) : "1.00");
-        document.getElementById("scale-factor").textContent = scale;
-      }
+  // sample dots
+  const n = history.length;
+  history.forEach((v, i) => {
+    const x = n === 1 ? padL + plotW / 2 : padL + (i / (HIST_MAX - 1)) * plotW;
+    const recent = i >= n - 1;
+    ctx.beginPath();
+    ctx.arc(x, Y(v), recent ? 4.5 : 3, 0, Math.PI * 2);
+    ctx.fillStyle = recent ? '#2c6fb7' : 'rgba(44,111,183,0.42)';
+    ctx.fill();
+  });
 
-      // ---------- Controls ----------
-      const pSlider = document.getElementById("p-slider");
-      const pValue = document.getElementById("p-value");
-      pSlider.addEventListener("input", (e) => {
-        p = parseFloat(e.target.value);
-        pValue.textContent = p.toFixed(2);
-        draw();
-      });
+  // running mean line
+  if (count > 0) {
+    const mean = sum / count;
+    const yM = Y(mean);
+    ctx.strokeStyle = '#d9622b'; ctx.lineWidth = 2; ctx.setLineDash([6, 4]);
+    ctx.beginPath(); ctx.moveTo(padL, yM); ctx.lineTo(padL + plotW, yM); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#d9622b'; ctx.font = '600 11px Manrope, sans-serif';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillText('mean = ' + mean.toFixed(3), padL + plotW + 8, yM);
+  }
 
-      document.getElementById("resample").addEventListener("click", draw);
+  // caption
+  ctx.fillStyle = '#8a7f6c'; ctx.font = '500 11px Manrope, sans-serif';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillText('per-pass output vs. eval output', padL + 4, padT + 4);
+  ctx.restore();
+}
 
-      const trainBtn = document.getElementById("mode-train");
-      const evalBtn = document.getElementById("mode-eval");
-      trainBtn.addEventListener("click", () => {
-        mode = "train";
-        trainBtn.classList.add("active");
-        evalBtn.classList.remove("active");
-        draw();
-      });
-      evalBtn.addEventListener("click", () => {
-        mode = "eval";
-        evalBtn.classList.add("active");
-        trainBtn.classList.remove("active");
-        draw();
-      });
+/* ============================ stats ============================ */
+function render() {
+  const q = 1 - p;
+  const scale = mode === 'eval' ? 1 : (q > 0 ? 1 / q : 1);
+  const kept = mask.reduce((a, b) => a + b, 0);
+  document.getElementById('keptVal').textContent = mode === 'eval' ? NH + '/' + NH : kept + '/' + NH;
+  document.getElementById('scaleVal').textContent = mode === 'eval' ? '1.00' : scale.toFixed(2);
+  document.getElementById('yPassVal').textContent = yPass.toFixed(3);
+  document.getElementById('yEvalVal').textContent = Y_EVAL.toFixed(3);
+  document.getElementById('yMeanVal').textContent =
+    (mode === 'eval' || count === 0) ? '—' : (sum / count).toFixed(3) + '  (N=' + count + ')';
+  drawNet();
+  drawConv();
+}
 
-      const autoBtn = document.getElementById("autoplay");
-      autoBtn.addEventListener("click", () => {
-        if (autoplay) {
-          clearInterval(autoplay);
-          autoplay = null;
-          autoBtn.textContent = "▶ Auto-resample";
-        } else {
-          autoplay = setInterval(() => {
-            if (mode === "train") draw();
-          }, 500);
-          autoBtn.textContent = "⏸ Pause";
-        }
-      });
+/* ============================ controls ============================ */
+const pSlider = document.getElementById('pSlider');
+pSlider.addEventListener('input', () => {
+  p = parseFloat(pSlider.value);
+  document.getElementById('pVal').textContent = p.toFixed(2);
+  resetAccum();
+  resample();
+});
 
-      draw();
-    </script>
-  </body>
+document.getElementById('resample').addEventListener('click', resample);
+
+const trainBtn = document.getElementById('modeTrain');
+const evalBtn = document.getElementById('modeEval');
+function setMode(m) {
+  mode = m;
+  trainBtn.classList.toggle('active', m === 'train');
+  evalBtn.classList.toggle('active', m === 'eval');
+  resetAccum();
+  resample();
+}
+trainBtn.addEventListener('click', () => setMode('train'));
+evalBtn.addEventListener('click', () => setMode('eval'));
+
+const autoBtn = document.getElementById('autoplay');
+autoBtn.addEventListener('click', () => {
+  if (autoTimer) {
+    clearInterval(autoTimer); autoTimer = null;
+    autoBtn.innerHTML = '&#9654; Auto';
+    autoBtn.classList.add('ghost');
+  } else {
+    if (mode !== 'train') setMode('train');
+    autoTimer = setInterval(() => { if (mode === 'train') resample(); }, 420);
+    autoBtn.innerHTML = '&#10073;&#10073; Pause';
+    autoBtn.classList.remove('ghost');
+  }
+});
+
+// first paint
+resample();
+</script>
+
+<script src="../vendor/katex/katex.min.js"></script>
+</body>
 </html>

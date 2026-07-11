@@ -278,18 +278,50 @@
         <figure class="interactive-figure">
           <div class="figure-controls">
             <label class="slider-label">
-              Noise level <code>t</code>
-              <input id="corruptionSlider" type="range" min="0" max="100" step="1" value="0" />
-              <span id="corruptionSliderValue">0.00</span>
+              <span>Noise level <code>t</code></span>
+              <input id="corruptionSlider" type="range" min="0" max="100" step="1" value="45" />
+              <span id="corruptionSliderValue">0.45</span>
             </label>
           </div>
-          <div class="corruption-grid" id="corruptionGrid"></div>
+          <div class="corruption-shell">
+            <div class="corruption-grid" id="corruptionGrid"></div>
+            <aside class="schedule-panel">
+              <p class="eyebrow">Masking schedule</p>
+              <canvas id="scheduleCanvas" width="260" height="170"></canvas>
+              <div class="schedule-readout">
+                <div class="schedule-stat">
+                  <span class="schedule-stat-label">masked</span>
+                  <strong id="fracMaskedVal" style="color: var(--coral)">45%</strong>
+                </div>
+                <div class="schedule-stat">
+                  <span class="schedule-stat-label">kept</span>
+                  <strong id="fracKeptVal" style="color: var(--blue)">55%</strong>
+                </div>
+              </div>
+              <div class="schedule-bar" aria-hidden="true">
+                <div class="schedule-bar__masked" id="scheduleBarMasked"></div>
+              </div>
+            </aside>
+          </div>
           <figcaption>
             Slide the noise level to watch characters dissolve into masks. Each name uses a
-            fixed random order so the reveal is smooth as you drag. Notice how short names
-            like <strong>dev</strong> lose all information faster than long ones like <strong>reyansh</strong>.
+            fixed random order so the reveal is smooth as you drag. The mini-chart on the right
+            is the <strong>schedule</strong>: the fraction of tokens masked rises linearly with
+            <code>t</code> while the information the model keeps falls away. Notice how short
+            names like <strong>dev</strong> lose all information faster than long ones like
+            <strong>reyansh</strong>.
           </figcaption>
         </figure>
+
+        <div class="aside aside--contrast">
+          <strong>Discrete vs. continuous.</strong>
+          In continuous (Gaussian) diffusion &mdash; the kind used for images &mdash; corruption
+          slides each value part-way toward random noise as
+          $x_t = \sqrt{\bar\alpha_t}\,x_0 + \sqrt{1-\bar\alpha_t}\,\varepsilon$, a smooth blur;
+          here corruption is an all-or-nothing coin flip per token
+          ($\texttt{keep}$ or $\texttt{[MASK]}$), so a token is either perfectly intact or
+          completely gone.
+        </div>
 
         <div class="dataset-listing">
           <p class="eyebrow">Training dataset &mdash; 40 Indian names</p>

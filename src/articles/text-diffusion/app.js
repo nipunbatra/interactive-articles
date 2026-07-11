@@ -414,6 +414,8 @@ function renderCorruption() {
   document.getElementById('corruptionSliderValue').textContent = t.toFixed(2);
 
   const grid = document.getElementById('corruptionGrid');
+  let masked = 0;
+  let realTokens = 0;
   let html = '';
   SHOW_NAMES.forEach((idx, row) => {
     const x0 = DATA[idx];
@@ -421,10 +423,114 @@ function renderCorruption() {
     html += '<div class="corrupt-row">';
     html += '<span class="corrupt-name">' + NAMES[idx] + '</span>';
     html += '<div class="char-row">';
-    for (let i = 0; i < L; i++) html += charCellHTML(xt[i]);
+    for (let i = 0; i < L; i++) {
+      html += charCellHTML(xt[i]);
+      if (x0[i] !== pad_id) {
+        realTokens++;
+        if (xt[i] === mask_id) masked++;
+      }
+    }
     html += '</div></div>';
   });
   grid.innerHTML = html;
+
+  const frac = realTokens > 0 ? masked / realTokens : 0;
+  renderSchedule(t, frac);
+}
+
+// Live "fraction masked vs t" schedule mini-chart.
+function renderSchedule(t, actualFrac) {
+  const canvas = document.getElementById('scheduleCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  const cw = rect.width || 260;
+  const ch = rect.height || 170;
+  canvas.width = cw * dpr;
+  canvas.height = ch * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, cw, ch);
+
+  const pad = { l: 30, r: 12, t: 12, b: 24 };
+  const pw = cw - pad.l - pad.r;
+  const ph = ch - pad.t - pad.b;
+  const px = (x) => pad.l + x * pw; // x in [0,1] = t
+  const py = (y) => pad.t + (1 - y) * ph; // y in [0,1] = fraction
+
+  // Axis frame + gridlines
+  ctx.strokeStyle = 'rgba(32,39,51,0.08)';
+  ctx.lineWidth = 1;
+  ctx.fillStyle = 'rgba(32,39,51,0.4)';
+  ctx.font = '9px Manrope, sans-serif';
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+  [0, 0.5, 1].forEach((g) => {
+    const y = py(g);
+    ctx.beginPath();
+    ctx.moveTo(pad.l, y);
+    ctx.lineTo(cw - pad.r, y);
+    ctx.stroke();
+    ctx.fillText((g * 100).toFixed(0), pad.l - 5, y);
+  });
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  [0, 0.5, 1].forEach((g) => {
+    ctx.fillText(g.toFixed(g === 0.5 ? 1 : 0), px(g), ch - pad.b + 6);
+  });
+
+  // Shade region up to current t
+  ctx.fillStyle = 'rgba(211, 91, 67, 0.07)';
+  ctx.fillRect(pad.l, pad.t, px(t) - pad.l, ph);
+
+  // "Information kept" line: 1 - t (blue)
+  ctx.beginPath();
+  ctx.moveTo(px(0), py(1));
+  ctx.lineTo(px(1), py(0));
+  ctx.strokeStyle = 'rgba(60, 104, 207, 0.55)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // "Fraction masked" line: t (coral)
+  ctx.beginPath();
+  ctx.moveTo(px(0), py(0));
+  ctx.lineTo(px(1), py(1));
+  ctx.strokeStyle = 'var(--coral)';
+  ctx.strokeStyle = '#d35b43';
+  ctx.lineWidth = 2.4;
+  ctx.stroke();
+
+  // Vertical guide at current t
+  ctx.beginPath();
+  ctx.moveTo(px(t), pad.t);
+  ctx.lineTo(px(t), pad.t + ph);
+  ctx.strokeStyle = 'rgba(32,39,51,0.28)';
+  ctx.setLineDash([3, 3]);
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Dots: expected masked (t) and actual measured fraction
+  const dot = (x, y, color) => {
+    ctx.beginPath();
+    ctx.arc(px(x), py(y), 4, 0, 2 * Math.PI);
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  };
+  dot(t, 1 - t, '#3c68cf');
+  dot(t, t, '#d35b43');
+  if (actualFrac != null) dot(t, actualFrac, '#b48939'); // measured on the 6 shown names
+
+  // Readout text + bar
+  const maskedEl = document.getElementById('fracMaskedVal');
+  const keptEl = document.getElementById('fracKeptVal');
+  const barEl = document.getElementById('scheduleBarMasked');
+  if (maskedEl) maskedEl.textContent = Math.round(t * 100) + '%';
+  if (keptEl) keptEl.textContent = Math.round((1 - t) * 100) + '%';
+  if (barEl) barEl.style.width = (t * 100).toFixed(0) + '%';
 }
 
 // ── UI: Architecture diagram ────────────────────────────────

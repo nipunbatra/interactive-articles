@@ -1,66 +1,1072 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>The KV-Cache, Made Concrete</title>
-    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="../vendor/katex/katex.min.css" />
-    <link rel="stylesheet" href="../shared.css" />
-    <link rel="stylesheet" href="styles.css" />
-  </head>
-  <body>
-    <article class="article">
-      <header class="article-header">
-        <a class="back-link" href="../index.html">&larr; Explainer Library</a>
-        <p class="kicker">Interactive Explainer</p>
-        <h1>The KV-Cache, Made Concrete</h1>
-        <p class="abstract">
-          Every token an LLM generates re-uses every key and value from
-          previous tokens. Caching them is mandatory — and the cache
-          quickly dwarfs the weights. This is why "LLM inference is
-          memory-bound, not compute-bound."
-        </p>
-        <div class="byline">
-          <span>~11 min</span>
-          <span>Inference &middot; LLM systems</span>
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>The KV-Cache, Made Concrete</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+
+<link rel="stylesheet" href="../vendor/katex/katex.min.css" />
+
+<style>
+:root {
+  --serif: 'Source Serif 4', Georgia, serif;
+  --sans: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+  --mono: 'IBM Plex Mono', monospace;
+  --bg: #fdfcf9;
+  --paper: #ffffff;
+  --text: #2f2a22;
+  --muted: #6e665b;
+  --border: #e2d8c6;
+  --accent: #2c6fb7;
+  --warm: #d9622b;
+  --success: #1e7770;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; font-family: var(--serif); color: var(--text); background: var(--bg); line-height: 1.65; }
+
+.article { max-width: 980px; margin: 0 auto; padding: 2.5rem 1.5rem 5rem; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; color: var(--muted); text-decoration: none; font-family: var(--sans); font-size: 0.9rem; }
+.back-link:hover { color: var(--text); }
+.article-header { margin-bottom: 3rem; text-align: center; }
+.kicker { margin: 0 0 0.75rem; font-family: var(--sans); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); }
+h1 { margin: 0 auto 1rem; font-size: clamp(2.4rem, 5vw, 3.5rem); line-height: 1.1; letter-spacing: -0.02em; color: #1a1815; max-width: 18ch; }
+.abstract { margin: 0 auto 1rem; max-width: 64ch; font-size: 1.15rem; color: #4d463d; }
+.byline { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-top: 1.4rem; padding-top: 1rem; border-top: 1px solid var(--border); color: var(--muted); font-family: var(--sans); font-size: 0.92rem; }
+
+.step-section {
+  position: relative;
+  margin-top: 4rem;
+  padding: 3rem 2.5rem;
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.03);
+}
+.step-badge {
+  position: absolute;
+  top: -16px;
+  left: 32px;
+  background: var(--accent);
+  color: white;
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.4rem 1.2rem;
+  border-radius: 999px;
+  box-shadow: 0 4px 12px rgba(44, 111, 183, 0.25);
+}
+.step-badge--warm { background: var(--warm); box-shadow: 0 4px 12px rgba(217, 98, 43, 0.25); }
+h2 { margin: 0 0 1rem; font-size: clamp(1.6rem, 3.5vw, 2.2rem); line-height: 1.15; color: #1a1815; }
+h3 { margin-top: 2rem; margin-bottom: 0.8rem; font-size: 1.25rem; color: #1a1815; }
+p { max-width: 68ch; font-size: 1.1rem; }
+ul { max-width: 68ch; font-size: 1.1rem; padding-left: 1.4rem; }
+li { margin-bottom: 0.5rem; }
+code { font-family: var(--mono); font-size: 0.92em; background: #f3efe6; padding: 0.1em 0.35em; border-radius: 4px; }
+.math-block { margin: 1.5rem 0; text-align: center; font-size: 1.05rem; }
+
+/* ---- controls ---- */
+.control-panel {
+  margin: 1.6rem 0 0;
+  padding: 1.5rem 1.6rem 1.7rem;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: #faf8f3;
+}
+.panel-title {
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--muted);
+  margin: 0 0 1rem;
+}
+.control-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 1.3rem 1.5rem;
+  margin: 0;
+}
+.control-block { display: flex; flex-direction: column; gap: 0.5rem; }
+.control-block label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-family: var(--sans);
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.control-block label span { font-family: var(--mono); color: var(--warm); font-weight: 600; font-size: 0.95rem; }
+.control-block.is-dim { opacity: 0.42; }
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px; height: 18px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid var(--paper);
+  box-shadow: 0 2px 6px rgba(44,111,183,0.4);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 18px; height: 18px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid var(--paper);
+}
+
+.button-row { display: flex; gap: 0.55rem; flex-wrap: wrap; margin: 0.2rem 0 0; }
+.toggle-label {
+  font-family: var(--sans);
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0 0 0.5rem;
+}
+.mode-button {
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: 0.9rem;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  border: 1.5px solid var(--border);
+  background: var(--paper);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.mode-button:hover { border-color: var(--accent); }
+.mode-button.is-active { background: var(--accent); color: white; border-color: var(--accent); }
+.mode-button.is-active-warm { background: var(--warm); color: white; border-color: var(--warm); }
+.mode-button small { display:block; font-weight: 500; font-size: 0.72rem; opacity: 0.75; margin-top: 1px; }
+
+.preset-button {
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: 0.82rem;
+  padding: 0.45rem 0.85rem;
+  border-radius: 999px;
+  border: 1.5px solid var(--border);
+  background: var(--paper);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.preset-button:hover { border-color: var(--warm); color: var(--warm); }
+
+.toggle-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.4rem 1.8rem;
+  margin-top: 1.3rem;
+  padding-top: 1.3rem;
+  border-top: 1px dashed var(--border);
+}
+
+.live-formula {
+  margin: 1.4rem 0 0;
+  padding: 0.9rem 1.1rem;
+  border-radius: 10px;
+  background: #1f1b16;
+  color: #f4ede0;
+  font-family: var(--mono);
+  font-size: 0.95rem;
+  line-height: 1.7;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+.live-formula .lf-sym { color: #e8a06a; }
+.live-formula .lf-res { color: #7fd1c4; font-weight: 600; }
+.live-formula .lf-dim { color: #9a9083; }
+
+.interactive-figure { margin: 1.6rem 0 0; }
+.interactive-figure canvas {
+  display: block;
+  width: 100%;
+  background: #fbfaf6;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.interactive-figure figcaption { margin-top: 0.7rem; font-size: 0.9rem; color: var(--muted); text-align: center; font-style: italic; }
+
+.stat-strip { display: flex; gap: 0.9rem; flex-wrap: wrap; margin: 1.6rem 0 0; }
+.stat-pill {
+  flex: 1 1 150px;
+  min-width: 150px;
+  background: var(--paper);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  padding: 0.9rem 1.05rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  text-align: left;
+}
+.stat-pill .stat-label { font-family: var(--sans); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); font-weight: 700; }
+.stat-pill .stat-value { font-family: var(--mono); font-size: 1.4rem; font-weight: 600; color: var(--text); }
+.stat-pill .stat-sub { font-family: var(--sans); font-size: 0.74rem; color: var(--muted); }
+.stat-pill--accent { border-color: var(--accent); }
+.stat-pill--accent .stat-value { color: var(--accent); }
+.stat-pill--warm { border-color: var(--warm); }
+.stat-pill--warm .stat-value { color: var(--warm); }
+.stat-pill--danger { border-color: #c0392b; background: rgba(192,57,43,0.05); }
+.stat-pill--danger .stat-value { color: #c0392b; }
+
+.callout {
+  margin: 2rem 0 0.2rem;
+  padding: 1.2rem 1.5rem;
+  border-radius: 12px;
+  border-left: 4px solid var(--accent);
+  background: rgba(44,111,183,0.05);
+  font-size: 1.02rem;
+}
+.callout p { max-width: none; font-size: 1.02rem; margin: 0; }
+.callout strong { color: var(--accent); }
+.callout--think { border-left-color: var(--success); background: rgba(30,119,112,0.06); }
+.callout--think strong { color: var(--success); }
+.callout--warn { border-left-color: var(--warm); background: rgba(217,98,43,0.06); }
+.callout--warn strong { color: var(--warm); }
+
+.escape-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.2rem;
+  margin: 1.5rem 0 0;
+}
+.escape-card {
+  padding: 1.2rem 1.4rem;
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  background: var(--paper);
+}
+.escape-card .escape-tag {
+  display: inline-block;
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: 0.68rem;
+  color: var(--success);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  background: rgba(30,119,112,0.1);
+  padding: 0.25rem 0.6rem;
+  border-radius: 5px;
+  margin-bottom: 0.6rem;
+}
+.escape-card p { font-size: 0.96rem; max-width: none; margin: 0; }
+.escape-card h3 { margin: 0 0 0.5rem; font-size: 1.08rem; }
+
+.examples-table-wrap { overflow-x: auto; margin: 1.5rem 0 0; }
+.examples-table { width: 100%; border-collapse: collapse; font-size: 0.95rem; min-width: 520px; }
+.examples-table th, .examples-table td { text-align: left; padding: 0.7rem 0.9rem; border-bottom: 1px solid var(--border); }
+.examples-table th { font-family: var(--sans); font-weight: 700; font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); background: #faf8f3; }
+.examples-table td:first-child { font-weight: 600; font-family: var(--sans); }
+.examples-table td code { font-size: 0.85em; }
+
+.paged-legend { display: flex; gap: 1.2rem; flex-wrap: wrap; margin-top: 0.8rem; font-family: var(--sans); font-size: 0.82rem; color: var(--muted); }
+.paged-legend span { display: inline-flex; align-items: center; gap: 0.4rem; }
+.paged-legend i { width: 14px; height: 14px; border-radius: 3px; display: inline-block; }
+
+footer { margin-top: 4rem; text-align: center; font-family: var(--sans); font-size: 0.85rem; color: var(--muted); }
+
+@media (max-width: 640px) {
+  .step-section { padding: 2rem 1.3rem; }
+  .stat-pill .stat-value { font-size: 1.15rem; }
+}
+</style>
+</head>
+<body>
+
+<article class="article">
+  <header class="article-header">
+    <a class="back-link" href="../index.html">&larr; Explainer Library</a>
+    <p class="kicker">Interactive Explainer</p>
+    <h1>The KV-Cache, Made Concrete</h1>
+    <p class="abstract">
+      Every token an LLM generates re-reads every key and value from all previous
+      tokens. Caching them is mandatory &mdash; and the cache quickly dwarfs the
+      weights. Slide the model, the context, and the batch below and watch the
+      moment the KV-cache overtakes the parameters. This is why
+      &ldquo;LLM inference is memory-bound, not compute-bound.&rdquo;
+    </p>
+    <div class="byline">
+      <span>~11 min</span>
+      <span>Inference &middot; LLM systems</span>
+    </div>
+  </header>
+
+  <!-- ─── Prelude ─── -->
+  <section class="step-section" id="prelude">
+    <div class="step-badge">Prelude</div>
+    <h2>Why the cache has to exist</h2>
+    <p>
+      To predict token $t{+}1$, self-attention compares the current query against
+      the key of <em>every</em> earlier token and mixes in their values:
+    </p>
+    <div class="math-block">
+      $$\mathrm{attn}(q_t) = \sum_{i \le t} \mathrm{softmax}\!\big(q_t \cdot k_i / \sqrt{d_h}\big)\, v_i .$$
+    </div>
+    <p>
+      The keys $k_i$ and values $v_i$ of past tokens never change. Recomputing them
+      at each step would make generation cost $\mathcal{O}(n^2)$ in time for no
+      reason. So we <strong>cache</strong> them: after a token is processed, its
+      $k$ and $v$ (in every layer, every head) are stored and re-used forever. That
+      trade &mdash; spend memory to save compute &mdash; is what makes autoregressive
+      decoding fast, and what makes it <em>memory-bound</em>. Every new token reads
+      the entire cache back out of HBM; the arithmetic is trivial next to the
+      bytes moved.
+    </p>
+  </section>
+
+  <!-- ─── Step 1: the formula ─── -->
+  <section class="step-section" id="formula">
+    <div class="step-badge">Step 1</div>
+    <h2>The one formula that governs everything</h2>
+    <p>
+      For a single token, in a single layer, one attention head stores one key
+      vector and one value vector, each of dimension $d_h$. Multiply out over the
+      whole model and you get the size of the cache <em>per token</em>:
+    </p>
+    <div class="math-block">
+      $$\underbrace{\text{bytes}_{\text{token}}}_{\text{per token}}
+        = \underbrace{2}_{K \text{ and } V}\cdot\; L \;\cdot\; n_{kv} \;\cdot\; d_h \;\cdot\; p$$
+    </div>
+    <ul>
+      <li>$L$ &mdash; number of transformer layers (the cache is stored once per layer).</li>
+      <li>$n_{kv}$ &mdash; number of <em>key/value</em> heads. Under multi-head attention this equals the query heads; grouped-query and multi-query attention shrink it.</li>
+      <li>$d_h$ &mdash; dimension of each head.</li>
+      <li>$p$ &mdash; bytes per number (FP16 = 2, INT8 = 1).</li>
+      <li>The factor $2$ is because we store both a key <em>and</em> a value.</li>
+    </ul>
+    <p>
+      Multiply by the context length and the batch size (concurrent sequences) and
+      you have the total footprint:
+      $\;\text{bytes}_{\text{total}} = \text{bytes}_{\text{token}} \cdot \text{context} \cdot \text{batch}.$
+      Nothing here depends on the size of the MLP or the vocabulary &mdash; the cache
+      is a pure function of the attention shape. Time to make it move.
+    </p>
+  </section>
+
+  <!-- ─── The Lab ─── -->
+  <section class="step-section" id="lab">
+    <div class="step-badge step-badge--warm">The Lab</div>
+    <h2>The memory-cliff calculator</h2>
+    <p>
+      Set a model with the sliders, or load a real one with a preset. The chart
+      plots two things against context length: the flat <span style="color:var(--accent);font-weight:600">model weights</span>
+      and the rising <span style="color:var(--warm);font-weight:600">KV-cache</span>. Where the cache line
+      overtakes the weights is the <strong>memory cliff</strong> &mdash; past it,
+      your GPU is spending more on remembering the conversation than on the model itself.
+    </p>
+
+    <div class="button-row" id="presetRow" style="margin-bottom:0.4rem">
+      <button class="preset-button" data-preset="llama3_8b">Llama-3 8B</button>
+      <button class="preset-button" data-preset="llama3_70b">Llama-3 70B</button>
+      <button class="preset-button" data-preset="llama2_70b">Llama-2 70B (MHA)</button>
+      <button class="preset-button" data-preset="mistral_7b">Mistral 7B</button>
+      <button class="preset-button" data-preset="gpt3_175b">GPT-3 175B</button>
+    </div>
+
+    <div class="control-panel">
+      <p class="panel-title">Model shape</p>
+      <div class="control-row">
+        <div class="control-block">
+          <label>Layers $L$ <span id="LVal">80</span></label>
+          <input type="range" id="L" min="1" max="126" step="1" value="80">
         </div>
-      </header>
-
-      <section class="step-section">
-        <div class="step-badge">Step 1</div>
-        <h2>The formula</h2>
-        <p>
-          Per-token KV bytes $= 2 \cdot L \cdot n_{kv} \cdot d_h \cdot p$
-          where $L$ is layers, $n_{kv}$ is KV-heads, $d_h$ is head dim, $p$ is dtype size.
-        </p>
-        <p>
-          For Llama-3-70B at FP16 with GQA(8) and context $32\text{k}$:
-          $\approx 5\,\text{GB}$ per concurrent user. Run 16 users in
-          parallel and the cache alone needs 80GB. The weights are already there.
-        </p>
-      </section>
-
-      <section class="step-section">
-        <div class="step-badge">Try it</div>
-        <h2>The widget</h2>
-        <div id="widget-root">
-          <p><em>Sliders: model size, layers, context, batch, dtype.</em></p>
-          <p><em>Toggle MHA / GQA / MQA — see the memory cliff.</em></p>
-          <p><em>PagedAttention vs naive: contiguous block grid vs paged pool.</em></p>
-          <p style="color:#888"><em>Status: scaffold. Implementation pending.</em></p>
+        <div class="control-block">
+          <label>Query heads $n_h$ <span id="nhVal">64</span></label>
+          <input type="range" id="nh" min="8" max="128" step="1" value="64">
         </div>
-      </section>
+        <div class="control-block">
+          <label>Head dim $d_h$ <span id="dhVal">128</span></label>
+          <input type="range" id="dh" min="32" max="256" step="8" value="128">
+        </div>
+      </div>
 
-      <section class="step-section">
-        <div class="step-badge">Step 2</div>
-        <h2>The three escape hatches</h2>
-        <ul class="explanation-list">
-          <li><strong>GQA &middot; share KV across query heads.</strong> 8× reduction with negligible quality drop.</li>
-          <li><strong>PagedAttention &middot; allocate KV in fixed pages.</strong> No contiguous-buffer fragmentation; vLLM's secret.</li>
-          <li><strong>INT8 KV-cache &middot; halve bytes.</strong> Often free; sometimes a small quality nudge.</li>
-        </ul>
-      </section>
-    </article>
-  </body>
+      <div class="toggle-grid">
+        <div>
+          <p class="toggle-label">Attention type &rarr; sets KV heads $n_{kv}$</p>
+          <div class="button-row" id="modeRow">
+            <button class="mode-button" data-mode="MHA">MHA<small>n<sub>kv</sub> = n<sub>h</sub></small></button>
+            <button class="mode-button is-active" data-mode="GQA">GQA<small>a few groups</small></button>
+            <button class="mode-button" data-mode="MQA">MQA<small>n<sub>kv</sub> = 1</small></button>
+          </div>
+          <div class="control-block" id="gqaBlock" style="margin-top:0.9rem">
+            <label>GQA key/value heads <span id="gqaVal">8</span></label>
+            <input type="range" id="gqa" min="1" max="64" step="1" value="8">
+          </div>
+        </div>
+        <div>
+          <p class="toggle-label">KV-cache dtype &rarr; bytes per number $p$</p>
+          <div class="button-row" id="dtypeRow">
+            <button class="mode-button" data-bytes="4">FP32<small>4 bytes</small></button>
+            <button class="mode-button is-active-warm" data-bytes="2">FP16 / BF16<small>2 bytes</small></button>
+            <button class="mode-button" data-bytes="1">INT8<small>1 byte</small></button>
+          </div>
+          <p style="font-family:var(--sans);font-size:0.82rem;color:var(--muted);margin:0.9rem 0 0;max-width:none">
+            Effective KV heads: <strong id="nkvReadout" style="color:var(--warm)">8</strong>
+            &mdash; <span id="shareReadout">each shared by 8 query heads</span>.
+          </p>
+        </div>
+      </div>
+
+      <div class="toggle-grid" style="margin-top:1.3rem">
+        <div class="control-block">
+          <label>Context length <span id="ctxVal">8,192 tok</span></label>
+          <input type="range" id="ctx" min="1024" max="262144" step="1024" value="8192">
+        </div>
+        <div class="control-block">
+          <label>Batch size (concurrent users) <span id="batchVal">8</span></label>
+          <input type="range" id="batch" min="1" max="256" step="1" value="8">
+        </div>
+      </div>
+    </div>
+
+    <div class="live-formula" id="liveFormula"></div>
+
+    <div class="stat-strip">
+      <div class="stat-pill stat-pill--warm">
+        <span class="stat-label">Per token</span>
+        <span class="stat-value" id="perTokVal">&mdash;</span>
+        <span class="stat-sub">all layers &amp; KV heads</span>
+      </div>
+      <div class="stat-pill stat-pill--warm">
+        <span class="stat-label">Total KV-cache</span>
+        <span class="stat-value" id="totalKVVal">&mdash;</span>
+        <span class="stat-sub" id="totalKVSub">context &times; batch</span>
+      </div>
+      <div class="stat-pill stat-pill--accent">
+        <span class="stat-label">Model weights</span>
+        <span class="stat-value" id="weightVal">&mdash;</span>
+        <span class="stat-sub" id="paramSub">&mdash; params, FP16</span>
+      </div>
+      <div class="stat-pill" id="ratioPill">
+        <span class="stat-label">KV &divide; weights</span>
+        <span class="stat-value" id="ratioVal">&mdash;</span>
+        <span class="stat-sub" id="ratioSub">&mdash;</span>
+      </div>
+    </div>
+
+    <figure class="interactive-figure">
+      <canvas id="cliffCanvas" width="920" height="440"></canvas>
+      <figcaption>
+        Flat blue band: model weights (fixed). Orange area: KV-cache, growing linearly with context at the current batch.
+        The dashed vertical line is the <em>cliff</em> where they are equal; the solid orange line marks your current context.
+        Horizontal dashes are 80&nbsp;GB GPU increments.
+      </figcaption>
+    </figure>
+
+    <figure class="interactive-figure" style="margin-top:1.4rem">
+      <canvas id="budgetCanvas" width="920" height="132"></canvas>
+      <figcaption>Total footprint (weights + current KV-cache) laid against 80&nbsp;GB GPU boundaries.</figcaption>
+    </figure>
+
+    <div class="callout callout--think">
+      <strong>Try this.</strong> Load <em>Llama-3 70B</em>, then drag <em>batch size</em>
+      up from 1. At batch 1 the cache is a footnote next to the 130&nbsp;GB of weights.
+      But KV scales with <em>every</em> concurrent user, so by batch 32 the orange
+      area has climbed past the blue band &mdash; the same model now needs multiple
+      GPUs just to hold conversations in flight. Now switch the same model to
+      <em>MHA</em>: with $n_{kv}$ jumping from 8 to 64, the cliff arrives $8\times$
+      sooner. That single design choice is why every modern model uses GQA.
+    </div>
+  </section>
+
+  <!-- ─── Step 2: PagedAttention ─── -->
+  <section class="step-section" id="paged">
+    <div class="step-badge">Step 2</div>
+    <h2>PagedAttention: stop reserving what you don't use</h2>
+    <p>
+      There is a second, subtler waste. A naive server does not know how long a
+      reply will be, so it <em>reserves</em> a contiguous buffer for the maximum
+      context of every sequence up front. Most replies are short, so most of that
+      buffer sits empty &mdash; <strong>internal fragmentation</strong>. vLLM's
+      PagedAttention borrows the operating-system trick of paging: memory is a pool
+      of small fixed <em>blocks</em>, and a sequence grabs blocks only as it grows.
+      Toggle between the two and watch the wasted (hatched) memory collapse.
+    </p>
+
+    <div class="control-panel">
+      <div class="toggle-grid" style="margin-top:0;padding-top:0;border-top:none">
+        <div>
+          <p class="toggle-label">Allocation strategy</p>
+          <div class="button-row" id="pagedModeRow">
+            <button class="mode-button" data-paged="naive">Naive contiguous</button>
+            <button class="mode-button is-active" data-paged="paged">PagedAttention</button>
+          </div>
+        </div>
+        <div class="control-block">
+          <label>Concurrent sequences <span id="seqNVal">6</span></label>
+          <input type="range" id="seqN" min="1" max="12" step="1" value="6">
+        </div>
+        <div class="control-block">
+          <label>Block size <span id="blkVal">128 tok</span></label>
+          <input type="range" id="blk" min="16" max="512" step="16" value="128">
+        </div>
+      </div>
+    </div>
+
+    <figure class="interactive-figure">
+      <canvas id="pagedCanvas" width="920" height="330"></canvas>
+      <figcaption id="pagedCaption">Each cell is one block. Solid = tokens actually stored; hatched = reserved but empty.</figcaption>
+    </figure>
+    <div class="paged-legend">
+      <span><i style="background:#2c6fb7"></i> stored tokens</span>
+      <span><i style="background:repeating-linear-gradient(45deg,#d9d2c4,#d9d2c4 3px,#efe9dd 3px,#efe9dd 6px)"></i> reserved &amp; wasted</span>
+    </div>
+
+    <div class="stat-strip">
+      <div class="stat-pill stat-pill--accent">
+        <span class="stat-label">Memory used</span>
+        <span class="stat-value" id="pagedUsedVal">&mdash;</span>
+        <span class="stat-sub">blocks holding real tokens</span>
+      </div>
+      <div class="stat-pill stat-pill--warm">
+        <span class="stat-label">Reserved total</span>
+        <span class="stat-value" id="pagedReservedVal">&mdash;</span>
+        <span class="stat-sub">blocks paid for</span>
+      </div>
+      <div class="stat-pill" id="utilPill">
+        <span class="stat-label">Utilisation</span>
+        <span class="stat-value" id="pagedUtilVal">&mdash;</span>
+        <span class="stat-sub" id="pagedUtilSub">used &divide; reserved</span>
+      </div>
+    </div>
+
+    <div class="callout">
+      <strong>Why it matters.</strong> Naive reservation routinely wastes
+      60&ndash;80% of KV memory. By paging, vLLM keeps utilisation near
+      100%, which means far more sequences fit on the same card &mdash; higher
+      throughput from the exact same hardware. Smaller blocks waste less at the tail
+      but add bookkeeping; 16&ndash;128 tokens per block is the usual sweet spot.
+    </div>
+  </section>
+
+  <!-- ─── Step 3: escape hatches ─── -->
+  <section class="step-section" id="escapes">
+    <div class="step-badge">Step 3</div>
+    <h2>The three escape hatches</h2>
+    <p>
+      Every term in $2 \cdot L \cdot n_{kv} \cdot d_h \cdot p$ is a lever, and the
+      field has pulled each of them:
+    </p>
+    <div class="escape-grid">
+      <div class="escape-card">
+        <span class="escape-tag">shrink n_kv</span>
+        <h3>Grouped-query attention</h3>
+        <p>Let several query heads share one key/value head. GQA(8) cuts $n_{kv}$
+        from 64 to 8 &mdash; an $8\times$ smaller cache with negligible quality loss.
+        MQA takes it to the extreme with a single KV head.</p>
+      </div>
+      <div class="escape-card">
+        <span class="escape-tag">shrink p</span>
+        <h3>INT8 / FP8 KV-cache</h3>
+        <p>Store keys and values in 8 bits instead of 16. Halves the bytes, often
+        for free; occasionally a small accuracy nudge. Toggle it in the Lab and the
+        cliff moves twice as far right.</p>
+      </div>
+      <div class="escape-card">
+        <span class="escape-tag">stop wasting</span>
+        <h3>PagedAttention</h3>
+        <p>Allocate KV in fixed blocks instead of one giant contiguous buffer per
+        sequence. No fragmentation, no over-reservation &mdash; the trick at the
+        heart of vLLM's throughput.</p>
+      </div>
+    </div>
+
+    <h3>Where each model lands</h3>
+    <div class="examples-table-wrap">
+      <table class="examples-table">
+        <thead>
+          <tr><th>Model</th><th>Attention</th><th>KV heads</th><th>KV / token (FP16)</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Llama-2 70B</td><td>MHA</td><td>64</td><td><code>~2.5 MB</code></td></tr>
+          <tr><td>Llama-3 70B</td><td>GQA</td><td>8</td><td><code>~320 KB</code></td></tr>
+          <tr><td>Mistral 7B</td><td>GQA</td><td>8</td><td><code>~128 KB</code></td></tr>
+          <tr><td>Multi-query (MQA)</td><td>MQA</td><td>1</td><td><code>~40 KB</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout--warn">
+      <strong>Takeaway.</strong> The KV-cache is the hidden tax on long context and
+      high concurrency. Its size is set entirely by the attention shape &mdash;
+      $2 \cdot L \cdot n_{kv} \cdot d_h \cdot p$ &mdash; and it grows with both the
+      length of each conversation and the number of them at once. Serving LLMs at
+      scale is, to a first approximation, the art of keeping this number small.
+    </div>
+  </section>
+
+  <footer>Part of the ES 667 Deep Learning explainer series &middot; LLM inference systems</footer>
+</article>
+
+<script src="../vendor/katex/katex.min.js"></script>
+<script>
+/* ===================== helpers ===================== */
+const GiB = 1024 ** 3, MiB = 1024 ** 2, KiB = 1024;
+const id = s => document.getElementById(s);
+
+function fmtBytes(b) {
+  if (b >= GiB) { const v = b / GiB; return v.toFixed(v >= 100 ? 0 : 1) + ' GB'; }
+  if (b >= MiB) { const v = b / MiB; return v.toFixed(v >= 100 ? 0 : 1) + ' MB'; }
+  if (b >= KiB) { const v = b / KiB; return v.toFixed(v >= 100 ? 0 : 1) + ' KB'; }
+  return Math.round(b) + ' B';
+}
+function fmtTokens(t) {
+  if (t >= 1e6) { const v = t / 1e6; return v.toFixed(v >= 10 ? 0 : 1) + 'M'; }
+  if (t >= 1e3) { const v = t / 1e3; return v.toFixed(v >= 10 ? 0 : 1) + 'k'; }
+  return '' + Math.round(t);
+}
+function fmtInt(n) { return n.toLocaleString('en-US'); }
+function fmtParams(p) {
+  if (p >= 1e9) return (p / 1e9).toFixed(p / 1e9 >= 100 ? 0 : 1) + 'B';
+  if (p >= 1e6) return (p / 1e6).toFixed(0) + 'M';
+  return fmtInt(p);
+}
+function niceNum(v) {
+  if (v <= 0) return 1;
+  const exp = Math.floor(Math.log10(v));
+  const f = v / Math.pow(10, exp);
+  const nf = f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10;
+  return nf * Math.pow(10, exp);
+}
+function fitCanvas(canvas) {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = Math.max(1, rect.width * dpr);
+  canvas.height = Math.max(1, rect.height * dpr);
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { ctx, w: rect.width, h: rect.height };
+}
+function roundRect(ctx, x, y, w, h, r) {
+  if (h <= 0 || w <= 0) return;
+  r = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+/* ===================== state ===================== */
+let MODE = 'GQA';     // MHA | GQA | MQA
+let DTYPE = 2;        // bytes
+const W_BYTES = 2;    // weights assumed FP16
+
+function state() {
+  const L = +id('L').value, nh = +id('nh').value, dh = +id('dh').value;
+  const context = +id('ctx').value, batch = +id('batch').value;
+  let n_kv;
+  if (MODE === 'MHA') n_kv = nh;
+  else if (MODE === 'MQA') n_kv = 1;
+  else n_kv = Math.min(+id('gqa').value, nh);
+  const d_model = nh * dh;
+  const perToken = 2 * L * n_kv * dh * DTYPE;
+  const totalKV = perToken * context * batch;
+  const params = 12 * L * d_model * d_model;   // ~non-embedding transformer params
+  const weights = params * W_BYTES;
+  return { L, nh, dh, context, batch, n_kv, d_model, perToken, totalKV, params, weights };
+}
+
+/* ===================== live formula ===================== */
+function updateFormula(s) {
+  id('liveFormula').innerHTML =
+    '<span class="lf-sym">2</span> <span class="lf-dim">&times;</span> ' +
+    '<span class="lf-sym">' + s.L + '</span><span class="lf-dim">&#8203;L</span> ' +
+    '<span class="lf-dim">&times;</span> <span class="lf-sym">' + s.n_kv + '</span><span class="lf-dim">&#8203;n<sub>kv</sub></span> ' +
+    '<span class="lf-dim">&times;</span> <span class="lf-sym">' + s.dh + '</span><span class="lf-dim">&#8203;d<sub>h</sub></span> ' +
+    '<span class="lf-dim">&times;</span> <span class="lf-sym">' + DTYPE + '</span><span class="lf-dim">&#8203;B</span> ' +
+    '<span class="lf-dim">=</span> <span class="lf-res">' + fmtBytes(s.perToken) + '</span> <span class="lf-dim">/ token</span>' +
+    '<span class="lf-dim">&nbsp;&nbsp;&times; ' + fmtTokens(s.context) + ' ctx &times; ' + s.batch + ' batch =</span> ' +
+    '<span class="lf-res">' + fmtBytes(s.totalKV) + '</span>';
+}
+
+/* ===================== stat pills ===================== */
+function updateStats(s) {
+  id('perTokVal').textContent = fmtBytes(s.perToken);
+  id('totalKVVal').textContent = fmtBytes(s.totalKV);
+  id('totalKVSub').textContent = fmtTokens(s.context) + ' ctx × ' + s.batch + ' batch';
+  id('weightVal').textContent = fmtBytes(s.weights);
+  id('paramSub').textContent = '≈' + fmtParams(s.params) + ' params, FP16';
+  const ratio = s.totalKV / s.weights;
+  id('ratioVal').textContent = ratio >= 1 ? ratio.toFixed(1) + '×' : (ratio * 100).toFixed(0) + '%';
+  const ratioPill = id('ratioPill');
+  ratioPill.classList.remove('stat-pill--danger', 'stat-pill--accent');
+  if (ratio >= 1) { ratioPill.classList.add('stat-pill--danger'); id('ratioSub').textContent = 'cache exceeds weights!'; }
+  else { ratioPill.classList.add('stat-pill--accent'); id('ratioSub').textContent = 'cache as share of weights'; }
+
+  id('nkvReadout').textContent = s.n_kv;
+  const share = Math.round(s.nh / s.n_kv);
+  id('shareReadout').textContent = s.n_kv === s.nh
+    ? 'one per query head (no sharing)'
+    : 'each shared by ' + share + ' query head' + (share === 1 ? '' : 's');
+}
+
+/* ===================== cliff chart ===================== */
+function drawCliff() {
+  const s = state();
+  const { ctx, w, h } = fitCanvas(id('cliffCanvas'));
+  ctx.clearRect(0, 0, w, h);
+  const padL = 62, padR = 96, padT = 26, padB = 46;
+  const cw = w - padL - padR, ch = h - padT - padB;
+
+  const slope = s.perToken * s.batch;                 // bytes per context token
+  const weightsGB = s.weights / GiB;
+  const cross = slope > 0 ? s.weights / slope : Infinity;   // context where KV == weights
+
+  // x range: include current context and the crossover, capped
+  let Xmax = Math.max(s.context * 1.35, Math.min(cross * 1.4, 512 * 1024), 16384);
+  Xmax = niceNum(Xmax);
+  const kvAtMax = slope * Xmax / GiB;
+  let Ymax = niceNum((weightsGB + kvAtMax) * 1.08);
+  if (Ymax < weightsGB * 1.5) Ymax = niceNum(weightsGB * 1.6);
+
+  const X = c => padL + (c / Xmax) * cw;
+  const Y = gb => padT + ch - (gb / Ymax) * ch;
+
+  // y gridlines
+  ctx.font = '500 10.5px Manrope, sans-serif';
+  ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  const ySteps = 5;
+  for (let i = 0; i <= ySteps; i++) {
+    const gb = (i / ySteps) * Ymax, y = Y(gb);
+    ctx.strokeStyle = i === 0 ? 'rgba(47,42,34,0.22)' : 'rgba(47,42,34,0.07)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL + cw, y); ctx.stroke();
+    ctx.fillStyle = '#8a8072';
+    ctx.fillText(gb >= 100 ? gb.toFixed(0) : gb.toFixed(gb < 10 ? 1 : 0), padL - 8, y);
+  }
+  ctx.save();
+  ctx.translate(15, padT + ch / 2); ctx.rotate(-Math.PI / 2);
+  ctx.fillStyle = '#6e665b'; ctx.font = '600 11px Manrope, sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText('memory (GB)', 0, 0);
+  ctx.restore();
+
+  // x ticks
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  const xSteps = 4;
+  for (let i = 0; i <= xSteps; i++) {
+    const c = (i / xSteps) * Xmax, x = X(c);
+    ctx.strokeStyle = 'rgba(47,42,34,0.06)'; ctx.beginPath();
+    ctx.moveTo(x, padT); ctx.lineTo(x, padT + ch); ctx.stroke();
+    ctx.fillStyle = '#8a8072'; ctx.font = '500 10.5px Manrope, sans-serif';
+    ctx.fillText(fmtTokens(c), x, padT + ch + 7);
+  }
+  ctx.fillStyle = '#6e665b'; ctx.font = '600 11px Manrope, sans-serif';
+  ctx.fillText('context length (tokens)', padL + cw / 2, padT + ch + 24);
+
+  // weights band (fill 0..weightsGB)
+  ctx.fillStyle = 'rgba(44,111,183,0.16)';
+  ctx.fillRect(padL, Y(Math.min(weightsGB, Ymax)), cw, Y(0) - Y(Math.min(weightsGB, Ymax)));
+  ctx.strokeStyle = '#2c6fb7'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(padL, Y(weightsGB)); ctx.lineTo(padL + cw, Y(weightsGB)); ctx.stroke();
+
+  // KV area stacked on top of weights: total = weights + slope*c
+  ctx.beginPath();
+  ctx.moveTo(X(0), Y(weightsGB));
+  for (let px = 0; px <= cw; px += 3) {
+    const c = (px / cw) * Xmax;
+    const totalGB = weightsGB + slope * c / GiB;
+    ctx.lineTo(padL + px, Y(Math.min(totalGB, Ymax)));
+  }
+  ctx.lineTo(padL + cw, Y(weightsGB));
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(217,98,43,0.22)'; ctx.fill();
+
+  // total top line
+  ctx.beginPath();
+  for (let px = 0; px <= cw; px += 2) {
+    const c = (px / cw) * Xmax;
+    const totalGB = weightsGB + slope * c / GiB;
+    const yy = Y(Math.min(totalGB, Ymax));
+    if (px === 0) ctx.moveTo(padL, yy); else ctx.lineTo(padL + px, yy);
+  }
+  ctx.strokeStyle = '#d9622b'; ctx.lineWidth = 2.6; ctx.stroke();
+
+  // GPU capacity lines (80GB increments)
+  ctx.font = '600 9.5px IBM Plex Mono, monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  for (let g = 80, k = 1; g <= Ymax; g *= 2, k *= 2) {
+    const y = Y(g);
+    ctx.strokeStyle = 'rgba(120,60,40,0.35)'; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
+    ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL + cw, y); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#9a6a4a'; ctx.fillText(k + '×80GB', padL + cw + 6, y);
+  }
+
+  // crossover marker
+  if (isFinite(cross) && cross <= Xmax) {
+    const cx = X(cross), cyGB = 2 * weightsGB;
+    ctx.strokeStyle = 'rgba(47,42,34,0.55)'; ctx.lineWidth = 1.5; ctx.setLineDash([6, 4]);
+    ctx.beginPath(); ctx.moveTo(cx, padT); ctx.lineTo(cx, padT + ch); ctx.stroke();
+    ctx.setLineDash([]);
+    // dot where KV meets weights (total = 2*weights)
+    if (cyGB <= Ymax) {
+      ctx.fillStyle = '#2f2a22';
+      ctx.beginPath(); ctx.arc(cx, Y(cyGB), 4, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.fillStyle = '#5a5247'; ctx.font = '700 10px Manrope, sans-serif';
+    ctx.textAlign = cross > Xmax * 0.7 ? 'right' : 'left'; ctx.textBaseline = 'bottom';
+    const lx = cross > Xmax * 0.7 ? cx - 6 : cx + 6;
+    ctx.fillText('cliff: KV = weights @ ' + fmtTokens(cross), lx, padT + 12);
+  }
+
+  // current context marker
+  const mx = X(Math.min(s.context, Xmax));
+  const curTotalGB = weightsGB + slope * s.context / GiB;
+  ctx.strokeStyle = '#d9622b'; ctx.lineWidth = 2.5;
+  ctx.beginPath(); ctx.moveTo(mx, padT); ctx.lineTo(mx, padT + ch); ctx.stroke();
+  const dotY = Y(Math.min(curTotalGB, Ymax));
+  ctx.fillStyle = '#d9622b'; ctx.beginPath(); ctx.arc(mx, dotY, 5.5, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+
+  // legend
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.font = '600 10.5px Manrope, sans-serif';
+  ctx.fillStyle = 'rgba(44,111,183,0.55)'; ctx.fillRect(padL + 6, padT + 8, 14, 10);
+  ctx.fillStyle = '#2c6fb7'; ctx.fillText('weights', padL + 24, padT + 13);
+  ctx.fillStyle = 'rgba(217,98,43,0.55)'; ctx.fillRect(padL + 90, padT + 8, 14, 10);
+  ctx.fillStyle = '#d9622b'; ctx.fillText('KV-cache', padL + 108, padT + 13);
+}
+
+/* ===================== budget bar ===================== */
+function drawBudget() {
+  const s = state();
+  const { ctx, w, h } = fitCanvas(id('budgetCanvas'));
+  ctx.clearRect(0, 0, w, h);
+  const padL = 14, padR = 14, padT = 22, barH = 40;
+  const bw = w - padL - padR;
+  const total = s.weights + s.totalKV;
+  const gpus = Math.max(1, Math.ceil(total / (80 * GiB)));
+  let capMax = Math.max(niceNum(total / GiB * 1.1), 80);
+  const gib = bytes => (bytes / GiB) / capMax * bw;
+
+  const y = padT;
+  // track
+  ctx.fillStyle = '#f0ece2'; roundRect(ctx, padL, y, bw, barH, 8); ctx.fill();
+  // weights segment
+  const ww = gib(s.weights);
+  ctx.fillStyle = '#2c6fb7'; roundRect(ctx, padL, y, Math.max(ww, 1), barH, 8); ctx.fill();
+  // KV segment
+  const kvw = gib(s.totalKV);
+  ctx.save();
+  ctx.beginPath(); ctx.rect(padL + ww, y, Math.max(kvw, 0), barH); ctx.clip();
+  ctx.fillStyle = '#d9622b'; roundRect(ctx, padL + ww, y, Math.max(kvw, 1), barH, 8); ctx.fill();
+  ctx.restore();
+  // outline
+  ctx.strokeStyle = 'rgba(47,42,34,0.15)'; ctx.lineWidth = 1; roundRect(ctx, padL, y, bw, barH, 8); ctx.stroke();
+
+  // GPU boundary ticks
+  ctx.font = '600 9.5px IBM Plex Mono, monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  for (let g = 80, k = 1; g <= capMax + 1; g += 80, k++) {
+    const x = padL + (g / capMax) * bw;
+    if (x > padL + bw + 0.5) break;
+    ctx.strokeStyle = 'rgba(47,42,34,0.4)'; ctx.setLineDash([3, 3]);
+    ctx.beginPath(); ctx.moveTo(x, y - 5); ctx.lineTo(x, y + barH + 5); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#8a8072'; ctx.fillText(g + 'GB', x, y + barH + 8);
+  }
+
+  // labels
+  ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+  ctx.font = '700 11px Manrope, sans-serif'; ctx.fillStyle = '#2f2a22';
+  ctx.fillText('Total footprint ' + fmtBytes(total) + '  →  needs ' + gpus + '× 80GB GPU' + (gpus > 1 ? 's' : ''), padL, y - 6);
+}
+
+/* ===================== paged attention ===================== */
+const SEQ_LENS = [1850, 320, 940, 1500, 210, 760, 1280, 540, 1620, 410, 880, 150];
+const SEQ_COLORS = ['#2c6fb7', '#d9622b', '#1e7770', '#8e44ad', '#c0392b', '#2980b9',
+                    '#d68910', '#16a085', '#7d5ba6', '#cb4335', '#2471a3', '#ca6f1e'];
+const MAX_LEN = 2048;
+let PAGED_MODE = 'paged';
+
+function drawPaged() {
+  const { ctx, w, h } = fitCanvas(id('pagedCanvas'));
+  ctx.clearRect(0, 0, w, h);
+  const seqN = +id('seqN').value;
+  const blk = +id('blk').value;
+  const lens = SEQ_LENS.slice(0, seqN);
+  const reservedBlocksPer = Math.ceil(MAX_LEN / blk);
+  const usedBlocks = lens.map(l => Math.ceil(l / blk));
+  const totalUsed = usedBlocks.reduce((a, b) => a + b, 0);
+  const totalTokens = lens.reduce((a, b) => a + b, 0);
+
+  const padL = 16, padT = 16, gap = 2;
+  const areaW = w - padL * 2;
+
+  function drawBlock(x, y, cw, chh, color, used) {
+    if (used) {
+      ctx.fillStyle = color; roundRect(ctx, x, y, cw, chh, 2); ctx.fill();
+    } else {
+      ctx.fillStyle = '#efe9dd'; roundRect(ctx, x, y, cw, chh, 2); ctx.fill();
+      ctx.save(); ctx.beginPath(); roundRect(ctx, x, y, cw, chh, 2); ctx.clip();
+      ctx.strokeStyle = '#cfc7b6'; ctx.lineWidth = 1;
+      for (let d = -chh; d < cw; d += 5) {
+        ctx.beginPath(); ctx.moveTo(x + d, y); ctx.lineTo(x + d + chh, y + chh); ctx.stroke();
+      }
+      ctx.restore();
+    }
+  }
+
+  let reservedTotalBlocks;
+  if (PAGED_MODE === 'naive') {
+    // one row per sequence, each reserves reservedBlocksPer blocks
+    const cols = reservedBlocksPer;
+    const cellW = (areaW - (cols - 1) * gap) / cols;
+    const rowH = Math.min(30, (h - padT - 10 - (seqN - 1) * 8) / seqN);
+    for (let r = 0; r < seqN; r++) {
+      const y = padT + r * (rowH + 8);
+      // label
+      ctx.fillStyle = '#6e665b'; ctx.font = '600 10px Manrope, sans-serif';
+      ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+      for (let c = 0; c < cols; c++) {
+        const x = padL + c * (cellW + gap);
+        drawBlock(x, y, cellW, rowH, SEQ_COLORS[r % SEQ_COLORS.length], c < usedBlocks[r]);
+      }
+      ctx.fillStyle = '#9a9083'; ctx.font = '600 9px IBM Plex Mono, monospace';
+      ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      ctx.fillText(lens[r] + ' tok', padL + cols * (cellW + gap) - cellW * 0 + 4, y + rowH / 2);
+    }
+    reservedTotalBlocks = seqN * reservedBlocksPer;
+    id('pagedCaption').textContent = 'One row per sequence. Each reserves ' + reservedBlocksPer +
+      ' blocks for the ' + MAX_LEN + '-token maximum; the hatched cells are paid for but empty.';
+  } else {
+    // shared pool, packed. wrap into a grid.
+    const cols = Math.max(reservedBlocksPer, 24);
+    const cellW = (areaW - (cols - 1) * gap) / cols;
+    const cellH = Math.min(26, cellW * 1.4);
+    let idxBlock = 0;
+    for (let r = 0; r < seqN; r++) {
+      for (let b = 0; b < usedBlocks[r]; b++) {
+        const col = idxBlock % cols, row = Math.floor(idxBlock / cols);
+        const x = padL + col * (cellW + gap);
+        const y = padT + row * (cellH + gap);
+        // last block of a sequence may be partially filled -> still counts as used (internal frag only)
+        drawBlock(x, y, cellW, cellH, SEQ_COLORS[r % SEQ_COLORS.length], true);
+        idxBlock++;
+      }
+    }
+    reservedTotalBlocks = totalUsed;
+    id('pagedCaption').textContent = 'One shared pool. Sequences (colours) grab blocks on demand and pack tight — ' +
+      'the only waste is a partial final block per sequence.';
+  }
+
+  // stats
+  const usedBytesTokens = totalTokens;
+  const reservedTokens = reservedTotalBlocks * blk;
+  const util = reservedTokens > 0 ? usedBytesTokens / reservedTokens : 0;
+  id('pagedUsedVal').textContent = totalUsed + ' blk';
+  id('pagedReservedVal').textContent = reservedTotalBlocks + ' blk';
+  id('pagedUtilVal').textContent = (util * 100).toFixed(0) + '%';
+  const utilPill = id('utilPill');
+  utilPill.classList.remove('stat-pill--danger', 'stat-pill--accent');
+  if (util < 0.55) { utilPill.classList.add('stat-pill--danger'); id('pagedUtilSub').textContent = 'mostly wasted'; }
+  else { utilPill.classList.add('stat-pill--accent'); id('pagedUtilSub').textContent = 'tokens ÷ reserved slots'; }
+}
+
+/* ===================== presets ===================== */
+const PRESETS = {
+  llama3_8b:  { L: 32, nh: 32, dh: 128, mode: 'GQA', gqa: 8 },
+  llama3_70b: { L: 80, nh: 64, dh: 128, mode: 'GQA', gqa: 8 },
+  llama2_70b: { L: 80, nh: 64, dh: 128, mode: 'MHA', gqa: 8 },
+  mistral_7b: { L: 32, nh: 32, dh: 128, mode: 'GQA', gqa: 8 },
+  gpt3_175b:  { L: 96, nh: 96, dh: 128, mode: 'MHA', gqa: 8 }
+};
+function applyPreset(key) {
+  const p = PRESETS[key];
+  id('L').value = p.L; id('nh').value = p.nh; id('dh').value = p.dh; id('gqa').value = p.gqa;
+  setMode(p.mode);
+  syncLabels();
+  renderLab();
+}
+
+/* ===================== wiring ===================== */
+function setMode(mode) {
+  MODE = mode;
+  document.querySelectorAll('#modeRow .mode-button').forEach(b =>
+    b.classList.toggle('is-active', b.dataset.mode === mode));
+  id('gqaBlock').classList.toggle('is-dim', mode !== 'GQA');
+}
+function setDtype(bytes) {
+  DTYPE = bytes;
+  document.querySelectorAll('#dtypeRow .mode-button').forEach(b =>
+    b.classList.toggle('is-active-warm', +b.dataset.bytes === bytes));
+}
+function syncLabels() {
+  id('LVal').textContent = id('L').value;
+  id('nhVal').textContent = id('nh').value;
+  id('dhVal').textContent = id('dh').value;
+  id('gqaVal').textContent = id('gqa').value;
+  id('ctxVal').textContent = fmtInt(+id('ctx').value) + ' tok';
+  id('batchVal').textContent = id('batch').value;
+}
+function renderLab() {
+  const s = state();
+  updateFormula(s);
+  updateStats(s);
+  drawCliff();
+  drawBudget();
+}
+
+['L', 'nh', 'dh', 'gqa', 'ctx', 'batch'].forEach(k => {
+  id(k).addEventListener('input', () => {
+    if (k === 'gqa') setMode('GQA');
+    syncLabels();
+    renderLab();
+  });
+});
+document.querySelectorAll('#modeRow .mode-button').forEach(b =>
+  b.addEventListener('click', () => { setMode(b.dataset.mode); renderLab(); }));
+document.querySelectorAll('#dtypeRow .mode-button').forEach(b =>
+  b.addEventListener('click', () => { setDtype(+b.dataset.bytes); renderLab(); }));
+document.querySelectorAll('#presetRow .preset-button').forEach(b =>
+  b.addEventListener('click', () => applyPreset(b.dataset.preset)));
+
+['seqN', 'blk'].forEach(k => id(k).addEventListener('input', () => {
+  id('seqNVal').textContent = id('seqN').value;
+  id('blkVal').textContent = id('blk').value + ' tok';
+  drawPaged();
+}));
+document.querySelectorAll('#pagedModeRow .mode-button').forEach(b =>
+  b.addEventListener('click', () => {
+    PAGED_MODE = b.dataset.paged;
+    document.querySelectorAll('#pagedModeRow .mode-button').forEach(x =>
+      x.classList.toggle('is-active', x.dataset.paged === PAGED_MODE));
+    drawPaged();
+  }));
+
+/* ===================== init ===================== */
+function init() {
+  setMode('GQA'); setDtype(2); syncLabels();
+  renderLab();
+  drawPaged();
+}
+window.addEventListener('load', init);
+window.addEventListener('resize', () => { renderLab(); drawPaged(); });
+// draw immediately too (fonts/layout already available in most cases)
+init();
+</script>
+
+</body>
 </html>
