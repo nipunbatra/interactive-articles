@@ -13,8 +13,8 @@
   "highlights": [
     "Step through one full forward-and-backward pass of a tiny char-level MLP, stage by stage, with live numbers.",
     "See the pipeline explicitly: embed → concatenate → tanh hidden layer → softmax → cross-entropy → backprop.",
-    "Watch the context 'e, m, m' light up exactly two rows of the embedding table — 'm' is used twice and its gradient accumulates.",
-    "Read the softmax as a bar chart, mark the true next character 'a', and see the loss -log p_true as one big number.",
+    "Watch the context 'v, e, e' (from the name Naveen) light up exactly two rows of the embedding table — 'e' is used twice and its gradient accumulates.",
+    "Read the softmax as a bar chart, mark the true next character 'n', and see the loss -log p_true as one big number.",
     "The punchline of next-token prediction: the gradient p - y updates only the embedding rows that were looked up; every other row gets exactly zero."
   ]
 }

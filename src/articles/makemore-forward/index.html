@@ -198,8 +198,8 @@ footer { margin-top: 4rem; text-align: center; font-family: var(--sans); font-si
     </div>
     <p>
       The weights below are small fixed numbers (an untrained net), so the run is fully reproducible.
-      Our example: the context is <code>e&nbsp;m&nbsp;m</code> and the true next character is
-      <code>a</code> &mdash; as in the tail of &ldquo;e&nbsp;m&nbsp;m&nbsp;<b>a</b>.&rdquo; Step through it.
+      Our example: the context is <code>v&nbsp;e&nbsp;e</code> and the true next character is
+      <code>n</code> &mdash; the tail of &ldquo;Na&nbsp;v&nbsp;e&nbsp;e&nbsp;<b>n</b>,&rdquo; the name Naveen. Step through it.
     </p>
   </section>
 
@@ -238,20 +238,20 @@ footer { margin-top: 4rem; text-align: center; font-family: var(--sans); font-si
         <span class="stat-value" id="topVal">&mdash;</span>
       </div>
       <div class="stat-pill">
-        <span class="stat-label">Prob of true char &lsquo;a&rsquo;</span>
+        <span class="stat-label">Prob of true char &lsquo;n&rsquo;</span>
         <span class="stat-value" id="ptrueVal">&mdash;</span>
       </div>
       <div class="stat-pill stat-pill--warm">
-        <span class="stat-label">Loss $-\log p_{\text{a}}$</span>
+        <span class="stat-label">Loss $-\log p_{\text{n}}$</span>
         <span class="stat-value" id="lossVal">&mdash;</span>
       </div>
     </div>
 
     <div class="callout callout--warn">
       <strong>Watch stage 6.</strong> The gradient on the logits is exactly $p - y$: one negative
-      bar on the true character &lsquo;a&rsquo; (push it up) and positive bars everywhere else (push them
-      down). Trace it back and it reaches the embedding table &mdash; but only rows <code>e</code> and
-      <code>m</code> glow. The other six rows were never indexed this step, so their gradient is exactly zero.
+      bar on the true character &lsquo;n&rsquo; (push it up) and positive bars everywhere else (push them
+      down). Trace it back and it reaches the embedding table &mdash; but only rows <code>v</code> and
+      <code>e</code> glow. The other six rows were never indexed this step, so their gradient is exactly zero.
     </div>
   </section>
 
@@ -295,12 +295,12 @@ function buildModel(seed){
 }
 function softmax(z){ const m = Math.max(...z); const e = z.map(v => Math.exp(v - m)); const Z = e.reduce((a,b)=>a+b,0); return e.map(v => v / Z); }
 
-const VOCAB = ['.','a','e','i','m','n','o','r'];
+const VOCAB = ['.','a','e','i','n','r','u','v'];
 const IDX = Object.fromEntries(VOCAB.map((c,i)=>[c,i]));
-const BLOCK = ['e','m','m'];
-const BLOCK_ID = BLOCK.map(c => IDX[c]);      // [2,4,4]
-const TRUE = 'a', TRUE_ID = IDX[TRUE];         // 1
-const USED = [...new Set(BLOCK_ID)];           // [2,4]
+const BLOCK = ['v','e','e'];
+const BLOCK_ID = BLOCK.map(c => IDX[c]);      // [7,2,2]
+const TRUE = 'n', TRUE_ID = IDX[TRUE];         // 4
+const USED = [...new Set(BLOCK_ID)];           // [7,2]
 
 const M = buildModel(42);
 function forward(){
@@ -323,7 +323,7 @@ function forward(){
   for (let k = 0; k < C; k++){ let s = 0; for (let j = 0; j < H; j++) s += dhpre[j] * W1[j][k]; dx[k] = s; }
   const gradE = {};
   gradE[BLOCK_ID[0]] = [dx[0], dx[1]];
-  // 'm' used twice -> accumulate
+  // 'e' used twice -> accumulate
   gradE[BLOCK_ID[1]] = [(gradE[BLOCK_ID[1]]?.[0]||0) + dx[2] + dx[4], (gradE[BLOCK_ID[1]]?.[1]||0) + dx[3] + dx[5]];
   return { emb, x, hpre, h, logit, p, loss, g, dx, gradE };
 }
@@ -534,27 +534,27 @@ const STAGES = [
   { name: 'Backprop', tab: '6' },
 ];
 const FORMULAS = [
-  'e_c = E[\\,c\\,] \\quad\\text{for } c \\in \\{\\texttt{e},\\texttt{m},\\texttt{m}\\}',
-  'x = [\\,e_\\texttt{e};\\; e_\\texttt{m};\\; e_\\texttt{m}\\,] \\in \\mathbb{R}^{6}',
+  'e_c = E[\\,c\\,] \\quad\\text{for } c \\in \\{\\texttt{v},\\texttt{e},\\texttt{e}\\}',
+  'x = [\\,e_\\texttt{v};\\; e_\\texttt{e};\\; e_\\texttt{e}\\,] \\in \\mathbb{R}^{6}',
   'h = \\tanh(W_1 x + b_1) \\in \\mathbb{R}^{6}',
   'z = W_2 h + b_2, \\qquad p = \\mathrm{softmax}(z) \\in \\mathbb{R}^{8}',
-  '\\mathcal{L} = -\\log p_{\\texttt{a}}',
-  '\\frac{\\partial \\mathcal{L}}{\\partial z} = p - y, \\qquad \\frac{\\partial \\mathcal{L}}{\\partial E[i]} = 0 \\;\\text{ unless } i \\in \\{\\texttt{e},\\texttt{m}\\}'
+  '\\mathcal{L} = -\\log p_{\\texttt{n}}',
+  '\\frac{\\partial \\mathcal{L}}{\\partial z} = p - y, \\qquad \\frac{\\partial \\mathcal{L}}{\\partial E[i]} = 0 \\;\\text{ unless } i \\in \\{\\texttt{v},\\texttt{e}\\}'
 ];
 const NARR = [
-  'Look up a row of the table E for each character in the context. The block is <b>e, m, m</b> — so rows &lsquo;e&rsquo; and &lsquo;m&rsquo; light up (&lsquo;m&rsquo; is used twice).',
+  'Look up a row of the table E for each character in the context. The block is <b>v, e, e</b> — so rows &lsquo;v&rsquo; and &lsquo;e&rsquo; light up (&lsquo;e&rsquo; is used twice).',
   'Stack the three 2-D vectors into one length-6 vector. That flat vector is the MLP&rsquo;s input — the network never sees letters, only these numbers.',
   'One hidden layer: multiply by W&#8321;, add b&#8321;, and squash with tanh into [-1, 1]. Each of the 6 hidden units now blends the whole context.',
   'A linear layer turns h into 8 logits — one per vocabulary character — and softmax normalises them into next-character probabilities that sum to 1.',
-  'Cross-entropy reads off the probability mass on the <b>true</b> next character &lsquo;a&rsquo; and takes minus its log. Being confidently wrong costs a lot.',
-  'Backprop. The gradient on the logits is exactly <b>p − y</b>: push &lsquo;a&rsquo; up, push the rest down. Flowing back, it lands on <b>only</b> the rows that were looked up — &lsquo;e&rsquo; and &lsquo;m&rsquo;. Every other row of E gets zero.'
+  'Cross-entropy reads off the probability mass on the <b>true</b> next character &lsquo;n&rsquo; and takes minus its log. Being confidently wrong costs a lot.',
+  'Backprop. The gradient on the logits is exactly <b>p − y</b>: push &lsquo;n&rsquo; up, push the rest down. Flowing back, it lands on <b>only</b> the rows that were looked up — &lsquo;v&rsquo; and &lsquo;e&rsquo;. Every other row of E gets zero.'
 ];
 const CAPS = [
   'Stage 1 — embedding lookup: only the context rows of E are read.',
-  'Stage 2 — concatenation: three 2-D rows become one 6-vector (‘m’ appears twice).',
+  'Stage 2 — concatenation: three 2-D rows become one 6-vector (‘e’ appears twice).',
   'Stage 3 — hidden layer: h = tanh(W₁x + b₁), six units in [-1, 1].',
   'Stage 4 — softmax over the 8-character vocabulary.',
-  'Stage 5 — cross-entropy loss on the true character ‘a’ (dashed, ★).',
+  'Stage 5 — cross-entropy loss on the true character ‘n’ (dashed, ★).',
   'Stage 6 — the gradient p − y flows back to only the used embedding rows.'
 ];
 
@@ -592,7 +592,7 @@ function drawStageCanvas(){
   const PAD = 16;
   if (stage === 0){
     // left: E table with lit rows ; right: the three looked-up vectors
-    panelTitle(ctx, PAD, 6, 'table E  —  rows read for context  e · m · m');
+    panelTitle(ctx, PAD, 6, 'table E  —  rows read for context  v · e · e');
     drawEmbTable(ctx, PAD, 26, w*0.42, h - 40, { lit: new Set(USED), dim: true });
     // right: three vectors
     const rx = w*0.52;
@@ -610,13 +610,13 @@ function drawStageCanvas(){
       ctx.fillText('= E[' + BLOCK_ID[t] + ']', rx + 78 + 2*cellW + 8, y + cellH/2);
     }
   } else if (stage === 1){
-    panelTitle(ctx, PAD, 6, 'concatenated input   x = [ e_e ; e_m ; e_m ]  ∈  ℝ⁶');
+    panelTitle(ctx, PAD, 6, 'concatenated input   x = [ e_v ; e_e ; e_e ]  ∈  ℝ⁶');
     const cellW = Math.min(96, (w - 2*PAD) / 6.5), cellH = 54;
     const ox = (w - 6*cellW) / 2, oy = h*0.42;
     const grpColors = [ACC, ACC, WARM, WARM, WARM, WARM];
     drawVector(ctx, ox, oy, cellW, cellH, F.x, { range: 1.05 });
     // group brackets + source labels
-    const groups = [[0,1,'from ‘e’',ACC],[2,3,'from ‘m’',WARM],[4,5,'from ‘m’ (again)',WARM]];
+    const groups = [[0,1,'from ‘v’',ACC],[2,3,'from ‘e’',WARM],[4,5,'from ‘e’ (again)',WARM]];
     for (const [a,b,txt,col] of groups){
       const x1 = ox + a*cellW + 2, x2 = ox + (b+1)*cellW - 2;
       ctx.strokeStyle = col; ctx.lineWidth = 2;
@@ -631,7 +631,7 @@ function drawStageCanvas(){
     }
     ctx.fillStyle = '#8a8072'; ctx.font = 'italic 11px "Source Serif 4", serif';
     ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    ctx.fillText('the two ‘m’ blocks are identical — same row, copied into two slots', w/2, oy + cellH + 30);
+    ctx.fillText('the two ‘e’ blocks are identical — same row, copied into two slots', w/2, oy + cellH + 30);
   } else if (stage === 2){
     panelTitle(ctx, PAD, 6, 'hidden state   h = tanh( W₁ x + b₁ )   (6 units, range −1 … +1)');
     drawSignedBars(ctx, PAD + 30, 44, w - 2*PAD - 40, h - 80, F.h,
@@ -643,26 +643,26 @@ function drawStageCanvas(){
     panelTitle(ctx, PAD, 6, 'softmax over the vocabulary   p = softmax(z)   (sums to 1)');
     drawVocabBars(ctx, PAD + 26, 42, w - 2*PAD - 30, h - 96, F.p, 'prob');
   } else if (stage === 4){
-    panelTitle(ctx, PAD, 6, 'cross-entropy loss on the true next character  ‘a’');
+    panelTitle(ctx, PAD, 6, 'cross-entropy loss on the true next character  ‘n’');
     drawVocabBars(ctx, PAD + 26, 42, w*0.62, h - 96, F.p, 'prob');
     // big loss box on the right
     const rx = w*0.68, rw = w - rx - PAD;
     ctx.fillStyle = INK; ctx.font = '600 12px Manrope, sans-serif';
     ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    ctx.fillText('p(‘a’) = ' + F.p[TRUE_ID].toFixed(3), rx + rw/2, h*0.34);
+    ctx.fillText('p(‘n’) = ' + F.p[TRUE_ID].toFixed(3), rx + rw/2, h*0.34);
     ctx.fillStyle = WARM; ctx.font = '800 40px "IBM Plex Mono", monospace';
     ctx.textBaseline = 'middle';
     ctx.fillText(F.loss.toFixed(2), rx + rw/2, h*0.5);
     ctx.fillStyle = MUT; ctx.font = '600 12px Manrope, sans-serif';
     ctx.textBaseline = 'bottom';
-    ctx.fillText('L = −log p(‘a’)', rx + rw/2, h*0.68);
+    ctx.fillText('L = −log p(‘n’)', rx + rw/2, h*0.68);
   } else if (stage === 5){
     // left: p - y signed bars ; right: E table with only used rows lit + grads
     panelTitle(ctx, PAD, 6, 'gradient on logits   p − y');
     drawVocabBars(ctx, PAD + 24, 40, w*0.5 - PAD, h - 120, F.g, 'grad');
     ctx.fillStyle = '#8a8072'; ctx.font = 'italic 10px "Source Serif 4", serif';
     ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-    ctx.fillText('‘a’ negative → push up · others → push down', PAD + 24 + (w*0.5-PAD)/2, h - 8);
+    ctx.fillText('‘n’ negative → push up · others → push down', PAD + 24 + (w*0.5-PAD)/2, h - 8);
     const rx = w*0.55;
     panelTitle(ctx, rx, 6, 'gradient reaches only the used rows of E');
     drawEmbTable(ctx, rx, 26, w - rx - PAD, h - 40, { lit: new Set(USED), dim: true, grad: F.gradE });
