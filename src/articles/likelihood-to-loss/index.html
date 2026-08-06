@@ -136,6 +136,12 @@ input[type="range"]::-moz-range-thumb {
 }
 .mode-button:hover { border-color: var(--accent); }
 .mode-button.is-active { background: var(--accent); color: white; border-color: var(--accent); }
+.mode-button:focus-visible,
+.action-btn:focus-visible,
+input:focus-visible {
+  outline: 3px solid rgba(44,111,183,0.35);
+  outline-offset: 3px;
+}
 
 .action-btn {
   font-family: var(--sans);
@@ -298,33 +304,34 @@ footer { margin-top: 4rem; text-align: center; font-family: var(--sans); font-si
     </p>
 
     <div class="button-row" id="model-selector">
-      <button class="mode-button is-active" data-model="gaussian">Gaussian &rarr; squared error</button>
-      <button class="mode-button" data-model="laplace">Laplace &rarr; absolute error</button>
-      <button class="mode-button" data-model="uniform">Uniform &rarr; hard interval</button>
-      <button class="mode-button" data-model="studentt">Student-t &rarr; robust</button>
+      <button class="mode-button is-active" data-model="gaussian" aria-pressed="true">Gaussian &rarr; squared error</button>
+      <button class="mode-button" data-model="laplace" aria-pressed="false">Laplace &rarr; absolute error</button>
+      <button class="mode-button" data-model="uniform" aria-pressed="false">Uniform &rarr; hard interval</button>
+      <button class="mode-button" data-model="studentt" aria-pressed="false">Student-t &rarr; robust</button>
     </div>
 
     <div class="control-row">
       <div class="control-block">
-        <label>Noise scale <span>$\sigma$ = <span id="sigmaVal">1.00</span></span></label>
+        <label for="sigmaSlider">Noise scale <span>$\sigma$ = <span id="sigmaVal">1.00</span></span></label>
         <input type="range" id="sigmaSlider" min="0.3" max="3.0" step="0.05" value="1.0">
       </div>
       <div class="control-block">
-        <label>Line slope <span>$w$ = <span id="slopeVal">0.60</span></span></label>
+        <label for="slopeSlider">Line slope <span>$w$ = <span id="slopeVal">0.60</span></span></label>
         <input type="range" id="slopeSlider" min="-1.0" max="2.5" step="0.02" value="0.60">
       </div>
       <div class="control-block">
-        <label>Line intercept <span>$b$ = <span id="interVal">1.00</span></span></label>
+        <label for="interSlider">Line intercept <span>$b$ = <span id="interVal">1.00</span></span></label>
         <input type="range" id="interSlider" min="-3.0" max="5.0" step="0.05" value="1.0">
       </div>
     </div>
 
     <div class="button-row">
-      <button class="action-btn action-btn--primary" id="btn-fit">Snap to least-squares fit</button>
+      <button class="action-btn action-btn--primary" id="btn-fit">Fit selected loss</button>
       <label class="toggle-line" style="margin-left:0.6rem;">
         <input type="checkbox" id="outlierToggle"> Add one outlier
       </label>
     </div>
+    <p id="fitStatus" role="status" aria-live="polite" style="min-height:1.4em; margin:0.35rem 0 0;"></p>
 
     <div class="panels-grid">
       <figure class="interactive-figure">
@@ -359,7 +366,7 @@ footer { margin-top: 4rem; text-align: center; font-family: var(--sans); font-si
 
     <div class="callout callout--think">
       <strong>Do this.</strong> Turn on <em>Add one outlier</em> with the Gaussian model, then hit
-      <em>Snap to least-squares fit</em>. Watch the whole line tilt to chase the one bad point &mdash;
+      <em>Fit selected loss</em>. Watch the whole line tilt to chase the one bad point &mdash;
       squared error pays $r^2$, so a far point dominates the sum. Now switch to Laplace or
       Student-t and snap again (Laplace's fit is the median-like line). The robust losses barely flinch,
       because their tails grow far more slowly.
@@ -734,11 +741,28 @@ function snapFit() {
     for (const p of pts) { const v = loss(MODEL, p.y - (ww * p.x + bb), sigma); if (!isFinite(v)) return Infinity; s += v; }
     return s;
   };
+  // Uniform likelihoods have flat feasible regions separated by infinity, so
+  // an OLS start can be marooned outside every feasible basin. Seed the local
+  // refinement with a bounded coarse search over the actual slider domain.
+  if (MODEL === 'uniform') {
+    let best = Infinity, bestW = w, bestB = b;
+    for (let cw = -1; cw <= 2.5001; cw += 0.05) {
+      for (let cb = -3; cb <= 5.0001; cb += 0.05) {
+        const candidateLoss = totalLoss(cw, cb);
+        if (candidateLoss < best) { best = candidateLoss; bestW = cw; bestB = cb; }
+      }
+    }
+    w = bestW;
+    b = bestB;
+  }
   // refine (coordinate descent with shrinking step) — works for Laplace/t/uniform too
   let step = 0.8;
   for (let iter = 0; iter < 260; iter++) {
     let best = totalLoss(w, b), improved = false;
-    const cand = [[w + step, b], [w - step, b], [w, b + step], [w, b - step]];
+    const cand = [
+      [Math.min(2.5, w + step), b], [Math.max(-1, w - step), b],
+      [w, Math.min(5, b + step)], [w, Math.max(-3, b - step)],
+    ];
     for (const [cw2, cb] of cand) {
       const l = totalLoss(cw2, cb);
       if (l < best) { best = l; w = cw2; b = cb; improved = true; }
@@ -746,8 +770,13 @@ function snapFit() {
     if (!improved) step *= 0.6;
     if (step < 1e-3) break;
   }
-  w = Math.max(-1, Math.min(2.5, w));
-  b = Math.max(-3, Math.min(5, b));
+  const finalLoss = totalLoss(w, b);
+  const status = document.getElementById('fitStatus');
+  if (!isFinite(finalLoss)) {
+    status.textContent = 'No feasible line at this Uniform width. Increase the noise scale or remove the outlier.';
+    return;
+  }
+  status.textContent = `Fitted the ${MODEL === 'gaussian' ? 'Gaussian' : MODEL === 'laplace' ? 'Laplace' : MODEL === 'studentt' ? 'Student-t' : 'Uniform'} negative log-likelihood.`;
   slopeSlider.value = w.toFixed(2);
   interSlider.value = b.toFixed(2);
   document.getElementById('slopeVal').textContent = parseFloat(slopeSlider.value).toFixed(2);
@@ -758,9 +787,14 @@ function snapFit() {
 /* ============================ wiring ============================ */
 document.querySelectorAll('#model-selector .mode-button').forEach(b => {
   b.addEventListener('click', () => {
-    document.querySelectorAll('#model-selector .mode-button').forEach(x => x.classList.remove('is-active'));
+    document.querySelectorAll('#model-selector .mode-button').forEach(x => {
+      x.classList.remove('is-active');
+      x.setAttribute('aria-pressed', 'false');
+    });
     b.classList.add('is-active');
+    b.setAttribute('aria-pressed', 'true');
     MODEL = b.dataset.model;
+    document.getElementById('fitStatus').textContent = '';
     redraw();
   });
 });
@@ -776,7 +810,7 @@ document.getElementById('btn-fit').addEventListener('click', snapFit);
   let dragging = false;
   const setFromEvent = (e) => {
     const rect = canvas.getBoundingClientRect();
-    const py = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
+    const py = e.clientY - rect.top;
     const padT = 20, padB = 34, ch = rect.height - padT - padB, yMin = -1, yMax = 13;
     const yData = yMin + (1 - (py - padT) / ch) * (yMax - yMin);
     // keep slope, set intercept so line passes near cursor at x=5 (mid)
@@ -787,9 +821,15 @@ document.getElementById('btn-fit').addEventListener('click', snapFit);
     document.getElementById('interVal').textContent = parseFloat(interSlider.value).toFixed(2);
     redraw();
   };
-  canvas.addEventListener('mousedown', e => { dragging = true; setFromEvent(e); });
-  window.addEventListener('mousemove', e => { if (dragging) setFromEvent(e); });
-  window.addEventListener('mouseup', () => { dragging = false; });
+  canvas.addEventListener('pointerdown', e => {
+    dragging = true;
+    canvas.setPointerCapture(e.pointerId);
+    setFromEvent(e);
+  });
+  canvas.addEventListener('pointermove', e => { if (dragging) setFromEvent(e); });
+  canvas.addEventListener('pointerup', () => { dragging = false; });
+  canvas.addEventListener('pointercancel', () => { dragging = false; });
+  canvas.style.touchAction = 'none';
   canvas.style.cursor = 'ns-resize';
 })();
 

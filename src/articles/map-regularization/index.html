@@ -89,7 +89,8 @@ li { margin-bottom: 0.5rem; }
   font-weight: 600;
   color: var(--text);
 }
-.control-block label span { font-family: var(--mono); color: var(--warm); font-weight: 500; font-size: 0.95rem; }
+.control-block label span,
+.control-block label output { font-family: var(--mono); color: var(--warm); font-weight: 500; font-size: 0.95rem; }
 input[type="range"] {
   -webkit-appearance: none;
   width: 100%;
@@ -131,6 +132,11 @@ input[type="range"]:disabled { opacity: 0.4; }
 }
 .mode-button:hover { border-color: var(--accent); }
 .mode-button.is-active { background: var(--accent); color: white; border-color: var(--accent); }
+.mode-button:focus-visible,
+input[type="range"]:focus-visible {
+  outline: 3px solid rgba(44,111,183,0.35);
+  outline-offset: 3px;
+}
 
 .interactive-figure { margin: 1.5rem 0; }
 .interactive-figure canvas {
@@ -235,8 +241,9 @@ footer { margin-top: 4rem; text-align: center; font-family: var(--sans); font-si
     </div>
     <p>
       A Gaussian prior gives $-\log p(\theta) \propto \lVert\theta\rVert_2^2$ &mdash;
-      that's <strong>L2 / ridge</strong>. A Laplace prior gives
-      $-\log p(\theta) \propto \lVert\theta\rVert_1$ &mdash; that's <strong>L1 / lasso</strong>.
+      that's <strong>ℓ₂ regularization (ridge)</strong>. A Laplace prior gives
+      $-\log p(\theta) \propto \lVert\theta\rVert_1$ &mdash; that's
+      <strong>ℓ₁ regularization (lasso)</strong>.
       The regularizer was a prior all along.
     </p>
   </section>
@@ -252,34 +259,42 @@ footer { margin-top: 4rem; text-align: center; font-family: var(--sans); font-si
       MAP get tugged between the data and zero.
     </p>
 
-    <div class="button-row" id="prior-type">
-      <button class="mode-button is-active" data-type="gaussian">Gaussian prior (L2)</button>
-      <button class="mode-button" data-type="laplace">Laplace prior (L1)</button>
+    <div class="button-row" id="prior-type" role="group" aria-label="Choose a parameter prior">
+      <button type="button" class="mode-button is-active" data-type="gaussian"
+              aria-pressed="true">Gaussian prior (ℓ₂ / ridge)</button>
+      <button type="button" class="mode-button" data-type="laplace"
+              aria-pressed="false">Laplace prior (ℓ₁ / lasso)</button>
     </div>
 
     <div class="control-row">
       <div class="control-block">
-        <label>Amount of data <span id="dataVal">few</span></label>
-        <input type="range" id="dataAmt" min="0" max="1" step="0.01" value="0.3">
+        <label for="dataAmt">Amount of data <output id="dataVal" for="dataAmt">few</output></label>
+        <input type="range" id="dataAmt" min="0" max="1" step="0.01" value="0.3"
+               aria-label="Amount of data">
       </div>
       <div class="control-block">
-        <label>Noise level <span id="noiseVal">med</span></label>
-        <input type="range" id="noise" min="0" max="1" step="0.01" value="0.4">
+        <label for="noise">Noise level <output id="noiseVal" for="noise">medium</output></label>
+        <input type="range" id="noise" min="0" max="1" step="0.01" value="0.4"
+               aria-label="Noise level">
       </div>
       <div class="control-block">
-        <label>Prior width $\tau$ <span id="tauVal">1.00</span></label>
-        <input type="range" id="tau" min="0.3" max="3" step="0.02" value="1.0">
+        <label for="tau">Prior width $\tau$ <output id="tauVal" for="tau">1.00</output></label>
+        <input type="range" id="tau" min="0.3" max="3" step="0.02" value="1.0"
+               aria-label="Prior width tau">
       </div>
       <div class="control-block">
-        <label>Prior correlation $\rho$ <span id="rhoVal">0.00</span></label>
-        <input type="range" id="rho" min="-0.8" max="0.8" step="0.02" value="0.0">
+        <label for="rho">Prior correlation $\rho$ <output id="rhoVal" for="rho">0.00</output></label>
+        <input type="range" id="rho" min="-0.8" max="0.8" step="0.02" value="0.0"
+               aria-label="Gaussian prior correlation rho">
       </div>
     </div>
 
     <div class="figure-wrap">
       <figure class="interactive-figure" style="margin:0;">
-        <canvas id="mapCanvas" width="600" height="560"></canvas>
-        <figcaption>Contours are iso-density shells (1, 2, 3 &ldquo;sigma&rdquo;). Narrow $\tau$ = strong prior; more data / less noise = tighter likelihood.</figcaption>
+        <canvas id="mapCanvas" width="600" height="560" role="img"
+                aria-label="Parameter-space contour plot of likelihood, prior, and posterior"
+                aria-describedby="map-caption">Your browser does not support the parameter-space contour plot.</canvas>
+        <figcaption id="map-caption">Each contour joins parameter values with the same negative log density; inner contours are more plausible. Narrow $\tau$ = strong prior; more data / less noise = tighter likelihood.</figcaption>
       </figure>
       <div>
         <div class="legend">
@@ -312,10 +327,10 @@ footer { margin-top: 4rem; text-align: center; font-family: var(--sans); font-si
     <div class="callout callout--think">
       <strong>Three things to try.</strong>
       (1) Drag <em>Prior width $\tau$</em> to the left (narrow, strong prior) with the
-      Gaussian prior: the MAP slides smoothly toward the origin &mdash; L2 shrinks
+      Gaussian prior: the MAP slides smoothly toward the origin &mdash; ℓ₂ shrinks
       everything a little. (2) Switch to the <em>Laplace prior</em> and narrow $\tau$:
       the MAP snaps onto an axis, driving $\theta_2$ to <em>exactly</em> zero &mdash;
-      that corner of the diamond is L1 sparsity. (3) Push <em>Amount of data</em> to
+      that corner of the diamond is ℓ₁ sparsity. (3) Push <em>Amount of data</em> to
       the right (or drop the noise): the blue likelihood tightens and the MAP marches
       back onto the MLE &mdash; with enough data, the prior stops mattering.
     </div>
@@ -323,18 +338,18 @@ footer { margin-top: 4rem; text-align: center; font-family: var(--sans); font-si
 
   <section class="step-section" id="why">
     <div class="step-badge">The Payoff</div>
-    <h2>Why L1 gives sparsity and L2 doesn't</h2>
+    <h2>Why ℓ₁ gives sparsity and ℓ₂ does not</h2>
     <p>
       Look at the prior contours. The <strong>Gaussian</strong> prior draws smooth
       <em>ellipses</em> &mdash; round everywhere. When the likelihood ellipse presses
-      against it, they meet at a generic point with both coordinates nonzero: L2
+      against it, they meet at a generic point with both coordinates nonzero: ℓ₂
       shrinks weights toward zero but rarely to zero.
     </p>
     <p>
       The <strong>Laplace</strong> prior draws <em>diamonds</em> &mdash; with sharp
       corners sitting exactly on the axes. A tilted likelihood ellipse is very likely
       to first touch the diamond at a corner, and a corner has one coordinate equal to
-      zero. That geometric fact &mdash; pointy L1 ball versus round L2 ball &mdash; is
+      zero. That geometric fact &mdash; pointy ℓ₁ ball versus round ℓ₂ ball &mdash; is
       the entire reason lasso produces sparse models and ridge does not.
     </p>
     <div class="callout callout--warn">
@@ -355,7 +370,7 @@ footer { margin-top: 4rem; text-align: center; font-family: var(--sans); font-si
 const H = 3.4;                 // parameter-space half-width
 const THETA_MLE = [1.9, 0.55]; // fixed "best fit to data"
 const C = [[1.4, 0.5], [0.5, 1.0]]; // fixed data curvature (tilted bowl)
-const NG = 150;                // contour grid resolution
+const NG = 150;                // contour grid resolution; optimization is continuous
 
 let PRIOR_TYPE = 'gaussian';
 
@@ -381,8 +396,48 @@ function Eprior(t1, t2, p) {
     const inv = 1 / (p.tau * p.tau * (1 - p.rho * p.rho));
     return 0.5 * inv * (t1 * t1 - 2 * p.rho * t1 * t2 + t2 * t2);
   }
-  // Laplace (L1): b = tau
+  // Laplace (ℓ₁): b = tau
   return (Math.abs(t1) + Math.abs(t2)) / p.tau;
+}
+
+function softThreshold(value, threshold) {
+  if (value > threshold) return value - threshold;
+  if (value < -threshold) return value + threshold;
+  return 0;
+}
+
+// Solve for the posterior mode independently of the drawing grid. The Gaussian
+// case is a 2x2 linear system. The Laplace case is convex coordinate descent;
+// soft-thresholding returns exact zeros when the ℓ₁ optimum lies on an axis.
+function posteriorMode(p) {
+  const s = p.sData;
+  const c11 = C[0][0], c12 = C[0][1], c22 = C[1][1];
+  const rhs1 = s * (c11 * THETA_MLE[0] + c12 * THETA_MLE[1]);
+  const rhs2 = s * (c12 * THETA_MLE[0] + c22 * THETA_MLE[1]);
+
+  if (PRIOR_TYPE === 'gaussian') {
+    const priorScale = 1 / (p.tau * p.tau * (1 - p.rho * p.rho));
+    const a11 = s * c11 + priorScale;
+    const a12 = s * c12 - p.rho * priorScale;
+    const a22 = s * c22 + priorScale;
+    const det = a11 * a22 - a12 * a12;
+    return [
+      (rhs1 * a22 - a12 * rhs2) / det,
+      (a11 * rhs2 - a12 * rhs1) / det,
+    ];
+  }
+
+  const lambda = 1 / p.tau;
+  let t1 = THETA_MLE[0], t2 = THETA_MLE[1];
+  for (let iteration = 0; iteration < 200; iteration++) {
+    const previous1 = t1, previous2 = t2;
+    const center1 = THETA_MLE[0] - (c12 / c11) * (t2 - THETA_MLE[1]);
+    t1 = softThreshold(center1, lambda / (s * c11));
+    const center2 = THETA_MLE[1] - (c12 / c22) * (t1 - THETA_MLE[0]);
+    t2 = softThreshold(center2, lambda / (s * c22));
+    if (Math.max(Math.abs(t1 - previous1), Math.abs(t2 - previous2)) < 1e-12) break;
+  }
+  return [t1, t2];
 }
 
 /* ===================== canvas ===================== */
@@ -467,7 +522,6 @@ function draw() {
   const fData = new Float64Array(NG * NG);
   const fPrior = new Float64Array(NG * NG);
   const fPost = new Float64Array(NG * NG);
-  let postMin = Infinity, postArg = 0;
   for (let j = 0; j < NG; j++) {
     const t2 = gx(j);
     for (let i = 0; i < NG; i++) {
@@ -475,12 +529,12 @@ function draw() {
       const ed = Edata(t1, t2, p), ep = Eprior(t1, t2, p);
       const idx = j * NG + i;
       fData[idx] = ed; fPrior[idx] = ep; fPost[idx] = ed + ep;
-      if (fPost[idx] < postMin) { postMin = fPost[idx]; postArg = idx; }
     }
   }
-  const mapT = [gx(postArg % NG), gx(Math.floor(postArg / NG))];
+  const mapT = posteriorMode(p);
+  const postMin = Edata(mapT[0], mapT[1], p) + Eprior(mapT[0], mapT[1], p);
 
-  // ---- contours (1,2,3 "sigma" shells: energy = 0.5 d^2) ----
+  // ---- equal-energy contours above each distribution's minimum ----
   const shells = [0.5, 2.0, 4.5];
   // likelihood (min 0 at MLE), prior (min 0 at origin), posterior (min postMin)
   shells.forEach((s, k) => {
@@ -516,19 +570,31 @@ function draw() {
 /* ===================== wiring ===================== */
 function labelData() {
   const d = +document.getElementById('dataAmt').value;
-  document.getElementById('dataVal').textContent = d < 0.33 ? 'few' : d < 0.66 ? 'some' : 'many';
+  const dataText = d < 0.33 ? 'few' : d < 0.66 ? 'some' : 'many';
+  document.getElementById('dataVal').textContent = dataText;
+  document.getElementById('dataAmt').setAttribute('aria-valuetext', dataText);
   const n = +document.getElementById('noise').value;
-  document.getElementById('noiseVal').textContent = n < 0.33 ? 'low' : n < 0.66 ? 'med' : 'high';
-  document.getElementById('tauVal').textContent = (+document.getElementById('tau').value).toFixed(2);
-  document.getElementById('rhoVal').textContent = (+document.getElementById('rho').value).toFixed(2);
+  const noiseText = n < 0.33 ? 'low' : n < 0.66 ? 'medium' : 'high';
+  document.getElementById('noiseVal').textContent = noiseText;
+  document.getElementById('noise').setAttribute('aria-valuetext', noiseText);
+  const tauText = (+document.getElementById('tau').value).toFixed(2);
+  const rhoText = (+document.getElementById('rho').value).toFixed(2);
+  document.getElementById('tauVal').textContent = tauText;
+  document.getElementById('rhoVal').textContent = rhoText;
+  document.getElementById('tau').setAttribute('aria-valuetext', tauText);
+  document.getElementById('rho').setAttribute('aria-valuetext', rhoText);
 }
 ['dataAmt', 'noise', 'tau', 'rho'].forEach(id =>
   document.getElementById(id).addEventListener('input', () => { labelData(); draw(); }));
 
 document.querySelectorAll('#prior-type .mode-button').forEach(b =>
   b.addEventListener('click', () => {
-    document.querySelectorAll('#prior-type .mode-button').forEach(x => x.classList.remove('is-active'));
+    document.querySelectorAll('#prior-type .mode-button').forEach(x => {
+      x.classList.remove('is-active');
+      x.setAttribute('aria-pressed', 'false');
+    });
     b.classList.add('is-active');
+    b.setAttribute('aria-pressed', 'true');
     PRIOR_TYPE = b.dataset.type;
     // correlation only meaningful for the Gaussian prior
     document.getElementById('rho').disabled = (PRIOR_TYPE === 'laplace');

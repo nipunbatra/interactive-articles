@@ -129,6 +129,13 @@ input[type="range"]::-moz-range-thumb {
   transition: all 0.15s;
 }
 .mode-button:hover { border-color: var(--accent); }
+.mode-button:active { transform: translateY(1px); }
+.mode-button:focus-visible,
+input[type="range"]:focus-visible,
+.back-link:focus-visible {
+  outline: 3px solid rgba(44, 111, 183, 0.38);
+  outline-offset: 3px;
+}
 .mode-button.is-active { background: var(--accent); color: white; border-color: var(--accent); }
 .mode-button--run { background: var(--success); color: white; border-color: var(--success); }
 .mode-button--run:hover { filter: brightness(1.06); border-color: var(--success); }
@@ -256,52 +263,52 @@ footer { margin-top: 4rem; text-align: center; font-family: var(--sans); font-si
     <div class="control-row">
       <div class="control-block">
         <div class="fieldlabel">Dataset</div>
-        <div class="toggle-group" id="dataGroup">
-          <button class="mode-button is-active" data-data="xor">XOR</button>
-          <button class="mode-button" data-data="circles">Circles</button>
-          <button class="mode-button" data-data="spirals">Spirals</button>
-          <button class="mode-button" data-data="moons">Moons</button>
+        <div class="toggle-group" id="dataGroup" role="group" aria-label="Dataset">
+          <button type="button" class="mode-button is-active" data-data="xor" aria-pressed="true">XOR</button>
+          <button type="button" class="mode-button" data-data="circles" aria-pressed="false">Circles</button>
+          <button type="button" class="mode-button" data-data="spirals" aria-pressed="false">Spirals</button>
+          <button type="button" class="mode-button" data-data="moons" aria-pressed="false">Moons</button>
         </div>
       </div>
       <div class="control-block">
         <div class="fieldlabel">Model</div>
-        <div class="toggle-group" id="modelGroup">
-          <button class="mode-button is-active" data-model="mlp">MLP (hidden layer)</button>
-          <button class="mode-button" data-model="linear">Linear only</button>
+        <div class="toggle-group" id="modelGroup" role="group" aria-label="Model">
+          <button type="button" class="mode-button is-active" data-model="mlp" aria-pressed="true">MLP (hidden layer)</button>
+          <button type="button" class="mode-button" data-model="linear" aria-pressed="false">Linear only</button>
         </div>
       </div>
     </div>
 
     <div class="control-row">
       <div class="control-block">
-        <label>Hidden width <span>$H$ = <span id="widthVal">8</span></span></label>
-        <input type="range" id="width" min="2" max="16" step="1" value="8">
+        <label id="widthLabel" for="width">Hidden width <span>$H$ = <span id="widthVal">8</span></span></label>
+        <input type="range" id="width" min="2" max="16" step="1" value="8" aria-labelledby="widthLabel">
       </div>
       <div class="control-block">
         <div class="fieldlabel">Hidden layers</div>
-        <div class="toggle-group" id="depthGroup">
-          <button class="mode-button is-active" data-depth="1">1 layer</button>
-          <button class="mode-button" data-depth="2">2 layers</button>
+        <div class="toggle-group" id="depthGroup" role="group" aria-label="Number of hidden layers">
+          <button type="button" class="mode-button is-active" data-depth="1" aria-pressed="true">1 layer</button>
+          <button type="button" class="mode-button" data-depth="2" aria-pressed="false">2 layers</button>
         </div>
       </div>
       <div class="control-block">
         <div class="fieldlabel">Activation $\phi$</div>
-        <div class="toggle-group" id="actGroup">
-          <button class="mode-button is-active" data-act="tanh">tanh</button>
-          <button class="mode-button" data-act="relu">ReLU</button>
+        <div class="toggle-group" id="actGroup" role="group" aria-label="Activation function">
+          <button type="button" class="mode-button is-active" data-act="tanh" aria-pressed="true">tanh</button>
+          <button type="button" class="mode-button" data-act="relu" aria-pressed="false">ReLU</button>
         </div>
       </div>
     </div>
 
     <div class="button-row">
-      <button class="mode-button mode-button--run" id="trainBtn">&#9654;&nbsp; Train</button>
-      <button class="mode-button" id="resetBtn">Reset weights</button>
-      <button class="mode-button" id="regenBtn">New sample</button>
+      <button type="button" class="mode-button mode-button--run" id="trainBtn" aria-pressed="false" aria-label="Start training">&#9654;&nbsp; Train</button>
+      <button type="button" class="mode-button" id="resetBtn" aria-label="Reset the model to its initial weights">Reset weights</button>
+      <button type="button" class="mode-button" id="regenBtn" aria-label="Generate a new reproducible sample from the selected dataset">New sample</button>
     </div>
 
     <figure class="interactive-figure fig-board">
-      <canvas id="boardCanvas" width="520" height="500"></canvas>
-      <figcaption>Decision region (shaded) under the training points. The white curve is the $\hat{y}=0.5$ boundary.</figcaption>
+      <canvas id="boardCanvas" width="520" height="500" role="img" aria-describedby="boardCaption" aria-label="Model decision regions and labelled training points"></canvas>
+      <figcaption id="boardCaption">Decision region (shaded) under the training points. The white curve is the $\hat{y}=0.5$ boundary.</figcaption>
     </figure>
     <div class="legend-row">
       <span><span class="dot" style="background:var(--warm)"></span>Class 0 points</span>
@@ -325,8 +332,8 @@ footer { margin-top: 4rem; text-align: center; font-family: var(--sans); font-si
     </div>
 
     <figure class="interactive-figure fig-loss">
-      <canvas id="lossCanvas" width="520" height="150"></canvas>
-      <figcaption>Training loss vs. gradient step &mdash; watch it fall as the boundary settles.</figcaption>
+      <canvas id="lossCanvas" width="520" height="150" role="img" aria-describedby="lossCaption" aria-label="Cross-entropy training loss by gradient step"></canvas>
+      <figcaption id="lossCaption">Training loss vs. gradient step &mdash; watch it fall as the boundary settles.</figcaption>
     </figure>
 
     <div class="callout callout--warn">
@@ -387,8 +394,21 @@ function makeGauss(rng) {
  *  Datasets — generated deterministically                       *
  * ============================================================= */
 const N_POINTS = 260;
-function genData(kind) {
-  const rng = makeLCG(20260710);
+const SAMPLE_SEED = 20260710;
+let sampleIndex = 0;
+
+function seedForSample(kind, index) {
+  // Stable across reloads, but each press of “New sample” advances the sequence.
+  let kindHash = 2166136261;
+  for (let i = 0; i < kind.length; i++) {
+    kindHash ^= kind.charCodeAt(i);
+    kindHash = Math.imul(kindHash, 16777619);
+  }
+  return (SAMPLE_SEED + Math.imul(index, 2654435761) + kindHash) >>> 0;
+}
+
+function genData(kind, index = sampleIndex) {
+  const rng = makeLCG(seedForSample(kind, index));
   const g = makeGauss(rng);
   const pts = [];
   const nHalf = Math.floor(N_POINTS / 2);
@@ -624,11 +644,22 @@ function fitCanvas(canvas) {
   return { ctx, w: rect.width, h: rect.height };
 }
 
-const GRID = 64;
 const offCanvas = document.createElement('canvas');
-offCanvas.width = GRID; offCanvas.height = GRID;
 const offCtx = offCanvas.getContext('2d');
-const offImg = offCtx.createImageData(GRID, GRID);
+let offImg = null;
+
+function regionGridSize() {
+  // Use a fast preview while training and a denser raster whenever the model is paused.
+  return training ? 112 : 192;
+}
+
+function prepareRegionRaster(size) {
+  if (offCanvas.width !== size || offCanvas.height !== size || !offImg) {
+    offCanvas.width = size;
+    offCanvas.height = size;
+    offImg = offCtx.createImageData(size, size);
+  }
+}
 
 // soft diverging tints (warm -> paper -> accent)
 const WARM_T = [246, 221, 205], ACC_T = [206, 224, 243];
@@ -650,20 +681,23 @@ function drawBoard() {
   const pw = w - 2 * pad, ph = h - 2 * pad;
   const dmin = STAT.dmin, dmax = STAT.dmax, span = dmax - dmin;
 
-  // fill region via low-res offscreen image
-  for (let j = 0; j < GRID; j++) {
-    const dy = dmax - (j + 0.5) / GRID * span; // top row = high y
-    for (let i = 0; i < GRID; i++) {
-      const dx = dmin + (i + 0.5) / GRID * span;
+  // Render confidence into a dense offscreen raster, then scale it into the plot.
+  const grid = regionGridSize();
+  prepareRegionRaster(grid);
+  for (let j = 0; j < grid; j++) {
+    const dy = dmax - (j + 0.5) / grid * span; // top row = high y
+    for (let i = 0; i < grid; i++) {
+      const dx = dmin + (i + 0.5) / grid * span;
       const [sx, sy] = stdize(dx, dy, STAT);
       const p = forward(model, sx, sy).p;
       const [r, g, b] = regionColor(p);
-      const idx = (j * GRID + i) * 4;
+      const idx = (j * grid + i) * 4;
       offImg.data[idx] = r; offImg.data[idx + 1] = g; offImg.data[idx + 2] = b; offImg.data[idx + 3] = 255;
     }
   }
   offCtx.putImageData(offImg, 0, 0);
   ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
   ctx.drawImage(offCanvas, pad, pad, pw, ph);
 
   const toX = (dx) => pad + (dx - dmin) / span * pw;
@@ -688,7 +722,7 @@ function drawBoard() {
 }
 
 function drawContour(ctx, toX, toY, dmin, dmax, span) {
-  const M = 90; // finer sampling just for the 0.5 line
+  const M = training ? 100 : 160;
   // sample probability field
   const F = new Float32Array((M + 1) * (M + 1));
   for (let j = 0; j <= M; j++) {
@@ -708,8 +742,7 @@ function drawContour(ctx, toX, toY, dmin, dmax, span) {
       const a = F[j * (M + 1) + i], b = F[j * (M + 1) + i + 1];
       const c = F[(j + 1) * (M + 1) + i], d = F[(j + 1) * (M + 1) + i + 1];
       const x0 = dmin + i * cell, y0 = dmax - j * cell;
-      // top edge (a-b), horizontal at y0
-      if ((a < 0) !== (b < 0)) { const t = a / (a - b); ctx.moveTo(toX(x0 + t * cell), toY(y0)); addSeg(ctx, toX, toY, x0, y0, cell, a, b, c, d); }
+      addSeg(ctx, toX, toY, x0, y0, cell, a, b, c, d);
     }
   }
   ctx.stroke();
@@ -777,7 +810,7 @@ function refreshStats() {
 
 function rebuild(resetData) {
   stopTraining();
-  if (resetData) { DATA = genData(cfg.data); STAT = computeStats(DATA); }
+  if (resetData) { DATA = genData(cfg.data, sampleIndex); STAT = computeStats(DATA); }
   model = buildModel({ linear: cfg.linear, width: cfg.width, depth: cfg.depth, act: cfg.act });
   iter = 0;
   const e = evalModel(model, DATA, STAT);
@@ -791,9 +824,10 @@ function frame() {
   const e = refreshStats();
   lossHist.push(e.loss);
   if (lossHist.length > 400) lossHist.shift();
+  const shouldContinue = iter < MAX_ITER && training;
+  if (!shouldContinue) { training = false; setTrainLabel(false); }
   drawBoard(); drawLoss();
-  if (iter < MAX_ITER && training) { rafId = requestAnimationFrame(frame); }
-  else { training = false; setTrainLabel(false); }
+  if (shouldContinue) rafId = requestAnimationFrame(frame);
 }
 
 function startTraining() {
@@ -806,14 +840,18 @@ function startTraining() {
   rafId = requestAnimationFrame(frame);
 }
 function stopTraining() {
+  const wasTraining = training;
   training = false;
   if (rafId) cancelAnimationFrame(rafId);
   rafId = null;
   setTrainLabel(false);
+  if (wasTraining && STAT && model) { drawBoard(); drawLoss(); }
 }
 function setTrainLabel(run) {
   const b = document.getElementById('trainBtn');
-  b.innerHTML = run ? '&#10073;&#10073;&nbsp; Training&hellip;' : '&#9654;&nbsp; Train';
+  b.innerHTML = run ? '&#10073;&#10073;&nbsp; Pause' : '&#9654;&nbsp; Train';
+  b.setAttribute('aria-pressed', String(run));
+  b.setAttribute('aria-label', run ? 'Pause training' : 'Start training');
 }
 
 /* wiring */
@@ -821,12 +859,14 @@ function bindGroup(id, key, onChange) {
   document.querySelectorAll('#' + id + ' .mode-button').forEach(b => {
     b.addEventListener('click', () => {
       document.querySelectorAll('#' + id + ' .mode-button').forEach(x => x.classList.remove('is-active'));
+      document.querySelectorAll('#' + id + ' .mode-button').forEach(x => x.setAttribute('aria-pressed', 'false'));
       b.classList.add('is-active');
+      b.setAttribute('aria-pressed', 'true');
       onChange(b.dataset);
     });
   });
 }
-bindGroup('dataGroup', 'data', d => { cfg.data = d.data; rebuild(true); });
+bindGroup('dataGroup', 'data', d => { cfg.data = d.data; sampleIndex = 0; rebuild(true); });
 bindGroup('modelGroup', 'model', d => { cfg.linear = (d.model === 'linear'); rebuild(false); });
 bindGroup('depthGroup', 'depth', d => { cfg.depth = parseInt(d.depth); rebuild(false); });
 bindGroup('actGroup', 'act', d => { cfg.act = d.act; rebuild(false); });
@@ -838,17 +878,15 @@ document.getElementById('width').addEventListener('input', e => {
 });
 document.getElementById('trainBtn').addEventListener('click', () => { training ? stopTraining() : startTraining(); });
 document.getElementById('resetBtn').addEventListener('click', () => rebuild(false));
-document.getElementById('regenBtn').addEventListener('click', () => rebuild(true));
+document.getElementById('regenBtn').addEventListener('click', () => { sampleIndex++; rebuild(true); });
 
 window.addEventListener('resize', () => { if (STAT) { drawBoard(); drawLoss(); } });
 
 window.addEventListener('load', () => {
-  DATA = genData(cfg.data); STAT = computeStats(DATA);
+  DATA = genData(cfg.data, sampleIndex); STAT = computeStats(DATA);
   model = buildModel({ linear: cfg.linear, width: cfg.width, depth: cfg.depth, act: cfg.act });
   const e = evalModel(model, DATA, STAT); lossHist = [e.loss];
   drawBoard(); drawLoss(); refreshStats();
-  // auto-run one training pass so the first view is meaningful
-  setTimeout(startTraining, 350);
 });
 </script>
 
