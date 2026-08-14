@@ -1,20 +1,20 @@
 {
   "slug": "mlp-decision-boundary",
-  "title": "What an MLP Can Carve",
-  "date": "2026-07-10",
-  "tagline": "A single line can only cut a plane in two. Add a hidden layer and the boundary bends into whatever shape the data needs.",
-  "summary": "A live 2-D classification playground. Pick XOR, two circles, spirals, or moons; choose a width and activation; then press Train and watch a from-scratch MLP carve a curved decision region out of the plane, one gradient step at a time. Flip on the linear model to see a straight line fail on everything but the easy cases. The punchline you can feel: hidden units bend a line into arbitrary regions.",
-  "readingTime": "8 min",
+  "title": "ReLU Playground: Evidence Becomes Geometry",
+  "date": "2026-08-14",
+  "tagline": "Four XOR points and four filled XOR regions ask different questions. See the evidence, every ReLU hinge, and the resulting boundary.",
+  "summary": "A from-scratch, deterministic 2-D classification playground built around simple ReLU networks. Contrast the four-point XOR truth table with a filled-quadrant XOR field, inspect every hidden-unit activation map, load exact teaching constructions, and train on blobs, circles, moons, or spirals with adjustable width, depth, learning rate, and seed.",
+  "readingTime": "10 min",
   "difficulty": "Intermediate",
   "collection": "Deep learning",
   "order": 41,
   "status": "published",
-  "tags": ["MLP", "Decision Boundary", "Classification", "Nonlinearity", "Interactive"],
+  "tags": ["MLP", "ReLU", "XOR", "Decision Boundary", "Classification", "Interactive"],
   "highlights": [
-    "Train a real 2-layer MLP in your browser, from scratch, and watch the decision boundary converge live as gradient descent runs.",
-    "Switch between XOR, concentric circles, two spirals, and moons — each generated deterministically so the demo is reproducible.",
-    "Toggle a linear model to see a straight line collapse on XOR and spirals, the way Minsky and Papert warned in 1969.",
-    "Sweep the hidden width from 2 to 16 and feel the boundary gain more folds — more units means more pieces of line to stitch together.",
-    "Compare tanh and ReLU activations: smooth curves versus piecewise-linear creases carving the same data."
+    "Separate four-point XOR from filled-quadrant XOR and compare training accuracy with agreement over the whole field.",
+    "Load an exact two-ReLU corner construction or an exact four-ReLU regional construction before training anything.",
+    "Inspect a live activation map and equation for every hidden unit, including either layer of a two-layer network.",
+    "Train, pause, step once, reset, and change a deterministic seed while watching the probability surface and loss update.",
+    "Switch among XOR, blobs, concentric circles, moons, and spirals using the same inspectable from-scratch gradient code."
   ]
 }
