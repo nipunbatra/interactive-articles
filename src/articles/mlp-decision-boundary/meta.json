@@ -1,20 +1,20 @@
 {
   "slug": "mlp-decision-boundary",
-  "title": "ReLU Playground: Evidence Becomes Geometry",
-  "date": "2026-08-14",
-  "tagline": "Four XOR points and four filled XOR regions ask different questions. See the evidence, every ReLU hinge, and the resulting boundary.",
-  "summary": "A from-scratch, deterministic 2-D classification playground built around simple ReLU networks. Contrast the four-point XOR truth table with a filled-quadrant XOR field, inspect every hidden-unit activation map, load exact teaching constructions, and train on blobs, circles, moons, or spirals with adjustable width, depth, learning rate, and seed.",
-  "readingTime": "10 min",
+  "title": "ReLU Lab",
+  "date": "2026-08-17",
+  "tagline": "A course playground for decision regions, hidden ReLU features, and one-dimensional function approximation.",
+  "summary": "Compare four-point and filled-region XOR, train simple ReLU networks on standard or custom two-dimensional datasets, inspect hidden units and the three-dimensional score surface, then switch to one-dimensional targets to contrast constructive piecewise-linear approximation with optimization from random weights.",
+  "readingTime": "Lab",
   "difficulty": "Intermediate",
   "collection": "Deep learning",
   "order": 41,
   "status": "published",
-  "tags": ["MLP", "ReLU", "XOR", "Decision Boundary", "Classification", "Interactive"],
+  "tags": ["MLP", "ReLU", "XOR", "Classification", "Universal Approximation", "Interactive"],
   "highlights": [
-    "Separate four-point XOR from filled-quadrant XOR and compare training accuracy with agreement over the whole field.",
-    "Load an exact two-ReLU corner construction or an exact four-ReLU regional construction before training anything.",
-    "Inspect a live activation map and equation for every hidden unit, including either layer of a two-layer network.",
-    "Train, pause, step once, reset, and change a deterministic seed while watching the probability surface and loss update.",
-    "Switch among XOR, blobs, concentric circles, moons, and spirals using the same inspectable from-scratch gradient code."
+    "Switch between four XOR points, filled XOR, standard datasets, and points placed directly on the plot.",
+    "Compare a linear model with one- and two-hidden-layer ReLU networks while inspecting every hidden feature.",
+    "View the learned score as a three-dimensional surface and locate the z = 0 decision boundary.",
+    "Construct fixed-knot approximations to continuous one-dimensional targets or train the same width from random weights.",
+    "Use short lecture prompts to separate evidence, representational capacity, and optimization."
   ]
 }

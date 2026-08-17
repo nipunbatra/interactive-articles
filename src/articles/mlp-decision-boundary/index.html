@@ -1,1473 +1,236 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="A from-scratch ReLU playground that separates four-point XOR from filled-region XOR and exposes every hidden unit.">
-<title>ReLU Playground: Evidence Becomes Geometry</title>
-
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
-
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
-<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
-<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
-        onload="renderMathInElement(document.body, {delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
-
-<style>
-:root {
-  --serif: 'Source Serif 4', Georgia, serif;
-  --sans: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
-  --mono: 'IBM Plex Mono', monospace;
-  --bg: #fdfcf9;
-  --paper: #ffffff;
-  --text: #2f2a22;
-  --muted: #6e665b;
-  --border: #e2d8c6;
-  --accent: #2c6fb7;
-  --warm: #d9622b;
-  --success: #1e7770;
-}
-
-*, *::before, *::after { box-sizing: border-box; }
-html { scroll-behavior: smooth; }
-body { margin: 0; font-family: var(--serif); color: var(--text); background: var(--bg); line-height: 1.65; }
-
-.article { max-width: 1120px; margin: 0 auto; padding: 2.5rem 1.5rem 5rem; }
-.back-link { display: inline-block; margin-bottom: 1.5rem; color: var(--muted); text-decoration: none; font-family: var(--sans); font-size: 0.9rem; }
-.back-link:hover { color: var(--text); }
-.article-header { margin-bottom: 3rem; text-align: center; }
-.kicker { margin: 0 0 0.75rem; font-family: var(--sans); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); }
-h1 { margin: 0 auto 1rem; font-size: clamp(2.4rem, 5vw, 3.5rem); line-height: 1.1; letter-spacing: -0.02em; color: #1a1815; max-width: 18ch; }
-.abstract { margin: 0 auto 1rem; max-width: 62ch; font-size: 1.15rem; color: #4d463d; }
-.byline { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-top: 1.4rem; padding-top: 1rem; border-top: 1px solid var(--border); color: var(--muted); font-family: var(--sans); font-size: 0.92rem; }
-
-.step-section {
-  position: relative;
-  margin-top: 4rem;
-  padding: 3rem 2.5rem;
-  background: var(--paper);
-  border: 1px solid var(--border);
-  border-radius: 24px;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.03);
-}
-.step-badge {
-  position: absolute;
-  top: -16px;
-  left: 32px;
-  background: var(--accent);
-  color: white;
-  font-family: var(--sans);
-  font-weight: 700;
-  font-size: 0.85rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  padding: 0.4rem 1.2rem;
-  border-radius: 999px;
-  box-shadow: 0 4px 12px rgba(44, 111, 183, 0.25);
-}
-h2 { margin: 0 0 1rem; font-size: clamp(1.6rem, 3.5vw, 2.2rem); line-height: 1.15; color: #1a1815; }
-h3 { margin-top: 2rem; margin-bottom: 0.8rem; font-size: 1.25rem; color: #1a1815; }
-p { max-width: 68ch; font-size: 1.1rem; }
-ul { max-width: 68ch; font-size: 1.1rem; padding-left: 1.4rem; }
-li { margin-bottom: 0.5rem; }
-.math-block { max-width: 100%; margin: 1.5rem 0; overflow-x: auto; overflow-y: hidden; text-align: center; font-size: 1.05rem; }
-.katex-display { max-width: 100%; overflow-x: auto; overflow-y: hidden; padding: 0.2rem 0; }
-
-.control-row {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 1.4rem;
-  margin: 1.6rem 0;
-}
-.control-block { display: flex; flex-direction: column; gap: 0.5rem; }
-.control-block label {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  font-family: var(--sans);
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--text);
-}
-.control-block label span { font-family: var(--mono); color: var(--warm); font-weight: 500; font-size: 0.95rem; }
-input[type="range"] {
-  -webkit-appearance: none;
-  width: 100%;
-  height: 4px;
-  background: var(--border);
-  border-radius: 2px;
-  outline: none;
-}
-input[type="range"]::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  width: 18px; height: 18px;
-  background: var(--accent);
-  border-radius: 50%;
-  cursor: pointer;
-  border: 3px solid var(--paper);
-  box-shadow: 0 2px 6px rgba(44,111,183,0.4);
-}
-input[type="range"]::-moz-range-thumb {
-  width: 18px; height: 18px;
-  background: var(--accent);
-  border-radius: 50%;
-  cursor: pointer;
-  border: 3px solid var(--paper);
-}
-
-.button-row { display: flex; gap: 0.6rem; flex-wrap: wrap; margin: 1rem 0; }
-.mode-button {
-  font-family: var(--sans);
-  font-weight: 600;
-  font-size: 0.92rem;
-  padding: 0.55rem 1.1rem;
-  border-radius: 8px;
-  border: 1.5px solid var(--border);
-  background: var(--paper);
-  color: var(--text);
-  cursor: pointer;
-  transition: all 0.15s;
-}
-.mode-button:hover { border-color: var(--accent); }
-.mode-button:active { transform: translateY(1px); }
-.mode-button:focus-visible,
-input[type="range"]:focus-visible,
-input[type="number"]:focus-visible,
-select:focus-visible,
-.back-link:focus-visible {
-  outline: 3px solid rgba(44, 111, 183, 0.38);
-  outline-offset: 3px;
-}
-.mode-button.is-active { background: var(--accent); color: white; border-color: var(--accent); }
-.mode-button--run { background: var(--success); color: white; border-color: var(--success); }
-.mode-button--run:hover { filter: brightness(1.06); border-color: var(--success); }
-.mode-button:disabled { opacity: 0.5; cursor: default; }
-
-select, input[type="number"] {
-  width: 100%;
-  min-height: 2.45rem;
-  padding: 0.45rem 0.55rem;
-  border: 1.5px solid var(--border);
-  border-radius: 8px;
-  color: var(--text);
-  background: var(--paper);
-  font: 500 0.88rem/1.2 var(--sans);
-}
-.fixed-activation {
-  min-height: 2.45rem;
-  display: flex;
-  align-items: center;
-  padding: 0.45rem 0.7rem;
-  border-left: 4px solid var(--success);
-  border-radius: 6px;
-  color: var(--success);
-  background: rgba(30,119,112,0.07);
-  font: 700 0.88rem/1.2 var(--sans);
-}
-.mode-button--proof { color: var(--accent); border-color: rgba(44,111,183,0.45); background: rgba(44,111,183,0.05); }
-
-.interactive-figure { margin: 1.5rem 0; }
-.interactive-figure canvas {
-  display: block;
-  width: 100%;
-  background: #fbfaf6;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-}
-.interactive-figure figcaption { margin-top: 0.7rem; font-size: 0.92rem; color: var(--muted); text-align: center; font-style: italic; }
-.fig-board { max-width: 560px; margin-left: auto; margin-right: auto; }
-.fig-board canvas { height: clamp(320px, 62vw, 500px); }
-.fig-loss canvas { height: 150px; }
-
-.toggle-group { display: flex; gap: 0.4rem; flex-wrap: wrap; }
-.toggle-group .mode-button { flex: 1 1 90px; padding: 0.5rem 0.6rem; font-size: 0.88rem; }
-.control-block > .fieldlabel { font-family: var(--sans); font-size: 0.9rem; font-weight: 600; margin-bottom: 0.1rem; }
-
-.stat-strip { display: flex; gap: 1rem; flex-wrap: wrap; margin: 1.5rem 0; }
-.stat-pill {
-  flex: 1 1 140px;
-  min-width: 140px;
-  background: var(--paper);
-  border: 1.5px solid var(--border);
-  border-radius: 12px;
-  padding: 0.9rem 1.1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-  text-align: left;
-}
-.stat-pill .stat-label { font-family: var(--sans); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; }
-.stat-pill .stat-value { font-family: var(--mono); font-size: 1.5rem; font-weight: 600; color: var(--text); }
-.stat-pill--accent { border-color: var(--accent); }
-.stat-pill--accent .stat-value { color: var(--accent); }
-.stat-pill--warm { border-color: var(--warm); }
-.stat-pill--warm .stat-value { color: var(--warm); }
-.stat-pill--success { border-color: var(--success); }
-.stat-pill--success .stat-value { color: var(--success); }
-
-.experiment-card {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1px;
-  margin: 1.2rem 0 1.7rem;
-  overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--border);
-}
-.experiment-fact { padding: 0.9rem 1rem; background: #fbfaf6; }
-.experiment-fact span { display: block; margin-bottom: 0.25rem; color: var(--muted); font: 700 0.68rem/1.2 var(--sans); letter-spacing: 0.08em; text-transform: uppercase; }
-.experiment-fact strong { display: block; font-size: 0.94rem; line-height: 1.4; }
-.network-strip {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-  align-items: center;
-  margin: 1rem 0 1.4rem;
-  padding: 0.75rem 0.9rem;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  color: var(--muted);
-  background: rgba(44,111,183,0.035);
-  font: 600 0.82rem/1.3 var(--sans);
-}
-.network-node { padding: 0.28rem 0.52rem; border-radius: 5px; color: var(--text); background: rgba(30,119,112,0.11); }
-.network-node--output { background: rgba(44,111,183,0.12); }
-.network-params { margin-left: auto; color: var(--warm); font-family: var(--mono); font-weight: 500; }
-.viz-grid { display: grid; grid-template-columns: minmax(390px, 1.1fr) minmax(300px, 0.9fr); gap: 1.2rem; align-items: start; }
-.viz-grid .fig-board { max-width: none; margin-top: 0; }
-.fig-logit { margin-top: 1rem; }
-.fig-logit canvas { height: clamp(260px, 38vw, 360px); }
-.probe-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.7rem; margin-top: 0.7rem; }
-.probe-grid label { display: flex; justify-content: space-between; gap: 0.4rem; color: var(--muted); font: 650 0.72rem/1.2 var(--sans); }
-.probe-grid output { color: var(--warm); font-family: var(--mono); }
-.logit-readout { margin: 0.55rem auto 0 !important; color: var(--text) !important; text-align: center; font: 600 0.78rem/1.4 var(--mono) !important; }
-.unit-panel { min-width: 0; padding: 1rem; border: 1px solid var(--border); border-radius: 12px; background: #fbfaf6; }
-.unit-panel-head { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: flex-start; justify-content: space-between; margin-bottom: 0.8rem; }
-.unit-panel h3 { margin: 0; font-size: 1.08rem; }
-.unit-panel p { margin: 0.25rem 0 0; color: var(--muted); font: 500 0.78rem/1.4 var(--sans); }
-.unit-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 0.65rem; }
-.unit-card { min-width: 0; padding: 0.55rem; border: 1px solid var(--border); border-radius: 9px; background: var(--paper); }
-.unit-title { display: flex; justify-content: space-between; gap: 0.3rem; margin-bottom: 0.35rem; font: 700 0.7rem/1.2 var(--sans); }
-.unit-title span:last-child { color: var(--success); font: 500 0.62rem/1.2 var(--mono); }
-.unit-card canvas { display: block; width: 100%; height: auto; aspect-ratio: 1; border: 1px solid var(--border); border-radius: 6px; }
-.unit-equation { min-height: 3em; margin: 0.38rem 0 0 !important; overflow-wrap: anywhere; color: var(--muted) !important; font: 500 0.59rem/1.35 var(--mono) !important; }
-.unit-empty { padding: 2.5rem 1rem; border: 1px dashed var(--border); color: var(--muted); text-align: center; font: 500 0.85rem/1.5 var(--sans); }
-.view-row { display: flex; flex-wrap: wrap; gap: 0.4rem; justify-content: space-between; align-items: center; margin-bottom: 0.55rem; }
-.view-row strong { font: 700 0.82rem/1.2 var(--sans); }
-.view-row .mode-button { padding: 0.38rem 0.55rem; font-size: 0.74rem; }
-.status-line { min-height: 1.3em; margin: 0.75rem 0 0; color: var(--muted); font: 550 0.78rem/1.4 var(--sans); }
-
-.callout {
-  margin: 2rem 0 0.5rem;
-  padding: 1.2rem 1.5rem;
-  border-radius: 12px;
-  border-left: 4px solid var(--accent);
-  background: rgba(44,111,183,0.05);
-  font-size: 1.02rem;
-}
-.callout strong { color: var(--accent); }
-.callout--think { border-left-color: var(--success); background: rgba(30,119,112,0.06); }
-.callout--think strong { color: var(--success); }
-.callout--warn { border-left-color: var(--warm); background: rgba(217,98,43,0.06); }
-.callout--warn strong { color: var(--warm); }
-
-.legend-row { display: flex; gap: 1.4rem; flex-wrap: wrap; justify-content: center; font-family: var(--sans); font-size: 0.85rem; color: var(--muted); margin-top: 0.4rem; }
-.legend-row .dot { display: inline-block; width: 11px; height: 11px; border-radius: 50%; margin-right: 0.35rem; vertical-align: -1px; border: 1.5px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,0.12); }
-
-footer { margin-top: 4rem; text-align: center; font-family: var(--sans); font-size: 0.85rem; color: var(--muted); }
-
-@media (max-width: 860px) { .viz-grid { grid-template-columns: 1fr; } }
-@media (max-width: 640px) {
-  .step-section { padding: 2rem 1rem; }
-  .experiment-card { grid-template-columns: 1fr; }
-  .network-params { width: 100%; margin-left: 0; }
-  .unit-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } .mode-button { transition: none; } }
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="A course lab for ReLU classification and one-dimensional function approximation.">
+  <title>ReLU Lab</title>
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="playground.js"></script>
 </head>
 <body>
-
-<article class="article">
-  <header class="article-header">
-    <a class="back-link" href="../">&larr; Explainer Library</a>
-    <p class="kicker">Lecture 2 &middot; Interactive model laboratory</p>
-    <h1>Evidence becomes geometry</h1>
-    <p class="abstract">
-      Four XOR coordinates and four filled XOR regions are not the same learning problem.
-      Build a tiny ReLU network, inspect what every hidden unit sees, and compare the
-      boundary learned from a handful of points with the boundary demanded across a plane.
-    </p>
-    <div class="byline">
-      <span>~10 min</span>
-      <span>From-scratch JavaScript &middot; deterministic data &middot; no ML library</span>
+  <header class="topbar">
+    <a class="back" href="../" aria-label="Back to all interactives">All interactives</a>
+    <div>
+      <p class="course-label">Deep Learning · Lecture 2</p>
+      <h1>ReLU Lab</h1>
     </div>
+    <a class="lecture-link" href="https://nipunbatra.github.io/dl-teaching/slides-pdf/L2.pdf">Lecture slides</a>
   </header>
 
-  <section class="step-section" id="prelude">
-    <div class="step-badge">Before you train</div>
-    <h2>A correct answer can still leave the space between points unspecified</h2>
-    <p>
-      The Boolean XOR truth table contains four observations. A width-two ReLU network can
-      classify all four with a diagonal band. A Playground-style XOR dataset fills the
-      quadrants with observations; now the desired boundary is two crossing lines. The first
-      network was not wrong&mdash;it answered a smaller question.
-    </p>
-    <div class="math-block">
-      $$h_1=\operatorname{ReLU}(u+v),\quad h_2=\operatorname{ReLU}(-u-v),\quad
-      z=1-h_1-h_2.$$
-    </div>
-    <p>
-      Here $u$ and $v$ are centred versions of $x_1$ and $x_2$. The <strong>Load proof</strong>
-      control installs these weights. Watch its four-point accuracy and its filled-field
-      agreement disagree, then replace four points with evidence throughout the quadrants.
-    </p>
-  </section>
+  <main class="app" id="app">
+    <nav class="mode-tabs" aria-label="Lab mode">
+      <button class="mode-tab is-active" type="button" data-mode="classification" aria-pressed="true">
+        <span class="tab-index">A</span>
+        <span><strong>Classification</strong><small>data → score → class</small></span>
+      </button>
+      <button class="mode-tab" type="button" data-mode="approximation" aria-pressed="false">
+        <span class="tab-index">B</span>
+        <span><strong>Function approximation</strong><small>hinges → piecewise-linear curve</small></span>
+      </button>
+    </nav>
 
-  <section class="step-section" id="lab">
-    <div class="step-badge">ReLU playground</div>
-    <h2>Change the evidence. Keep the model visible.</h2>
-    <p>
-      Every run uses the same full-batch gradient calculation and sigmoid output. Only the
-      evidence, number of ReLU units, depth, learning rate, and seed change.
-    </p>
-
-    <div class="control-row">
-      <div class="control-block">
-        <div class="fieldlabel">Dataset</div>
-        <div class="toggle-group" id="dataGroup" role="group" aria-label="Dataset">
-          <button type="button" class="mode-button is-active" data-data="xor4" aria-pressed="true">XOR &middot; 4 points</button>
-          <button type="button" class="mode-button" data-data="xorField" aria-pressed="false">XOR &middot; filled field</button>
-          <button type="button" class="mode-button" data-data="blobs" aria-pressed="false">Two blobs</button>
-          <button type="button" class="mode-button" data-data="circles" aria-pressed="false">Circles</button>
-          <button type="button" class="mode-button" data-data="spirals" aria-pressed="false">Spirals</button>
-          <button type="button" class="mode-button" data-data="moons" aria-pressed="false">Moons</button>
-        </div>
-      </div>
-      <div class="control-block">
-        <div class="fieldlabel">Model</div>
-        <div class="toggle-group" id="modelGroup" role="group" aria-label="Model">
-          <button type="button" class="mode-button is-active" data-model="mlp" aria-pressed="true">MLP (hidden layer)</button>
-          <button type="button" class="mode-button" data-model="linear" aria-pressed="false">Linear only</button>
-        </div>
-      </div>
-    </div>
-
-    <div class="control-row">
-      <div class="control-block">
-        <label id="widthLabel" for="width">Units per layer <span>$H$ = <span id="widthVal">2</span></span></label>
-        <input type="range" id="width" min="1" max="8" step="1" value="2" aria-labelledby="widthLabel">
-      </div>
-      <div class="control-block">
-        <div class="fieldlabel">Hidden layers</div>
-        <div class="toggle-group" id="depthGroup" role="group" aria-label="Number of hidden layers">
-          <button type="button" class="mode-button is-active" data-depth="1" aria-pressed="true">1 layer</button>
-          <button type="button" class="mode-button" data-depth="2" aria-pressed="false">2 layers</button>
-        </div>
-      </div>
-      <div class="control-block">
-        <div class="fieldlabel">Activation</div>
-        <div class="fixed-activation" aria-label="All hidden units use the ReLU activation">ReLU only</div>
-      </div>
-    </div>
-
-    <div class="control-row">
-      <div class="control-block">
-        <label for="learningRate">Learning rate</label>
-        <select id="learningRate">
-          <option value="0.10">0.10 &middot; careful</option>
-          <option value="0.30">0.30</option>
-          <option value="0.90" selected>0.90 &middot; default</option>
-          <option value="1.50">1.50 &middot; bold</option>
-        </select>
-      </div>
-      <div class="control-block">
-        <label for="seedInput">Seed</label>
-        <input type="number" id="seedInput" min="0" max="9999" step="1" value="7" inputmode="numeric">
-      </div>
-      <div class="control-block">
-        <div class="fieldlabel">Output view</div>
-        <div class="toggle-group" id="viewGroup" role="group" aria-label="Output display">
-          <button type="button" class="mode-button is-active" data-view="probability" aria-pressed="true">Probability</button>
-          <button type="button" class="mode-button" data-view="class" aria-pressed="false">Class only</button>
-        </div>
-      </div>
-    </div>
-
-    <div class="button-row">
-      <button type="button" class="mode-button mode-button--run" id="trainBtn" aria-pressed="false" aria-label="Start training">&#9654;&nbsp; Train</button>
-      <button type="button" class="mode-button" id="stepBtn" aria-label="Run one full-batch gradient step">Step once</button>
-      <button type="button" class="mode-button" id="resetBtn" aria-label="Reset the model to its initial weights">Reset weights</button>
-      <button type="button" class="mode-button" id="regenBtn" aria-label="Advance to a new deterministic seed">New seed</button>
-      <button type="button" class="mode-button mode-button--proof" id="proofBtn">Load 2-ReLU proof</button>
-      <button type="button" class="mode-button mode-button--proof" id="cornerProofBtn" hidden>Compare corner proof</button>
-    </div>
-
-    <div class="experiment-card" aria-live="polite">
-      <div class="experiment-fact"><span>Evidence</span><strong id="evidenceText">4 fixed truth-table coordinates</strong></div>
-      <div class="experiment-fact"><span>Target geometry</span><strong id="geometryText">Only four labels are specified; many boundaries fit.</strong></div>
-      <div class="experiment-fact"><span>Capacity nudge</span><strong id="capacityText">Two ReLUs suffice for these four points.</strong></div>
-    </div>
-
-    <div class="network-strip" id="networkStrip" aria-label="Current network architecture">
-      <span class="network-node">inputs $x_1,x_2$</span><span aria-hidden="true">&rarr;</span>
-      <span class="network-node" id="hiddenSummary">2 ReLUs</span><span aria-hidden="true">&rarr;</span>
-      <span class="network-node network-node--output">sigmoid prediction</span>
-      <span class="network-params" id="parameterCount">9 parameters</span>
-    </div>
-
-    <div class="viz-grid">
-      <div>
-        <div class="view-row">
-          <strong>Output surface</strong>
-          <span id="surfaceNote">Colour intensity = predicted probability</span>
-        </div>
-        <figure class="interactive-figure fig-board">
-          <canvas id="boardCanvas" width="520" height="500" role="img" aria-describedby="boardCaption" aria-label="Model decision regions and labelled training points">A decision-surface plot requires canvas support.</canvas>
-          <figcaption id="boardCaption">The white curve is the learned $\hat{y}=0.5$ boundary; dashed ink marks known target geometry.</figcaption>
-        </figure>
-        <div class="legend-row">
-          <span><span class="dot" style="background:var(--warm)"></span>Class 0 &middot; circle</span>
-          <span><span class="dot" style="background:var(--accent);border-radius:1px;transform:rotate(45deg)"></span>Class 1 &middot; diamond</span>
-        </div>
-
-        <figure class="interactive-figure fig-logit">
-          <div class="view-row">
-            <strong>3-D logit surface $z(x_1,x_2)$</strong>
-            <span>Translucent sheet = $z=0$ decision plane</span>
-          </div>
-          <canvas id="logitCanvas" width="520" height="340" role="img" aria-describedby="logitCaption" aria-label="Three-dimensional wire surface of the model logit over the input plane">A three-dimensional logit surface requires canvas support.</canvas>
-          <div class="probe-grid">
-            <div>
-              <label for="probeX">Probe $x_1$ <output id="probeXValue">0.00</output></label>
-              <input type="range" id="probeX" min="-1" max="1" step="0.02" value="0">
+    <section class="lab-grid">
+      <aside class="controls" aria-label="Experiment controls">
+        <section class="control-section" id="classificationDataControls">
+          <div class="section-heading"><span>1</span><h2>Choose data</h2></div>
+          <label class="field">
+            <span>Dataset</span>
+            <select id="datasetSelect">
+              <option value="xor4">XOR · four Boolean points</option>
+              <option value="xorField">XOR · filled regions</option>
+              <option value="blobs">Two blobs</option>
+              <option value="circles">Concentric circles</option>
+              <option value="moons">Two moons</option>
+              <option value="spirals">Two spirals</option>
+              <option value="custom">Custom points</option>
+            </select>
+          </label>
+          <div class="custom-tools" id="customPointTools" hidden>
+            <span class="field-label">Click the plot to add</span>
+            <div class="segmented" role="group" aria-label="Class for new point">
+              <button type="button" class="segment is-active" data-point-class="0" aria-pressed="true">Class 0</button>
+              <button type="button" class="segment" data-point-class="1" aria-pressed="false">Class 1</button>
             </div>
-            <div>
-              <label for="probeY">Probe $x_2$ <output id="probeYValue">0.00</output></label>
-              <input type="range" id="probeY" min="-1" max="1" step="0.02" value="0">
+            <button type="button" class="text-button" id="clearPointsBtn">Clear custom points</button>
+          </div>
+        </section>
+
+        <section class="control-section" id="targetControls" hidden>
+          <div class="section-heading"><span>1</span><h2>Choose a target</h2></div>
+          <label class="field">
+            <span>Function on −1 ≤ x ≤ 1</span>
+            <select id="targetSelect">
+              <option value="tent">Tent</option>
+              <option value="sine">Sine</option>
+              <option value="twoBumps">Two bumps</option>
+              <option value="smoothStep">Smooth step</option>
+              <option value="custom">Draw a target</option>
+            </select>
+          </label>
+          <p class="inline-note" id="drawTargetNote" hidden>Drag on the main plot to draw the target curve.</p>
+        </section>
+
+        <section class="control-section">
+          <div class="section-heading"><span>2</span><h2>Choose the ReLU model</h2></div>
+
+          <div id="classificationModelControls">
+            <label class="field">
+              <span>Architecture</span>
+              <select id="depthSelect">
+                <option value="0">Linear · no hidden layer</option>
+                <option value="1" selected>1 hidden layer</option>
+                <option value="2">2 hidden layers</option>
+              </select>
+            </label>
+          </div>
+
+          <div id="approximationModelControls" hidden>
+            <span class="field-label">Method</span>
+            <div class="segmented stacked" role="group" aria-label="Approximation method">
+              <button type="button" class="segment is-active" data-approx-method="construct" aria-pressed="true">Construct from knots</button>
+              <button type="button" class="segment" data-approx-method="train" aria-pressed="false">Train from random weights</button>
             </div>
           </div>
-          <p class="logit-readout" id="logitReadout">z = 1.00 &middot; p(class 1) = 0.73</p>
-          <figcaption id="logitCaption">ReLU creases are slope changes in this surface; classification thresholds the surface where it crosses $z=0$.</figcaption>
-        </figure>
 
-        <div class="stat-strip">
-          <div class="stat-pill stat-pill--success">
-            <span class="stat-label">Train accuracy</span>
-            <span class="stat-value" id="accVal">&mdash;</span>
-          </div>
-          <div class="stat-pill stat-pill--warm">
-            <span class="stat-label">Cross-entropy loss</span>
-            <span class="stat-value" id="lossVal">&mdash;</span>
-          </div>
-          <div class="stat-pill stat-pill--accent">
-            <span class="stat-label" id="fieldLabel">Filled-field agreement</span>
-            <span class="stat-value" id="fieldVal">&mdash;</span>
-          </div>
-          <div class="stat-pill">
-            <span class="stat-label">Gradient steps</span>
-            <span class="stat-value" id="iterVal">0</span>
-          </div>
-        </div>
+          <label class="field" id="widthField">
+            <span><span id="widthLabel">Hidden width</span><output id="widthOutput" for="widthRange">2</output></span>
+            <input id="widthRange" type="range" min="1" max="16" step="1" value="2" aria-label="Hidden width">
+          </label>
 
-        <figure class="interactive-figure fig-loss">
-          <canvas id="lossCanvas" width="520" height="150" role="img" aria-describedby="lossCaption" aria-label="Cross-entropy training loss by gradient step">A loss curve requires canvas support.</canvas>
-          <figcaption id="lossCaption">Training loss vs. full-batch gradient step.</figcaption>
-        </figure>
-      </div>
+          <label class="field" id="learningRateField">
+            <span>Learning rate</span>
+            <select id="learningRateSelect">
+              <option value="0.003">0.003</option>
+              <option value="0.01">0.01</option>
+              <option value="0.03" selected>0.03</option>
+              <option value="0.1">0.1</option>
+            </select>
+          </label>
 
-      <section class="unit-panel" aria-labelledby="unitPanelTitle">
-        <div class="unit-panel-head">
+          <label class="field">
+            <span>Seed</span>
+            <div class="seed-row">
+              <input id="seedInput" type="number" min="1" max="9999" value="11" inputmode="numeric">
+              <button type="button" class="icon-button" id="newSeedBtn" aria-label="Use the next seed">+1</button>
+            </div>
+          </label>
+
+          <div class="preset-row" id="classificationPresets">
+            <button type="button" class="preset-button" id="cornerProofBtn">Load 2‑ReLU corner rule</button>
+            <button type="button" class="preset-button" id="fieldProofBtn">Load 4‑ReLU XOR rule</button>
+          </div>
+          <div class="preset-row" id="approximationPresets" hidden>
+            <button type="button" class="preset-button" data-segments="2">2 segments</button>
+            <button type="button" class="preset-button" data-segments="5">5 segments</button>
+            <button type="button" class="preset-button" data-segments="15">15 segments</button>
+          </div>
+        </section>
+
+        <section class="control-section train-section">
+          <div class="section-heading"><span>3</span><h2 id="actionHeading">Inspect or train</h2></div>
+          <div class="train-buttons">
+            <button type="button" class="primary-button" id="runBtn" aria-pressed="false">Run</button>
+            <button type="button" class="secondary-button" id="stepBtn">One step</button>
+            <button type="button" class="secondary-button" id="resetBtn">Reset</button>
+          </div>
+          <p class="status" id="statusText" role="status" aria-live="polite">Two-ReLU corner rule loaded.</p>
+        </section>
+      </aside>
+
+      <section class="workspace" aria-label="Experiment output">
+        <div class="workspace-head">
           <div>
-            <h3 id="unitPanelTitle">Hidden-unit activation maps</h3>
-            <p>Teal = ReLU on. Paper = ReLU off.</p>
+            <p class="eyebrow" id="workspaceEyebrow">INPUT SPACE</p>
+            <h2 id="workspaceTitle">Four points do not specify four regions</h2>
           </div>
-          <div class="toggle-group" id="mapLayerGroup" role="group" aria-label="Hidden layer to inspect">
-            <button type="button" class="mode-button is-active" data-layer="1" aria-pressed="true">Layer 1</button>
-            <button type="button" class="mode-button" data-layer="2" aria-pressed="false" disabled>Layer 2</button>
+          <div class="view-switch" id="classificationViewSwitch" role="group" aria-label="Classification surface view">
+            <button type="button" class="view-button is-active" data-class-view="probability" aria-pressed="true">Probability</button>
+            <button type="button" class="view-button" data-class-view="class" aria-pressed="false">Class</button>
           </div>
         </div>
-        <div class="unit-grid" id="unitGrid"></div>
-        <p class="status-line" id="statusLine" role="status" aria-live="polite">Proof weights loaded; ready to inspect.</p>
+
+        <div class="metric-row" id="metrics" aria-live="polite">
+          <div class="metric"><span id="metric1Label">Data accuracy</span><strong id="metric1Value">100%</strong></div>
+          <div class="metric"><span id="metric2Label">Field agreement</span><strong id="metric2Value">75%</strong></div>
+          <div class="metric"><span id="metric3Label">Loss</span><strong id="metric3Value">0.31</strong></div>
+          <div class="metric"><span>Steps</span><strong id="stepsValue">0</strong></div>
+        </div>
+
+        <div class="primary-visual">
+          <canvas id="mainCanvas" role="img" aria-label="Classification data and model decision field"></canvas>
+          <div class="plot-legend" id="classificationLegend">
+            <span><i class="marker marker-zero"></i>Class 0</span>
+            <span><i class="marker marker-one"></i>Class 1</span>
+            <span><i class="boundary-swatch"></i>z = 0 boundary</span>
+          </div>
+          <div class="plot-legend" id="approximationLegend" hidden>
+            <span><i class="line-swatch target-line"></i>Target f(x)</span>
+            <span><i class="line-swatch model-line"></i>ReLU approximation</span>
+            <span><i class="knot-swatch"></i>Knots</span>
+          </div>
+        </div>
+
+        <section class="network-panel" aria-labelledby="networkTitle">
+          <div class="panel-head">
+            <div><p class="eyebrow">MODEL</p><h3 id="networkTitle">Two inputs → two ReLUs → one score</h3></div>
+            <span class="parameter-count" id="parameterCount">9 parameters</span>
+          </div>
+          <canvas id="networkCanvas" role="img" aria-label="Current network architecture"></canvas>
+        </section>
+
+        <div class="analysis-grid">
+          <section class="analysis-panel" id="featurePanel" aria-labelledby="featureTitle">
+            <div class="panel-head">
+              <div><p class="eyebrow">HIDDEN FEATURES</p><h3 id="featureTitle">What each ReLU contributes</h3></div>
+              <div class="mini-switch" id="hiddenLayerSwitch" role="group" aria-label="Hidden layer to inspect">
+                <button type="button" class="mini-button is-active" data-hidden-layer="0" aria-pressed="true">Layer 1</button>
+                <button type="button" class="mini-button" data-hidden-layer="1" aria-pressed="false" disabled>Layer 2</button>
+              </div>
+            </div>
+            <div class="feature-grid" id="featureGrid"></div>
+          </section>
+
+          <section class="analysis-panel" id="surfacePanel" aria-labelledby="surfaceTitle">
+            <div class="panel-head">
+              <div><p class="eyebrow">OUTPUT SCORE</p><h3 id="surfaceTitle">The decision boundary is where z = 0</h3></div>
+            </div>
+            <canvas id="surfaceCanvas" role="img" aria-label="Three-dimensional output score surface"></canvas>
+            <div class="probe-row" id="probeControls">
+              <label>x₁ <input id="probeX" type="range" min="0" max="1" step="0.01" value="0.25"><output id="probeXOutput">0.25</output></label>
+              <label>x₂ <input id="probeY" type="range" min="0" max="1" step="0.01" value="0.75"><output id="probeYOutput">0.75</output></label>
+            </div>
+            <p class="probe-readout" id="probeReadout">z = 0.50 · class 1</p>
+          </section>
+
+          <section class="analysis-panel" id="residualPanel" hidden aria-labelledby="residualTitle">
+            <div class="panel-head">
+              <div><p class="eyebrow">ERROR</p><h3 id="residualTitle">Pointwise gap |f(x) − f̂(x)|</h3></div>
+            </div>
+            <canvas id="residualCanvas" role="img" aria-label="Pointwise approximation error"></canvas>
+          </section>
+        </div>
+
+        <section class="lecture-prompts" aria-labelledby="promptsTitle">
+          <div class="prompt-heading"><span>Use in class</span><h3 id="promptsTitle">Change one thing. Predict before you run.</h3></div>
+          <div class="prompt-grid" id="classificationPrompts">
+            <p><strong>Data:</strong> Four XOR corners or the whole XOR field?</p>
+            <p><strong>Capacity:</strong> What boundary can this width represent?</p>
+            <p><strong>Optimization:</strong> Can training find useful hinges from this seed?</p>
+          </div>
+          <div class="prompt-grid" id="approximationPrompts" hidden>
+            <p><strong>Construction:</strong> Add knots. What happens to the largest gap?</p>
+            <p><strong>Learning:</strong> Keep width fixed. Does a new seed reach the same curve?</p>
+            <p><strong>Theorem:</strong> Existence of weights is not a guarantee about training.</p>
+          </div>
+        </section>
       </section>
-    </div>
+    </section>
+  </main>
 
-    <div class="callout callout--warn" id="experimentNote">
-      <strong>Start with the two XOR buttons.</strong> The same 2-ReLU diagonal band is perfect on
-      four corners but incomplete across filled quadrants. The missing training evidence—not a
-      contradiction in the network—is the point of the comparison.
-    </div>
-  </section>
-
-  <section class="step-section" id="why">
-    <div class="step-badge">What to notice</div>
-    <h2>The data constrain a function; they do not uniquely draw it</h2>
-    <p>
-      Think of each ReLU as a hinged half-plane: $\operatorname{ReLU}(\mathbf{w}_i^{\top}\mathbf{x}+b_i)$
-      is flat on one side of its line and rises on the other. The output adds those hinged
-      surfaces. Two units can build a band; four can create the crossing required by filled XOR.
-    </p>
-    <ul>
-      <li><strong>Four-point accuracy tests those four coordinates.</strong> It says nothing by itself about the empty space between them.</li>
-      <li><strong>Filled-field agreement tests geometry.</strong> Errors inside every quadrant now contribute to the loss.</li>
-      <li><strong>Activation maps expose the construction.</strong> Widening adds hinges; depth composes the regions those hinges create.</li>
-    </ul>
-    <div class="callout callout--think">
-      <strong>The training signal is still $\hat{y}-y$.</strong> Every gradient step nudges the
-      weights so predictions move toward the labels, and backpropagation carries that same
-      signal back through the hidden layer. Nothing here is magic: a stack of linear maps with a
-      nonlinearity between them, trained by the ordinary chain rule, is enough to carve the plane
-      into whatever the data demands.
-    </div>
-  </section>
-
-  <footer>Part of the ES 667 Deep Learning explainer series &middot; Lecture 2: From Linear Models to MLPs</footer>
-</article>
-
-<script>
-/* ============================================================= *
- *  Deterministic RNG (LCG) — no Math.random anywhere            *
- * ============================================================= */
-function makeLCG(seed) {
-  let s = seed >>> 0;
-  return function () {
-    s = (Math.imul(1664525, s) + 1013904223) >>> 0;
-    return s / 4294967296;
-  };
-}
-function makeGauss(rng) {
-  return function () {
-    let u = 0, v = 0;
-    while (u === 0) u = rng();
-    while (v === 0) v = rng();
-    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
-  };
-}
-
-/* ============================================================= *
- *  Datasets — generated deterministically                       *
- * ============================================================= */
-const N_POINTS = 260;
-const SAMPLE_SEED = 20260710;
-let sampleIndex = 7;
-
-function xorTarget(x, y) { return ((x > 0) !== (y > 0)) ? 1 : 0; }
-const DATASET_INFO = {
-  xor4: {
-    evidence: '4 fixed truth-table coordinates',
-    geometry: 'Only four labels are specified; many boundaries fit.',
-    capacity: 'Two ReLUs suffice for these four points.',
-    fieldLabel: 'Filled-field agreement',
-    target: xorTarget,
-    note: 'The field score probes unseen locations; it is not part of the four-point loss.'
-  },
-  xorField: {
-    evidence: '256 balanced samples throughout four quadrants',
-    geometry: 'The target changes across both x₁ = 0 and x₂ = 0.',
-    capacity: 'Four one-layer ReLUs can express both crossing cuts.',
-    fieldLabel: 'Region agreement',
-    target: xorTarget,
-    note: 'Errors between the corners now contribute to the loss, exposing the diagonal-band shortcut.'
-  },
-  blobs: {
-    evidence: '260 noisy samples around two centres',
-    geometry: 'A single diagonal cut separates most observations.',
-    capacity: 'The linear model is the useful baseline.',
-    fieldLabel: 'Reference-field agreement',
-    target: (x, y) => x + y > 0 ? 1 : 0,
-    note: 'Start linear, then add ReLUs. Extra capacity is not always necessary.'
-  },
-  circles: {
-    evidence: '260 noisy samples on an inner and outer ring',
-    geometry: 'The target wraps around a centre; one line cannot enclose it.',
-    capacity: 'More ReLU hinges make a polygonal ring.',
-    fieldLabel: 'Reference-field agreement',
-    target: (x, y) => Math.hypot(x, y) > 0.64 ? 1 : 0,
-    note: 'Increase width and watch flat ReLU facets approximate a round boundary.'
-  },
-  moons: {
-    evidence: '260 noisy samples along two curved manifolds',
-    geometry: 'The useful boundary bends between interleaving arcs.',
-    capacity: 'Width or a second layer supplies more bends.',
-    fieldLabel: 'Field agreement', target: null,
-    note: 'Empty locations have no unique target here, so only observed-point accuracy is reported.'
-  },
-  spirals: {
-    evidence: '260 noisy samples winding around a shared centre',
-    geometry: 'The class alternates repeatedly with angle and radius.',
-    capacity: 'Depth composes folds; a tiny shallow net is challenged.',
-    fieldLabel: 'Field agreement', target: null,
-    note: 'Use two layers and more units. This is a capacity stress test.'
-  }
-};
-
-function seedForSample(kind, index) {
-  // Stable across reloads, but each press of “New sample” advances the sequence.
-  let kindHash = 2166136261;
-  for (let i = 0; i < kind.length; i++) {
-    kindHash ^= kind.charCodeAt(i);
-    kindHash = Math.imul(kindHash, 16777619);
-  }
-  return (SAMPLE_SEED + Math.imul(index, 2654435761) + kindHash) >>> 0;
-}
-
-function genData(kind, index = sampleIndex) {
-  if (kind === 'xor4') {
-    return [
-      { x: -1, y: -1, label: 0 }, { x: -1, y: 1, label: 1 },
-      { x: 1, y: -1, label: 1 }, { x: 1, y: 1, label: 0 }
-    ];
-  }
-  const rng = makeLCG(seedForSample(kind, index));
-  const g = makeGauss(rng);
-  const pts = [];
-  const nHalf = Math.floor(N_POINTS / 2);
-  if (kind === 'xorField') {
-    for (let quadrant = 0; quadrant < 4; quadrant++) {
-      const right = (quadrant & 1) !== 0, top = (quadrant & 2) !== 0;
-      for (let i = 0; i < 64; i++) {
-        const x = (right ? 0.12 : -0.98) + 0.86 * rng();
-        const y = (top ? 0.12 : -0.98) + 0.86 * rng();
-        pts.push({ x, y, label: right !== top ? 1 : 0 });
-      }
-    }
-  } else if (kind === 'blobs') {
-    for (let i = 0; i < N_POINTS; i++) {
-      const label = i < nHalf ? 0 : 1;
-      const centre = label ? 0.48 : -0.48;
-      pts.push({ x: centre + 0.24 * g(), y: centre + 0.27 * g(), label });
-    }
-  } else if (kind === 'circles') {
-    for (let i = 0; i < N_POINTS; i++) {
-      const label = i < nHalf ? 0 : 1;
-      const ang = 2 * Math.PI * rng();
-      const r = (label === 0 ? 0.35 : 0.92) + 0.075 * g();
-      pts.push({ x: r * Math.cos(ang), y: r * Math.sin(ang), label });
-    }
-  } else if (kind === 'spirals') {
-    for (let c = 0; c < 2; c++) {
-      for (let i = 0; i < nHalf; i++) {
-        const t = i / nHalf;
-        const r = 0.16 + 0.95 * t;
-        const theta = t * 3.4 * Math.PI + c * Math.PI;
-        pts.push({
-          x: r * Math.cos(theta) + 0.045 * g(),
-          y: r * Math.sin(theta) + 0.045 * g(),
-          label: c
-        });
-      }
-    }
-  } else { // moons
-    for (let i = 0; i < nHalf; i++) {
-      const t = Math.PI * (i / nHalf);
-      pts.push({ x: Math.cos(t) - 0.5 + 0.06 * g(), y: Math.sin(t) - 0.25 + 0.06 * g(), label: 0 });
-    }
-    for (let i = 0; i < N_POINTS - nHalf; i++) {
-      const t = Math.PI * (i / (N_POINTS - nHalf));
-      pts.push({ x: 1 - Math.cos(t) - 0.5 + 0.06 * g(), y: 0.25 - Math.sin(t) + 0.06 * g(), label: 1 });
-    }
-  }
-  return pts;
-}
-
-/* standardization + plotting domain */
-function computeStats(pts) {
-  let mx = 0, my = 0;
-  for (const p of pts) { mx += p.x; my += p.y; }
-  mx /= pts.length; my /= pts.length;
-  let vx = 0, vy = 0;
-  for (const p of pts) { vx += (p.x - mx) ** 2; vy += (p.y - my) ** 2; }
-  const sx = Math.sqrt(vx / pts.length) || 1, sy = Math.sqrt(vy / pts.length) || 1;
-  let lo = Infinity, hi = -Infinity;
-  for (const p of pts) { lo = Math.min(lo, p.x, p.y); hi = Math.max(hi, p.x, p.y); }
-  const pad = 0.18 * (hi - lo);
-  return { mx, my, sx, sy, dmin: lo - pad, dmax: hi + pad };
-}
-function stdize(px, py, st) { return [(px - st.mx) / st.sx, (py - st.my) / st.sy]; }
-
-/* ============================================================= *
- *  From-scratch network (up to 2 hidden layers) + linear model  *
- * ============================================================= */
-function sigmoid(z) { return z >= 0 ? 1 / (1 + Math.exp(-z)) : (function () { const e = Math.exp(z); return e / (1 + e); })(); }
-
-let netRng = makeLCG(777);
-function randn() { return makeGauss(netRng)(); }
-
-let model = null; // holds all params + config
-
-function buildModel(cfg) {
-  netRng = makeLCG((1234 + sampleIndex * 2654435761 + cfg.width * 17 + cfg.depth * 3) >>> 0);
-  const H = cfg.width;
-  const reluScale = (fan) => Math.sqrt(2 / fan);
-  const sc = reluScale;
-  const m = { cfg };
-  if (cfg.linear) {
-    m.wl = [randn() * 0.5, randn() * 0.5];
-    m.bl = 0;
-    return m;
-  }
-  // W1: H x 2
-  m.W1 = []; m.b1 = new Array(H).fill(0);
-  for (let h = 0; h < H; h++) m.W1.push([randn() * sc(2), randn() * sc(2)]);
-  if (cfg.depth === 2) {
-    m.W2 = []; m.b2 = new Array(H).fill(0);
-    for (let h = 0; h < H; h++) {
-      const row = [];
-      for (let j = 0; j < H; j++) row.push(randn() * sc(H));
-      m.W2.push(row);
-    }
-  }
-  m.Wo = []; m.bo = 0;
-  for (let h = 0; h < H; h++) m.Wo.push(randn() * sc(H));
-  return m;
-}
-
-function act(z) { return Math.max(0, z); }
-function dact(z) { return z > 0 ? 1 : 0; }
-
-function forward(m, x0, x1) {
-  const cfg = m.cfg;
-  if (cfg.linear) {
-    const zo = m.wl[0] * x0 + m.wl[1] * x1 + m.bl;
-    return { p: sigmoid(zo), logit: zo, z1: [], a1: [], z2: [], a2: [], hlast: [] };
-  }
-  const H = cfg.width;
-  const z1 = new Array(H), a1 = new Array(H);
-  for (let h = 0; h < H; h++) {
-    const z = m.b1[h] + m.W1[h][0] * x0 + m.W1[h][1] * x1;
-    z1[h] = z; a1[h] = act(z);
-  }
-  let hlast = a1, z2 = null, a2 = null;
-  if (cfg.depth === 2) {
-    z2 = new Array(H); a2 = new Array(H);
-    for (let h = 0; h < H; h++) {
-      let z = m.b2[h];
-      for (let j = 0; j < H; j++) z += m.W2[h][j] * a1[j];
-      z2[h] = z; a2[h] = act(z);
-    }
-    hlast = a2;
-  }
-  let zo = m.bo;
-  for (let h = 0; h < H; h++) zo += m.Wo[h] * hlast[h];
-  return { p: sigmoid(zo), logit: zo, z1, a1, z2, a2, hlast };
-}
-
-/* one full-batch gradient-descent step with momentum */
-function trainStep(m, data, st, lr) {
-  const cfg = m.cfg;
-  const N = data.length;
-  if (cfg.linear) {
-    let gw0 = 0, gw1 = 0, gb = 0;
-    for (const pt of data) {
-      const [x0, x1] = stdize(pt.x, pt.y, st);
-      const p = forward(m, x0, x1).p;
-      const dz = p - pt.label;
-      gw0 += dz * x0; gw1 += dz * x1; gb += dz;
-    }
-    if (!m.v) m.v = { w0: 0, w1: 0, b: 0 };
-    const mom = 0.9;
-    m.v.w0 = mom * m.v.w0 - lr * gw0 / N; m.wl[0] += m.v.w0;
-    m.v.w1 = mom * m.v.w1 - lr * gw1 / N; m.wl[1] += m.v.w1;
-    m.v.b = mom * m.v.b - lr * gb / N; m.bl += m.v.b;
-    return;
-  }
-  const H = cfg.width;
-  const gW1 = m.W1.map(() => [0, 0]), gb1 = new Array(H).fill(0);
-  let gW2 = null, gb2 = null;
-  if (cfg.depth === 2) { gW2 = m.W2.map(r => r.map(() => 0)); gb2 = new Array(H).fill(0); }
-  const gWo = new Array(H).fill(0); let gbo = 0;
-
-  for (const pt of data) {
-    const [x0, x1] = stdize(pt.x, pt.y, st);
-    const f = forward(m, x0, x1);
-    const dzo = f.p - pt.label;
-    gbo += dzo;
-    for (let h = 0; h < H; h++) gWo[h] += dzo * f.hlast[h];
-    // grad into last hidden
-    const dh = new Array(H);
-    for (let h = 0; h < H; h++) dh[h] = dzo * m.Wo[h];
-    if (cfg.depth === 2) {
-      const dz2 = new Array(H);
-      for (let h = 0; h < H; h++) {
-        dz2[h] = dh[h] * dact(f.z2[h]);
-        gb2[h] += dz2[h];
-        for (let j = 0; j < H; j++) gW2[h][j] += dz2[h] * f.a1[j];
-      }
-      const da1 = new Array(H).fill(0);
-      for (let j = 0; j < H; j++) {
-        let s = 0;
-        for (let h = 0; h < H; h++) s += dz2[h] * m.W2[h][j];
-        da1[j] = s;
-      }
-      for (let h = 0; h < H; h++) {
-        const dz1 = da1[h] * dact(f.z1[h]);
-        gb1[h] += dz1;
-        gW1[h][0] += dz1 * x0; gW1[h][1] += dz1 * x1;
-      }
-    } else {
-      for (let h = 0; h < H; h++) {
-        const dz1 = dh[h] * dact(f.z1[h]);
-        gb1[h] += dz1;
-        gW1[h][0] += dz1 * x0; gW1[h][1] += dz1 * x1;
-      }
-    }
-  }
-  // momentum update
-  if (!m.v) {
-    m.v = {
-      W1: m.W1.map(() => [0, 0]), b1: new Array(H).fill(0),
-      Wo: new Array(H).fill(0), bo: 0
-    };
-    if (cfg.depth === 2) { m.v.W2 = m.W2.map(r => r.map(() => 0)); m.v.b2 = new Array(H).fill(0); }
-  }
-  const mom = 0.9, s = lr / N;
-  for (let h = 0; h < H; h++) {
-    m.v.W1[h][0] = mom * m.v.W1[h][0] - s * gW1[h][0]; m.W1[h][0] += m.v.W1[h][0];
-    m.v.W1[h][1] = mom * m.v.W1[h][1] - s * gW1[h][1]; m.W1[h][1] += m.v.W1[h][1];
-    m.v.b1[h] = mom * m.v.b1[h] - s * gb1[h]; m.b1[h] += m.v.b1[h];
-    m.v.Wo[h] = mom * m.v.Wo[h] - s * gWo[h]; m.Wo[h] += m.v.Wo[h];
-  }
-  m.v.bo = mom * m.v.bo - s * gbo; m.bo += m.v.bo;
-  if (cfg.depth === 2) {
-    for (let h = 0; h < H; h++) {
-      m.v.b2[h] = mom * m.v.b2[h] - s * gb2[h]; m.b2[h] += m.v.b2[h];
-      for (let j = 0; j < H; j++) { m.v.W2[h][j] = mom * m.v.W2[h][j] - s * gW2[h][j]; m.W2[h][j] += m.v.W2[h][j]; }
-    }
-  }
-}
-
-function evalModel(m, data, st) {
-  let correct = 0, loss = 0;
-  for (const pt of data) {
-    const [x0, x1] = stdize(pt.x, pt.y, st);
-    const p = forward(m, x0, x1).p;
-    if ((p >= 0.5 ? 1 : 0) === pt.label) correct++;
-    const pc = Math.min(Math.max(p, 1e-9), 1 - 1e-9);
-    loss += -(pt.label * Math.log(pc) + (1 - pt.label) * Math.log(1 - pc));
-  }
-  return { acc: correct / data.length, loss: loss / data.length };
-}
-
-function evalField(m, st, target) {
-  if (!target) return null;
-  const grid = 46;
-  let correct = 0;
-  for (let row = 0; row < grid; row++) {
-    const y = -1 + 2 * (row + 0.5) / grid;
-    for (let col = 0; col < grid; col++) {
-      const x = -1 + 2 * (col + 0.5) / grid;
-      const [sx, sy] = stdize(x, y, st);
-      const predicted = forward(m, sx, sy).p >= 0.5 ? 1 : 0;
-      if (predicted === target(x, y)) correct++;
-    }
-  }
-  return correct / (grid * grid);
-}
-
-function countParameters() {
-  if (cfg.linear) return 3;
-  if (cfg.depth === 1) return 4 * cfg.width + 1;
-  return cfg.width * cfg.width + 5 * cfg.width + 1;
-}
-
-/* ============================================================= *
- *  Rendering                                                    *
- * ============================================================= */
-function fitCanvas(canvas) {
-  const dpr = window.devicePixelRatio || 1;
-  const rect = canvas.getBoundingClientRect();
-  canvas.width = Math.max(1, Math.round(rect.width * dpr));
-  canvas.height = Math.max(1, Math.round(rect.height * dpr));
-  const ctx = canvas.getContext('2d');
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  return { ctx, w: rect.width, h: rect.height };
-}
-
-const offCanvas = document.createElement('canvas');
-const offCtx = offCanvas.getContext('2d');
-let offImg = null;
-
-function regionGridSize() {
-  // Use a fast preview while training and a denser raster whenever the model is paused.
-  return training ? 112 : 192;
-}
-
-function prepareRegionRaster(size) {
-  if (offCanvas.width !== size || offCanvas.height !== size || !offImg) {
-    offCanvas.width = size;
-    offCanvas.height = size;
-    offImg = offCtx.createImageData(size, size);
-  }
-}
-
-// soft diverging tints (warm -> paper -> accent)
-const WARM_T = [246, 221, 205], ACC_T = [206, 224, 243];
-function regionColor(p) {
-  // p in [0,1]; 0 -> warm tint, 1 -> accent tint, blended through near-paper mid
-  if (cfg.view === 'class') p = p >= 0.5 ? 1 : 0;
-  const r = WARM_T[0] + (ACC_T[0] - WARM_T[0]) * p;
-  const g = WARM_T[1] + (ACC_T[1] - WARM_T[1]) * p;
-  const b = WARM_T[2] + (ACC_T[2] - WARM_T[2]) * p;
-  return [r, g, b];
-}
-
-let DATA = [];
-let STAT = null;
-const probe = { x: 0, y: 0 };
-
-function drawBoard() {
-  const { ctx, w, h } = fitCanvas(document.getElementById('boardCanvas'));
-  ctx.clearRect(0, 0, w, h);
-  const pad = 10;
-  const pw = w - 2 * pad, ph = h - 2 * pad;
-  const dmin = STAT.dmin, dmax = STAT.dmax, span = dmax - dmin;
-
-  // Render confidence into a dense offscreen raster, then scale it into the plot.
-  const grid = regionGridSize();
-  prepareRegionRaster(grid);
-  for (let j = 0; j < grid; j++) {
-    const dy = dmax - (j + 0.5) / grid * span; // top row = high y
-    for (let i = 0; i < grid; i++) {
-      const dx = dmin + (i + 0.5) / grid * span;
-      const [sx, sy] = stdize(dx, dy, STAT);
-      const p = forward(model, sx, sy).p;
-      const [r, g, b] = regionColor(p);
-      const idx = (j * grid + i) * 4;
-      offImg.data[idx] = r; offImg.data[idx + 1] = g; offImg.data[idx + 2] = b; offImg.data[idx + 3] = 255;
-    }
-  }
-  offCtx.putImageData(offImg, 0, 0);
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = 'high';
-  ctx.drawImage(offCanvas, pad, pad, pw, ph);
-
-  const toX = (dx) => pad + (dx - dmin) / span * pw;
-  const toY = (dy) => pad + (dmax - dy) / span * ph;
-
-  // decision contour (p = 0.5) via marching over the same grid
-  drawContour(ctx, toX, toY, dmin, dmax, span);
-  drawTargetGeometry(ctx, toX, toY);
-
-  // plot boundary frame
-  ctx.strokeStyle = 'rgba(47,42,34,0.18)'; ctx.lineWidth = 1;
-  ctx.strokeRect(pad, pad, pw, ph);
-
-  // scatter points
-  const pointRadius = DATA.length <= 4 ? 8 : 4.4;
-  for (const pt of DATA) {
-    const cx = toX(pt.x), cy = toY(pt.y);
-    ctx.beginPath();
-    if (pt.label === 0) ctx.arc(cx, cy, pointRadius, 0, 2 * Math.PI);
-    else {
-      ctx.moveTo(cx, cy - pointRadius); ctx.lineTo(cx + pointRadius, cy);
-      ctx.lineTo(cx, cy + pointRadius); ctx.lineTo(cx - pointRadius, cy); ctx.closePath();
-    }
-    ctx.fillStyle = pt.label === 1 ? '#2c6fb7' : '#d9622b';
-    ctx.fill();
-    ctx.lineWidth = 1.4; ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.stroke();
-  }
-}
-
-function drawTargetGeometry(ctx, toX, toY) {
-  ctx.save();
-  ctx.strokeStyle = 'rgba(47,42,34,0.48)';
-  ctx.lineWidth = 1.5;
-  ctx.setLineDash([5, 5]);
-  ctx.beginPath();
-  if (cfg.data === 'xorField') {
-    ctx.moveTo(toX(0), toY(STAT.dmin)); ctx.lineTo(toX(0), toY(STAT.dmax));
-    ctx.moveTo(toX(STAT.dmin), toY(0)); ctx.lineTo(toX(STAT.dmax), toY(0));
-  } else if (cfg.data === 'circles') {
-    ctx.arc(toX(0), toY(0), Math.abs(toX(0.64) - toX(0)), 0, 2 * Math.PI);
-  } else if (cfg.data === 'blobs') {
-    ctx.moveTo(toX(STAT.dmin), toY(-STAT.dmin));
-    ctx.lineTo(toX(STAT.dmax), toY(-STAT.dmax));
-  }
-  ctx.stroke();
-  ctx.restore();
-}
-
-function drawLogitSurface() {
-  const canvas = document.getElementById('logitCanvas');
-  const { ctx, w, h } = fitCanvas(canvas);
-  ctx.clearRect(0, 0, w, h);
-  ctx.fillStyle = '#fbfaf6'; ctx.fillRect(0, 0, w, h);
-  const grid = training ? 14 : 24;
-  const span = STAT.dmax - STAT.dmin;
-  const logits = new Float32Array((grid + 1) * (grid + 1));
-  let maxAbs = 1;
-  for (let row = 0; row <= grid; row++) {
-    const y = STAT.dmin + row / grid * span;
-    for (let col = 0; col <= grid; col++) {
-      const x = STAT.dmin + col / grid * span;
-      const [sx, sy] = stdize(x, y, STAT);
-      const logit = forward(model, sx, sy).logit;
-      logits[row * (grid + 1) + col] = logit;
-      maxAbs = Math.max(maxAbs, Math.abs(logit));
-    }
-  }
-  const centreX = w * 0.5, centreY = h * 0.61;
-  const scaleX = w * 0.31, scaleY = h * 0.18, scaleZ = h * 0.24;
-  const project = (nx, ny, z) => [
-    centreX + (nx - ny) * scaleX,
-    centreY + (nx + ny - 1) * scaleY - Math.max(-1.15, Math.min(1.15, z / maxAbs)) * scaleZ
-  ];
-
-  // The classifier thresholds the surface against this explicit z = 0 plane.
-  const plane = [[0,0], [1,0], [1,1], [0,1]].map(([x, y]) => project(x, y, 0));
-  ctx.save(); ctx.fillStyle = 'rgba(47,42,34,0.055)'; ctx.strokeStyle = 'rgba(47,42,34,0.36)';
-  ctx.lineWidth = 1.3; ctx.setLineDash([5, 5]); ctx.beginPath();
-  plane.forEach((point, index) => index ? ctx.lineTo(point[0], point[1]) : ctx.moveTo(point[0], point[1]));
-  ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.restore();
-
-  const cells = [];
-  for (let row = 0; row < grid; row++) for (let col = 0; col < grid; col++) cells.push({ row, col, depth: row + col });
-  cells.sort((a, b) => a.depth - b.depth);
-  for (const { row, col } of cells) {
-    const z00 = logits[row * (grid + 1) + col];
-    const z10 = logits[row * (grid + 1) + col + 1];
-    const z01 = logits[(row + 1) * (grid + 1) + col];
-    const z11 = logits[(row + 1) * (grid + 1) + col + 1];
-    const polygon = [
-      project(col / grid, row / grid, z00), project((col + 1) / grid, row / grid, z10),
-      project((col + 1) / grid, (row + 1) / grid, z11), project(col / grid, (row + 1) / grid, z01)
-    ];
-    const probability = sigmoid((z00 + z10 + z01 + z11) / 4);
-    const warm = [246,221,205], blue = [206,224,243];
-    const red = Math.round(warm[0] + (blue[0] - warm[0]) * probability);
-    const green = Math.round(warm[1] + (blue[1] - warm[1]) * probability);
-    const blueChannel = Math.round(warm[2] + (blue[2] - warm[2]) * probability);
-    ctx.beginPath(); polygon.forEach((point, index) => index ? ctx.lineTo(point[0], point[1]) : ctx.moveTo(point[0], point[1])); ctx.closePath();
-    ctx.fillStyle = `rgba(${red},${green},${blueChannel},0.78)`;
-    ctx.strokeStyle = 'rgba(47,42,34,0.18)'; ctx.lineWidth = 0.65; ctx.fill(); ctx.stroke();
-  }
-
-  const origin = project(0, 0, 0), xEnd = project(1.06, 0, 0), yEnd = project(0, 1.06, 0), zEnd = project(0, 0, maxAbs);
-  ctx.strokeStyle = 'rgba(47,42,34,0.72)'; ctx.lineWidth = 1.5; ctx.setLineDash([]); ctx.beginPath();
-  ctx.moveTo(origin[0], origin[1]); ctx.lineTo(xEnd[0], xEnd[1]);
-  ctx.moveTo(origin[0], origin[1]); ctx.lineTo(yEnd[0], yEnd[1]);
-  ctx.moveTo(origin[0], origin[1]); ctx.lineTo(zEnd[0], zEnd[1]); ctx.stroke();
-  ctx.fillStyle = '#4d463d'; ctx.font = '700 11px Manrope, sans-serif';
-  ctx.fillText('x\u2081', xEnd[0] + 3, xEnd[1] + 4); ctx.fillText('x\u2082', yEnd[0] - 15, yEnd[1] + 4); ctx.fillText('z', zEnd[0] + 5, zEnd[1]);
-  const planeLabel = project(0.96, 0.96, 0); ctx.fillText('z = 0', planeLabel[0] + 4, planeLabel[1] + 3);
-
-  probe.x = Math.max(STAT.dmin, Math.min(STAT.dmax, probe.x));
-  probe.y = Math.max(STAT.dmin, Math.min(STAT.dmax, probe.y));
-  const [psx, psy] = stdize(probe.x, probe.y, STAT);
-  const probeState = forward(model, psx, psy);
-  const nx = (probe.x - STAT.dmin) / span, ny = (probe.y - STAT.dmin) / span;
-  const base = project(nx, ny, 0), point = project(nx, ny, probeState.logit);
-  ctx.strokeStyle = '#1e7770'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(base[0], base[1]); ctx.lineTo(point[0], point[1]); ctx.stroke();
-  ctx.fillStyle = '#1e7770'; ctx.beginPath(); ctx.arc(point[0], point[1], 4.5, 0, 2 * Math.PI); ctx.fill();
-  document.getElementById('logitReadout').textContent = 'z = ' + probeState.logit.toFixed(2) + ' \u00b7 p(class 1) = ' + probeState.p.toFixed(2);
-  canvas.setAttribute('aria-label', 'Three-dimensional model logit surface with probe logit ' + probeState.logit.toFixed(2) + ' and class-one probability ' + probeState.p.toFixed(2));
-}
-
-function drawContour(ctx, toX, toY, dmin, dmax, span) {
-  const M = training ? 100 : 160;
-  // sample probability field
-  const F = new Float32Array((M + 1) * (M + 1));
-  for (let j = 0; j <= M; j++) {
-    const dy = dmax - j / M * span;
-    for (let i = 0; i <= M; i++) {
-      const dx = dmin + i / M * span;
-      const [sx, sy] = stdize(dx, dy, STAT);
-      F[j * (M + 1) + i] = forward(model, sx, sy).p - 0.5;
-    }
-  }
-  ctx.strokeStyle = 'rgba(255,255,255,0.95)';
-  ctx.lineWidth = 2.4;
-  ctx.beginPath();
-  const cell = span / M;
-  for (let j = 0; j < M; j++) {
-    for (let i = 0; i < M; i++) {
-      const a = F[j * (M + 1) + i], b = F[j * (M + 1) + i + 1];
-      const c = F[(j + 1) * (M + 1) + i], d = F[(j + 1) * (M + 1) + i + 1];
-      const x0 = dmin + i * cell, y0 = dmax - j * cell;
-      addSeg(ctx, toX, toY, x0, y0, cell, a, b, c, d);
-    }
-  }
-  ctx.stroke();
-}
-// draw the single segment crossing a cell (linear interpolation on edges)
-function addSeg(ctx, toX, toY, x0, y0, cell, a, b, c, d) {
-  const pts = [];
-  if ((a < 0) !== (b < 0)) { const t = a / (a - b); pts.push([x0 + t * cell, y0]); }
-  if ((b < 0) !== (d < 0)) { const t = b / (b - d); pts.push([x0 + cell, y0 - t * cell]); }
-  if ((c < 0) !== (d < 0)) { const t = c / (c - d); pts.push([x0 + t * cell, y0 - cell]); }
-  if ((a < 0) !== (c < 0)) { const t = a / (a - c); pts.push([x0, y0 - t * cell]); }
-  if (pts.length >= 2) {
-    ctx.moveTo(toX(pts[0][0]), toY(pts[0][1]));
-    ctx.lineTo(toX(pts[1][0]), toY(pts[1][1]));
-  }
-}
-
-let lossHist = [];
-function drawLoss() {
-  const { ctx, w, h } = fitCanvas(document.getElementById('lossCanvas'));
-  ctx.clearRect(0, 0, w, h);
-  const pad = 30, padB = 22, padT = 12;
-  const cw = w - pad - 12, ch = h - padB - padT;
-  ctx.strokeStyle = 'rgba(47,42,34,0.14)'; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(pad, padT); ctx.lineTo(pad, padT + ch); ctx.lineTo(pad + cw, padT + ch); ctx.stroke();
-  ctx.fillStyle = '#8a8072'; ctx.font = '500 10px Manrope, sans-serif';
-  ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
-  const maxL = Math.max(0.75, lossHist.length ? lossHist[0] : 0.75);
-  for (let k = 0; k <= 2; k++) { const v = maxL * k / 2; const y = padT + ch * (1 - k / 2); ctx.fillText(v.toFixed(2), pad - 6, y); }
-  if (lossHist.length > 1) {
-    ctx.strokeStyle = '#d9622b'; ctx.lineWidth = 2;
-    ctx.beginPath();
-    const n = lossHist.length;
-    for (let i = 0; i < n; i++) {
-      const x = pad + cw * (i / (n - 1));
-      const y = padT + ch * (1 - Math.min(1, lossHist[i] / maxL));
-      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-    }
-    ctx.stroke();
-  }
-  ctx.fillStyle = '#5a5247'; ctx.font = '600 10px Manrope, sans-serif';
-  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-  ctx.fillText('loss', pad + 2, padT - 2);
-}
-
-function signed(value) { return (value >= 0 ? '+' : '\u2212') + Math.abs(value).toFixed(2); }
-
-function syncUnitCards() {
-  const grid = document.getElementById('unitGrid');
-  if (cfg.linear) {
-    grid.innerHTML = '<div class="unit-empty">A linear classifier has no hidden activations. Its output is one tilted score plane.</div>';
-    grid.dataset.key = 'linear';
-    return;
-  }
-  const key = cfg.width + ':' + cfg.mapLayer;
-  if (grid.dataset.key === key) return;
-  grid.replaceChildren();
-  grid.dataset.key = key;
-  for (let unit = 0; unit < cfg.width; unit++) {
-    const card = document.createElement('article');
-    card.className = 'unit-card';
-    const title = document.createElement('div'); title.className = 'unit-title';
-    const name = document.createElement('span'); name.textContent = 'h' + (unit + 1) + ' \u00b7 layer ' + cfg.mapLayer;
-    const activity = document.createElement('span'); activity.className = 'unit-activity';
-    title.append(name, activity);
-    const canvas = document.createElement('canvas');
-    canvas.width = 160; canvas.height = 160; canvas.setAttribute('role', 'img');
-    canvas.setAttribute('aria-label', 'Activation map for hidden unit ' + (unit + 1) + ' in layer ' + cfg.mapLayer);
-    canvas.textContent = 'A hidden-unit activation map requires canvas support.';
-    const equation = document.createElement('p'); equation.className = 'unit-equation';
-    card.append(title, canvas, equation); grid.append(card);
-  }
-}
-
-function drawHiddenMaps() {
-  syncUnitCards();
-  if (cfg.linear) return;
-  const cards = Array.from(document.querySelectorAll('#unitGrid .unit-card'));
-  const resolution = training ? 20 : 30;
-  const values = Array.from({ length: cfg.width }, () => new Float32Array(resolution * resolution));
-  const maxima = Array(cfg.width).fill(1e-9);
-  const span = STAT.dmax - STAT.dmin;
-  for (let row = 0; row < resolution; row++) {
-    const y = STAT.dmax - (row + 0.5) / resolution * span;
-    for (let col = 0; col < resolution; col++) {
-      const x = STAT.dmin + (col + 0.5) / resolution * span;
-      const [sx, sy] = stdize(x, y, STAT);
-      const state = forward(model, sx, sy);
-      const activation = cfg.mapLayer === 1 ? state.a1 : state.a2;
-      for (let unit = 0; unit < cfg.width; unit++) {
-        const value = activation[unit] || 0;
-        values[unit][row * resolution + col] = value;
-        maxima[unit] = Math.max(maxima[unit], value);
-      }
-    }
-  }
-  const activeCounts = Array(cfg.width).fill(0);
-  for (const point of DATA) {
-    const [sx, sy] = stdize(point.x, point.y, STAT);
-    const state = forward(model, sx, sy);
-    const activation = cfg.mapLayer === 1 ? state.a1 : state.a2;
-    for (let unit = 0; unit < cfg.width; unit++) if ((activation[unit] || 0) > 0) activeCounts[unit]++;
-  }
-  cards.forEach((card, unit) => {
-    const canvas = card.querySelector('canvas');
-    const { ctx, w, h } = fitCanvas(canvas);
-    const raster = document.createElement('canvas'); raster.width = resolution; raster.height = resolution;
-    const rasterCtx = raster.getContext('2d'); const image = rasterCtx.createImageData(resolution, resolution);
-    for (let index = 0; index < values[unit].length; index++) {
-      const level = Math.sqrt(Math.min(1, values[unit][index] / maxima[unit]));
-      const paper = [247, 243, 234], teal = [30, 119, 112];
-      image.data[index * 4] = paper[0] + (teal[0] - paper[0]) * level;
-      image.data[index * 4 + 1] = paper[1] + (teal[1] - paper[1]) * level;
-      image.data[index * 4 + 2] = paper[2] + (teal[2] - paper[2]) * level;
-      image.data[index * 4 + 3] = 255;
-    }
-    rasterCtx.putImageData(image, 0, 0); ctx.imageSmoothingEnabled = true; ctx.drawImage(raster, 0, 0, w, h);
-    ctx.strokeStyle = 'rgba(47,42,34,0.18)'; ctx.lineWidth = 1; ctx.strokeRect(0.5, 0.5, w - 1, h - 1);
-    card.querySelector('.unit-activity').textContent = Math.round(activeCounts[unit] / DATA.length * 100) + '% on';
-    const equation = card.querySelector('.unit-equation');
-    equation.textContent = cfg.mapLayer === 1
-      ? 'ReLU(' + signed(model.W1[unit][0]) + 'u ' + signed(model.W1[unit][1]) + 'v ' + signed(model.b1[unit]) + ')'
-      : 'ReLU(w \u00b7 h(layer 1) ' + signed(model.b2[unit]) + ')';
-  });
-}
-
-/* ============================================================= *
- *  Orchestration                                                *
- * ============================================================= */
-const cfg = { data: 'xor4', model: 'mlp', width: 2, depth: 1, act: 'relu', linear: false, view: 'probability', mapLayer: 1, lr: 0.9 };
-let iter = 0, rafId = null, training = false;
-let proofMode = 'random';
-const MAX_ITER = 1800, STEPS_PER_FRAME = 4;
-
-function currentLR() {
-  return cfg.linear ? Math.min(1.5, cfg.lr * 1.5) : cfg.lr;
-}
-
-function refreshStats() {
-  const e = evalModel(model, DATA, STAT);
-  const info = DATASET_INFO[cfg.data];
-  const field = evalField(model, STAT, info.target);
-  document.getElementById('accVal').textContent = (e.acc * 100).toFixed(1) + '%';
-  document.getElementById('lossVal').textContent = e.loss.toFixed(3);
-  document.getElementById('fieldVal').textContent = field === null ? '\u2014' : (field * 100).toFixed(field > 0.995 ? 0 : 1) + '%';
-  document.getElementById('fieldLabel').textContent = info.fieldLabel;
-  document.getElementById('iterVal').textContent = iter;
-  document.getElementById('evidenceText').textContent = info.evidence;
-  document.getElementById('geometryText').textContent = info.geometry;
-  document.getElementById('capacityText').textContent = info.capacity;
-  const hidden = cfg.linear ? 'no hidden layer' : (cfg.depth === 1 ? cfg.width + ' ReLU' + (cfg.width === 1 ? '' : 's') : cfg.width + ' ReLUs \u00d7 2 layers');
-  document.getElementById('hiddenSummary').textContent = hidden;
-  document.getElementById('parameterCount').textContent = countParameters() + ' parameters';
-  document.getElementById('networkStrip').setAttribute('aria-label', hidden + ', ' + countParameters() + ' trainable parameters');
-  document.getElementById('boardCanvas').setAttribute('aria-label', info.evidence + '; training accuracy ' + (e.acc * 100).toFixed(1) + (field === null ? '' : ' percent; field agreement ' + (field * 100).toFixed(1) + ' percent'));
-  return { ...e, field };
-}
-
-function syncControls() {
-  document.getElementById('width').value = cfg.width;
-  document.getElementById('width').disabled = cfg.linear;
-  document.getElementById('widthVal').textContent = cfg.width;
-  document.getElementById('seedInput').value = sampleIndex;
-  document.getElementById('learningRate').value = String(cfg.lr.toFixed(2));
-  for (const axis of ['X', 'Y']) {
-    const input = document.getElementById('probe' + axis);
-    input.min = STAT.dmin.toFixed(3); input.max = STAT.dmax.toFixed(3);
-    const value = axis === 'X' ? probe.x : probe.y;
-    input.value = Math.max(STAT.dmin, Math.min(STAT.dmax, value));
-    document.getElementById('probe' + axis + 'Value').textContent = Number(input.value).toFixed(2);
-  }
-  document.querySelectorAll('#dataGroup [data-data]').forEach(button => {
-    const active = button.dataset.data === cfg.data;
-    button.classList.toggle('is-active', active); button.setAttribute('aria-pressed', String(active));
-  });
-  document.querySelectorAll('#modelGroup [data-model]').forEach(button => {
-    const active = (button.dataset.model === 'linear') === cfg.linear;
-    button.classList.toggle('is-active', active); button.setAttribute('aria-pressed', String(active));
-  });
-  document.querySelectorAll('#depthGroup [data-depth]').forEach(button => {
-    const active = Number(button.dataset.depth) === cfg.depth;
-    button.classList.toggle('is-active', active); button.setAttribute('aria-pressed', String(active)); button.disabled = cfg.linear;
-  });
-  if (cfg.depth < 2) cfg.mapLayer = 1;
-  document.querySelectorAll('#mapLayerGroup [data-layer]').forEach(button => {
-    const layer = Number(button.dataset.layer);
-    button.disabled = cfg.linear || layer > cfg.depth;
-    const active = !cfg.linear && layer === cfg.mapLayer;
-    button.classList.toggle('is-active', active); button.setAttribute('aria-pressed', String(active));
-  });
-  const proof = document.getElementById('proofBtn');
-  const corner = document.getElementById('cornerProofBtn');
-  proof.disabled = !['xor4', 'xorField'].includes(cfg.data);
-  proof.textContent = cfg.data === 'xorField' ? 'Load 4-ReLU field proof' : (cfg.data === 'xor4' ? 'Load 2-ReLU proof' : 'No preset for this data');
-  corner.hidden = cfg.data !== 'xorField';
-}
-
-function refreshAll(drawMaps = true) {
-  syncControls();
-  const result = refreshStats();
-  drawBoard(); drawLogitSurface(); drawLoss();
-  if (drawMaps) drawHiddenMaps();
-  return result;
-}
-
-function rebuild(resetData, message) {
-  stopTraining();
-  if (resetData) { DATA = genData(cfg.data, sampleIndex); STAT = computeStats(DATA); }
-  model = buildModel({ linear: cfg.linear, width: cfg.width, depth: cfg.depth, act: cfg.act });
-  proofMode = 'random';
-  iter = 0;
-  const e = evalModel(model, DATA, STAT);
-  lossHist = [e.loss];
-  document.getElementById('statusLine').textContent = message || DATASET_INFO[cfg.data].note;
-  refreshAll();
-}
-
-function loadProof(kind) {
-  stopTraining();
-  cfg.linear = false; cfg.depth = 1; cfg.mapLayer = 1;
-  if (kind === 'field') {
-    cfg.width = 4;
-    const { mx, my, sx, sy } = STAT;
-    model = {
-      cfg: { linear: false, width: 4, depth: 1, act: 'relu' },
-      W1: [[sx, -sy], [-sx, sy], [sx, sy], [-sx, -sy]],
-      b1: [mx - my, my - mx, mx + my, -mx - my],
-      Wo: [1.7, 1.7, -1.7, -1.7], bo: 0
-    };
-    proofMode = 'field';
-    document.getElementById('experimentNote').textContent = 'Four ReLUs implement |x\u2081\u2212x\u2082| \u2212 |x\u2081+x\u2082|, whose sign changes across both target axes.';
-  } else {
-    cfg.width = 2;
-    const { mx, my, sx, sy } = STAT;
-    model = {
-      cfg: { linear: false, width: 2, depth: 1, act: 'relu' },
-      W1: [[sx, sy], [-sx, -sy]], b1: [mx + my, -mx - my],
-      Wo: [-1, -1], bo: 1
-    };
-    proofMode = 'corner';
-    document.getElementById('experimentNote').textContent = cfg.data === 'xor4'
-      ? 'Two ReLUs classify all four coordinates, but their diagonal band agrees with only part of the unseen XOR field.'
-      : 'The corner proof is now evaluated across filled quadrants: its diagonal-band shortcut is visible.';
-  }
-  iter = 0;
-  const e = evalModel(model, DATA, STAT); lossHist = [e.loss];
-  document.getElementById('statusLine').textContent = kind === 'field' ? 'Four-ReLU field proof loaded.' : 'Two-ReLU corner proof loaded.';
-  refreshAll();
-}
-
-function frame() {
-  const lr = currentLR();
-  for (let k = 0; k < STEPS_PER_FRAME && iter < MAX_ITER; k++) { trainStep(model, DATA, STAT, lr); iter++; }
-  const e = refreshStats();
-  lossHist.push(e.loss);
-  if (lossHist.length > 400) lossHist.shift();
-  proofMode = 'trained';
-  const shouldContinue = iter < MAX_ITER && training;
-  if (!shouldContinue) { training = false; setTrainLabel(false); }
-  drawBoard(); drawLoss();
-  if (iter % 12 === 0) { drawLogitSurface(); drawHiddenMaps(); }
-  if (shouldContinue) rafId = requestAnimationFrame(frame);
-}
-
-function startTraining() {
-  if (training) { stopTraining(); return; }
-  if (iter >= MAX_ITER) { // fresh run
-    model = buildModel({ linear: cfg.linear, width: cfg.width, depth: cfg.depth, act: cfg.act }); proofMode = 'random';
-    iter = 0; const e = evalModel(model, DATA, STAT); lossHist = [e.loss];
-  }
-  training = true; setTrainLabel(true);
-  rafId = requestAnimationFrame(frame);
-}
-function stopTraining() {
-  const wasTraining = training;
-  training = false;
-  if (rafId) cancelAnimationFrame(rafId);
-  rafId = null;
-  setTrainLabel(false);
-  if (wasTraining && STAT && model) { refreshAll(); document.getElementById('statusLine').textContent = 'Paused at step ' + iter + '.'; }
-}
-function setTrainLabel(run) {
-  const b = document.getElementById('trainBtn');
-  b.innerHTML = run ? '&#10073;&#10073;&nbsp; Pause' : '&#9654;&nbsp; Train';
-  b.setAttribute('aria-pressed', String(run));
-  b.setAttribute('aria-label', run ? 'Pause training' : 'Start training');
-}
-
-/* wiring */
-function bindGroup(id, key, onChange) {
-  document.querySelectorAll('#' + id + ' .mode-button').forEach(b => {
-    b.addEventListener('click', () => {
-      document.querySelectorAll('#' + id + ' .mode-button').forEach(x => x.classList.remove('is-active'));
-      document.querySelectorAll('#' + id + ' .mode-button').forEach(x => x.setAttribute('aria-pressed', 'false'));
-      b.classList.add('is-active');
-      b.setAttribute('aria-pressed', 'true');
-      onChange(b.dataset);
-    });
-  });
-}
-bindGroup('dataGroup', 'data', d => {
-  cfg.data = d.data;
-  DATA = genData(cfg.data, sampleIndex); STAT = computeStats(DATA);
-  if (cfg.data === 'xor4') loadProof('corner'); else rebuild(false);
-});
-bindGroup('modelGroup', 'model', d => { cfg.linear = (d.model === 'linear'); rebuild(false); });
-bindGroup('depthGroup', 'depth', d => { cfg.depth = parseInt(d.depth); rebuild(false); });
-bindGroup('viewGroup', 'view', d => {
-  cfg.view = d.view;
-  document.getElementById('surfaceNote').textContent = cfg.view === 'class' ? 'Two tints = predicted class' : 'Colour intensity = predicted probability';
-  drawBoard();
-});
-bindGroup('mapLayerGroup', 'layer', d => { cfg.mapLayer = Number(d.layer); syncControls(); drawHiddenMaps(); });
-
-document.getElementById('width').addEventListener('input', e => {
-  document.getElementById('widthVal').textContent = e.target.value;
-});
-document.getElementById('width').addEventListener('change', e => { cfg.width = parseInt(e.target.value); rebuild(false, 'Width changed to ' + cfg.width + ' unit' + (cfg.width === 1 ? '' : 's') + ' per layer.'); });
-document.getElementById('learningRate').addEventListener('change', e => { cfg.lr = Number(e.target.value); document.getElementById('statusLine').textContent = 'Learning rate set to ' + cfg.lr.toFixed(2) + '.'; });
-for (const axis of ['X', 'Y']) {
-  document.getElementById('probe' + axis).addEventListener('input', event => {
-    probe[axis.toLowerCase()] = Number(event.target.value);
-    document.getElementById('probe' + axis + 'Value').textContent = probe[axis.toLowerCase()].toFixed(2);
-    drawLogitSurface();
-  });
-}
-document.getElementById('seedInput').addEventListener('change', e => {
-  sampleIndex = Math.max(0, Math.min(9999, Math.round(Number(e.target.value) || 0)));
-  rebuild(true, 'Seed ' + sampleIndex + ' applied to both the sample and initial weights.');
-});
-document.getElementById('trainBtn').addEventListener('click', () => { training ? stopTraining() : startTraining(); });
-document.getElementById('resetBtn').addEventListener('click', () => rebuild(false));
-document.getElementById('stepBtn').addEventListener('click', () => {
-  stopTraining(); trainStep(model, DATA, STAT, currentLR()); iter++; proofMode = 'trained';
-  const e = evalModel(model, DATA, STAT); lossHist.push(e.loss); refreshAll();
-  document.getElementById('statusLine').textContent = 'Completed one full-batch gradient step.';
-});
-document.getElementById('regenBtn').addEventListener('click', () => { sampleIndex = (sampleIndex + 1) % 10000; rebuild(true, 'Advanced to deterministic seed ' + sampleIndex + '.'); });
-document.getElementById('proofBtn').addEventListener('click', () => loadProof(cfg.data === 'xorField' ? 'field' : 'corner'));
-document.getElementById('cornerProofBtn').addEventListener('click', () => loadProof('corner'));
-
-let resizeTimer = null;
-window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { if (STAT) refreshAll(); }, 100); });
-
-window.addEventListener('load', () => {
-  DATA = genData(cfg.data, sampleIndex); STAT = computeStats(DATA);
-  loadProof('corner');
-});
-
-window.MLPPlayground = Object.freeze({
-  setDataset: kind => {
-    if (!DATASET_INFO[kind]) return;
-    cfg.data = kind; DATA = genData(kind, sampleIndex); STAT = computeStats(DATA);
-    if (kind === 'xor4') loadProof('corner'); else rebuild(false);
-  },
-  setSeed: seed => { sampleIndex = Math.max(0, Math.min(9999, Math.round(Number(seed) || 0))); rebuild(true); },
-  setArchitecture: options => {
-    if (Number.isInteger(options.depth)) { cfg.depth = Math.max(1, Math.min(2, options.depth)); cfg.linear = options.depth === 0; }
-    if (Number.isInteger(options.width)) cfg.width = Math.max(1, Math.min(8, options.width));
-    rebuild(false);
-  },
-  loadProof: () => loadProof(cfg.data === 'xorField' ? 'field' : 'corner'),
-  loadCornerProof: () => loadProof('corner'),
-  step: (count = 1) => {
-    stopTraining();
-    for (let i = 0; i < Math.max(1, Math.min(1000, Math.round(count))); i++) { trainStep(model, DATA, STAT, currentLR()); iter++; }
-    const e = evalModel(model, DATA, STAT); lossHist.push(e.loss); proofMode = 'trained'; return refreshAll();
-  },
-  snapshot: () => {
-    const e = evalModel(model, DATA, STAT);
-    return {
-      dataset: cfg.data, dataSize: DATA.length, seed: sampleIndex, depth: cfg.linear ? 0 : cfg.depth,
-      width: cfg.width, steps: iter, proofMode, parameters: countParameters(), accuracy: e.acc, loss: e.loss,
-      fieldAgreement: evalField(model, STAT, DATASET_INFO[cfg.data].target),
-      mapCount: document.querySelectorAll('#unitGrid .unit-card').length,
-      dataSignature: DATA.slice(0, 10).map(point => [point.x.toFixed(5), point.y.toFixed(5), point.label].join(':')).join('|')
-    };
-  }
-});
-</script>
-
+  <footer class="footer">
+    <span>ReLU networks only · deterministic seeds · all training runs in this page</span>
+    <a href="https://github.com/nipunbatra/interactive-articles/tree/main/src/articles/mlp-decision-boundary">Source</a>
+  </footer>
 </body>
 </html>

@@ -123,7 +123,7 @@ function renderArticleList(articles) {
           </span>
         </a>
       </li>
-    `;
+    `.trim();
   }
 
   return colNames.map((col) => {
