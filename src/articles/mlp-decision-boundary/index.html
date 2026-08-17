@@ -60,7 +60,8 @@
           <p class="control-note">Hold data and architecture fixed; change only where optimization starts.</p>
           <label class="field" for="weightSeedInput"><span>Weight seed</span><span class="seed-row"><input id="weightSeedInput" type="number" min="1" max="9999" value="11" inputmode="numeric"><button type="button" class="icon-button" id="newWeightSeedBtn" aria-label="Use the next weight seed">+1</button></span></label>
           <div class="preset-row">
-            <button type="button" class="preset-button" id="randomInitBtn"><span>Random</span><small>Seeded He initialization</small></button>
+            <button type="button" class="preset-button recommended-button" id="recommendedSetupBtn"><span>Recommended random start</span><small id="recommendedSetupText">1 layer · width 8 · learning rate 0.1 · weight seed 23</small></button>
+            <button type="button" class="preset-button" id="randomInitBtn"><span>Random · current model</span><small>Keep architecture; reset seeded weights</small></button>
             <button type="button" class="preset-button" id="cornerProofBtn"><span>Constructed · 2 ReLUs</span><small>Exact on four XOR corners</small></button>
             <button type="button" class="preset-button" id="fieldProofBtn"><span>Constructed · 4 ReLUs</span><small>Exact across filled XOR</small></button>
           </div>
@@ -68,8 +69,9 @@
 
         <section class="control-section train-section">
           <div class="section-heading"><span>04</span><h2>Optimize</h2></div>
-          <div class="train-buttons"><button type="button" class="primary-button" id="runBtn" aria-pressed="false">Run</button><button type="button" class="secondary-button" id="stepBtn">One step</button><button type="button" class="secondary-button" id="resetBtn">Reset</button></div>
-          <p class="status" id="statusText" role="status" aria-live="polite">Constructed two-ReLU corner rule loaded.</p>
+          <div class="train-buttons"><button type="button" class="primary-button" id="runBtn" aria-pressed="false" aria-describedby="statusText objectiveNote" disabled>Run</button><button type="button" class="secondary-button" id="stepBtn" aria-describedby="statusText objectiveNote" disabled>One step</button><button type="button" class="secondary-button" id="resetBtn">Reset weights</button></div>
+          <p class="status" id="statusText" role="status" aria-live="polite">Constructed rule loaded for inspection. Choose a random start before training.</p>
+          <p class="objective-note" id="objectiveNote"><strong>Training minimizes BCE.</strong> Accuracy uses a 0.5 threshold, so it can briefly fall even while BCE improves.</p>
         </section>
       </aside>
 
@@ -79,7 +81,7 @@
           <div class="view-switch" role="group" aria-label="Input-space field"><button type="button" class="view-button" data-class-view="probability" aria-pressed="false">Probability</button><button type="button" class="view-button is-active" data-class-view="logit" aria-pressed="true">Logit</button><button type="button" class="view-button" data-class-view="class" aria-pressed="false">Class</button></div>
         </div>
 
-        <div class="metric-row" aria-live="polite"><div class="metric"><span>Training accuracy</span><strong id="metric1Value">100%</strong></div><div class="metric"><span>Rule agreement</span><strong id="metric2Value">75%</strong></div><div class="metric"><span>Training BCE</span><strong id="metric3Value">0.31</strong></div><div class="metric"><span>Gradient steps</span><strong id="stepsValue">0</strong></div></div>
+        <div class="metric-row" aria-live="polite"><div class="metric"><span id="metric1Label">Training accuracy</span><strong id="metric1Value">100%</strong></div><div class="metric"><span id="metric2Label">Balanced field accuracy</span><strong id="metric2Value">75%</strong></div><div class="metric"><span id="metric3Label">Training BCE</span><strong id="metric3Value">0.31</strong></div><div class="metric"><span>Gradient steps</span><strong id="stepsValue">0</strong></div></div>
 
         <figure class="primary-visual">
           <canvas id="mainCanvas" role="img" aria-label="Training data over the current model field. Click to move the linked probe; in a custom dataset, click to add points."></canvas>

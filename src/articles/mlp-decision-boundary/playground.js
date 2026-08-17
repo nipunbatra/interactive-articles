@@ -24,7 +24,8 @@
     customCount: $('customCount'), datasetNote: $('datasetNote'), depth: $('depthSelect'), width: $('widthRange'),
     widthOutput: $('widthOutput'), lr: $('learningRateSelect'), dataSeed: $('dataSeedInput'), newDataSeed: $('newDataSeedBtn'),
     weightSeed: $('weightSeedInput'), newWeightSeed: $('newWeightSeedBtn'),
-    random: $('randomInitBtn'), corner: $('cornerProofBtn'), field: $('fieldProofBtn'), run: $('runBtn'),
+    recommended: $('recommendedSetupBtn'), recommendedText: $('recommendedSetupText'), random: $('randomInitBtn'),
+    corner: $('cornerProofBtn'), field: $('fieldProofBtn'), run: $('runBtn'),
     step: $('stepBtn'), reset: $('resetBtn'), status: $('statusText'), main: $('mainCanvas'), network: $('networkCanvas'),
     history: $('historyCanvas'), surface: $('surfaceCanvas'), features: $('featureGrid'), metric1Label: $('metric1Label'),
     metric1: $('metric1Value'), metric2Label: $('metric2Label'), metric2: $('metric2Value'),
@@ -47,6 +48,16 @@
   const hidden = (node, value) => { if (node) node.hidden = Boolean(value); };
   const pct = (v) => Number.isFinite(v) ? `${(v * 100).toFixed(v > 0.995 ? 1 : 0)}%` : '—';
   const signed = (v) => `${v < 0 ? '−' : '+'} ${Math.abs(v).toFixed(2)}`;
+  const DOMAIN_ANCHORS = Array.from({ length: 25 }, (_, i) => ({ x: 0.05 + (i % 5) * 0.225, y: 0.05 + Math.floor(i / 5) * 0.225 }));
+  const RECOMMENDED_SETUPS = Object.freeze({
+    xor4: Object.freeze({ depth: 1, width: 8, lr: 0.1, weightSeed: 23 }),
+    xorField: Object.freeze({ depth: 2, width: 8, lr: 0.1, weightSeed: 23 }),
+    blobs: Object.freeze({ depth: 0, width: 1, lr: 0.1, weightSeed: 23 }),
+    circles: Object.freeze({ depth: 2, width: 8, lr: 0.1, weightSeed: 23 }),
+    moons: Object.freeze({ depth: 2, width: 8, lr: 0.1, weightSeed: 23 }),
+    spirals: Object.freeze({ depth: 2, width: 16, lr: 0.1, weightSeed: 23 }),
+    custom: Object.freeze({ depth: 1, width: 8, lr: 0.03, weightSeed: 23 })
+  });
 
   function rngFor(seed) {
     let a = seed >>> 0;
@@ -64,6 +75,9 @@
   function sigmoid(z) {
     if (z >= 0) return 1 / (1 + Math.exp(-z));
     const e = Math.exp(z); return e / (1 + e);
+  }
+  function bceFromLogit(z, label) {
+    return Math.max(z, 0) - z * label + Math.log1p(Math.exp(-Math.abs(z)));
   }
   function blend(a, b, t) {
     const parse = (x) => [1, 3, 5].map((i) => parseInt(x.slice(i, i + 2), 16));
@@ -98,10 +112,11 @@
     if (key === 'xor4') return [{ x: 0, y: 0, label: 0 }, { x: 0, y: 1, label: 1 }, { x: 1, y: 0, label: 1 }, { x: 1, y: 1, label: 0 }];
     const rng = rngFor(seed * 997 + 17), out = [];
     if (key === 'xorField') {
-      while (out.length < 256) {
-        const x = rng(), y = rng();
-        if (Math.abs(x - 0.5) < 0.025 || Math.abs(y - 0.5) < 0.025) continue;
-        out.push({ x, y, label: truth(key, x, y) });
+      // Reflect each lower-left sample into all four quadrants. The resulting
+      // evidence is exactly balanced and symmetric about both XOR boundaries.
+      for (let i = 0; i < 64; i++) {
+        const x = 0.475 * rng(), y = 0.475 * rng();
+        out.push({ x, y, label: 0 }, { x, y: 1 - y, label: 1 }, { x: 1 - x, y, label: 1 }, { x: 1 - x, y: 1 - y, label: 0 });
       }
     } else if (key === 'blobs') {
       for (let label = 0; label < 2; label++) {
@@ -136,16 +151,24 @@
   const validSeed = (v) => clamp(Math.round(finite(Number(v), 11)), 1, 9999);
   const validDepth = (v) => clamp(Math.round(finite(Number(v), 1)), 0, 2);
   const validWidth = (v) => clamp(Math.round(finite(Number(v), 2)), 1, 16);
+  function median(values) {
+    const sorted = [...values].sort((a, b) => a - b), middle = Math.floor(sorted.length / 2);
+    return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
+  }
   function randomModel(depth, width, seed) {
     const rng = rngFor(seed * 7919 + depth * 97 + width * 13);
     const rw = (fan) => gaussian(rng) * Math.sqrt(2 / Math.max(1, fan));
-    const m = { depth, width, W1: [], b1: [], W2: [], b2: [], Wo: [], bo: (rng() - 0.5) * 0.08 };
+    const m = { depth, width, W1: [], b1: [], W2: [], b2: [], Wo: [], bo: 0 };
     if (!depth) { m.Wo = [rw(2), rw(2)]; return m; }
     m.W1 = Array.from({ length: width }, () => [rw(2), rw(2)]);
-    m.b1 = Array.from({ length: width }, () => 0.03 + (rng() - 0.5) * 0.06);
+    // Place each first-layer hinge through the input domain instead of near
+    // the origin. Every initialized ReLU is active for some anchor points and
+    // inactive for others, so it can receive a useful gradient immediately.
+    m.b1 = m.W1.map((w) => -median(DOMAIN_ANCHORS.map((p) => w[0] * p.x + w[1] * p.y)));
     if (depth === 2) {
       m.W2 = Array.from({ length: width }, () => Array.from({ length: width }, () => rw(width)));
-      m.b2 = Array.from({ length: width }, () => 0.03 + (rng() - 0.5) * 0.06);
+      const h1Anchors = DOMAIN_ANCHORS.map((p) => m.W1.map((w, j) => relu(w[0] * p.x + w[1] * p.y + m.b1[j])));
+      m.b2 = m.W2.map((row) => -median(h1Anchors.map((h) => row.reduce((sum, w, j) => sum + w * h[j], 0))));
     }
     m.Wo = Array.from({ length: width }, () => rw(width));
     return m;
@@ -162,7 +185,7 @@
   }
   function dataLoss() {
     if (!state.data.length) return NaN;
-    return state.data.reduce((sum, p) => { const q = clamp(forward(state.model, p.x, p.y).p, 1e-9, 1 - 1e-9); return sum - p.label * Math.log(q) - (1 - p.label) * Math.log(1 - q); }, 0) / state.data.length;
+    return state.data.reduce((sum, p) => sum + bceFromLogit(forward(state.model, p.x, p.y).z, p.label), 0) / state.data.length;
   }
   function changed() { state.revision++; state.grid = null; state.metrics = null; }
   function stop() {
@@ -172,22 +195,46 @@
   }
   function commit(model, provenance, message) {
     stop(); state.model = model; state.depth = model.depth; state.width = model.width; state.provenance = provenance; state.steps = 0; changed();
-    const loss = dataLoss(); state.history = Number.isFinite(loss) ? [{ step: 0, loss }] : []; state.status = message; render(true);
+    const loss = dataLoss(); state.history = Number.isFinite(loss) ? [{ step: 0, loss }] : []; state.status = state.data.length ? message : `${message} Add at least one custom point before training.`; render(true);
+  }
+  function constructionMatchesDataset() {
+    return (state.initializer === 'corner' && state.dataset === 'xor4') || (state.initializer === 'field' && state.dataset === 'xorField');
+  }
+  function reconcileProvenanceAfterDataChange() {
+    if (state.initializer === 'corner' || state.initializer === 'field') state.provenance = constructionMatchesDataset() ? 'constructed' : 'carried';
+    else if (state.provenance === 'trained' || state.provenance === 'carried') state.provenance = 'carried';
   }
   function dataChanged(message) {
-    stop(); state.steps = 0; changed(); const loss = dataLoss(); state.history = Number.isFinite(loss) ? [{ step: 0, loss }] : [];
-    state.status = message; render(true); return snapshot();
+    stop(); reconcileProvenanceAfterDataChange(); state.steps = 0; changed(); const loss = dataLoss(); state.history = Number.isFinite(loss) ? [{ step: 0, loss }] : [];
+    state.status = state.provenance === 'carried' ? `${message} Choose Recommended or Random before training.` : message; render(true); return snapshot();
   }
   function loadCornerRule() {
     state.initializer = 'corner';
-    commit(cornerModel(), 'constructed', 'Loaded the two-ReLU corner construction; data is unchanged.'); return snapshot();
+    const matches = state.dataset === 'xor4';
+    commit(cornerModel(), matches ? 'constructed' : 'carried', matches ? 'Loaded the exact two-ReLU corner construction for inspection. Choose Recommended or Random before training.' : 'Loaded the corner construction on different evidence for comparison. Choose Recommended or Random before training.'); return snapshot();
   }
   function loadFieldRule() {
     state.initializer = 'field';
-    commit(fieldModel(), 'constructed', 'Loaded the four-ReLU XOR field construction; data is unchanged.'); return snapshot();
+    const matches = state.dataset === 'xorField';
+    commit(fieldModel(), matches ? 'constructed' : 'carried', matches ? 'Loaded the exact four-ReLU XOR field construction for inspection. Choose Recommended or Random before training.' : 'Loaded the XOR field construction on different evidence for comparison. Choose Recommended or Random before training.'); return snapshot();
+  }
+  function recommendationFor(key = state.dataset) {
+    if (!DATASETS.has(key)) throw new RangeError(`Unknown dataset: ${key}`);
+    return { ...RECOMMENDED_SETUPS[key] };
+  }
+  function setupDescription(setup) {
+    const architecture = setup.depth ? `${setup.depth} ${setup.depth === 1 ? 'layer' : 'layers'} · width ${setup.width}` : 'linear model';
+    return `${architecture} · learning rate ${setup.lr} · weight seed ${setup.weightSeed}`;
+  }
+  function loadRecommendedSetup() {
+    const setup = recommendationFor();
+    state.lr = setup.lr; state.weightSeed = setup.weightSeed; state.initializer = 'random';
+    commit(randomModel(setup.depth, setup.width, state.weightSeed), 'random', `Recommended random start loaded for ${datasetName(state.dataset)}: ${setupDescription(setup)}.`);
+    return snapshot();
   }
   function initialize(options = 'random') {
     let o = typeof options === 'string' ? { provenance: options } : (options || {}), kind = o.provenance || o.preset || 'random';
+    if (kind === 'recommended') return loadRecommendedSetup();
     if (kind === 'corner' || kind === 'cornerRule') return loadCornerRule();
     if (kind === 'field' || kind === 'fieldRule') return loadFieldRule();
     if (kind === 'constructed') return state.dataset === 'xor4' ? loadCornerRule() : loadFieldRule();
@@ -223,17 +270,23 @@
     state.initializer = 'random'; commit(randomModel(state.depth, state.width, state.weightSeed), 'random', `Compatibility seed ${state.weightSeed} applied to data and weights.`); return snapshot();
   }
   const clipG = (v) => clamp(finite(v), -12, 12), clipP = (v) => clamp(finite(v), -60, 60);
+  const canTrain = () => Boolean(state.data.length) && (state.provenance === 'random' || state.provenance === 'trained');
+  function explainTrainingBlock() {
+    if (!state.data.length) return 'Add at least one custom point before training.';
+    return state.provenance === 'constructed'
+      ? 'This exact construction is for inspection. Choose Recommended or Random before training.'
+      : 'These weights were carried from different evidence. Choose Recommended or Random before training.';
+  }
   function trainOne() {
-    const m = state.model, n = state.data.length; if (!n) return false;
-    let observed = 0;
+    const m = state.model, n = state.data.length; if (!n || !canTrain()) return false;
     if (!m.depth) {
       const gw = [0, 0]; let gb = 0;
-      for (const p of state.data) { const f = forward(m, p.x, p.y), q = clamp(f.p, 1e-9, 1 - 1e-9), dz = f.p - p.label; observed -= p.label * Math.log(q) + (1 - p.label) * Math.log(1 - q); gw[0] += dz * p.x; gw[1] += dz * p.y; gb += dz; }
-      const rate = state.lr / n; m.Wo[0] = clipP(m.Wo[0] - rate * clipG(gw[0])); m.Wo[1] = clipP(m.Wo[1] - rate * clipG(gw[1])); m.bo = clipP(m.bo - rate * clipG(gb));
+      for (const p of state.data) { const f = forward(m, p.x, p.y), dz = f.p - p.label; gw[0] += dz * p.x; gw[1] += dz * p.y; gb += dz; }
+      m.Wo[0] = clipP(m.Wo[0] - state.lr * clipG(gw[0] / n)); m.Wo[1] = clipP(m.Wo[1] - state.lr * clipG(gw[1] / n)); m.bo = clipP(m.bo - state.lr * clipG(gb / n));
     } else {
       const g1 = m.W1.map(() => [0, 0]), gb1 = m.b1.map(() => 0), g2 = m.depth === 2 ? m.W2.map((r) => r.map(() => 0)) : [], gb2 = m.depth === 2 ? m.b2.map(() => 0) : [], go = m.Wo.map(() => 0); let gbo = 0;
       for (const p of state.data) {
-        const f = forward(m, p.x, p.y), q = clamp(f.p, 1e-9, 1 - 1e-9), dz = f.p - p.label; observed -= p.label * Math.log(q) + (1 - p.label) * Math.log(1 - q); gbo += dz;
+        const f = forward(m, p.x, p.y), dz = f.p - p.label; gbo += dz;
         for (let j = 0; j < m.width; j++) go[j] += dz * f.final[j];
         if (m.depth === 2) {
           const du2 = m.Wo.map((w, j) => f.u2[j] > 0 ? dz * w : 0);
@@ -241,30 +294,29 @@
           for (let k = 0; k < m.width; k++) { let dh = 0; for (let j = 0; j < m.width; j++) dh += m.W2[j][k] * du2[j]; const du = f.u1[k] > 0 ? dh : 0; g1[k][0] += du * p.x; g1[k][1] += du * p.y; gb1[k] += du; }
         } else for (let j = 0; j < m.width; j++) { const du = f.u1[j] > 0 ? dz * m.Wo[j] : 0; g1[j][0] += du * p.x; g1[j][1] += du * p.y; gb1[j] += du; }
       }
-      const rate = state.lr / n;
       for (let j = 0; j < m.width; j++) {
-        m.Wo[j] = clipP(m.Wo[j] - rate * clipG(go[j])); m.W1[j][0] = clipP(m.W1[j][0] - rate * clipG(g1[j][0])); m.W1[j][1] = clipP(m.W1[j][1] - rate * clipG(g1[j][1])); m.b1[j] = clipP(m.b1[j] - rate * clipG(gb1[j]));
-        if (m.depth === 2) { m.b2[j] = clipP(m.b2[j] - rate * clipG(gb2[j])); for (let k = 0; k < m.width; k++) m.W2[j][k] = clipP(m.W2[j][k] - rate * clipG(g2[j][k])); }
+        m.Wo[j] = clipP(m.Wo[j] - state.lr * clipG(go[j] / n)); m.W1[j][0] = clipP(m.W1[j][0] - state.lr * clipG(g1[j][0] / n)); m.W1[j][1] = clipP(m.W1[j][1] - state.lr * clipG(g1[j][1] / n)); m.b1[j] = clipP(m.b1[j] - state.lr * clipG(gb1[j] / n));
+        if (m.depth === 2) { m.b2[j] = clipP(m.b2[j] - state.lr * clipG(gb2[j] / n)); for (let k = 0; k < m.width; k++) m.W2[j][k] = clipP(m.W2[j][k] - state.lr * clipG(g2[j][k] / n)); }
       }
-      m.bo = clipP(m.bo - rate * clipG(gbo));
+      m.bo = clipP(m.bo - state.lr * clipG(gbo / n));
     }
-    state.steps++; state.provenance = 'trained'; changed(); state.history.push({ step: state.steps, loss: observed / n }); if (state.history.length > 2400) state.history.shift(); return true;
+    state.steps++; state.provenance = 'trained'; changed(); state.history.push({ step: state.steps, loss: dataLoss() }); if (state.history.length > 2400) state.history.shift(); return true;
   }
   function step(count = 1) {
     const n = clamp(Math.round(finite(Number(count), 1)), 1, 10000);
-    if (!state.data.length) { state.status = 'Add at least one custom point before training.'; render(false); return snapshot(); }
+    if (!canTrain()) { state.status = explainTrainingBlock(); render(false); return snapshot(); }
     for (let i = 0; i < n; i++) trainOne(); state.status = `${n} full-batch gradient ${n === 1 ? 'step' : 'steps'} completed.`; render(false); return snapshot();
   }
   function schedule() { if (state.running && state.raf === null) state.raf = requestAnimationFrame(frame); }
   function frame(time) { state.raf = null; if (!state.running) return; if (!state.lastFrame || time - state.lastFrame > 32) { for (let i = 0; i < 4; i++) trainOne(); state.lastFrame = time; state.status = 'Training with full-batch gradient descent…'; render(false); } schedule(); }
-  function start() { if (state.running) return false; if (!state.data.length) { state.status = 'Add at least one custom point before training.'; render(false); return false; } state.running = true; state.lastFrame = 0; syncRun(); schedule(); return true; }
+  function start() { if (state.running) return false; if (!canTrain()) { state.status = explainTrainingBlock(); render(false); return false; } state.running = true; state.lastFrame = 0; syncRun(); schedule(); return true; }
 
   function pushUndo() { state.undo.push(state.customPoints.map((p) => ({ ...p }))); if (state.undo.length > 60) state.undo.shift(); }
   function customReset(message) { state.dataset = 'custom'; state.data = makeDataset('custom', state.dataSeed, state.customPoints); dataChanged(`${message} Model weights preserved.`); }
-  function addCustomPoint(x, y, label = state.pointClass) { x = Number(x); y = Number(y); if (!Number.isFinite(x) || !Number.isFinite(y)) throw new TypeError('Point coordinates must be finite.'); pushUndo(); state.customPoints.push({ x: clamp(x, 0, 1), y: clamp(y, 0, 1), label: Number(label) ? 1 : 0 }); customReset('Custom point added; model reset.'); return state.customPoints.length; }
+  function addCustomPoint(x, y, label = state.pointClass) { x = Number(x); y = Number(y); if (!Number.isFinite(x) || !Number.isFinite(y)) throw new TypeError('Point coordinates must be finite.'); pushUndo(); state.customPoints.push({ x: clamp(x, 0, 1), y: clamp(y, 0, 1), label: Number(label) ? 1 : 0 }); customReset('Custom point added.'); return state.customPoints.length; }
   function nearest(x, y) { let index = -1, d = Infinity; state.customPoints.forEach((p, i) => { const q = (p.x - x) ** 2 + (p.y - y) ** 2; if (q < d) { d = q; index = i; } }); return index; }
-  function removeCustomPoint(value) { if (!state.customPoints.length) return false; let i = typeof value === 'number' ? Math.round(value) : value && Number.isFinite(Number(value.x)) && Number.isFinite(Number(value.y)) ? nearest(Number(value.x), Number(value.y)) : state.customPoints.length - 1; if (i < 0 || i >= state.customPoints.length) return false; pushUndo(); state.customPoints.splice(i, 1); customReset('Custom point removed; model reset.'); return true; }
-  function clearCustomPoints() { if (state.customPoints.length) pushUndo(); state.customPoints = []; customReset('Custom points cleared. Seed changes keep this dataset empty.'); return snapshot(); }
+  function removeCustomPoint(value) { if (!state.customPoints.length) return false; let i = typeof value === 'number' ? Math.round(value) : value && Number.isFinite(Number(value.x)) && Number.isFinite(Number(value.y)) ? nearest(Number(value.x), Number(value.y)) : state.customPoints.length - 1; if (i < 0 || i >= state.customPoints.length) return false; pushUndo(); state.customPoints.splice(i, 1); customReset('Custom point removed.'); return true; }
+  function clearCustomPoints() { if (state.customPoints.length) pushUndo(); state.customPoints = []; customReset('Custom points cleared. Add at least one custom point before training; seed changes keep this dataset empty.'); return snapshot(); }
   function undoCustomEdit() { if (!state.undo.length) return false; state.customPoints = state.undo.pop().map((p) => ({ ...p })); customReset('Previous custom dataset restored.'); return true; }
 
   function parameterCount() { return !state.depth ? 3 : state.depth === 1 ? 4 * state.width + 1 : state.width * state.width + 5 * state.width + 1; }
@@ -278,10 +330,43 @@
     if (state.metrics?.revision === state.revision && state.metrics.data === state.data) return state.metrics.value;
     if (!state.data.length) return { accuracy: NaN, agreement: NaN, loss: NaN };
     let right = 0, loss = 0;
-    for (const p of state.data) { const q = clamp(forward(state.model, p.x, p.y).p, 1e-9, 1 - 1e-9); right += (q >= 0.5 ? 1 : 0) === p.label; loss -= p.label * Math.log(q) + (1 - p.label) * Math.log(1 - q); }
+    for (const p of state.data) { const f = forward(state.model, p.x, p.y); right += (f.z >= 0 ? 1 : 0) === p.label; loss += bceFromLogit(f.z, p.label); }
     let agreement = NaN;
-    if (truth(state.dataset, 0.2, 0.3) !== null) { const g = getGrid(); let rightField = 0, total = 0; for (let y = 0; y < GRID - 1; y++) for (let x = 0; x < GRID - 1; x++) { const px = (x + 0.5) / (GRID - 1), py = (y + 0.5) / (GRID - 1); if ((state.dataset === 'xor4' || state.dataset === 'xorField') && (Math.abs(px - 0.5) < 0.012 || Math.abs(py - 0.5) < 0.012)) continue; const i = y * GRID + x, v = (g.z[i] + g.z[i + 1] + g.z[i + GRID] + g.z[i + GRID + 1]) / 4; rightField += (v >= 0 ? 1 : 0) === truth(state.dataset, px, py); total++; } agreement = rightField / total; }
+    if (truth(state.dataset, 0.2, 0.3) !== null) {
+      const g = getGrid(), totals = [0, 0], correct = [0, 0];
+      for (let y = 0; y < GRID - 1; y++) for (let x = 0; x < GRID - 1; x++) {
+        const px = (x + 0.5) / (GRID - 1), py = (y + 0.5) / (GRID - 1);
+        if ((state.dataset === 'xor4' || state.dataset === 'xorField') && (Math.abs(px - 0.5) < 0.012 || Math.abs(py - 0.5) < 0.012)) continue;
+        const label = truth(state.dataset, px, py), i = y * GRID + x;
+        const z = (g.z[i] + g.z[i + 1] + g.z[i + GRID] + g.z[i + GRID + 1]) / 4;
+        totals[label]++; correct[label] += (z >= 0 ? 1 : 0) === label;
+      }
+      agreement = (correct[0] / totals[0] + correct[1] / totals[1]) / 2;
+    } else if (state.dataset === 'spirals') {
+      const holdout = makeDataset('spirals', state.dataSeed + 104729, []);
+      agreement = holdout.reduce((sum, p) => sum + ((forward(state.model, p.x, p.y).z >= 0 ? 1 : 0) === p.label), 0) / holdout.length;
+    }
     const value = { accuracy: right / state.data.length, agreement, loss: loss / state.data.length }; state.metrics = { revision: state.revision, data: state.data, value }; return value;
+  }
+  function dataCounts() {
+    const classCounts = [0, 0], quadrantCounts = state.dataset === 'xorField' ? [0, 0, 0, 0] : null;
+    for (const p of state.data) {
+      classCounts[p.label ? 1 : 0]++;
+      if (quadrantCounts) quadrantCounts[(p.x >= 0.5 ? 2 : 0) + (p.y >= 0.5 ? 1 : 0)]++;
+    }
+    return { classCounts, quadrantCounts };
+  }
+  function activationDiagnostics() {
+    if (!state.depth) return { deadUnits: 0, deadUnitsByLayer: [] };
+    const active1 = Array.from({ length: state.width }, () => 0), active2 = Array.from({ length: state.depth === 2 ? state.width : 0 }, () => 0);
+    for (const p of DOMAIN_ANCHORS) {
+      const f = forward(state.model, p.x, p.y);
+      f.u1.forEach((v, j) => { if (v > 0) active1[j]++; });
+      f.u2.forEach((v, j) => { if (v > 0) active2[j]++; });
+    }
+    const deadUnitsByLayer = [active1.filter((count) => count === 0).length];
+    if (state.depth === 2) deadUnitsByLayer.push(active2.filter((count) => count === 0).length);
+    return { deadUnits: deadUnitsByLayer.reduce((sum, count) => sum + count, 0), deadUnitsByLayer };
   }
 
   function setupCanvas(canvas, minHeight = 120) {
@@ -395,16 +480,25 @@
     ctx.fillStyle = '#854329'; ctx.font = '700 10px ui-sans-serif, sans-serif'; ctx.textAlign = 'right'; ctx.fillText('z = 0', width - 12, 16);
     el.surface.setAttribute('aria-label', `Interactive logit surface at azimuth ${state.camera.azimuth.toFixed(2)}, elevation ${state.camera.elevation.toFixed(2)}, zoom ${state.camera.zoom.toFixed(2)}. Probe score ${f.z.toFixed(2)}.`);
   }
-  function syncRun() { if (!el.run) return; el.run.classList.toggle('is-running', state.running); text(el.run, state.running ? 'Pause' : 'Run'); el.run.setAttribute('aria-pressed', String(state.running)); }
+  function syncRun() {
+    if (!el.run) return;
+    el.run.classList.toggle('is-running', state.running); text(el.run, state.running ? 'Pause' : 'Run'); el.run.setAttribute('aria-pressed', String(state.running));
+    el.run.disabled = !state.running && !canTrain();
+    if (el.step) el.step.disabled = !canTrain();
+  }
   function syncControls() {
     el.dataset.value = state.dataset; el.depth.value = String(state.depth); el.width.value = String(state.width); el.widthOutput.value = String(state.width); el.width.disabled = state.depth === 0; el.lr.value = String(state.lr);
     el.dataSeed.value = String(state.dataSeed); el.weightSeed.value = String(state.weightSeed); hidden(el.customTools, state.dataset !== 'custom'); el.customCount.value = `${state.customPoints.length} ${state.customPoints.length === 1 ? 'point' : 'points'}`; text(el.datasetNote, datasetNote(state.dataset));
+    const recommended = recommendationFor(); text(el.recommendedText, setupDescription(recommended));
     document.querySelectorAll('[data-point-class]').forEach((b) => { const active = Number(b.dataset.pointClass) === state.pointClass; b.classList.toggle('is-active', active); b.setAttribute('aria-pressed', String(active)); });
     document.querySelectorAll('[data-class-view]').forEach((b) => { const active = b.dataset.classView === state.view; b.classList.toggle('is-active', active); b.setAttribute('aria-pressed', String(active)); });
     el.provenance.className = `provenance-badge is-${state.provenance}`; text(el.provenance, state.provenance); syncRun();
   }
   function updateText() {
     const m = getMetrics(), f = forward(state.model, state.probe.x, state.probe.y); text(el.metric1, pct(m.accuracy)); text(el.metric2, pct(m.agreement)); text(el.metric3, Number.isFinite(m.loss) ? m.loss.toFixed(3) : '—'); text(el.steps, state.steps);
+    text(el.metric1Label, 'Training accuracy');
+    text(el.metric2Label, state.dataset === 'spirals' ? 'Holdout accuracy' : state.dataset === 'custom' ? 'Field accuracy unavailable' : 'Balanced field accuracy');
+    text(el.metric3Label, 'Training BCE');
     text(el.title, state.dataset === 'xor4' ? 'Four points do not specify four regions' : `${datasetName(state.dataset)} · learned ${state.view} field`); text(el.params, `${parameterCount()} parameters`);
     text(el.networkTitle, !state.depth ? 'Two inputs → one linear score' : state.depth === 1 ? `Two inputs → ${state.width} ReLUs → one score` : `Two inputs → ${state.width} + ${state.width} ReLUs → one score`); text(el.status, state.status);
     el.probeX.value = String(state.probe.x); el.probeY.value = String(state.probe.y); el.probeXOut.value = state.probe.x.toFixed(2); el.probeYOut.value = state.probe.y.toFixed(2); text(el.probeReadout, `z = ${f.z.toFixed(2)} · p = ${f.p.toFixed(2)} · class ${f.p >= 0.5 ? 1 : 0}`);
@@ -420,11 +514,15 @@
   function modelSignature() { const m = state.model, numbers = [m.depth, m.width, ...m.W1.flat(), ...m.b1, ...m.W2.flat(), ...m.b2, ...m.Wo, m.bo]; return numbers.map((v) => Number(v).toFixed(7)).join('|'); }
   function dataSignature() { return state.data.map((p) => `${p.x.toFixed(4)},${p.y.toFixed(4)},${p.label}`).join('|'); }
   function resetWeights() { return setWeightSeed(state.weightSeed); }
+  function setLearningRate(value) {
+    const next = Number(value); if (!Number.isFinite(next) || next <= 0) throw new RangeError('Learning rate must be a positive finite number.');
+    state.lr = clamp(next, 0.0001, 1); state.status = `Learning rate set to ${state.lr}.`; render(false); return snapshot();
+  }
 
   el.main.addEventListener('pointerdown', (event) => { const p = eventToInput(event); if (!p?.inside) return; state.probe = { x: p.x, y: p.y }; if (state.dataset === 'custom') { if (event.shiftKey && state.customPoints.length) removeCustomPoint({ x: p.x, y: p.y }); else addCustomPoint(p.x, p.y, state.pointClass); } else render(false); });
-  el.dataset.addEventListener('change', () => setDataset(el.dataset.value)); el.depth.addEventListener('change', () => setArchitecture({ depth: Number(el.depth.value), width: state.width })); el.width.addEventListener('input', () => { el.widthOutput.value = el.width.value; }); el.width.addEventListener('change', () => setArchitecture({ depth: state.depth, width: Number(el.width.value) })); el.lr.addEventListener('change', () => { state.lr = Number(el.lr.value); state.status = `Learning rate set to ${state.lr}.`; render(false); });
+  el.dataset.addEventListener('change', () => setDataset(el.dataset.value)); el.depth.addEventListener('change', () => setArchitecture({ depth: Number(el.depth.value), width: state.width })); el.width.addEventListener('input', () => { el.widthOutput.value = el.width.value; }); el.width.addEventListener('change', () => setArchitecture({ depth: state.depth, width: Number(el.width.value) })); el.lr.addEventListener('change', () => setLearningRate(el.lr.value));
   el.dataSeed.addEventListener('change', () => setDataSeed(el.dataSeed.value)); el.newDataSeed.addEventListener('click', () => setDataSeed(state.dataSeed % 9999 + 1)); el.weightSeed.addEventListener('change', () => setWeightSeed(el.weightSeed.value)); el.newWeightSeed.addEventListener('click', () => setWeightSeed(state.weightSeed % 9999 + 1));
-  el.random.addEventListener('click', resetWeights); el.corner.addEventListener('click', loadCornerRule); el.field.addEventListener('click', loadFieldRule); el.run.addEventListener('click', () => state.running ? (stop(), state.status = 'Training paused.', render(false)) : start()); el.step.addEventListener('click', () => { stop(); step(1); }); el.reset.addEventListener('click', resetWeights); el.clear.addEventListener('click', clearCustomPoints); el.undo.addEventListener('click', undoCustomEdit);
+  el.recommended?.addEventListener('click', loadRecommendedSetup); el.random.addEventListener('click', resetWeights); el.corner.addEventListener('click', loadCornerRule); el.field.addEventListener('click', loadFieldRule); el.run.addEventListener('click', () => state.running ? (stop(), state.status = 'Training paused.', render(false)) : start()); el.step.addEventListener('click', () => { stop(); step(1); }); el.reset.addEventListener('click', resetWeights); el.clear.addEventListener('click', clearCustomPoints); el.undo.addEventListener('click', undoCustomEdit);
   document.querySelectorAll('[data-point-class]').forEach((b) => b.addEventListener('click', () => { state.pointClass = Number(b.dataset.pointClass); syncControls(); })); document.querySelectorAll('[data-class-view]').forEach((b) => b.addEventListener('click', () => setView(b.dataset.classView))); [el.probeX, el.probeY].forEach((node) => node.addEventListener('input', () => setProbe(el.probeX.value, el.probeY.value))); document.querySelectorAll('[data-surface-view]').forEach((b) => b.addEventListener('click', () => setSurfaceView(b.dataset.surfaceView))); el.surfaceReset.addEventListener('click', () => setSurfaceView('iso'));
   el.surface.addEventListener('pointerdown', (event) => { state.drag = { id: event.pointerId, x: event.clientX, y: event.clientY, azimuth: state.camera.azimuth, elevation: state.camera.elevation }; el.surface.setPointerCapture?.(event.pointerId); });
   el.surface.addEventListener('pointermove', (event) => { if (!state.drag || state.drag.id !== event.pointerId) return; state.camera.azimuth = state.drag.azimuth - (event.clientX - state.drag.x) * 0.012; state.camera.elevation = clamp(state.drag.elevation + (event.clientY - state.drag.y) * 0.008, 0.05, 1.55); markCameraCustom(); drawSurface(); });
@@ -438,7 +536,10 @@
   }
   let resizeTimer = null; window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { syncResponsiveLayout(); render(true); }, 90); });
 
-  function snapshot() { const m = getMetrics(); return { mode: 'classification', dataset: state.dataset, dataSize: state.data.length, dataSeed: state.dataSeed, weightSeed: state.weightSeed, depth: state.depth, width: state.width, parameters: parameterCount(), accuracy: m.accuracy, fieldAgreement: m.agreement, loss: m.loss, steps: state.steps, featureCount: state.depth ? state.width : 0, provenance: state.provenance, initializer: state.initializer, view: state.view, running: state.running, historyLength: state.history.length, probe: { ...state.probe }, camera: { ...state.camera }, dataSignature: dataSignature(), weightSignature: modelSignature() }; }
-  window.ReLUClassificationLab = Object.freeze({ snapshot, setDataset, setArchitecture, setDataSeed, setWeightSeed, setSeed, initialize, loadCornerRule, loadFieldRule, step, start, stop, reset: resetWeights, setView, setProbe, addCustomPoint, removeCustomPoint, clearCustomPoints, undoCustomEdit, getContributionDecomposition: decomposition, setSurfaceCamera, setSurfaceView });
-  syncResponsiveLayout(); state.data = makeDataset(state.dataset, state.dataSeed, state.customPoints); state.model = cornerModel(); state.status = 'Constructed two-ReLU corner rule loaded.'; changed(); const initialLoss = dataLoss(); state.history = [{ step: 0, loss: initialLoss }]; render(true);
+  function snapshot() {
+    const m = getMetrics(), counts = dataCounts(), activity = activationDiagnostics(), historyLastLoss = state.history.at(-1)?.loss;
+    return { mode: 'classification', dataset: state.dataset, dataSize: state.data.length, dataSeed: state.dataSeed, weightSeed: state.weightSeed, depth: state.depth, width: state.width, parameters: parameterCount(), accuracy: m.accuracy, fieldAgreement: m.agreement, loss: m.loss, steps: state.steps, featureCount: state.depth ? state.width : 0, provenance: state.provenance, initializer: state.initializer, view: state.view, running: state.running, trainable: canTrain(), learningRate: state.lr, historyLength: state.history.length, historyLastLoss: Number.isFinite(historyLastLoss) ? historyLastLoss : null, classCounts: counts.classCounts, quadrantCounts: counts.quadrantCounts, deadUnits: activity.deadUnits, deadUnitsByLayer: activity.deadUnitsByLayer, probe: { ...state.probe }, camera: { ...state.camera }, dataSignature: dataSignature(), weightSignature: modelSignature() };
+  }
+  window.ReLUClassificationLab = Object.freeze({ snapshot, setDataset, setArchitecture, setDataSeed, setWeightSeed, setSeed, setLearningRate, initialize, getRecommendedSetup: recommendationFor, loadRecommendedSetup, loadCornerRule, loadFieldRule, step, start, stop, reset: resetWeights, setView, setProbe, addCustomPoint, removeCustomPoint, clearCustomPoints, undoCustomEdit, getContributionDecomposition: decomposition, setSurfaceCamera, setSurfaceView });
+  syncResponsiveLayout(); state.data = makeDataset(state.dataset, state.dataSeed, state.customPoints); state.model = cornerModel(); state.status = 'Constructed two-ReLU corner rule loaded for inspection. Choose Recommended or Random before training.'; changed(); const initialLoss = dataLoss(); state.history = [{ step: 0, loss: initialLoss }]; render(true);
 })();

@@ -133,6 +133,9 @@ input[type="range"] { width: 100%; height: 44px; margin: -7px 0; }
 .preset-button span { color: var(--blue-deep); font-size: .7rem; }
 .preset-button small { color: var(--muted); font-size: .6rem; font-weight: 600; }
 .preset-button:hover, .secondary-button:hover, .icon-button:hover { border-color: var(--blue); background: #f0f5f7; }
+.recommended-button { border-color: var(--teal); background: #f1f8f6; box-shadow: inset 3px 0 0 var(--teal); }
+.recommended-button span { color: #15564f; }
+.recommended-button:hover { border-color: #15564f; background: var(--teal-soft); }
 .train-section { background: #f1f5f4; }
 .train-buttons { display: grid; grid-template-columns: 1.15fr 1fr 1fr; gap: 6px; }
 .primary-button, .secondary-button { min-width: 44px; min-height: 44px; padding: 7px 8px; font-size: .69rem; }
@@ -140,6 +143,11 @@ input[type="range"] { width: 100%; height: 44px; margin: -7px 0; }
 .primary-button:hover { background: #185f58; }
 .primary-button.is-running { border-color: var(--danger); background: var(--danger); }
 .status { min-height: 2.8em; margin: 10px 0 0; color: var(--muted); font-size: .66rem; line-height: 1.4; }
+.objective-note { margin: 9px 0 0; padding: 8px 9px; border-left: 3px solid var(--line-strong); color: var(--muted); background: rgba(255,255,255,.56); font-size: .62rem; line-height: 1.42; }
+.objective-note strong { color: var(--ink-soft); }
+button:disabled { cursor: not-allowed; opacity: .48; filter: saturate(.55); transform: none !important; }
+button:disabled:hover { box-shadow: none; }
+.primary-button:disabled { border-color: #6f8884; background: #6f8884; }
 
 .workspace { min-width: 0; padding: clamp(18px, 2.2vw, 30px); border-top: 4px solid var(--ink); }
 .workspace-head, .panel-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
@@ -150,6 +158,7 @@ input[type="range"] { width: 100%; height: 44px; margin: -7px 0; }
 .workspace h3 { margin: 0; font-size: .87rem; line-height: 1.25; text-wrap: balance; }
 .provenance-badge { padding: 2px 6px; border: 1px solid var(--line-strong); color: var(--muted); font: 700 .57rem var(--mono); letter-spacing: .04em; text-transform: uppercase; }
 .provenance-badge.is-constructed { border-color: #b98748; color: #76501e; background: #f7ead0; }
+.provenance-badge.is-carried { border-color: #8b7a69; color: #5e4c3d; background: #eee8e1; }
 .provenance-badge.is-random { border-color: var(--blue); color: var(--blue-deep); background: var(--blue-soft); }
 .provenance-badge.is-trained { border-color: var(--teal); color: #15564f; background: var(--teal-soft); }
 .view-switch { flex: 0 0 auto; display: flex; }
