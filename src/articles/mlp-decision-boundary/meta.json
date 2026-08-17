@@ -1,20 +1,20 @@
 {
   "slug": "mlp-decision-boundary",
-  "title": "ReLU Lab",
+  "title": "ReLU Classification Playground",
   "date": "2026-08-17",
-  "tagline": "A course playground for decision regions, hidden ReLU features, and one-dimensional function approximation.",
-  "summary": "Compare four-point and filled-region XOR, train simple ReLU networks on standard or custom two-dimensional datasets, inspect hidden units and the three-dimensional score surface, then switch to one-dimensional targets to contrast constructive piecewise-linear approximation with optimization from random weights.",
+  "tagline": "Train a small ReLU classifier, then inspect the signed functions that assemble its decision surface.",
+  "summary": "Compare four-corner and filled XOR with standard or custom datasets, change architecture and initialization independently, inspect signed hidden-unit contributions, follow optimization history, and orbit the model's three-dimensional logit surface.",
   "readingTime": "Lab",
   "difficulty": "Intermediate",
   "collection": "Deep learning",
   "order": 41,
   "status": "published",
-  "tags": ["MLP", "ReLU", "XOR", "Classification", "Universal Approximation", "Interactive"],
+  "tags": ["MLP", "ReLU", "XOR", "Classification", "Decision Boundary", "Interactive"],
   "highlights": [
-    "Switch between four XOR points, filled XOR, standard datasets, and points placed directly on the plot.",
-    "Compare a linear model with one- and two-hidden-layer ReLU networks while inspecting every hidden feature.",
-    "View the learned score as a three-dimensional surface and locate the z = 0 decision boundary.",
-    "Construct fixed-knot approximations to continuous one-dimensional targets or train the same width from random weights.",
-    "Use short lecture prompts to separate evidence, representational capacity, and optimization."
+    "Compare four XOR labels with a densely sampled XOR field, four standard datasets, or custom points.",
+    "Separate evidence, architecture, and initialization while tracking model provenance.",
+    "Inspect signed output terms with hinge lines and a shared zero-centered scale.",
+    "Orbit and zoom the raw logit surface while probing the linked input-space location.",
+    "Draw a custom dataset without seed changes silently replacing your points."
   ]
 }

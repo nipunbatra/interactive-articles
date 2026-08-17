@@ -3,235 +3,115 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="A course lab for ReLU classification and one-dimensional function approximation.">
-  <title>ReLU Lab</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%231f2933'/%3E%3Cpath d='M5 24 12 8l5 11 5-11 5 16' fill='none' stroke='%23fff' stroke-width='3'/%3E%3C/svg%3E">
+  <meta name="description" content="Train small ReLU classifiers, inspect their signed hidden-unit contributions, and orbit the learned logit surface.">
+  <meta name="theme-color" content="#18242f">
+  <title>ReLU Classification Playground</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%2318242f'/%3E%3Cpath d='M5 23 11 9l5 10 5-10 6 14' fill='none' stroke='%23f7f4ee' stroke-width='3'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="styles.css">
   <script defer src="playground.js"></script>
 </head>
 <body>
+  <a class="skip-link" href="#experiment">Skip to experiment</a>
   <header class="topbar">
     <a class="back" href="../" aria-label="Back to all interactives">All interactives</a>
-    <div>
-      <p class="course-label">Deep Learning · Lecture 2</p>
-      <h1>ReLU Lab</h1>
-    </div>
-    <a class="lecture-link" href="https://nipunbatra.github.io/dl-teaching/slides-pdf/L2.pdf">Lecture slides</a>
+    <div class="brand-lockup"><p>Deep Learning · Lecture 2</p><h1>ReLU Classification Playground</h1></div>
+    <a class="companion-link" href="../relu-function-approximation/"><span>Companion lab</span><strong>Function approximation&nbsp;→</strong></a>
   </header>
 
-  <main class="app" id="app">
-    <nav class="mode-tabs" aria-label="Lab mode">
-      <button class="mode-tab is-active" type="button" data-mode="classification" aria-pressed="true">
-        <span class="tab-index">A</span>
-        <span><strong>Classification</strong><small>data → score → class</small></span>
-      </button>
-      <button class="mode-tab" type="button" data-mode="approximation" aria-pressed="false">
-        <span class="tab-index">B</span>
-        <span><strong>Function approximation</strong><small>hinges → piecewise-linear curve</small></span>
-      </button>
-    </nav>
+  <main class="app" id="experiment">
+    <header class="lab-intro">
+      <div><p class="kicker">Data → ReLU features → score</p><h2>See the function your classifier is using.</h2></div>
+      <p>Change the evidence, architecture, or initialization. Then inspect how signed ReLU contributions assemble the logit surface and its <em>z = 0</em> decision boundary.</p>
+    </header>
 
     <section class="lab-grid">
       <aside class="controls" aria-label="Experiment controls">
-        <section class="control-section" id="classificationDataControls">
-          <div class="section-heading"><span>1</span><h2>Choose data</h2></div>
-          <label class="field">
-            <span>Dataset</span>
+        <section class="control-section">
+          <div class="section-heading"><span>01</span><h2>Dataset</h2></div>
+          <label class="field" for="datasetSelect"><span>Evidence shown to the model</span>
             <select id="datasetSelect">
-              <option value="xor4">XOR · four Boolean points</option>
-              <option value="xorField">XOR · filled regions</option>
-              <option value="blobs">Two blobs</option>
-              <option value="circles">Concentric circles</option>
-              <option value="moons">Two moons</option>
-              <option value="spirals">Two spirals</option>
-              <option value="custom">Custom points</option>
+              <option value="xor4">XOR · four Boolean corners</option><option value="xorField">XOR · filled regions</option>
+              <option value="blobs">Two blobs</option><option value="circles">Concentric circles</option>
+              <option value="moons">Two moons</option><option value="spirals">Two spirals</option><option value="custom">Custom points</option>
             </select>
           </label>
+          <p class="control-note" id="datasetNote">Four labels constrain the corners, not the space between them.</p>
+          <label class="field" for="dataSeedInput"><span>Data seed</span><span class="seed-row"><input id="dataSeedInput" type="number" min="1" max="9999" value="11" inputmode="numeric"><button type="button" class="icon-button" id="newDataSeedBtn" aria-label="Use the next data seed">+1</button></span></label>
           <div class="custom-tools" id="customPointTools" hidden>
-            <span class="field-label">Click the plot to add</span>
-            <div class="segmented" role="group" aria-label="Class for new point">
-              <button type="button" class="segment is-active" data-point-class="0" aria-pressed="true">Class 0</button>
-              <button type="button" class="segment" data-point-class="1" aria-pressed="false">Class 1</button>
+            <div class="custom-tools-head"><span class="field-label">Click the input plot to add</span><output id="customCount">0 points</output></div>
+            <div class="segmented" role="group" aria-label="Class for the next custom point">
+              <button type="button" class="segment is-active" data-point-class="0" aria-pressed="true"><i class="dot dot-zero"></i>Class 0</button>
+              <button type="button" class="segment" data-point-class="1" aria-pressed="false"><i class="diamond dot-one"></i>Class 1</button>
             </div>
-            <button type="button" class="text-button" id="clearPointsBtn">Clear custom points</button>
+            <div class="inline-actions"><button type="button" class="text-button" id="undoPointBtn">Undo point</button><button type="button" class="text-button danger" id="clearPointsBtn">Clear all</button></div>
+            <p class="microcopy">Empty stays empty. Seed changes never replace your points.</p>
           </div>
-        </section>
-
-        <section class="control-section" id="targetControls" hidden>
-          <div class="section-heading"><span>1</span><h2>Choose a target</h2></div>
-          <label class="field">
-            <span>Function on −1 ≤ x ≤ 1</span>
-            <select id="targetSelect">
-              <option value="tent">Tent</option>
-              <option value="sine">Sine</option>
-              <option value="twoBumps">Two bumps</option>
-              <option value="smoothStep">Smooth step</option>
-              <option value="custom">Draw a target</option>
-            </select>
-          </label>
-          <p class="inline-note" id="drawTargetNote" hidden>Drag on the main plot to draw the target curve.</p>
         </section>
 
         <section class="control-section">
-          <div class="section-heading"><span>2</span><h2>Choose the ReLU model</h2></div>
+          <div class="section-heading"><span>02</span><h2>Model</h2></div>
+          <label class="field" for="depthSelect"><span>Architecture</span><select id="depthSelect"><option value="0">Linear · no hidden layer</option><option value="1" selected>1 hidden layer</option><option value="2">2 hidden layers</option></select></label>
+          <label class="field" for="widthRange"><span><span>Hidden width</span><output id="widthOutput" for="widthRange">2</output></span><input id="widthRange" type="range" min="1" max="16" step="1" value="2"></label>
+          <label class="field" for="learningRateSelect"><span>Learning rate</span><select id="learningRateSelect"><option value="0.003">0.003</option><option value="0.01">0.01</option><option value="0.03" selected>0.03</option><option value="0.1">0.1</option></select></label>
+        </section>
 
-          <div id="classificationModelControls">
-            <label class="field">
-              <span>Architecture</span>
-              <select id="depthSelect">
-                <option value="0">Linear · no hidden layer</option>
-                <option value="1" selected>1 hidden layer</option>
-                <option value="2">2 hidden layers</option>
-              </select>
-            </label>
-          </div>
-
-          <div id="approximationModelControls" hidden>
-            <span class="field-label">Method</span>
-            <div class="segmented stacked" role="group" aria-label="Approximation method">
-              <button type="button" class="segment is-active" data-approx-method="construct" aria-pressed="true">Construct from knots</button>
-              <button type="button" class="segment" data-approx-method="train" aria-pressed="false">Train from random weights</button>
-            </div>
-          </div>
-
-          <label class="field" id="widthField">
-            <span><span id="widthLabel">Hidden width</span><output id="widthOutput" for="widthRange">2</output></span>
-            <input id="widthRange" type="range" min="1" max="16" step="1" value="2" aria-label="Hidden width">
-          </label>
-
-          <label class="field" id="learningRateField">
-            <span>Learning rate</span>
-            <select id="learningRateSelect">
-              <option value="0.003">0.003</option>
-              <option value="0.01">0.01</option>
-              <option value="0.03" selected>0.03</option>
-              <option value="0.1">0.1</option>
-            </select>
-          </label>
-
-          <label class="field">
-            <span>Seed</span>
-            <div class="seed-row">
-              <input id="seedInput" type="number" min="1" max="9999" value="11" inputmode="numeric">
-              <button type="button" class="icon-button" id="newSeedBtn" aria-label="Use the next seed">+1</button>
-            </div>
-          </label>
-
-          <div class="preset-row" id="classificationPresets">
-            <button type="button" class="preset-button" id="cornerProofBtn">Load 2‑ReLU corner rule</button>
-            <button type="button" class="preset-button" id="fieldProofBtn">Load 4‑ReLU XOR rule</button>
-          </div>
-          <div class="preset-row" id="approximationPresets" hidden>
-            <button type="button" class="preset-button" data-segments="2">2 segments</button>
-            <button type="button" class="preset-button" data-segments="5">5 segments</button>
-            <button type="button" class="preset-button" data-segments="15">15 segments</button>
+        <section class="control-section">
+          <div class="section-heading"><span>03</span><h2>Initialization</h2></div>
+          <p class="control-note">Hold data and architecture fixed; change only where optimization starts.</p>
+          <label class="field" for="weightSeedInput"><span>Weight seed</span><span class="seed-row"><input id="weightSeedInput" type="number" min="1" max="9999" value="11" inputmode="numeric"><button type="button" class="icon-button" id="newWeightSeedBtn" aria-label="Use the next weight seed">+1</button></span></label>
+          <div class="preset-row">
+            <button type="button" class="preset-button" id="randomInitBtn"><span>Random</span><small>Seeded He initialization</small></button>
+            <button type="button" class="preset-button" id="cornerProofBtn"><span>Constructed · 2 ReLUs</span><small>Exact on four XOR corners</small></button>
+            <button type="button" class="preset-button" id="fieldProofBtn"><span>Constructed · 4 ReLUs</span><small>Exact across filled XOR</small></button>
           </div>
         </section>
 
         <section class="control-section train-section">
-          <div class="section-heading"><span>3</span><h2 id="actionHeading">Inspect or train</h2></div>
-          <div class="train-buttons">
-            <button type="button" class="primary-button" id="runBtn" aria-pressed="false">Run</button>
-            <button type="button" class="secondary-button" id="stepBtn">One step</button>
-            <button type="button" class="secondary-button" id="resetBtn">Reset</button>
-          </div>
-          <p class="status" id="statusText" role="status" aria-live="polite">Two-ReLU corner rule loaded.</p>
+          <div class="section-heading"><span>04</span><h2>Optimize</h2></div>
+          <div class="train-buttons"><button type="button" class="primary-button" id="runBtn" aria-pressed="false">Run</button><button type="button" class="secondary-button" id="stepBtn">One step</button><button type="button" class="secondary-button" id="resetBtn">Reset</button></div>
+          <p class="status" id="statusText" role="status" aria-live="polite">Constructed two-ReLU corner rule loaded.</p>
         </section>
       </aside>
 
       <section class="workspace" aria-label="Experiment output">
         <div class="workspace-head">
-          <div>
-            <p class="eyebrow" id="workspaceEyebrow">INPUT SPACE</p>
-            <h2 id="workspaceTitle">Four points do not specify four regions</h2>
-          </div>
-          <div class="view-switch" id="classificationViewSwitch" role="group" aria-label="Classification surface view">
-            <button type="button" class="view-button is-active" data-class-view="probability" aria-pressed="true">Probability</button>
-            <button type="button" class="view-button" data-class-view="class" aria-pressed="false">Class</button>
-          </div>
+          <div><div class="title-meta"><p class="eyebrow">CURRENT DECISION FUNCTION</p><span class="provenance-badge is-constructed" id="provenanceBadge">constructed</span></div><h2 id="workspaceTitle">Four points do not specify four regions</h2></div>
+          <div class="view-switch" role="group" aria-label="Input-space field"><button type="button" class="view-button" data-class-view="probability" aria-pressed="false">Probability</button><button type="button" class="view-button is-active" data-class-view="logit" aria-pressed="true">Logit</button><button type="button" class="view-button" data-class-view="class" aria-pressed="false">Class</button></div>
         </div>
 
-        <div class="metric-row" id="metrics" aria-live="polite">
-          <div class="metric"><span id="metric1Label">Data accuracy</span><strong id="metric1Value">100%</strong></div>
-          <div class="metric"><span id="metric2Label">Field agreement</span><strong id="metric2Value">75%</strong></div>
-          <div class="metric"><span id="metric3Label">Loss</span><strong id="metric3Value">0.31</strong></div>
-          <div class="metric"><span>Steps</span><strong id="stepsValue">0</strong></div>
-        </div>
+        <div class="metric-row" aria-live="polite"><div class="metric"><span>Training accuracy</span><strong id="metric1Value">100%</strong></div><div class="metric"><span>Rule agreement</span><strong id="metric2Value">75%</strong></div><div class="metric"><span>Training BCE</span><strong id="metric3Value">0.31</strong></div><div class="metric"><span>Gradient steps</span><strong id="stepsValue">0</strong></div></div>
 
-        <div class="primary-visual">
-          <canvas id="mainCanvas" role="img" aria-label="Classification data and model decision field"></canvas>
-          <div class="plot-legend" id="classificationLegend">
-            <span><i class="marker marker-zero"></i>Class 0</span>
-            <span><i class="marker marker-one"></i>Class 1</span>
-            <span><i class="boundary-swatch"></i>z = 0 boundary</span>
-          </div>
-          <div class="plot-legend" id="approximationLegend" hidden>
-            <span><i class="line-swatch target-line"></i>Target f(x)</span>
-            <span><i class="line-swatch model-line"></i>ReLU approximation</span>
-            <span><i class="knot-swatch"></i>Knots</span>
-          </div>
-        </div>
+        <figure class="primary-visual">
+          <canvas id="mainCanvas" role="img" aria-label="Training data over the current model field. Click to move the linked probe; in a custom dataset, click to add points."></canvas>
+          <figcaption class="plot-caption"><div class="plot-legend"><span><i class="marker marker-zero"></i>Class 0</span><span><i class="marker marker-one"></i>Class 1</span><span><i class="boundary-swatch"></i>z = 0</span><span><i class="probe-swatch"></i>linked probe</span></div><span>Shape and outline keep the data visible over every field.</span></figcaption>
+        </figure>
 
-        <section class="network-panel" aria-labelledby="networkTitle">
-          <div class="panel-head">
-            <div><p class="eyebrow">MODEL</p><h3 id="networkTitle">Two inputs → two ReLUs → one score</h3></div>
-            <span class="parameter-count" id="parameterCount">9 parameters</span>
-          </div>
-          <canvas id="networkCanvas" role="img" aria-label="Current network architecture"></canvas>
-        </section>
+        <div class="model-row">
+          <section class="network-panel" aria-labelledby="networkTitle"><div class="panel-head"><div><p class="eyebrow">ARCHITECTURE</p><h3 id="networkTitle">Two inputs → two ReLUs → one score</h3></div><span class="parameter-count" id="parameterCount">9 parameters</span></div><canvas id="networkCanvas" role="img" aria-label="Current network architecture"></canvas></section>
+          <section class="history-panel" aria-labelledby="historyTitle"><div class="panel-head"><div><p class="eyebrow">OPTIMIZATION TRACE</p><h3 id="historyTitle">Cross-entropy over steps</h3></div><span class="history-note">log scale</span></div><canvas id="historyCanvas" role="img" aria-label="Training loss history"></canvas></section>
+        </div>
 
         <div class="analysis-grid">
-          <section class="analysis-panel" id="featurePanel" aria-labelledby="featureTitle">
-            <div class="panel-head">
-              <div><p class="eyebrow">HIDDEN FEATURES</p><h3 id="featureTitle">What each ReLU contributes</h3></div>
-              <div class="mini-switch" id="hiddenLayerSwitch" role="group" aria-label="Hidden layer to inspect">
-                <button type="button" class="mini-button is-active" data-hidden-layer="0" aria-pressed="true">Layer 1</button>
-                <button type="button" class="mini-button" data-hidden-layer="1" aria-pressed="false" disabled>Layer 2</button>
-              </div>
-            </div>
+          <section class="analysis-panel feature-panel" aria-labelledby="featureTitle">
+            <div class="panel-head"><div><p class="eyebrow">SIGNED OUTPUT TERMS</p><h3 id="featureTitle">The pieces that add up to z(x₁, x₂)</h3></div><span class="shared-scale"><i></i>shared scale · zero centered</span></div>
+            <p class="panel-copy">Each map shows <strong>vⱼhⱼ</strong>, not merely activation. Blue raises the class-1 score, rust lowers it, and the hinge line marks where its ReLU turns on.</p>
             <div class="feature-grid" id="featureGrid"></div>
           </section>
 
-          <section class="analysis-panel" id="surfacePanel" aria-labelledby="surfaceTitle">
-            <div class="panel-head">
-              <div><p class="eyebrow">OUTPUT SCORE</p><h3 id="surfaceTitle">The decision boundary is where z = 0</h3></div>
-            </div>
-            <canvas id="surfaceCanvas" role="img" aria-label="Three-dimensional output score surface"></canvas>
-            <div class="probe-row" id="probeControls">
-              <label>x₁ <input id="probeX" type="range" min="0" max="1" step="0.01" value="0.25"><output id="probeXOutput">0.25</output></label>
-              <label>x₂ <input id="probeY" type="range" min="0" max="1" step="0.01" value="0.75"><output id="probeYOutput">0.75</output></label>
-            </div>
-            <p class="probe-readout" id="probeReadout">z = 0.50 · class 1</p>
-          </section>
-
-          <section class="analysis-panel" id="residualPanel" hidden aria-labelledby="residualTitle">
-            <div class="panel-head">
-              <div><p class="eyebrow">ERROR</p><h3 id="residualTitle">Pointwise gap |f(x) − f̂(x)|</h3></div>
-            </div>
-            <canvas id="residualCanvas" role="img" aria-label="Pointwise approximation error"></canvas>
+          <section class="analysis-panel surface-panel" aria-labelledby="surfaceTitle">
+            <div class="panel-head surface-head"><div><p class="eyebrow">RAW LOGIT SURFACE</p><h3 id="surfaceTitle">Orbit the learned function</h3></div><div class="surface-toolbar" role="group" aria-label="Surface camera presets"><button type="button" class="mini-button is-active" data-surface-view="iso" aria-pressed="true">Iso</button><button type="button" class="mini-button" data-surface-view="top" aria-pressed="false">Top</button><button type="button" class="mini-button" data-surface-view="front" aria-pressed="false">Front</button><button type="button" class="mini-button reset-camera" id="surfaceResetBtn">Reset</button></div></div>
+            <p class="surface-instruction" id="surfaceInstruction">Drag to orbit · wheel to zoom · orange sheet is z = 0</p>
+            <canvas id="surfaceCanvas" tabindex="0" role="img" aria-describedby="surfaceInstruction" aria-label="Interactive three-dimensional logit surface"></canvas>
+            <div class="probe-row"><label for="probeX">x₁ <input id="probeX" type="range" min="0" max="1" step="0.01" value="0.25"><output id="probeXOutput">0.25</output></label><label for="probeY">x₂ <input id="probeY" type="range" min="0" max="1" step="0.01" value="0.75"><output id="probeYOutput">0.75</output></label></div>
+            <p class="probe-readout" id="probeReadout">z = 0.50 · p = 0.62 · class 1</p>
           </section>
         </div>
 
-        <section class="lecture-prompts" aria-labelledby="promptsTitle">
-          <div class="prompt-heading"><span>Use in class</span><h3 id="promptsTitle">Change one thing. Predict before you run.</h3></div>
-          <div class="prompt-grid" id="classificationPrompts">
-            <p><strong>Data:</strong> Four XOR corners or the whole XOR field?</p>
-            <p><strong>Capacity:</strong> What boundary can this width represent?</p>
-            <p><strong>Optimization:</strong> Can training find useful hinges from this seed?</p>
-          </div>
-          <div class="prompt-grid" id="approximationPrompts" hidden>
-            <p><strong>Construction:</strong> Add knots. What happens to the largest gap?</p>
-            <p><strong>Learning:</strong> Keep width fixed. Does a new seed reach the same curve?</p>
-            <p><strong>Theorem:</strong> Existence of weights is not a guarantee about training.</p>
-          </div>
-        </section>
+        <section class="lecture-prompts" aria-labelledby="promptsTitle"><div class="prompt-heading"><span>Run the experiment</span><h3 id="promptsTitle">Change one thing. Predict first.</h3></div><div class="prompt-grid"><p><strong>Evidence</strong> Compare four XOR corners with the filled field. Which unseen regions change?</p><p><strong>Capacity</strong> Hold seed fixed and increase width. Which new hinges appear?</p><p><strong>Optimization</strong> Hold data and width fixed. Do different seeds learn the same surface?</p></div></section>
       </section>
     </section>
   </main>
 
-  <footer class="footer">
-    <span>ReLU networks only · deterministic seeds · all training runs in this page</span>
-    <a href="https://github.com/nipunbatra/interactive-articles/tree/main/src/articles/mlp-decision-boundary">Source</a>
-  </footer>
+  <footer class="footer"><span>Deterministic data · full-batch gradient descent · computation stays in this page</span><nav aria-label="Related material"><a href="../relu-function-approximation/">Continue to ReLU function approximation</a><a href="https://nipunbatra.github.io/dl-teaching/slides-pdf/L2.pdf">Lecture slides</a></nav></footer>
 </body>
 </html>

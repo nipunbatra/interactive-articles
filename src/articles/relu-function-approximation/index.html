@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="A classroom lab for constructing and training one-hidden-layer ReLU function approximators.">
+  <title>ReLU Function Lab</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23232b32'/%3E%3Cpath d='M4 24h8l6-16 5 16h5' fill='none' stroke='%23fff' stroke-width='3'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="main.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#workspace">Skip to experiment output</a>
+
+  <header class="topbar">
+    <a class="back-link" href="../" aria-label="Back to all interactives">All interactives</a>
+    <div class="course-mark">
+      <span>Deep Learning · Lecture 2</span>
+      <strong>ReLU Function Lab</strong>
+    </div>
+    <nav class="top-links" aria-label="Related course material">
+      <a href="../mlp-decision-boundary/">Classification playground</a>
+      <a href="https://nipunbatra.github.io/dl-teaching/slides-pdf/L2.pdf">Lecture slides</a>
+    </nav>
+  </header>
+
+  <main class="app">
+    <section class="intro" aria-labelledby="pageTitle">
+      <div>
+        <p class="eyebrow">ONE-DIMENSIONAL WITNESS</p>
+        <h1 id="pageTitle">Build a function from ReLU hinges.</h1>
+        <p class="lead">Construct an interpolant that is guaranteed by its knots, then train the same kind of network from a deterministic random start. Keep existence and optimization as separate claims.</p>
+      </div>
+      <aside class="theorem-card" aria-label="Universal approximation statement">
+        <p class="theorem-label">The theorem boundary</p>
+        <p>For continuous <i>f</i> on a compact domain and every ε &gt; 0, some finite one-hidden-layer ReLU network can make</p>
+        <p class="theorem-math">sup<sub>x∈D</sub> |f(x) − ĝ(x)| &lt; ε.</p>
+        <p class="theorem-caveat">This lab shows one-dimensional witnesses and optimizer runs. Its 401-point grid maximum is not an exact supremum.</p>
+      </aside>
+    </section>
+
+    <nav class="lane-tabs" aria-label="Approximation lane">
+      <button class="lane-tab is-active" type="button" data-lane="construct" aria-pressed="true">
+        <span class="lane-index">A</span>
+        <span><strong>Construction</strong><small>fixed knots → exact interpolant</small></span>
+      </button>
+      <button class="lane-tab" type="button" data-lane="train" aria-pressed="false">
+        <span class="lane-index">B</span>
+        <span><strong>Training</strong><small>random weights → gradient steps</small></span>
+      </button>
+    </nav>
+
+    <section class="lab-shell">
+      <aside class="controls" aria-label="Experiment controls">
+        <section class="control-group">
+          <div class="section-heading"><span>1</span><h2>Choose the target</h2></div>
+          <label class="field" for="targetSelect">
+            <span>Continuous function on −1 ≤ x ≤ 1</span>
+            <select id="targetSelect">
+              <option value="sine">Sine · sin(πx)</option>
+              <option value="tent">Tent</option>
+              <option value="twoBumps">Two bumps</option>
+              <option value="smoothStep">Smooth step</option>
+              <option value="custom">Draw a target</option>
+            </select>
+          </label>
+          <div class="draw-help" id="drawHelp" hidden>
+            <p>Drag inside the main plot to draw a continuous piecewise-linear target.</p>
+            <button class="text-button" id="resetTargetBtn" type="button">Clear drawing</button>
+          </div>
+        </section>
+
+        <section class="control-group">
+          <div class="section-heading"><span>2</span><h2>Set capacity</h2></div>
+          <label class="field range-field" for="complexityRange">
+            <span><span id="complexityLabel">Interior hinges</span><output id="complexityValue" for="complexityRange">5</output></span>
+            <input id="complexityRange" type="range" min="1" max="15" step="1" value="5">
+            <small id="complexityMeta">6 segments · 6 ReLU units · 7 knots</small>
+          </label>
+          <div class="preset-row construction-only" aria-label="Hinge count presets">
+            <button type="button" data-hinges="2">2 hinges</button>
+            <button type="button" data-hinges="5">5 hinges</button>
+            <button type="button" data-hinges="15">15 hinges</button>
+          </div>
+          <details class="knot-editor construction-only">
+            <summary>Precise knot positions</summary>
+            <div class="knot-inputs" id="knotInputList"></div>
+          </details>
+          <label class="field range-field" for="epsilonRange">
+            <span><span>Tolerance ε</span><output id="epsilonValue" for="epsilonRange">0.05</output></span>
+            <input id="epsilonRange" type="range" min="0.01" max="0.50" step="0.01" value="0.05">
+            <small>The shaded band is f(x) ± ε.</small>
+          </label>
+        </section>
+
+        <section class="control-group train-only" hidden>
+          <div class="section-heading"><span>3</span><h2>Set optimization</h2></div>
+          <label class="field" for="learningRateSelect">
+            <span>Learning rate</span>
+            <select id="learningRateSelect">
+              <option value="0.003">0.003</option>
+              <option value="0.01" selected>0.01</option>
+              <option value="0.03">0.03</option>
+              <option value="0.1">0.1</option>
+            </select>
+          </label>
+          <label class="field" for="seedInput">
+            <span>Initialization seed</span>
+            <span class="seed-row">
+              <input id="seedInput" type="number" min="1" max="9999" value="11" inputmode="numeric">
+              <button id="newSeedBtn" type="button" aria-label="Use the next seed">+1</button>
+            </span>
+          </label>
+          <p class="helper">Full-batch gradient descent uses 121 fixed samples shown on the target curve.</p>
+        </section>
+
+        <section class="control-group action-group">
+          <div class="section-heading"><span id="actionIndex">3</span><h2>Inspect or train</h2></div>
+          <div class="action-row">
+            <button class="primary-button" id="runBtn" type="button" aria-pressed="false" disabled>Run</button>
+            <button id="stepBtn" type="button" disabled>One step</button>
+            <button id="batchBtn" type="button" disabled>100 steps</button>
+            <button id="resetBtn" type="button">Reset</button>
+          </div>
+          <div class="provenance-row">
+            <span class="provenance-badge" id="provenanceBadge">Constructed · fixed knots</span>
+          </div>
+          <p class="status" id="statusText" role="status" aria-live="polite">Fixed-knot interpolant loaded. No optimizer was used.</p>
+        </section>
+      </aside>
+
+      <section class="workspace" id="workspace" aria-label="Experiment output">
+        <header class="workspace-head">
+          <div>
+            <p class="eyebrow" id="workspaceEyebrow">CONSTRUCTED WITNESS</p>
+            <h2 id="workspaceTitle">Sine · fixed-knot interpolation</h2>
+          </div>
+          <span class="tolerance-badge" id="toleranceBadge">Grid gap ≥ ε</span>
+        </header>
+
+        <div class="metric-strip" aria-live="polite">
+          <div class="metric"><span>Training-sample MSE</span><strong id="trainMseValue">—</strong><small id="trainMseNote">not trained</small></div>
+          <div class="metric"><span>Dense-grid MSE</span><strong id="denseMseValue">0.0000</strong><small>401 evaluation points</small></div>
+          <div class="metric metric-key"><span>Max grid gap</span><strong id="maxGapValue">0.000</strong><small>max of 401 gaps</small></div>
+          <div class="metric"><span>Gradient steps</span><strong id="stepsValue">0</strong><small id="parameterNote">19 parameters</small></div>
+        </div>
+
+        <section class="plot-panel main-plot-panel" aria-labelledby="mainPlotTitle">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">TARGET + MODEL</p>
+              <h3 id="mainPlotTitle">Can the blue curve stay inside the ε band?</h3>
+            </div>
+            <p class="model-formula" id="modelFormula">ĝ(x) = c + Σ vⱼ ReLU(wⱼx + bⱼ)</p>
+          </div>
+          <canvas id="mainCanvas" role="img" tabindex="0" aria-describedby="plotInstruction" aria-label="Target function and current ReLU approximation"></canvas>
+          <div class="legend" aria-label="Main plot legend">
+            <span><i class="line-key target-key"></i>Target f(x)</span>
+            <span><i class="line-key model-key"></i>Approximation ĝ(x)</span>
+            <span><i class="band-key"></i>f(x) ± ε</span>
+            <span class="construction-only"><i class="knot-key"></i>Interpolation knots</span>
+            <span class="train-only" hidden><i class="sample-key"></i>Training samples</span>
+          </div>
+          <p class="plot-instruction" id="plotInstruction">Drag an orange interior knot left or right; endpoint knots stay fixed.</p>
+        </section>
+
+        <div class="analysis-grid">
+          <section class="plot-panel" aria-labelledby="residualTitle">
+            <div class="panel-head">
+              <div><p class="eyebrow">ERROR</p><h3 id="residualTitle">Pointwise gap |f(x) − ĝ(x)|</h3></div>
+              <span class="compact-value" id="maxGapAt">max at x = 0.00</span>
+            </div>
+            <canvas id="residualCanvas" role="img" aria-label="Pointwise absolute approximation error"></canvas>
+          </section>
+
+          <section class="model-panel" aria-labelledby="modelSummaryTitle">
+            <p class="eyebrow">MODEL CONTRACT</p>
+            <h3 id="modelSummaryTitle">One input → six ReLUs → one output</h3>
+            <dl class="model-facts">
+              <div><dt>Source</dt><dd id="sourceFact">Fixed knots</dd></div>
+              <div><dt>Output bias c</dt><dd id="biasFact">0.000</dd></div>
+              <div><dt>Objective</dt><dd id="objectiveFact">No optimization</dd></div>
+              <div><dt>Evaluation</dt><dd>401-point grid</dd></div>
+            </dl>
+            <p class="boundary-note" id="boundaryNote">This construction is a witness for this target and width. It does not show that gradient descent would discover the same weights.</p>
+          </section>
+        </div>
+
+        <section class="contribution-panel" aria-labelledby="contributionTitle">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">SIGNED HINGE FUNCTIONS</p>
+              <h3 id="contributionTitle">The output is the bias plus every contribution below.</h3>
+            </div>
+            <span class="shared-scale" id="sharedScale">Shared vertical scale ±1.00</span>
+          </div>
+          <p class="contribution-help">All cards use the same zero-centred y-scale. A small curve is genuinely a small contribution.</p>
+          <div class="contribution-grid" id="contributionGrid"></div>
+        </section>
+
+        <section class="classroom-prompts" aria-labelledby="promptsTitle">
+          <div><p class="eyebrow">USE IN CLASS</p><h3 id="promptsTitle">Change one thing. Predict first.</h3></div>
+          <ol>
+            <li><strong>Capacity:</strong> add hinges; predict where the largest gap will move.</li>
+            <li><strong>Optimization:</strong> keep width fixed; compare two initialization seeds.</li>
+            <li><strong>Theorem:</strong> say what existence promises, then name what this optimizer run does not prove.</li>
+          </ol>
+        </section>
+      </section>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <span>ReLU networks · deterministic runs · computation stays in this page</span>
+    <a href="../mlp-decision-boundary/">Continue with decision boundaries →</a>
+  </footer>
+</body>
+</html>

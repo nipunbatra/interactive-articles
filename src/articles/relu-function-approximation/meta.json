@@ -1,0 +1,18 @@
+{
+  "slug": "relu-function-approximation",
+  "title": "ReLU Function Lab",
+  "date": "2026-08-17",
+  "tagline": "Construct a continuous function from fixed ReLU hinges, then test what deterministic gradient descent finds.",
+  "summary": "A classroom lab that separates a fixed-knot piecewise-linear witness from an optimizer run. Compare target and approximation curves, move knots directly, inspect every signed ReLU contribution on a shared scale, and distinguish training MSE from dense-grid approximation error.",
+  "readingTime": "Lab",
+  "difficulty": "Intermediate",
+  "collection": "Deep learning",
+  "order": 42,
+  "status": "published",
+  "tags": ["ReLU", "Universal Approximation", "Function Approximation", "Optimization", "Interactive"],
+  "highlights": [
+    "Move fixed interpolation knots and see how each signed ReLU hinge changes the constructed piecewise-linear function.",
+    "Train the same one-hidden-layer model from deterministic random weights while tracking training-sample MSE, dense-grid MSE, and maximum grid gap separately.",
+    "Draw a continuous custom target, set an epsilon band, and state precisely what the construction, numerical grid, and optimizer run do and do not establish."
+  ]
+}

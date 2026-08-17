@@ -3,7 +3,10 @@
   "version": "1.0.0",
   "description": "A small static site for intuition-first interactive articles.",
   "scripts": {
-    "build": "node scripts/build.js"
+    "build": "node scripts/build.js",
+    "test:relu-classification": "node scripts/test-mlp-decision-boundary.mjs",
+    "test:relu-approximation": "node scripts/test-relu-function-approximation.mjs",
+    "test:relu-labs": "npm run test:relu-classification && npm run test:relu-approximation"
   },
   "repository": {
     "type": "git",

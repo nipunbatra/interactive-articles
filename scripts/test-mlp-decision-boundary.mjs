@@ -1,136 +1,481 @@
 #!/usr/bin/env node
+
 import puppeteer from 'puppeteer';
 import { existsSync, mkdirSync } from 'node:fs';
-import { resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
-const BRAVE = '/Applications/Brave Browser.app/Contents/MacOS/Brave Browser';
-const repoRoot = resolve(new URL('..', import.meta.url).pathname);
-const defaultSource = resolve(repoRoot, 'src/articles/mlp-decision-boundary/index.html');
+const here = dirname(fileURLToPath(import.meta.url));
+const defaultSource = resolve(here, '../src/articles/mlp-decision-boundary/index.html');
 const source = resolve(process.argv[2] || defaultSource);
-const screenshotDir = process.argv[3] ? resolve(process.argv[3]) : null;
-if (!existsSync(source)) throw new Error(`Interactive source not found: ${source}`);
-if (screenshotDir) mkdirSync(screenshotDir, { recursive: true });
+const screenshotDir = resolve(process.argv[3] || '/private/tmp/relu-lab-screenshots');
+mkdirSync(screenshotDir, { recursive: true });
+
+if (!existsSync(source)) {
+  throw new Error(`ReLU classification playground not found: ${source}`);
+}
+
+const browserCandidates = [
+  process.env.PUPPETEER_EXECUTABLE_PATH,
+  '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+  '/Applications/Brave Browser.app/Contents/MacOS/Brave Browser',
+  '/Applications/Chromium.app/Contents/MacOS/Chromium'
+].filter(Boolean);
+const executablePath = browserCandidates.find(candidate => existsSync(candidate));
 
 const browser = await puppeteer.launch({
-  executablePath: existsSync(BRAVE) ? BRAVE : undefined,
+  ...(executablePath ? { executablePath } : {}),
   headless: 'new',
   args: ['--no-sandbox', '--force-color-profile=srgb']
 });
+
 const failures = [];
-const check = (condition, message, detail = '') => { if (!condition) failures.push(detail ? `${message}: ${detail}` : message); };
+const checks = [];
+
+function check(condition, message, detail = '') {
+  checks.push(message);
+  if (!condition) failures.push(detail ? `${message}: ${detail}` : message);
+}
+
+function closeTo(actual, expected, tolerance = 1e-10) {
+  return Number.isFinite(actual) && Math.abs(actual - expected) <= tolerance;
+}
+
+const page = await browser.newPage();
+const pageErrors = [];
+page.on('pageerror', error => pageErrors.push(error.message));
+page.on('console', message => {
+  if (message.type() === 'error') pageErrors.push(message.text());
+});
+
+async function load(viewport = { width: 1440, height: 900, deviceScaleFactor: 1 }) {
+  await page.setViewport(viewport);
+  await page.goto(pathToFileURL(source).href, { waitUntil: 'load', timeout: 30000 });
+  await page.waitForFunction(() => window.ReLUClassificationLab?.snapshot, { timeout: 10000 });
+}
+
+async function snapshot() {
+  return page.evaluate(() => window.ReLUClassificationLab.snapshot());
+}
 
 try {
-  const page = await browser.newPage();
-  await page.setViewport({ width: 1440, height: 1000, deviceScaleFactor: 1 });
-  const pageErrors = [];
-  page.on('pageerror', error => pageErrors.push(error.message));
-  page.on('console', message => { if (message.type() === 'error') pageErrors.push(message.text()); });
-  await page.goto(pathToFileURL(source).href, { waitUntil: 'networkidle2', timeout: 30000 });
-  await page.waitForFunction(() => window.ReLULab && window.ReLULab.snapshot().featureCount === 2);
+  await load();
 
-  let snapshot = await page.evaluate(() => window.ReLULab.snapshot());
-  check(snapshot.mode === 'classification', 'Default mode should be classification', JSON.stringify(snapshot));
-  check(snapshot.dataset === 'xor4' && snapshot.dataSize === 4, 'Default dataset should be the four Boolean XOR points', JSON.stringify(snapshot));
-  check(snapshot.depth === 1 && snapshot.width === 2 && snapshot.parameters === 9, 'Corner rule should use exactly two hidden ReLUs and nine parameters', JSON.stringify(snapshot));
-  check(snapshot.accuracy === 1, 'Two-ReLU corner rule should classify all four Boolean points', snapshot.accuracy);
-  check(snapshot.fieldAgreement > .73 && snapshot.fieldAgreement < .77, 'Corner rule should agree with about 75% of the filled XOR field', snapshot.fieldAgreement);
+  const apiContract = await page.evaluate(() => ({
+    hasSetDataSeed: typeof window.ReLUClassificationLab.setDataSeed === 'function',
+    hasSetWeightSeed: typeof window.ReLUClassificationLab.setWeightSeed === 'function',
+    hasWeightSignature: typeof window.ReLUClassificationLab.snapshot().weightSignature === 'string'
+  }));
+  check(apiContract.hasSetDataSeed && apiContract.hasSetWeightSeed && apiContract.hasWeightSignature,
+    'Public API should expose independent data and weight seeds plus a weight signature',
+    JSON.stringify(apiContract));
 
-  snapshot = await page.evaluate(() => {
-    window.ReLULab.setDataset('xorField');
-    window.ReLULab.loadFieldRule();
-    return window.ReLULab.snapshot();
+  // Flow 1: changing the weight seed must preserve data; changing the data
+  // seed must preserve weights. Architecture and dataset remain fixed.
+  const seedIsolation = await page.evaluate(() => {
+    const api = window.ReLUClassificationLab;
+    api.setDataset('moons');
+    api.setArchitecture({ depth: 1, width: 5 });
+    api.setDataSeed(41);
+    api.setWeightSeed(71);
+    const baseline = api.snapshot();
+    api.setWeightSeed(72);
+    const weightChanged = api.snapshot();
+    api.setDataSeed(42);
+    const dataChanged = api.snapshot();
+    api.setDataSeed(42);
+    const dataRepeated = api.snapshot();
+    return { baseline, weightChanged, dataChanged, dataRepeated };
   });
-  check(snapshot.dataSize === 256, 'Filled XOR should contain 256 sampled points', snapshot.dataSize);
-  check(snapshot.depth === 1 && snapshot.width === 4, 'Regional XOR rule should use four ReLUs', JSON.stringify(snapshot));
-  check(snapshot.accuracy === 1 && snapshot.fieldAgreement > .995, 'Four-ReLU rule should match the filled XOR field away from the axes', JSON.stringify(snapshot));
+  check(seedIsolation.baseline.dataSeed === 41 && seedIsolation.baseline.weightSeed === 71,
+    'Baseline should retain independently selected seed values', JSON.stringify(seedIsolation.baseline));
+  check(seedIsolation.weightChanged.dataSignature === seedIsolation.baseline.dataSignature,
+    'Changing only the weight seed should preserve every data point');
+  check(seedIsolation.weightChanged.weightSignature !== seedIsolation.baseline.weightSignature,
+    'Changing only the weight seed should change model weights');
+  check(seedIsolation.weightChanged.dataSeed === 41 && seedIsolation.weightChanged.weightSeed === 72,
+    'Weight-seed change should not alter the data seed', JSON.stringify(seedIsolation.weightChanged));
+  check(seedIsolation.dataChanged.dataSignature !== seedIsolation.weightChanged.dataSignature,
+    'Changing only the data seed should resample a stochastic dataset');
+  check(seedIsolation.dataChanged.weightSignature === seedIsolation.weightChanged.weightSignature,
+    'Changing only the data seed should preserve model weights');
+  check(seedIsolation.dataChanged.dataSeed === 42 && seedIsolation.dataChanged.weightSeed === 72,
+    'Data-seed change should not alter the weight seed', JSON.stringify(seedIsolation.dataChanged));
+  check(seedIsolation.dataRepeated.dataSignature === seedIsolation.dataChanged.dataSignature
+      && seedIsolation.dataRepeated.weightSignature === seedIsolation.dataChanged.weightSignature,
+    'Repeating a data seed should reproduce data without disturbing weights');
 
-  const deterministic = await page.evaluate(() => {
-    window.ReLULab.setDataset('moons'); window.ReLULab.setSeed(31);
-    const a = window.ReLULab.snapshot().dataSignature;
-    window.ReLULab.setSeed(31); const b = window.ReLULab.snapshot().dataSignature;
-    window.ReLULab.setSeed(32); const c = window.ReLULab.snapshot().dataSignature;
-    return { a, b, c };
+  // Flow 2: both hand-constructed XOR rules retain their intended contracts,
+  // and loading a proof never silently replaces the chosen evidence.
+  const proofs = await page.evaluate(() => {
+    const api = window.ReLUClassificationLab;
+    api.setDataset('xor4');
+    const cornerDataBefore = api.snapshot().dataSignature;
+    api.loadCornerRule();
+    const corner = api.snapshot();
+    const cornerDataAfter = corner.dataSignature;
+    api.setDataset('xorField');
+    const fieldDataBefore = api.snapshot().dataSignature;
+    api.loadFieldRule();
+    const field = api.snapshot();
+    return { corner, field, cornerDataBefore, cornerDataAfter, fieldDataBefore, fieldDataAfter: field.dataSignature };
   });
-  check(deterministic.a === deterministic.b, 'A seed should reproduce a sampled dataset');
-  check(deterministic.a !== deterministic.c, 'Changing the seed should change a sampled dataset');
+  check(proofs.corner.dataSize === 4 && proofs.corner.depth === 1 && proofs.corner.width === 2,
+    'Corner construction should use four XOR observations and two ReLUs', JSON.stringify(proofs.corner));
+  check(proofs.corner.provenance === 'constructed' && proofs.corner.initializer === 'corner',
+    'Corner construction should report explicit constructed provenance', JSON.stringify(proofs.corner));
+  check(proofs.corner.accuracy === 1,
+    'Two-ReLU corner construction should classify all four Boolean points', proofs.corner.accuracy);
+  check(proofs.corner.fieldAgreement > 0.74 && proofs.corner.fieldAgreement < 0.78,
+    'Corner construction should expose roughly 75% filled-field agreement', proofs.corner.fieldAgreement);
+  check(proofs.cornerDataBefore === proofs.cornerDataAfter,
+    'Loading the corner construction should leave evidence unchanged');
 
-  snapshot = await page.evaluate(() => {
-    window.ReLULab.setArchitecture({ depth: 0, width: 3 });
-    const before = window.ReLULab.snapshot(); window.ReLULab.step(1);
-    return { before, after: window.ReLULab.snapshot() };
+  check(proofs.field.dataSize === 256 && proofs.field.depth === 1 && proofs.field.width === 4,
+    'Filled-XOR construction should use 256 samples and four ReLUs', JSON.stringify(proofs.field));
+  check(proofs.field.provenance === 'constructed' && proofs.field.initializer === 'field',
+    'Filled-field construction should report explicit constructed provenance', JSON.stringify(proofs.field));
+  check(proofs.field.accuracy === 1 && proofs.field.fieldAgreement > 0.999,
+    'Four-ReLU construction should match sampled and dense XOR fields',
+    JSON.stringify({ accuracy: proofs.field.accuracy, fieldAgreement: proofs.field.fieldAgreement }));
+  check(proofs.fieldDataBefore === proofs.fieldDataAfter,
+    'Loading the filled-field construction should leave evidence unchanged');
+
+  // Flow 3: signed output terms and bias must reconstruct the raw logit for
+  // constructed and trained/deep models at several probes.
+  const decompositions = await page.evaluate(() => {
+    const api = window.ReLUClassificationLab;
+    const points = [[0, 0], [0.25, 0.75], [0.5, 0.5], [0.91, 0.13], [1, 1]];
+    api.setDataset('xor4');
+    api.loadCornerRule();
+    const corner = points.map(([x, y]) => api.getContributionDecomposition(x, y));
+    api.setDataset('xorField');
+    api.loadFieldRule();
+    const field = points.map(([x, y]) => api.getContributionDecomposition(x, y));
+    api.setArchitecture({ depth: 2, width: 3 });
+    api.setWeightSeed(19);
+    api.step(3);
+    const deep = points.map(([x, y]) => api.getContributionDecomposition(x, y));
+    return { corner, field, deep, deepSnapshot: api.snapshot() };
   });
-  check(snapshot.before.depth === 0 && snapshot.before.parameters === 3 && snapshot.before.featureCount === 0, 'Linear baseline should have three parameters and no hidden features', JSON.stringify(snapshot.before));
-  check(snapshot.after.steps === snapshot.before.steps + 1, 'One step should perform exactly one gradient update', JSON.stringify(snapshot));
+  for (const [name, values, expectedCount] of [
+    ['corner', decompositions.corner, 2],
+    ['field', decompositions.field, 4],
+    ['deep', decompositions.deep, 3]
+  ]) {
+    for (const value of values) {
+      check(value.contributions.length === expectedCount,
+        `${name} decomposition should expose one signed term per final hidden unit`, JSON.stringify(value));
+      check(closeTo(value.sum, value.reconstructed),
+        `${name} signed contributions plus bias should reconstruct z`, JSON.stringify(value));
+      check(closeTo(value.bias + value.contributions.reduce((sum, term) => sum + term, 0), value.sum),
+        `${name} decomposition should be numerically additive`, JSON.stringify(value));
+    }
+  }
+  check(decompositions.deepSnapshot.provenance === 'trained' && decompositions.deepSnapshot.steps === 3,
+    'Deep decomposition smoke test should use a trained model', JSON.stringify(decompositions.deepSnapshot));
 
-  const approx = await page.evaluate(() => {
-    window.ReLULab.setMode('approximation');
-    window.ReLULab.setApproximation({ method: 'construct', width: 2, target: 'sine' }); const w2 = window.ReLULab.snapshot();
-    window.ReLULab.setApproximation({ method: 'construct', width: 5, target: 'sine' }); const w5 = window.ReLULab.snapshot();
-    window.ReLULab.setApproximation({ method: 'construct', width: 15, target: 'sine' }); const w15 = window.ReLULab.snapshot();
-    return { w2, w5, w15 };
-  });
-  check(approx.w2.mode === 'approximation' && approx.w2.approxMethod === 'construct', 'Approximation mode should expose a fixed-knot construction', JSON.stringify(approx.w2));
-  check(approx.w2.maxGap > approx.w5.maxGap && approx.w5.maxGap > approx.w15.maxGap, 'Adding fixed knots should reduce the largest sine approximation gap', JSON.stringify(approx));
-  check(approx.w15.maxGap < .03, 'Fifteen segments should approximate the displayed sine target closely', approx.w15.maxGap);
-
-  snapshot = await page.evaluate(() => {
-    window.ReLULab.setApproximation({ method: 'train', width: 5, target: 'tent' });
-    const before = window.ReLULab.snapshot(); window.ReLULab.step(1);
-    return { before, after: window.ReLULab.snapshot() };
-  });
-  check(snapshot.before.approxMethod === 'train', 'Training mode should use random ReLU weights', JSON.stringify(snapshot.before));
-  check(snapshot.after.steps === 1 && Number.isFinite(snapshot.after.mse), 'One approximation step should update a finite loss', JSON.stringify(snapshot.after));
-
-  snapshot = await page.evaluate(() => {
-    window.ReLULab.setMode('classification'); window.ReLULab.clearCustomPoints();
-    window.ReLULab.addCustomPoint(.2, .2, 0); window.ReLULab.addCustomPoint(.8, .8, 1);
-    return window.ReLULab.snapshot();
-  });
-  check(snapshot.dataset === 'custom' && snapshot.dataSize === 2, 'Custom point API should add labeled data to the plot', JSON.stringify(snapshot));
-
-  const accessibility = await page.evaluate(() => {
-    const ids = [...document.querySelectorAll('[id]')].map(element => element.id);
-    const duplicateIds = ids.filter((id, index) => ids.indexOf(id) !== index);
-    const unnamedControls = [...document.querySelectorAll('button, input, select')].filter(element => {
-      const label = element.labels && element.labels.length ? element.labels[0].textContent.trim() : '';
-      return !(element.getAttribute('aria-label') || label || element.textContent.trim());
-    }).map(element => ({ tag: element.tagName, id: element.id, type: element.type }));
-    const canvasesWithoutNames = [...document.querySelectorAll('canvas')].filter(canvas => canvas.getAttribute('role') !== 'img' || !canvas.getAttribute('aria-label')).length;
-    const firstButton = document.querySelector('button'); firstButton.focus();
-    return { duplicateIds, unnamedControls, canvasesWithoutNames, focusOutline: getComputedStyle(firstButton).outlineStyle };
-  });
-  check(accessibility.duplicateIds.length === 0, 'IDs should be unique', accessibility.duplicateIds.join(', '));
-  check(accessibility.unnamedControls.length === 0, 'Every control should have an accessible name', JSON.stringify(accessibility.unnamedControls));
-  check(accessibility.canvasesWithoutNames === 0, 'Every canvas should have an accessible image name', accessibility.canvasesWithoutNames);
-  check(accessibility.focusOutline !== 'none', 'Keyboard focus should be visible', accessibility.focusOutline);
-
-  if (screenshotDir) {
-    await page.setViewport({ width: 1440, height: 1000, deviceScaleFactor: 1 });
-    await page.evaluate(() => { window.ReLULab.setMode('classification'); window.ReLULab.setDataset('xorField'); window.ReLULab.loadFieldRule(); });
-    await page.screenshot({ path: resolve(screenshotDir, 'relu-lab-classification.png'), fullPage: true });
-    await page.evaluate(() => { window.ReLULab.setMode('approximation'); window.ReLULab.setApproximation({ method: 'construct', width: 5, target: 'sine' }); });
-    await page.screenshot({ path: resolve(screenshotDir, 'relu-lab-approximation.png'), fullPage: true });
+  // Flow 4: the three input-field buttons drive state and expose one pressed
+  // view at a time.
+  const fieldViews = [];
+  for (const view of ['probability', 'logit', 'class']) {
+    await page.click(`[data-class-view="${view}"]`);
+    fieldViews.push(await page.evaluate(expected => ({
+      snapshot: window.ReLUClassificationLab.snapshot(),
+      pressed: [...document.querySelectorAll('[data-class-view]')].map(button => ({
+        view: button.dataset.classView,
+        pressed: button.getAttribute('aria-pressed'),
+        active: button.classList.contains('is-active')
+      })),
+      label: document.getElementById('mainCanvas').getAttribute('aria-label'),
+      expected
+    }), view));
+  }
+  for (const result of fieldViews) {
+    check(result.snapshot.view === result.expected,
+      `${result.expected} field control should update public state`, result.snapshot.view);
+    check(result.pressed.filter(item => item.pressed === 'true' && item.active).length === 1
+        && result.pressed.find(item => item.view === result.expected)?.pressed === 'true',
+      `${result.expected} field control should be the only pressed view`, JSON.stringify(result.pressed));
+    check(result.label.toLowerCase().includes(result.expected),
+      `${result.expected} field should update the main canvas accessible description`, result.label);
   }
 
-  await page.setViewport({ width: 375, height: 812, deviceScaleFactor: 1 });
-  await new Promise(resolveWait => setTimeout(resolveWait, 150));
-  const mobile = await page.evaluate(() => ({
-    scrollWidth: document.documentElement.scrollWidth,
-    clientWidth: document.documentElement.clientWidth,
-    smallestButtons: [...document.querySelectorAll('button')].filter(button => button.offsetParent !== null).map(button => ({ id: button.id, className: button.className, text: button.textContent.trim(), height: button.getBoundingClientRect().height })).sort((a,b) => a.height-b.height).slice(0,5),
-    offenders: [...document.querySelectorAll('body *')].filter(element => {
-      const rect = element.getBoundingClientRect();
-      return rect.right > document.documentElement.clientWidth + 1 || rect.left < -1;
-    }).slice(0, 10).map(element => ({ tag: element.tagName, id: element.id, right: Math.round(element.getBoundingClientRect().right) }))
-  }));
-  check(mobile.scrollWidth <= mobile.clientWidth + 1, 'Mobile layout should not overflow horizontally', JSON.stringify(mobile));
-  check(mobile.smallestButtons[0].height >= 32, 'Visible buttons should have a usable touch height', JSON.stringify(mobile.smallestButtons));
-  check(pageErrors.length === 0, 'Page should emit no JavaScript or console errors', pageErrors.join(' | '));
-  if (screenshotDir) await page.screenshot({ path: resolve(screenshotDir, 'relu-lab-mobile.png'), fullPage: true });
+  // Flow 5: exercise the real pointer and wheel listeners on #surfaceCanvas,
+  // then restore the canonical isometric camera with the visible Reset button.
+  await page.evaluate(() => window.ReLUClassificationLab.setSurfaceView('iso'));
+  const beforeOrbit = await snapshot();
+  const surface = await page.$('#surfaceCanvas');
+  await surface.evaluate(element => {
+    document.documentElement.style.scrollBehavior = 'auto';
+    element.scrollIntoView({ block: 'center', behavior: 'instant' });
+  });
+  await page.waitForFunction(() => {
+    const bounds = document.getElementById('surfaceCanvas').getBoundingClientRect();
+    return bounds.top >= 0 && bounds.bottom <= innerHeight;
+  }, { timeout: 3000 });
+  const surfaceBox = await surface.boundingBox();
+  check(Boolean(surfaceBox), 'Logit surface should expose a measurable orbit target');
+  if (surfaceBox) {
+    const centerX = surfaceBox.x + surfaceBox.width / 2;
+    const centerY = surfaceBox.y + surfaceBox.height / 2;
+    await page.mouse.move(centerX, centerY);
+    await page.mouse.down();
+    await page.mouse.move(centerX + 78, centerY - 34, { steps: 8 });
+    await page.mouse.up();
+    const afterDrag = await snapshot();
+    check(Math.abs(afterDrag.camera.azimuth - beforeOrbit.camera.azimuth) > 0.2
+        && Math.abs(afterDrag.camera.elevation - beforeOrbit.camera.elevation) > 0.08,
+      'Pointer drag should change surface azimuth and elevation',
+      JSON.stringify({ before: beforeOrbit.camera, after: afterDrag.camera }));
+    const pressedAfterDrag = await page.$$eval('[data-surface-view]', buttons => buttons.map(button => button.getAttribute('aria-pressed')));
+    check(pressedAfterDrag.every(value => value === 'false'),
+      'A custom orbit should clear camera-preset pressed states', JSON.stringify(pressedAfterDrag));
 
-  const result = { pass: failures.length === 0, failures, source, pageErrors };
-  console.log(JSON.stringify(result, null, 2));
+    await page.mouse.move(centerX, centerY);
+    await page.mouse.wheel({ deltaY: -260 });
+    const afterWheel = await snapshot();
+    check(afterWheel.camera.zoom > afterDrag.camera.zoom,
+      'Wheel-up over the surface should zoom in', JSON.stringify({ afterDrag: afterDrag.camera, afterWheel: afterWheel.camera }));
+
+    await page.click('#surfaceResetBtn');
+    const afterReset = await snapshot();
+    check(closeTo(afterReset.camera.azimuth, -Math.PI / 4)
+        && closeTo(afterReset.camera.elevation, 0.58)
+        && closeTo(afterReset.camera.zoom, 1),
+      'Surface Reset should restore the canonical isometric camera', JSON.stringify(afterReset.camera));
+    const isoPressed = await page.$eval('[data-surface-view="iso"]', button => ({
+      pressed: button.getAttribute('aria-pressed'),
+      active: button.classList.contains('is-active')
+    }));
+    check(isoPressed.pressed === 'true' && isoPressed.active,
+      'Surface Reset should restore the Iso pressed state', JSON.stringify(isoPressed));
+  }
+
+  // Flow 6: Clear custom data through the visible control, then prove that
+  // both seed changes and dataset round-trips preserve the intentionally empty
+  // custom set.
+  await page.evaluate(() => {
+    const api = window.ReLUClassificationLab;
+    api.setDataset('custom');
+    api.clearCustomPoints();
+    api.addCustomPoint(0.2, 0.2, 0);
+    api.addCustomPoint(0.4, 0.3, 0);
+    api.addCustomPoint(0.75, 0.8, 1);
+  });
+  const customBeforeClear = await snapshot();
+  check(customBeforeClear.dataset === 'custom' && customBeforeClear.dataSize === 3,
+    'Custom setup should contain the three requested points', JSON.stringify(customBeforeClear));
+  await page.click('#clearPointsBtn');
+  const customCleared = await snapshot();
+  check(customCleared.dataSize === 0 && customCleared.dataSignature === '',
+    'Clear all should leave a genuinely empty custom dataset', JSON.stringify(customCleared));
+  const customPersistence = await page.evaluate(() => {
+    const api = window.ReLUClassificationLab;
+    api.setDataSeed(91);
+    const afterDataSeed = api.snapshot();
+    api.setWeightSeed(92);
+    const afterWeightSeed = api.snapshot();
+    api.setDataset('blobs');
+    api.setDataset('custom');
+    const afterRoundTrip = api.snapshot();
+    return { afterDataSeed, afterWeightSeed, afterRoundTrip };
+  });
+  for (const [name, result] of Object.entries(customPersistence)) {
+    check(result.dataset === 'custom' && result.dataSize === 0 && result.dataSignature === '',
+      `Cleared custom data should remain empty ${name}`, JSON.stringify(result));
+  }
+
+  // Flow 7: exact stepping, Reset, and Run/Pause state stay synchronized with
+  // provenance, history, button text, and aria-pressed.
+  const trainingInitial = await page.evaluate(() => {
+    const api = window.ReLUClassificationLab;
+    api.setDataset('blobs');
+    api.setArchitecture({ depth: 1, width: 4 });
+    api.setDataSeed(17);
+    api.setWeightSeed(23);
+    return api.snapshot();
+  });
+  await page.click('#stepBtn');
+  const afterStep = await snapshot();
+  check(afterStep.steps === 1 && afterStep.historyLength === trainingInitial.historyLength + 1,
+    'One step should add exactly one gradient step and one history sample',
+    JSON.stringify({ before: trainingInitial, after: afterStep }));
+  check(afterStep.provenance === 'trained' && afterStep.weightSignature !== trainingInitial.weightSignature,
+    'One step should mark and change a trained model');
+
+  await page.click('#resetBtn');
+  const afterTrainingReset = await snapshot();
+  check(afterTrainingReset.steps === 0 && !afterTrainingReset.running && afterTrainingReset.provenance === 'random',
+    'Reset should restore a stopped zero-step random initialization', JSON.stringify(afterTrainingReset));
+  check(afterTrainingReset.dataSignature === trainingInitial.dataSignature
+      && afterTrainingReset.weightSignature === trainingInitial.weightSignature,
+    'Reset weights should preserve data and reproduce the selected initialization');
+
+  await page.click('#runBtn');
+  await page.waitForFunction(() => window.ReLUClassificationLab.snapshot().running
+    && window.ReLUClassificationLab.snapshot().steps > 0, { timeout: 5000 });
+  const whileRunning = await page.evaluate(() => ({
+    snapshot: window.ReLUClassificationLab.snapshot(),
+    text: document.getElementById('runBtn').textContent.trim(),
+    pressed: document.getElementById('runBtn').getAttribute('aria-pressed')
+  }));
+  check(whileRunning.snapshot.running && whileRunning.text === 'Pause' && whileRunning.pressed === 'true',
+    'Running state should expose Pause and aria-pressed=true', JSON.stringify(whileRunning));
+  await page.click('#runBtn');
+  const paused = await page.evaluate(() => ({
+    snapshot: window.ReLUClassificationLab.snapshot(),
+    text: document.getElementById('runBtn').textContent.trim(),
+    pressed: document.getElementById('runBtn').getAttribute('aria-pressed'),
+    status: document.getElementById('statusText').textContent.trim()
+  }));
+  check(!paused.snapshot.running && paused.text === 'Run' && paused.pressed === 'false',
+    'Paused state should expose Run and aria-pressed=false', JSON.stringify(paused));
+  check(paused.status.toLowerCase().includes('paused'),
+    'Pause should persist an explicit paused status', paused.status);
+  const pausedSteps = paused.snapshot.steps;
+  await new Promise(resolveWait => setTimeout(resolveWait, 120));
+  check((await snapshot()).steps === pausedSteps,
+    'Gradient steps should stop advancing after Pause');
+
+  await page.evaluate(() => {
+    const api = window.ReLUClassificationLab;
+    api.setDataset('custom');
+    api.clearCustomPoints();
+  });
+  await page.click('#runBtn');
+  const emptyTraining = await page.evaluate(() => ({
+    snapshot: window.ReLUClassificationLab.snapshot(),
+    status: document.getElementById('statusText').textContent.trim()
+  }));
+  check(!emptyTraining.snapshot.running && emptyTraining.snapshot.steps === 0,
+    'Empty custom data should not enter a running training state', JSON.stringify(emptyTraining));
+  check(emptyTraining.status.toLowerCase().includes('add at least one'),
+    'Empty custom training should explain the missing evidence', emptyTraining.status);
+
+  // Accessibility contract after dynamic feature generation.
+  await page.evaluate(() => {
+    const api = window.ReLUClassificationLab;
+    api.setDataset('xorField');
+    api.setArchitecture({ depth: 2, width: 4 });
+  });
+  const accessibility = await page.evaluate(() => {
+    const ids = [...document.querySelectorAll('[id]')].map(element => element.id);
+    const duplicateIds = [...new Set(ids.filter((id, index) => ids.indexOf(id) !== index))];
+    const controlsWithoutNames = [...document.querySelectorAll('button, input, select')].filter(element => {
+      if (element.offsetParent === null) return false;
+      const labels = element.labels ? [...element.labels].map(label => label.textContent.trim()).join(' ') : '';
+      return !(element.getAttribute('aria-label') || element.getAttribute('aria-labelledby') || labels || element.textContent.trim());
+    }).map(element => element.id || element.outerHTML.slice(0, 80));
+    const canvasesWithoutNames = [...document.querySelectorAll('canvas')].filter(canvas => (
+      canvas.getAttribute('role') !== 'img' || !canvas.getAttribute('aria-label')
+    )).map(canvas => canvas.id || canvas.className);
+    return {
+      duplicateIds,
+      controlsWithoutNames,
+      canvasesWithoutNames,
+      surfaceKeyboardFocusable: document.getElementById('surfaceCanvas').tabIndex >= 0,
+      skipTargetExists: document.querySelector('.skip-link')?.hash === '#experiment' && Boolean(document.getElementById('experiment')),
+      liveStatus: document.getElementById('statusText')?.getAttribute('role') === 'status'
+        && document.getElementById('statusText')?.getAttribute('aria-live') === 'polite'
+    };
+  });
+  await page.evaluate(() => document.activeElement?.blur());
+  await page.keyboard.press('Tab');
+  const keyboardFocus = await page.evaluate(() => ({
+    tag: document.activeElement?.tagName,
+    text: document.activeElement?.textContent?.trim(),
+    outline: getComputedStyle(document.activeElement).outlineStyle
+  }));
+  check(accessibility.duplicateIds.length === 0, 'DOM IDs should remain unique', accessibility.duplicateIds.join(', '));
+  check(accessibility.controlsWithoutNames.length === 0,
+    'Every visible classification control should have an accessible name', accessibility.controlsWithoutNames.join(' | '));
+  check(accessibility.canvasesWithoutNames.length === 0,
+    'Every classification canvas should expose an image role and current accessible label', accessibility.canvasesWithoutNames.join(', '));
+  check(accessibility.surfaceKeyboardFocusable && accessibility.skipTargetExists && accessibility.liveStatus,
+    'Surface keyboard access, skip navigation, and polite status should remain wired', JSON.stringify(accessibility));
+  check(keyboardFocus.outline !== 'none',
+    'Keyboard focus should remain visibly outlined', JSON.stringify(keyboardFocus));
+
+  // Mobile acceptance exercises custom controls, both seed lanes, deep-model
+  // inspection, camera controls, and both probe sliders at 390 x 844.
+  await load({ width: 390, height: 844, deviceScaleFactor: 1 });
+  await page.evaluate(() => {
+    const api = window.ReLUClassificationLab;
+    api.setDataset('custom');
+    api.setArchitecture({ depth: 2, width: 4 });
+  });
+  const mobile = await page.evaluate(() => {
+    const controls = [...document.querySelectorAll('button, select, input:not([type="hidden"]), summary')]
+      .filter(element => element.offsetParent !== null
+        && !element.closest('details:not([open])')
+        && getComputedStyle(element).visibility !== 'hidden')
+      .map(element => {
+        const bounds = element.getBoundingClientRect();
+        return {
+          tag: element.tagName,
+          id: element.id,
+          text: element.textContent.trim().replace(/\s+/g, ' ').slice(0, 50),
+          width: Math.round(bounds.width * 10) / 10,
+          height: Math.round(bounds.height * 10) / 10
+        };
+      });
+    const overflow = [...document.querySelectorAll('body *')].filter(element => {
+      const bounds = element.getBoundingClientRect();
+      return bounds.right > document.documentElement.clientWidth + 1 || bounds.left < -1;
+    }).slice(0, 12).map(element => ({
+      tag: element.tagName,
+      id: element.id,
+      className: String(element.className),
+      left: Math.round(element.getBoundingClientRect().left),
+      right: Math.round(element.getBoundingClientRect().right)
+    }));
+    return {
+      scrollWidth: document.documentElement.scrollWidth,
+      clientWidth: document.documentElement.clientWidth,
+      mainCanvasWidth: document.getElementById('mainCanvas').getBoundingClientRect().width,
+      surfaceCanvasWidth: document.getElementById('surfaceCanvas').getBoundingClientRect().width,
+      undersized: controls.filter(control => control.width < 44 || control.height < 44),
+      overflow
+    };
+  });
+  check(mobile.scrollWidth <= mobile.clientWidth + 1 && mobile.overflow.length === 0,
+    '390px classification layout should not overflow horizontally', JSON.stringify(mobile));
+  check(mobile.mainCanvasWidth <= mobile.clientWidth && mobile.surfaceCanvasWidth <= mobile.clientWidth,
+    'Mobile input and logit canvases should fit the viewport', JSON.stringify(mobile));
+  check(mobile.undersized.length === 0,
+    'Every visible mobile classification control should provide a 44 x 44 CSS-pixel target',
+    JSON.stringify(mobile.undersized));
+
+  const mobileScreenshot = resolve(screenshotDir, 'classification-mobile-390x844.png');
+  await page.screenshot({ path: mobileScreenshot, fullPage: true });
+
+  await load({ width: 1440, height: 900, deviceScaleFactor: 1 });
+  await page.evaluate(() => {
+    const api = window.ReLUClassificationLab;
+    api.setDataset('xorField');
+    api.loadFieldRule();
+    api.setView('logit');
+    api.setSurfaceView('iso');
+  });
+  const desktopScreenshot = resolve(screenshotDir, 'classification-desktop-1440x900.png');
+  await page.screenshot({ path: desktopScreenshot, fullPage: true });
+
+  check(pageErrors.length === 0,
+    'Classification lab should emit no JavaScript or console errors', pageErrors.join(' | '));
+
+  console.log(JSON.stringify({
+    pass: failures.length === 0,
+    source,
+    checks: checks.length,
+    failures,
+    pageErrors,
+    screenshots: { desktop: desktopScreenshot, mobile: mobileScreenshot },
+    proofMetrics: {
+      corner: { accuracy: proofs.corner.accuracy, fieldAgreement: proofs.corner.fieldAgreement },
+      field: { accuracy: proofs.field.accuracy, fieldAgreement: proofs.field.fieldAgreement }
+    }
+  }, null, 2));
   process.exitCode = failures.length ? 1 : 0;
 } finally {
   await browser.close();
