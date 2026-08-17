@@ -51,7 +51,8 @@
         <section class="control-section">
           <div class="section-heading"><span>02</span><h2>Model</h2></div>
           <label class="field" for="depthSelect"><span>Architecture</span><select id="depthSelect"><option value="0">Linear · no hidden layer</option><option value="1" selected>1 hidden layer</option><option value="2">2 hidden layers</option></select></label>
-          <label class="field" for="widthRange"><span><span>Hidden width</span><output id="widthOutput" for="widthRange">2</output></span><input id="widthRange" type="range" min="1" max="16" step="1" value="2"></label>
+          <label class="field" for="widthRange"><span><span>Hidden width</span><output id="widthOutput" for="widthRange">2</output></span><input id="widthRange" type="range" min="1" max="16" step="1" value="2" aria-describedby="widthNote"></label>
+          <p class="width-note" id="widthNote"><strong>Widen without resetting.</strong> Move right: added ReLUs begin with zero output contribution, so the current function stays exactly the same. Move left: a narrower model cannot preserve the same function, so the lab loads a fresh seeded model and training starts fresh. More capacity expands what the network can represent; an optimization run still determines which solution training finds.</p>
           <label class="field" for="learningRateSelect"><span>Learning rate</span><select id="learningRateSelect"><option value="0.003">0.003</option><option value="0.01">0.01</option><option value="0.03" selected>0.03</option><option value="0.1">0.1</option></select></label>
         </section>
 
@@ -60,17 +61,18 @@
           <p class="control-note">Hold data and architecture fixed; change only where optimization starts.</p>
           <label class="field" for="weightSeedInput"><span>Weight seed</span><span class="seed-row"><input id="weightSeedInput" type="number" min="1" max="9999" value="11" inputmode="numeric"><button type="button" class="icon-button" id="newWeightSeedBtn" aria-label="Use the next weight seed">+1</button></span></label>
           <div class="preset-row">
-            <button type="button" class="preset-button recommended-button" id="recommendedSetupBtn"><span>Recommended random start</span><small id="recommendedSetupText">1 layer · width 8 · learning rate 0.1 · weight seed 23</small></button>
-            <button type="button" class="preset-button" id="randomInitBtn"><span>Random · current model</span><small>Keep architecture; reset seeded weights</small></button>
+            <button type="button" class="preset-button recommended-button" id="recommendedSetupBtn"><span>Recommended · reliable training start</span><small id="recommendedSetupText">1 layer · width 8 · learning rate 0.1 · weight seed 23</small></button>
+            <button type="button" class="preset-button" id="randomInitBtn"><span>Seeded · balanced hinges</span><small>Keep architecture; reset well-spread ReLUs</small></button>
             <button type="button" class="preset-button" id="cornerProofBtn"><span>Constructed · 2 ReLUs</span><small>Exact on four XOR corners</small></button>
             <button type="button" class="preset-button" id="fieldProofBtn"><span>Constructed · 4 ReLUs</span><small>Exact across filled XOR</small></button>
           </div>
+          <p class="preset-note"><strong>Filled XOR:</strong> Constructed · 4 ReLUs proves the capacity. Recommended is the reliable training route from a balanced seeded start.</p>
         </section>
 
         <section class="control-section train-section">
           <div class="section-heading"><span>04</span><h2>Optimize</h2></div>
           <div class="train-buttons"><button type="button" class="primary-button" id="runBtn" aria-pressed="false" aria-describedby="statusText objectiveNote" disabled>Run</button><button type="button" class="secondary-button" id="stepBtn" aria-describedby="statusText objectiveNote" disabled>One step</button><button type="button" class="secondary-button" id="resetBtn">Reset weights</button></div>
-          <p class="status" id="statusText" role="status" aria-live="polite">Constructed rule loaded for inspection. Choose a random start before training.</p>
+          <p class="status" id="statusText" role="status" aria-live="polite">Constructed rule loaded for inspection. Choose Recommended or Seeded before training.</p>
           <p class="objective-note" id="objectiveNote"><strong>Training minimizes BCE.</strong> Accuracy uses a 0.5 threshold, so it can briefly fall even while BCE improves.</p>
         </section>
       </aside>
@@ -109,7 +111,7 @@
           </section>
         </div>
 
-        <section class="lecture-prompts" aria-labelledby="promptsTitle"><div class="prompt-heading"><span>Run the experiment</span><h3 id="promptsTitle">Change one thing. Predict first.</h3></div><div class="prompt-grid"><p><strong>Evidence</strong> Compare four XOR corners with the filled field. Which unseen regions change?</p><p><strong>Capacity</strong> Hold seed fixed and increase width. Which new hinges appear?</p><p><strong>Optimization</strong> Hold data and width fixed. Do different seeds learn the same surface?</p></div></section>
+        <section class="lecture-prompts" aria-labelledby="promptsTitle"><div class="prompt-heading"><span>Run the experiment</span><h3 id="promptsTitle">Change one thing. Predict first.</h3></div><div class="prompt-grid"><p><strong>Evidence</strong> Compare four XOR corners with the filled field. Which unseen regions change?</p><p><strong>Capacity</strong> Train a small model, then widen it. The boundary should not jump until optimization uses the new ReLUs.</p><p><strong>Optimization</strong> Hold data and width fixed. Do different seeds learn the same surface?</p></div></section>
       </section>
     </section>
   </main>

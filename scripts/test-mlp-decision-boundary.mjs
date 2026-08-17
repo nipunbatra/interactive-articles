@@ -64,13 +64,15 @@ try {
   const apiContract = await page.evaluate(() => ({
     hasSetDataSeed: typeof window.ReLUClassificationLab.setDataSeed === 'function',
     hasSetWeightSeed: typeof window.ReLUClassificationLab.setWeightSeed === 'function',
+    hasSetWidth: typeof window.ReLUClassificationLab.setWidth === 'function',
     hasRecommendedSetup: typeof window.ReLUClassificationLab.loadRecommendedSetup === 'function',
     hasWeightSignature: typeof window.ReLUClassificationLab.snapshot().weightSignature === 'string',
     hasTrainableState: typeof window.ReLUClassificationLab.snapshot().trainable === 'boolean'
   }));
-  check(apiContract.hasSetDataSeed && apiContract.hasSetWeightSeed && apiContract.hasRecommendedSetup
+  check(apiContract.hasSetDataSeed && apiContract.hasSetWeightSeed && apiContract.hasSetWidth
+      && apiContract.hasRecommendedSetup
       && apiContract.hasWeightSignature && apiContract.hasTrainableState,
-    'Public API should expose seeds, recommended setup, trainability, and a weight signature',
+    'Public API should expose seeds, width morphing, recommended setup, trainability, and a weight signature',
     JSON.stringify(apiContract));
 
   // Flow 1: changing the weight seed must preserve data; changing the data
@@ -472,12 +474,131 @@ try {
   check(/BCE/i.test(metricSemantics.objective || '') && /0\.5.*threshold/i.test(metricSemantics.objective || ''),
     'Optimize section should explain BCE versus thresholded accuracy', metricSemantics.objective);
 
+  // A width increase is now a nested comparison, not a fresh lottery. Existing
+  // units are copied and new units start with zero output contribution, so the
+  // decision function is identical at the moment of widening. This directly
+  // covers the reported Filled-XOR 2 -> 3 -> 4 surprise.
+  const widthMorphing = await page.evaluate(() => {
+    const api = window.ReLUClassificationLab;
+    const probes = [[0.03, 0.04], [0.22, 0.76], [0.49, 0.51], [0.73, 0.19], [0.96, 0.94]];
+    const read = () => ({
+      snapshot: api.snapshot(),
+      probes: probes.map(([x, y]) => api.getContributionDecomposition(x, y))
+    });
+
+    api.setDataset('xorField');
+    api.setDataSeed(11);
+    api.setLearningRate(0.1);
+    api.setArchitecture({ depth: 1, width: 2 });
+    api.setWeightSeed(23);
+    api.step(300);
+    const oneByTwo = read();
+    api.setWidth(3);
+    const oneByThree = read();
+    api.step(400);
+    const trainedOneByThree = read();
+    api.setWidth(4);
+    const oneByFour = read();
+    api.step(800);
+    const trainedOneByFour = read();
+
+    api.setArchitecture({ depth: 2, width: 3 });
+    api.setWeightSeed(23);
+    api.step(300);
+    const twoByThree = read();
+    api.setWidth(8);
+    const twoByEight = read();
+    api.step(800);
+    const trainedTwoByEight = read();
+    api.setWidth(4);
+    const decreasedToFour = read();
+
+    return {
+      transitions: [
+        { name: 'one-layer 2 -> 3', from: oneByTwo, widened: oneByThree },
+        { name: 'one-layer 3 -> 4', from: trainedOneByThree, widened: oneByFour },
+        { name: 'two-layer 3 -> 8', from: twoByThree, widened: twoByEight }
+      ],
+      trained: [
+        { name: 'one-layer width 3', widened: oneByThree, trained: trainedOneByThree },
+        { name: 'one-layer width 4', widened: oneByFour, trained: trainedOneByFour },
+        { name: 'two-layer width 8', widened: twoByEight, trained: trainedTwoByEight }
+      ],
+      beforeDecrease: trainedTwoByEight,
+      decreasedToFour,
+      widthCopy: document.getElementById('widthNote')?.textContent.replace(/\s+/g, ' ').trim(),
+      presetCopy: document.querySelector('.preset-note')?.textContent.replace(/\s+/g, ' ').trim(),
+      recommendedLabel: document.querySelector('#recommendedSetupBtn span')?.textContent.trim(),
+      describedBy: document.getElementById('widthRange')?.getAttribute('aria-describedby') || '',
+      decreaseStatus: document.getElementById('statusText')?.textContent.trim()
+    };
+  });
+
+  for (const transition of widthMorphing.transitions) {
+    const before = transition.from.snapshot;
+    const widened = transition.widened.snapshot;
+    check(widened.width > before.width && widened.depth === before.depth,
+      `${transition.name} should change only hidden width`, JSON.stringify({ before, widened }));
+    check(widened.dataSignature === before.dataSignature
+        && widened.steps === before.steps
+        && widened.historyLength === before.historyLength
+        && widened.provenance === before.provenance,
+      `${transition.name} should preserve evidence and optimization history`, JSON.stringify({ before, widened }));
+    check(widened.weightSignature !== before.weightSignature,
+      `${transition.name} should append parameters rather than reuse the old signature`);
+    check(closeTo(widened.loss, before.loss, 1e-11)
+        && closeTo(widened.accuracy, before.accuracy, 1e-11)
+        && closeTo(widened.fieldAgreement, before.fieldAgreement, 1e-11),
+      `${transition.name} should preserve BCE and both accuracy metrics exactly`,
+      JSON.stringify({ before, widened }));
+    check(transition.widened.probes.every((probe, index) => (
+      closeTo(probe.sum, transition.from.probes[index].sum, 1e-11)
+      && probe.contributions.length === widened.width
+      && probe.contributions.slice(before.width).every(term => closeTo(term, 0, 1e-14))
+    )), `${transition.name} should preserve probe logits with zero-contribution new ReLUs`,
+    JSON.stringify({ before: transition.from.probes, widened: transition.widened.probes }));
+  }
+
+  for (const run of widthMorphing.trained) {
+    const before = run.widened.snapshot;
+    const after = run.trained.snapshot;
+    check(after.loss < before.loss - 1e-5 && closeTo(after.historyLastLoss, after.loss, 1e-11),
+      `${run.name} should reduce BCE after widening`, JSON.stringify({ before, after }));
+    check(after.accuracy >= before.accuracy - 0.05
+        && after.fieldAgreement >= before.fieldAgreement - 0.05,
+      `${run.name} should avoid a catastrophic accuracy regression after widening`,
+      JSON.stringify({ before, after }));
+  }
+
+  check(widthMorphing.decreasedToFour.snapshot.width === 4
+      && widthMorphing.decreasedToFour.snapshot.steps === 0
+      && widthMorphing.decreasedToFour.snapshot.provenance === 'random'
+      && widthMorphing.decreasedToFour.snapshot.dataSignature === widthMorphing.beforeDecrease.snapshot.dataSignature,
+    'Reducing width should explicitly load a fresh seeded model while preserving evidence',
+    JSON.stringify({ before: widthMorphing.beforeDecrease.snapshot, after: widthMorphing.decreasedToFour.snapshot }));
+  check(/fresh.*seeded|fresh.*weight/i.test(widthMorphing.decreaseStatus)
+      && /remov/i.test(widthMorphing.decreaseStatus),
+    'Reducing width should explain why the current function cannot be preserved', widthMorphing.decreaseStatus);
+  check(widthMorphing.describedBy.split(/\s+/).includes('widthNote')
+      && /current function stays? exactly/i.test(widthMorphing.widthCopy || '')
+      && /zero output contribution/i.test(widthMorphing.widthCopy || '')
+      && /training starts fresh/i.test(widthMorphing.widthCopy || '')
+      && /optimization run/i.test(widthMorphing.widthCopy || ''),
+    'Width control should explain capacity, optimization, and fair widening in plain language',
+    widthMorphing.widthCopy);
+  check(/reliable/i.test(widthMorphing.recommendedLabel || '')
+      && /4 ReLUs.*capacity/i.test(widthMorphing.presetCopy || '')
+      && /Recommended.*reliable.*balanced seeded start/i.test(widthMorphing.presetCopy || ''),
+    'Initialization copy should separate the four-ReLU capacity proof from reliable random training',
+    JSON.stringify({ label: widthMorphing.recommendedLabel, note: widthMorphing.presetCopy }));
+
   // Regression for the reported "starts okay, progressively worse" failure.
   // Every recommendation should reduce BCE monotonically at fixed checkpoints;
   // accuracy is checked only at the end because it is a thresholded metric.
   const learningSweeps = await page.evaluate(() => {
     const api = window.ReLUClassificationLab;
     const plans = [
+      { dataset: 'xor4', seed: 11, steps: [25, 100, 400, 1200] },
       { dataset: 'xorField', seed: 11, steps: [25, 100, 400, 1200] },
       { dataset: 'blobs', seed: 11, steps: [25, 100, 400, 800] },
       { dataset: 'circles', seed: 11, steps: [25, 100, 500, 1600] },
@@ -498,7 +619,7 @@ try {
       return { ...plan, checkpoints };
     });
   });
-  const minimumFinalAccuracy = { xorField: 0.98, blobs: 0.99, circles: 0.98, moons: 0.96, spirals: 0.90 };
+  const minimumFinalAccuracy = { xor4: 1, xorField: 0.98, blobs: 0.99, circles: 0.98, moons: 0.96, spirals: 0.90 };
   for (const sweep of learningSweeps) {
     const losses = sweep.checkpoints.map(point => point.loss);
     const final = sweep.checkpoints.at(-1);
@@ -545,6 +666,44 @@ try {
       check(run.after.deadUnits < run.after.width * run.after.depth,
         `Filled-XOR seed ${run.seed} should retain at least one active ReLU`, JSON.stringify(run.after));
     }
+  }
+
+  // Direct regression for the classroom report: a single hidden layer with
+  // exactly four ReLUs must learn the filled XOR field from a fresh start.
+  // This is deliberately not the wider/deeper Recommended preset.
+  const nestedWidthFourStart = await page.evaluate(() => {
+    const api = window.ReLUClassificationLab;
+    const load = width => api.initialize({ dataset: 'xorField', dataSeed: 11, weightSeed: 11, depth: 1, width });
+    load(2); api.setWidth(4); const twoToFour = api.snapshot();
+    load(2); api.setWidth(3); api.setWidth(4); const twoToThreeToFour = api.snapshot();
+    const direct = load(4);
+    return { twoToFour, twoToThreeToFour, direct };
+  });
+  check(nestedWidthFourStart.twoToFour.weightSignature === nestedWidthFourStart.direct.weightSignature
+      && nestedWidthFourStart.twoToThreeToFour.weightSignature === nestedWidthFourStart.direct.weightSignature,
+    'Untrained width 2 → 4 and 2 → 3 → 4 should produce the same nested balanced start as direct width 4',
+    JSON.stringify(nestedWidthFourStart));
+
+  const directWidthFour = await page.evaluate(() => {
+    const api = window.ReLUClassificationLab;
+    return [1, 3, 7, 11, 23, 31].map(seed => {
+      api.initialize({ dataset: 'xorField', dataSeed: 11, weightSeed: seed, depth: 1, width: 4 });
+      api.setLearningRate(0.1);
+      const before = api.snapshot();
+      api.step(1200);
+      return { seed, before, after: api.snapshot() };
+    });
+  });
+  for (const run of directWidthFour) {
+    check(closeTo(run.before.loss, Math.log(2), 1e-12)
+        && run.before.deadUnits === 0,
+      `Direct width-4 Filled-XOR seed ${run.seed} should start from four live, balanced hinges`,
+      JSON.stringify(run.before));
+    check(run.after.accuracy >= 0.99
+        && run.after.fieldAgreement >= 0.98
+        && run.after.loss < 0.27,
+      `Direct width-4 Filled-XOR seed ${run.seed} should learn the full regions by 1,200 steps`,
+      JSON.stringify(run.after));
   }
 
   // Accessibility contract after dynamic feature generation.
@@ -690,7 +849,34 @@ try {
       finalLoss: run.after.loss,
       finalAccuracy: run.after.accuracy,
       deadUnits: run.after.deadUnits
-    }))
+    })),
+    directWidthFour: directWidthFour.map(run => ({
+      seed: run.seed,
+      steps: run.after.steps,
+      initialLoss: run.before.loss,
+      finalLoss: run.after.loss,
+      finalAccuracy: run.after.accuracy,
+      finalFieldAgreement: run.after.fieldAgreement,
+      deadUnits: run.after.deadUnits
+    })),
+    widthMorphing: {
+      transitions: widthMorphing.transitions.map(run => ({
+        name: run.name,
+        beforeLoss: run.from.snapshot.loss,
+        widenedLoss: run.widened.snapshot.loss,
+        beforeAccuracy: run.from.snapshot.accuracy,
+        widenedAccuracy: run.widened.snapshot.accuracy
+      })),
+      continuedTraining: widthMorphing.trained.map(run => ({
+        name: run.name,
+        widenedLoss: run.widened.snapshot.loss,
+        trainedLoss: run.trained.snapshot.loss,
+        widenedAccuracy: run.widened.snapshot.accuracy,
+        trainedAccuracy: run.trained.snapshot.accuracy,
+        widenedFieldAgreement: run.widened.snapshot.fieldAgreement,
+        trainedFieldAgreement: run.trained.snapshot.fieldAgreement
+      }))
+    }
   }, null, 2));
   process.exitCode = failures.length ? 1 : 0;
 } finally {

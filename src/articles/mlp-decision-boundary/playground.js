@@ -155,23 +155,99 @@
     const sorted = [...values].sort((a, b) => a - b), middle = Math.floor(sorted.length / 2);
     return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
   }
+  function binaryRadicalInverse(index) {
+    let n = index, fraction = 0, place = 0.5;
+    while (n > 0) { fraction += (n % 2) * place; n = Math.floor(n / 2); place *= 0.5; }
+    return fraction;
+  }
+  function seededFirstLayerUnit(seed, unit) {
+    // A base-2 low-discrepancy order gives nested angular coverage:
+    // 0°, 180°, 90°, 270°, then the four diagonal gaps (all seed-rotated).
+    // The first k units are therefore exactly the ones retained at width k.
+    const phase = 2 * Math.PI * rngFor(Math.imul(seed, 7919) + 104729)();
+    const angle = phase + 2 * Math.PI * binaryRadicalInverse(unit);
+    const w = [Math.cos(angle), Math.sin(angle)];
+    const b = -median(DOMAIN_ANCHORS.map((p) => w[0] * p.x + w[1] * p.y));
+    return { w, b };
+  }
   function randomModel(depth, width, seed) {
     const rng = rngFor(seed * 7919 + depth * 97 + width * 13);
     const rw = (fan) => gaussian(rng) * Math.sqrt(2 / Math.max(1, fan));
     const m = { depth, width, W1: [], b1: [], W2: [], b2: [], Wo: [], bo: 0 };
     if (!depth) { m.Wo = [rw(2), rw(2)]; return m; }
-    m.W1 = Array.from({ length: width }, () => [rw(2), rw(2)]);
+    // In two dimensions, stratify first-layer hinge normals around the unit
+    // circle. Gaussian draws can accidentally point several ReLUs in nearly
+    // the same direction, wasting scarce width and making a four-unit model
+    // behave like a smaller one. A seed-specific rotation keeps the start
+    // random while giving every narrow model angular coverage.
+    const firstLayer = Array.from({ length: width }, (_, j) => seededFirstLayerUnit(seed, j));
+    m.W1 = firstLayer.map((unit) => unit.w);
     // Place each first-layer hinge through the input domain instead of near
     // the origin. Every initialized ReLU is active for some anchor points and
     // inactive for others, so it can receive a useful gradient immediately.
-    m.b1 = m.W1.map((w) => -median(DOMAIN_ANCHORS.map((p) => w[0] * p.x + w[1] * p.y)));
+    m.b1 = firstLayer.map((unit) => unit.b);
     if (depth === 2) {
       m.W2 = Array.from({ length: width }, () => Array.from({ length: width }, () => rw(width)));
       const h1Anchors = DOMAIN_ANCHORS.map((p) => m.W1.map((w, j) => relu(w[0] * p.x + w[1] * p.y + m.b1[j])));
       m.b2 = m.W2.map((row) => -median(h1Anchors.map((h) => row.reduce((sum, w, j) => sum + w * h[j], 0))));
     }
-    m.Wo = Array.from({ length: width }, () => rw(width));
+    // With diverse hidden features, a zero output head is safe: the first
+    // gradient step learns which features correlate with the labels, while
+    // avoiding an unlucky random output sign that can kill a useful ReLU.
+    // Hidden units are not symmetric because their hinge directions differ.
+    m.Wo = depth === 1 ? Array(width).fill(0) : Array.from({ length: width }, () => rw(width));
     return m;
+  }
+  function addedUnitRng(seed, layer, unit) {
+    // Each added deeper-layer unit has its own stream, independent of target
+    // width. Direct and staged widening therefore add the same parameters.
+    const mixed = Math.imul(seed ^ 0x6d2b79f5, 0x1b873593)
+      ^ Math.imul(layer + 1, 0x85ebca6b)
+      ^ Math.imul(unit + 1, 0xc2b2ae35);
+    return rngFor(mixed);
+  }
+  function addedFirstLayerUnit(seed, unit) {
+    return seededFirstLayerUnit(seed, unit);
+  }
+  function widenModel(model, targetWidth, seed) {
+    if (!model.depth || targetWidth <= model.width) throw new RangeError('widenModel requires a wider hidden network.');
+    const oldWidth = model.width;
+    const widened = {
+      depth: model.depth, width: targetWidth,
+      W1: model.W1.map((row) => [...row]), b1: [...model.b1],
+      W2: [], b2: [...model.b2], Wo: [...model.Wo], bo: model.bo
+    };
+    for (let j = oldWidth; j < targetWidth; j++) {
+      const unit = addedFirstLayerUnit(seed, j);
+      widened.W1.push(unit.w); widened.b1.push(unit.b);
+    }
+    if (model.depth === 2) {
+      // Existing second-layer units ignore every new first-layer feature, so
+      // their activations remain bit-for-bit unchanged.
+      widened.W2 = model.W2.map((row) => [...row, ...Array(targetWidth - oldWidth).fill(0)]);
+      const h1Anchors = DOMAIN_ANCHORS.map((p) => widened.W1.map((w, j) => relu(w[0] * p.x + w[1] * p.y + widened.b1[j])));
+      for (let j = oldWidth; j < targetWidth; j++) {
+        const rng = addedUnitRng(seed, 1, j), scale = Math.sqrt(2 / targetWidth);
+        const row = Array.from({ length: targetWidth }, () => gaussian(rng) * scale);
+        widened.W2.push(row);
+        widened.b2.push(-median(h1Anchors.map((h) => row.reduce((sum, w, k) => sum + w * h[k], 0))));
+      }
+    }
+    // A zero outgoing weight makes every added final hidden unit initially
+    // invisible. The represented function is therefore exactly preserved,
+    // while subsequent gradient steps can recruit the extra capacity.
+    widened.Wo.push(...Array(targetWidth - oldWidth).fill(0));
+    return widened;
+  }
+  function deepenOneLayerModel(model) {
+    if (model.depth !== 1) throw new RangeError('Only a one-hidden-layer model can be deepened by identity.');
+    return {
+      depth: 2, width: model.width,
+      W1: model.W1.map((row) => [...row]), b1: [...model.b1],
+      // h1 is non-negative, so ReLU(I h1) = h1 exactly.
+      W2: Array.from({ length: model.width }, (_, j) => Array.from({ length: model.width }, (_, k) => j === k ? 1 : 0)),
+      b2: Array(model.width).fill(0), Wo: [...model.Wo], bo: model.bo
+    };
   }
   const cornerModel = () => ({ depth: 1, width: 2, W1: [[1, 1], [1, 1]], b1: [0, -1], W2: [], b2: [], Wo: [2, -4], bo: -1 });
   const fieldModel = () => ({ depth: 1, width: 4, W1: [[1, -1], [-1, 1], [1, 1], [-1, -1]], b1: [0, 0, -1, 1], W2: [], b2: [], Wo: [1.7, 1.7, -1.7, -1.7], bo: 0 });
@@ -206,17 +282,17 @@
   }
   function dataChanged(message) {
     stop(); reconcileProvenanceAfterDataChange(); state.steps = 0; changed(); const loss = dataLoss(); state.history = Number.isFinite(loss) ? [{ step: 0, loss }] : [];
-    state.status = state.provenance === 'carried' ? `${message} Choose Recommended or Random before training.` : message; render(true); return snapshot();
+    state.status = state.provenance === 'carried' ? `${message} Choose Recommended or Seeded before training.` : message; render(true); return snapshot();
   }
   function loadCornerRule() {
     state.initializer = 'corner';
     const matches = state.dataset === 'xor4';
-    commit(cornerModel(), matches ? 'constructed' : 'carried', matches ? 'Loaded the exact two-ReLU corner construction for inspection. Choose Recommended or Random before training.' : 'Loaded the corner construction on different evidence for comparison. Choose Recommended or Random before training.'); return snapshot();
+    commit(cornerModel(), matches ? 'constructed' : 'carried', matches ? 'Loaded the exact two-ReLU corner construction for inspection. Choose Recommended or Seeded before training.' : 'Loaded the corner construction on different evidence for comparison. Choose Recommended or Seeded before training.'); return snapshot();
   }
   function loadFieldRule() {
     state.initializer = 'field';
     const matches = state.dataset === 'xorField';
-    commit(fieldModel(), matches ? 'constructed' : 'carried', matches ? 'Loaded the exact four-ReLU XOR field construction for inspection. Choose Recommended or Random before training.' : 'Loaded the XOR field construction on different evidence for comparison. Choose Recommended or Random before training.'); return snapshot();
+    commit(fieldModel(), matches ? 'constructed' : 'carried', matches ? 'Loaded the exact four-ReLU XOR field construction for inspection. Choose Recommended or Seeded before training.' : 'Loaded the XOR field construction on different evidence for comparison. Choose Recommended or Seeded before training.'); return snapshot();
   }
   function recommendationFor(key = state.dataset) {
     if (!DATASETS.has(key)) throw new RangeError(`Unknown dataset: ${key}`);
@@ -226,10 +302,16 @@
     const architecture = setup.depth ? `${setup.depth} ${setup.depth === 1 ? 'layer' : 'layers'} · width ${setup.width}` : 'linear model';
     return `${architecture} · learning rate ${setup.lr} · weight seed ${setup.weightSeed}`;
   }
+  function initializationDescription(depth) {
+    if (!depth) return 'Seeded linear weights loaded.';
+    return depth === 1
+      ? 'Balanced hinge start loaded: the seed rotates well-spread ReLU directions; the output head begins at zero.'
+      : 'Balanced hinge start loaded: the seed rotates well-spread first-layer directions; deeper weights use domain-centered He initialization.';
+  }
   function loadRecommendedSetup() {
     const setup = recommendationFor();
     state.lr = setup.lr; state.weightSeed = setup.weightSeed; state.initializer = 'random';
-    commit(randomModel(setup.depth, setup.width, state.weightSeed), 'random', `Recommended random start loaded for ${datasetName(state.dataset)}: ${setupDescription(setup)}.`);
+    commit(randomModel(setup.depth, setup.width, state.weightSeed), 'random', `Recommended start loaded for ${datasetName(state.dataset)}: ${setupDescription(setup)}. ${initializationDescription(setup.depth)}`);
     return snapshot();
   }
   function initialize(options = 'random') {
@@ -244,7 +326,7 @@
     if (o.depth !== undefined) state.depth = validDepth(o.depth);
     if (o.width !== undefined) state.width = validWidth(o.width);
     state.initializer = 'random'; state.data = makeDataset(state.dataset, state.dataSeed, state.customPoints);
-    commit(randomModel(state.depth, state.width, state.weightSeed), kind === 'trained' ? 'trained' : 'random', 'Loaded deterministic random weights; data is unchanged.'); return snapshot();
+    commit(randomModel(state.depth, state.width, state.weightSeed), kind === 'trained' ? 'trained' : 'random', `${initializationDescription(state.depth)} Data is unchanged.`); return snapshot();
   }
   function setDataset(key) {
     if (!DATASETS.has(key)) throw new RangeError(`Unknown dataset: ${key}`);
@@ -254,7 +336,33 @@
   function setArchitecture(depthOrOptions, maybeWidth) {
     const o = depthOrOptions && typeof depthOrOptions === 'object' ? depthOrOptions : { depth: depthOrOptions, width: maybeWidth };
     const depth = o.depth === undefined ? state.depth : validDepth(o.depth), width = o.width === undefined ? state.width : validWidth(o.width);
-    state.initializer = 'random'; commit(randomModel(depth, width, state.weightSeed), 'random', depth ? `${depth} hidden ${depth === 1 ? 'layer' : 'layers'}, width ${width}; weight-seeded random initialization loaded.` : 'Linear model loaded from the weight seed.'); return snapshot();
+    if (depth === state.depth) return setWidth(width);
+    if (state.depth === 1 && depth === 2 && width === state.width) {
+      stop(); state.model = deepenOneLayerModel(state.model); state.depth = 2; changed();
+      state.status = `Added a second ReLU layer as an identity map; the current function, metrics, and training history are unchanged.${canTrain() ? '' : ' This inspection model remains frozen; choose Recommended or Seeded before training.'}`;
+      render(true); return snapshot();
+    }
+    state.initializer = 'random'; commit(randomModel(depth, width, state.weightSeed), 'random', `${depth ? `${depth} hidden ${depth === 1 ? 'layer' : 'layers'}, width ${width}. ` : ''}${initializationDescription(depth)}`); return snapshot();
+  }
+  function setWidth(value) {
+    const width = validWidth(value);
+    if (!state.depth) {
+      state.status = 'Width applies only when at least one hidden layer is enabled; the linear model is unchanged.';
+      render(false); return snapshot();
+    }
+    if (width === state.width) {
+      state.status = `Width is already ${width}; the model is unchanged.`;
+      render(false); return snapshot();
+    }
+    if (width > state.width) {
+      const oldWidth = state.width;
+      stop(); state.model = widenModel(state.model, width, state.weightSeed); state.width = width; changed();
+      state.status = `Width increased ${oldWidth} → ${width}; the current function, metrics, and training history are unchanged. New ReLUs start with zero output contribution.${canTrain() ? ' They are available to subsequent training.' : ' This inspection model remains frozen; choose Recommended or Seeded before training.'}`;
+      render(true); return snapshot();
+    }
+    state.initializer = 'random';
+    commit(randomModel(state.depth, width, state.weightSeed), 'random', `Width reduced to ${width}; a fresh seeded model was loaded because removing units cannot preserve the current function. ${initializationDescription(state.depth)}`);
+    return snapshot();
   }
   function setDataSeed(value) {
     state.dataSeed = validSeed(value); if (state.dataset !== 'custom') state.data = makeDataset(state.dataset, state.dataSeed, state.customPoints);
@@ -262,20 +370,20 @@
   }
   function setWeightSeed(value) {
     state.weightSeed = validSeed(value); state.initializer = 'random';
-    commit(randomModel(state.depth, state.width, state.weightSeed), 'random', `Weight seed ${state.weightSeed} loaded; data preserved.`); return snapshot();
+    commit(randomModel(state.depth, state.width, state.weightSeed), 'random', `Weight seed ${state.weightSeed} loaded; data preserved. ${initializationDescription(state.depth)}`); return snapshot();
   }
   function setSeed(value) {
     state.dataSeed = validSeed(value); state.weightSeed = validSeed(value);
     if (state.dataset !== 'custom') state.data = makeDataset(state.dataset, state.dataSeed, state.customPoints);
-    state.initializer = 'random'; commit(randomModel(state.depth, state.width, state.weightSeed), 'random', `Compatibility seed ${state.weightSeed} applied to data and weights.`); return snapshot();
+    state.initializer = 'random'; commit(randomModel(state.depth, state.width, state.weightSeed), 'random', `Compatibility seed ${state.weightSeed} applied to data and weights. ${initializationDescription(state.depth)}`); return snapshot();
   }
   const clipG = (v) => clamp(finite(v), -12, 12), clipP = (v) => clamp(finite(v), -60, 60);
   const canTrain = () => Boolean(state.data.length) && (state.provenance === 'random' || state.provenance === 'trained');
   function explainTrainingBlock() {
     if (!state.data.length) return 'Add at least one custom point before training.';
     return state.provenance === 'constructed'
-      ? 'This exact construction is for inspection. Choose Recommended or Random before training.'
-      : 'These weights were carried from different evidence. Choose Recommended or Random before training.';
+      ? 'This exact construction is for inspection. Choose Recommended or Seeded before training.'
+      : 'These weights were carried from different evidence. Choose Recommended or Seeded before training.';
   }
   function trainOne() {
     const m = state.model, n = state.data.length; if (!n || !canTrain()) return false;
@@ -520,7 +628,7 @@
   }
 
   el.main.addEventListener('pointerdown', (event) => { const p = eventToInput(event); if (!p?.inside) return; state.probe = { x: p.x, y: p.y }; if (state.dataset === 'custom') { if (event.shiftKey && state.customPoints.length) removeCustomPoint({ x: p.x, y: p.y }); else addCustomPoint(p.x, p.y, state.pointClass); } else render(false); });
-  el.dataset.addEventListener('change', () => setDataset(el.dataset.value)); el.depth.addEventListener('change', () => setArchitecture({ depth: Number(el.depth.value), width: state.width })); el.width.addEventListener('input', () => { el.widthOutput.value = el.width.value; }); el.width.addEventListener('change', () => setArchitecture({ depth: state.depth, width: Number(el.width.value) })); el.lr.addEventListener('change', () => setLearningRate(el.lr.value));
+  el.dataset.addEventListener('change', () => setDataset(el.dataset.value)); el.depth.addEventListener('change', () => setArchitecture({ depth: Number(el.depth.value), width: state.width })); el.width.addEventListener('input', () => { el.widthOutput.value = el.width.value; }); el.width.addEventListener('change', () => setWidth(el.width.value)); el.lr.addEventListener('change', () => setLearningRate(el.lr.value));
   el.dataSeed.addEventListener('change', () => setDataSeed(el.dataSeed.value)); el.newDataSeed.addEventListener('click', () => setDataSeed(state.dataSeed % 9999 + 1)); el.weightSeed.addEventListener('change', () => setWeightSeed(el.weightSeed.value)); el.newWeightSeed.addEventListener('click', () => setWeightSeed(state.weightSeed % 9999 + 1));
   el.recommended?.addEventListener('click', loadRecommendedSetup); el.random.addEventListener('click', resetWeights); el.corner.addEventListener('click', loadCornerRule); el.field.addEventListener('click', loadFieldRule); el.run.addEventListener('click', () => state.running ? (stop(), state.status = 'Training paused.', render(false)) : start()); el.step.addEventListener('click', () => { stop(); step(1); }); el.reset.addEventListener('click', resetWeights); el.clear.addEventListener('click', clearCustomPoints); el.undo.addEventListener('click', undoCustomEdit);
   document.querySelectorAll('[data-point-class]').forEach((b) => b.addEventListener('click', () => { state.pointClass = Number(b.dataset.pointClass); syncControls(); })); document.querySelectorAll('[data-class-view]').forEach((b) => b.addEventListener('click', () => setView(b.dataset.classView))); [el.probeX, el.probeY].forEach((node) => node.addEventListener('input', () => setProbe(el.probeX.value, el.probeY.value))); document.querySelectorAll('[data-surface-view]').forEach((b) => b.addEventListener('click', () => setSurfaceView(b.dataset.surfaceView))); el.surfaceReset.addEventListener('click', () => setSurfaceView('iso'));
@@ -540,6 +648,6 @@
     const m = getMetrics(), counts = dataCounts(), activity = activationDiagnostics(), historyLastLoss = state.history.at(-1)?.loss;
     return { mode: 'classification', dataset: state.dataset, dataSize: state.data.length, dataSeed: state.dataSeed, weightSeed: state.weightSeed, depth: state.depth, width: state.width, parameters: parameterCount(), accuracy: m.accuracy, fieldAgreement: m.agreement, loss: m.loss, steps: state.steps, featureCount: state.depth ? state.width : 0, provenance: state.provenance, initializer: state.initializer, view: state.view, running: state.running, trainable: canTrain(), learningRate: state.lr, historyLength: state.history.length, historyLastLoss: Number.isFinite(historyLastLoss) ? historyLastLoss : null, classCounts: counts.classCounts, quadrantCounts: counts.quadrantCounts, deadUnits: activity.deadUnits, deadUnitsByLayer: activity.deadUnitsByLayer, probe: { ...state.probe }, camera: { ...state.camera }, dataSignature: dataSignature(), weightSignature: modelSignature() };
   }
-  window.ReLUClassificationLab = Object.freeze({ snapshot, setDataset, setArchitecture, setDataSeed, setWeightSeed, setSeed, setLearningRate, initialize, getRecommendedSetup: recommendationFor, loadRecommendedSetup, loadCornerRule, loadFieldRule, step, start, stop, reset: resetWeights, setView, setProbe, addCustomPoint, removeCustomPoint, clearCustomPoints, undoCustomEdit, getContributionDecomposition: decomposition, setSurfaceCamera, setSurfaceView });
-  syncResponsiveLayout(); state.data = makeDataset(state.dataset, state.dataSeed, state.customPoints); state.model = cornerModel(); state.status = 'Constructed two-ReLU corner rule loaded for inspection. Choose Recommended or Random before training.'; changed(); const initialLoss = dataLoss(); state.history = [{ step: 0, loss: initialLoss }]; render(true);
+  window.ReLUClassificationLab = Object.freeze({ snapshot, setDataset, setArchitecture, setWidth, setDataSeed, setWeightSeed, setSeed, setLearningRate, initialize, getRecommendedSetup: recommendationFor, loadRecommendedSetup, loadCornerRule, loadFieldRule, step, start, stop, reset: resetWeights, setView, setProbe, addCustomPoint, removeCustomPoint, clearCustomPoints, undoCustomEdit, getContributionDecomposition: decomposition, setSurfaceCamera, setSurfaceView });
+  syncResponsiveLayout(); state.data = makeDataset(state.dataset, state.dataSeed, state.customPoints); state.model = cornerModel(); state.status = 'Constructed two-ReLU corner rule loaded for inspection. Choose Recommended or Seeded before training.'; changed(); const initialLoss = dataLoss(); state.history = [{ step: 0, loss: initialLoss }]; render(true);
 })();
