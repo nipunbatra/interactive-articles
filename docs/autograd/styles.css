@@ -65,10 +65,16 @@ body {
   font-family: var(--sans);
 }
 
+:where(a, button, input, [tabindex]):focus-visible {
+  outline: 3px solid rgba(60, 104, 207, 0.42);
+  outline-offset: 3px;
+}
+
 .back-link {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
+  min-height: 44px;
   color: var(--muted);
   text-decoration: none;
   font-size: 0.9rem;
@@ -169,7 +175,6 @@ body {
 .hero__meta,
 .hero__actions,
 .hero-notes,
-.summary-strip,
 .scrubber-row,
 .dataset-switcher {
   display: flex;
@@ -199,6 +204,7 @@ body {
   align-items: center;
   justify-content: center;
   gap: 0.4rem;
+  min-height: 44px;
   padding: 0.78rem 1.05rem;
   border-radius: 999px;
   border: 1px solid var(--line);
@@ -228,6 +234,15 @@ body {
 .rule-chip:hover,
 .dataset-chip:hover {
   transform: translateY(-1px);
+}
+
+.primary-link:active,
+.ghost-link:active,
+.toolbar-button:active,
+.mode-chip:active,
+.rule-chip:active,
+.dataset-chip:active {
+  transform: translateY(0);
 }
 
 .hero-card__formula {
@@ -382,6 +397,19 @@ pre {
 #batchSvg {
   width: 100%;
   display: block;
+}
+
+.visual-viewport,
+.table-viewport {
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(32, 39, 51, 0.28) transparent;
+}
+
+.visual-viewport {
+  border-radius: 16px;
 }
 
 .diagram-board {
@@ -577,21 +605,79 @@ pre {
 }
 
 input[type='range'] {
+  appearance: none;
   width: 100%;
+  height: 44px;
+  margin: 0;
+  background: transparent;
   accent-color: var(--blue);
+  cursor: pointer;
+  touch-action: pan-y;
+}
+
+input[type='range']::-webkit-slider-runnable-track {
+  height: 5px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(60, 104, 207, 0.28), rgba(32, 39, 51, 0.13));
+}
+
+input[type='range']::-webkit-slider-thumb {
+  appearance: none;
+  width: 24px;
+  height: 24px;
+  margin-top: -9.5px;
+  border: 3px solid var(--paper);
+  border-radius: 50%;
+  background: var(--blue);
+  box-shadow: 0 2px 8px rgba(32, 39, 51, 0.22);
+}
+
+input[type='range']::-moz-range-track {
+  height: 5px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(32, 39, 51, 0.13);
+}
+
+input[type='range']::-moz-range-progress {
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(60, 104, 207, 0.55);
+}
+
+input[type='range']::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border: 3px solid var(--paper);
+  border-radius: 50%;
+  background: var(--blue);
+  box-shadow: 0 2px 8px rgba(32, 39, 51, 0.22);
 }
 
 .graph-shell {
-  grid-template-columns: minmax(0, 1.5fr) minmax(310px, 0.82fr);
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
 }
 
 .graph-surface {
+  position: relative;
   padding: 0.6rem;
   border-radius: 18px;
   border: 1px solid var(--line);
   background: #fbfbfd;
-  overflow: auto hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(32, 39, 51, 0.28) transparent;
+}
+
+#graphSvg {
+  width: 100%;
+}
+
+.visual-pan-hint {
+  display: none;
 }
 
 .ledger-table,
@@ -601,25 +687,110 @@ input[type='range'] {
   margin-top: 1rem;
 }
 
+.ledger {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(370px, 0.95fr);
+  grid-template-areas:
+    'eyebrow table'
+    'headline table'
+    'explanation table'
+    'equation table';
+  column-gap: 1.5rem;
+  align-items: start;
+}
+
+.ledger > .eyebrow {
+  grid-area: eyebrow;
+}
+
+.ledger > h3 {
+  grid-area: headline;
+}
+
+.ledger > #stageExplanation {
+  grid-area: explanation;
+}
+
+.ledger > .equation-card {
+  grid-area: equation;
+}
+
+.ledger > .ledger-table {
+  grid-area: table;
+  margin-top: 0;
+}
+
+.ledger-caption {
+  margin: 0 0 0.55rem;
+  color: var(--muted);
+  font-family: var(--sans);
+  font-size: 0.78rem;
+}
+
 .ledger-row {
   display: grid;
   grid-template-columns: minmax(0, 1.1fr) minmax(90px, 0.8fr) minmax(90px, 0.8fr);
   gap: 0.6rem;
   align-items: center;
-  padding: 0.72rem 0.82rem;
-  border-radius: 16px;
+  padding: 0.58rem 0.7rem;
+  border: 1px solid transparent;
+  border-radius: 13px;
   background: var(--paper-soft);
   font-family: var(--sans);
-  font-size: 0.85rem;
+  font-size: 0.78rem;
 }
 
 .ledger-row strong {
   display: block;
-  font-size: 0.93rem;
+  font-size: 0.84rem;
 }
 
 .ledger-row span {
   color: var(--muted);
+  font-size: 0.7rem;
+  line-height: 1.25;
+}
+
+.ledger-row--header {
+  background: rgba(30, 119, 112, 0.09);
+}
+
+.ledger-row--active {
+  border-color: rgba(60, 104, 207, 0.25);
+  background: rgba(60, 104, 207, 0.06);
+}
+
+.ledger-preview,
+.ledger-all {
+  display: grid;
+  gap: 0.42rem;
+}
+
+.ledger-disclosure {
+  margin-top: 0.7rem;
+  border-top: 1px solid var(--line);
+}
+
+.ledger-disclosure summary {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--blue);
+  font-family: var(--sans);
+  font-size: 0.8rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.ledger-disclosure[open] summary {
+  margin-bottom: 0.45rem;
+}
+
+.ledger-all {
+  max-height: 350px;
+  padding-right: 0.2rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .equation-card {
@@ -631,6 +802,12 @@ input[type='range'] {
   font-size: 12px;
   font-weight: 500;
   fill: #fff;
+}
+
+.batch-chart-title,
+.batch-point-label {
+  font-weight: 700;
+  fill: var(--ink);
 }
 
 .module-shell {
@@ -647,19 +824,31 @@ input[type='range'] {
 
 .batch-shell {
   grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.82fr);
+  grid-template-areas:
+    'visuals controls'
+    'narrative table';
   align-items: start;
 }
 
 .batch-visuals {
+  grid-area: visuals;
   display: grid;
   gap: 1rem;
 }
 
+.summary-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
 .summary-card {
-  flex: 1 1 160px;
+  min-width: 0;
+  padding: 0.72rem 0.82rem;
 }
 
 .batch-panel {
+  grid-area: controls;
   display: grid;
   gap: 0.95rem;
 }
@@ -678,11 +867,24 @@ input[type='range'] {
 }
 
 .batch-narrative {
+  grid-area: narrative;
+  align-self: stretch;
+  max-width: none;
   margin: 0;
-  padding: 0.9rem 1rem;
-  border-radius: 16px;
+  padding: 1.05rem 1.15rem;
+  border: 1px solid var(--line);
+  border-radius: 18px;
   background: var(--paper-soft);
   font-size: 0.96rem;
+}
+
+.batch-shell > .table-viewport {
+  grid-area: table;
+  align-self: stretch;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--paper);
 }
 
 .example-table {
@@ -738,6 +940,14 @@ figcaption {
   .toc ul {
     grid-template-columns: 1fr 1fr;
   }
+
+  .batch-shell {
+    grid-template-areas:
+      'visuals'
+      'controls'
+      'narrative'
+      'table';
+  }
 }
 
 @media (max-width: 760px) {
@@ -764,15 +974,196 @@ figcaption {
     grid-template-columns: 1fr;
   }
 
-  .hero__actions,
-  .figure-toolbar,
-  .figure-controls,
-  .summary-strip {
+  .hero__actions {
     flex-direction: column;
     align-items: stretch;
   }
 
+  .figure-toolbar,
+  .figure-controls {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.55rem;
+    padding: 0.8rem;
+  }
+
+  .figure-toolbar .toolbar-button,
+  .figure-controls .mode-chip,
+  .figure-controls .rule-chip {
+    width: 100%;
+    min-width: 0;
+    padding-inline: 0.55rem;
+  }
+
+  .figure-toolbar--batch {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .figure-toolbar--batch .dataset-switcher {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.45rem;
+  }
+
+  .dataset-chip {
+    min-width: 0;
+    padding: 0.55rem 0.35rem;
+    font-size: 0.75rem;
+    line-height: 1.2;
+  }
+
+  .figure-toolbar--batch #exportBatch {
+    grid-column: 1 / -1;
+  }
+
+  .scrubber-row {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.5rem;
+    padding: 0 0.8rem 0.75rem;
+  }
+
+  .stage-pill {
+    min-width: 0;
+    padding: 0.65rem;
+    border-radius: 15px;
+  }
+
+  .stage-pill span {
+    font-size: 0.62rem;
+    letter-spacing: 0.09em;
+  }
+
+  .stage-pill strong {
+    font-size: 0.8rem;
+    line-height: 1.3;
+  }
+
+  .scrubber-label {
+    padding: 0 0.8rem 0.75rem;
+  }
+
+  .graph-shell,
+  .module-shell,
+  .batch-shell,
+  .rule-stage {
+    padding: 0.8rem;
+  }
+
+  #graphSvg {
+    width: 820px;
+  }
+
+  .visual-pan-hint {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    display: block;
+    width: max-content;
+    max-width: calc(100vw - 4rem);
+    margin: 0 0 0.35rem;
+    padding: 0.28rem 0.55rem;
+    border-radius: 999px;
+    background: rgba(32, 39, 51, 0.84);
+    color: #fff;
+    font-family: var(--sans);
+    font-size: 0.68rem;
+    line-height: 1.25;
+  }
+
+  .visual-viewport--flow .flow-diagram {
+    width: 760px;
+  }
+
+  .visual-viewport--module #moduleSvg {
+    width: 760px;
+  }
+
+  #batchSvg .batch-chart-title,
+  #batchSvg .batch-point-label {
+    font-size: 22px;
+  }
+
+  #batchSvg .batch-chart-note {
+    font-size: 18px;
+  }
+
+  #batchSvg .batch-axis-label {
+    font-size: 20px;
+  }
+
+  .ledger {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      'eyebrow'
+      'headline'
+      'explanation'
+      'equation'
+      'table';
+    padding: 1rem;
+  }
+
+  .ledger > .ledger-table {
+    margin-top: 0.25rem;
+  }
+
   .ledger-row {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(68px, 1fr) repeat(2, minmax(72px, 0.9fr));
+    gap: 0.38rem;
+    padding: 0.55rem 0.58rem;
+  }
+
+  .ledger-row strong {
+    overflow-wrap: anywhere;
+  }
+
+  .ledger-all {
+    max-height: 310px;
+  }
+
+  .summary-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.55rem;
+  }
+
+  .summary-card {
+    min-height: 84px;
+    border-radius: 16px;
+    box-shadow: 0 6px 16px rgba(32, 39, 51, 0.05);
+  }
+
+  .table-viewport {
+    padding-bottom: 0.25rem;
+  }
+
+  .example-table {
+    font-size: 0.72rem;
+  }
+
+  .example-table th,
+  .example-table td {
+    padding: 0.55rem 0.26rem;
+  }
+
+  .example-table th {
+    font-size: 0.64rem;
+    letter-spacing: 0.06em;
+  }
+
+  .ledger-row {
+    font-size: 0.76rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
   }
 }

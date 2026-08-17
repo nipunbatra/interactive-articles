@@ -4,6 +4,7 @@
   "description": "A small static site for intuition-first interactive articles.",
   "scripts": {
     "build": "node scripts/build.js",
+    "test:autograd": "npm run build && node scripts/audit-autograd.mjs docs/autograd/index.html",
     "test:relu-classification": "node scripts/test-mlp-decision-boundary.mjs",
     "test:relu-approximation": "node scripts/test-relu-function-approximation.mjs",
     "test:relu-labs": "npm run test:relu-classification && npm run test:relu-approximation"

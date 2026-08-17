@@ -46,12 +46,12 @@ const FORWARD_STAGE_END = 8;
 const FINAL_STAGE = 17;
 
 const GRAPH_NODES = [
-  { id: 'x', label: 'x', sub: 'input', x: 120, y: 170, kind: 'input', forwardStep: 0, backwardStep: 17 },
-  { id: 'w', label: 'w', sub: 'parameter', x: 120, y: 350, kind: 'parameter', forwardStep: 0, backwardStep: 17 },
-  { id: 'mul', label: 'wx', sub: 'multiply', x: 330, y: 260, kind: 'op', forwardStep: 1, backwardStep: 16 },
+  { id: 'x', label: 'x', sub: 'input', x: 120, y: 170, kind: 'input', forwardStep: 0, backwardStep: 16 },
+  { id: 'w', label: 'w', sub: 'parameter', x: 120, y: 350, kind: 'parameter', forwardStep: 0, backwardStep: 16 },
+  { id: 'mul', label: 'wx', sub: 'multiply', x: 330, y: 260, kind: 'op', forwardStep: 1, backwardStep: 15 },
   { id: 'b', label: 'b', sub: 'parameter', x: 330, y: 440, kind: 'parameter', forwardStep: 0, backwardStep: 15 },
-  { id: 'z', label: 'z', sub: 'add', x: 540, y: 350, kind: 'op', forwardStep: 2, backwardStep: 15 },
-  { id: 'neg', label: '-z', sub: 'negate', x: 750, y: 350, kind: 'op', forwardStep: 3, backwardStep: 14 },
+  { id: 'z', label: 'z', sub: 'add', x: 540, y: 350, kind: 'op', forwardStep: 2, backwardStep: 14 },
+  { id: 'neg', label: '-z', sub: 'negate', x: 750, y: 350, kind: 'op', forwardStep: 3, backwardStep: 13 },
   { id: 'exp', label: 'e^-z', sub: 'exp', x: 960, y: 350, kind: 'op', forwardStep: 4, backwardStep: 13 },
   { id: 'denom', label: '1 + exp', sub: 'add', x: 1170, y: 350, kind: 'op', forwardStep: 5, backwardStep: 12 },
   { id: 'p', label: 'p', sub: 'sigmoid', x: 1350, y: 350, kind: 'op', forwardStep: 6, backwardStep: 11 },
@@ -506,19 +506,19 @@ function edgePath(edge) {
 
 function nodeMarkup(node, visible, direction) {
   const { fill, stroke, glow } = graphNodeColors(node, visible, direction);
-  const badgeY = 55;
+  const badgeY = 65;
   const valueBadge = visible.value === null
     ? ''
-    : `<g transform="translate(14 ${badgeY})"><rect width="52" height="18" rx="9" fill="#345ff6" opacity="0.9"></rect><text class="node-badge" x="10" y="12.5">v ${formatNumber(visible.value, 2)}</text></g>`;
+    : `<g transform="translate(10 ${badgeY})"><rect width="62" height="22" rx="11" fill="#345ff6" opacity="0.92"></rect><text class="node-badge" x="8" y="16">v ${formatNumber(visible.value, 2)}</text></g>`;
   const gradBadge = visible.grad === null
     ? ''
-    : `<g transform="translate(72 ${badgeY})"><rect width="54" height="18" rx="9" fill="#f0624d" opacity="0.9"></rect><text class="node-badge" x="8" y="12.5">∂ ${formatNumber(visible.grad, 2)}</text></g>`;
+    : `<g transform="translate(78 ${badgeY})"><rect width="62" height="22" rx="11" fill="#f0624d" opacity="0.92"></rect><text class="node-badge" x="7" y="16">∂ ${formatNumber(visible.grad, 2)}</text></g>`;
 
   return `
-    <g transform="translate(${node.x - 70} ${node.y - 42})" style="filter:${glow}">
-      <rect width="140" height="84" rx="24" fill="${fill}" stroke="${stroke}" stroke-width="${visible.active ? 3 : 2}"></rect>
-      <text class="node-label" x="16" y="31">${node.label}</text>
-      <text class="node-sub" x="16" y="49">${node.sub}</text>
+    <g transform="translate(${node.x - 75} ${node.y - 48})" style="filter:${glow}" data-graph-node="${node.id}" data-active="${visible.active}">
+      <rect width="150" height="96" rx="24" fill="${fill}" stroke="${stroke}" stroke-width="${visible.active ? 3 : 2}"></rect>
+      <text class="node-label" x="16" y="32">${node.label}</text>
+      <text class="node-sub" x="16" y="51">${node.sub}</text>
       ${valueBadge}
       ${gradBadge}
     </g>
@@ -546,7 +546,7 @@ function renderGraphFigure() {
         <stop offset="100%" stop-color="#fff7f3"></stop>
       </linearGradient>
     </defs>
-    <rect x="18" y="18" width="1384" height="584" rx="30" fill="url(#graphWash)" stroke="#d7dde6"></rect>
+    <rect x="18" y="18" width="1444" height="624" rx="30" fill="url(#graphWash)" stroke="#d7dde6"></rect>
     <text x="46" y="62" class="node-sub">Single positive example: x = ${formatNumber(graphSnapshot.values.x)}, w = ${formatNumber(graphSnapshot.values.w)}, b = ${formatNumber(graphSnapshot.values.b)}</text>
     ${edgesMarkup}
     ${nodesMarkup}
@@ -561,27 +561,78 @@ function renderGraphFigure() {
   els.stageScrubber.value = String(stage);
 
   renderNodeTable(visibleState);
+  keepActiveGraphNodesInView();
 }
 
 function renderNodeTable(visibleState) {
+  const disclosureWasOpen = Boolean(els.nodeTable.querySelector('.ledger-disclosure')?.open);
   const header = `
-    <div class="ledger-row" style="font-weight:700;background:rgba(12,127,120,0.08)">
+    <div class="ledger-row ledger-row--header">
       <div><strong>Node</strong><span>role</span></div>
-      <div><strong>Value</strong><span>forward cache</span></div>
-      <div><strong>Gradient</strong><span>backward message</span></div>
+      <div><strong>Value</strong><span>cached</span></div>
+      <div><strong>Gradient</strong><span>received</span></div>
     </div>
   `;
-  const rows = GRAPH_NODES.map((node) => {
+
+  const rowMarkup = (node, scope) => {
     const visible = visibleState[node.id];
     return `
-      <div class="ledger-row" style="border:${visible.active ? '1px solid rgba(52,95,246,0.16)' : 'none'}; background:${visible.active ? 'rgba(52,95,246,0.05)' : 'rgba(250,247,241,0.72)'}">
+      <div class="ledger-row ${visible.active ? 'ledger-row--active' : ''}" data-ledger-scope="${scope}" data-node-id="${node.id}">
         <div><strong>${node.label}</strong><span>${node.sub}</span></div>
-        <div><strong>${formatNumber(visible.value, 3)}</strong><span>${visible.value === null ? 'not created yet' : 'stored from forward'}</span></div>
-        <div><strong>${formatNumber(visible.grad, 3)}</strong><span>${visible.grad === null ? 'not reached yet' : 'available for parent update'}</span></div>
+        <div><strong>${formatNumber(visible.value, 3)}</strong><span>${visible.value === null ? 'pending' : 'cached'}</span></div>
+        <div><strong>${formatNumber(visible.grad, 3)}</strong><span>${visible.grad === null ? 'pending' : 'ready'}</span></div>
       </div>
     `;
-  }).join('');
-  els.nodeTable.innerHTML = header + rows;
+  };
+
+  const previewNodes = [];
+  const previewIds = new Set();
+  const addPreview = (node) => {
+    if (!node || previewIds.has(node.id) || previewNodes.length >= 5) return;
+    previewIds.add(node.id);
+    previewNodes.push(node);
+  };
+
+  GRAPH_NODES.filter((node) => visibleState[node.id].active).forEach(addPreview);
+  GRAPH_NODES
+    .filter((node) => visibleState[node.id].grad !== null)
+    .sort((a, b) => b.backwardStep - a.backwardStep)
+    .forEach(addPreview);
+  GRAPH_NODES
+    .filter((node) => visibleState[node.id].value !== null)
+    .sort((a, b) => b.forwardStep - a.forwardStep)
+    .forEach(addPreview);
+
+  const previewRows = previewNodes.map((node) => rowMarkup(node, 'preview')).join('');
+  const allRows = GRAPH_NODES.map((node) => rowMarkup(node, 'all')).join('');
+  els.nodeTable.innerHTML = `
+    <p class="ledger-caption">${previewNodes.length} nodes in context · active nodes first</p>
+    <div class="ledger-preview" aria-label="Nodes relevant to the current stage">
+      ${header}
+      ${previewRows}
+    </div>
+    <details class="ledger-disclosure" ${disclosureWasOpen ? 'open' : ''}>
+      <summary>All ${GRAPH_NODES.length} values and gradients</summary>
+      <div class="ledger-all">
+        ${header}
+        ${allRows}
+      </div>
+    </details>
+  `;
+}
+
+function keepActiveGraphNodesInView() {
+  const surface = els.graphSvg.parentElement;
+  if (!surface || surface.scrollWidth <= surface.clientWidth + 2) return;
+  const activeNodes = GRAPH_NODES.filter((node) => GRAPH_STAGES[state.graphStage].activeNodes.includes(node.id));
+  if (!activeNodes.length) return;
+  const minX = Math.min(...activeNodes.map((node) => node.x - 90));
+  const maxX = Math.max(...activeNodes.map((node) => node.x + 90));
+  const viewBoxWidth = els.graphSvg.viewBox.baseVal.width || 1480;
+  const scale = els.graphSvg.getBoundingClientRect().width / viewBoxWidth;
+  const activeCenter = ((minX + maxX) / 2) * scale;
+  const desired = activeCenter - surface.clientWidth / 2;
+  surface.scrollLeft = Math.max(0, Math.min(surface.scrollWidth - surface.clientWidth, desired));
 }
 
 function moveGraphStage(nextStage) {
@@ -798,14 +849,14 @@ function renderBatchSvg(snapshot) {
   const guides = [0, 0.5, 1].map((y) => `
     <g>
       <line x1="90" y1="${yScale(y)}" x2="700" y2="${yScale(y)}" stroke="#e3e8ee" stroke-width="1.5" stroke-dasharray="5 8"></line>
-      <text x="52" y="${yScale(y) + 5}" class="node-sub">${y.toFixed(1)}</text>
+      <text x="52" y="${yScale(y) + 5}" class="node-sub batch-axis-label">${y.toFixed(1)}</text>
     </g>
   `).join('');
 
   const xTicks = [-2, -1, 0, 1, 2].map((x) => `
     <g>
       <line x1="${xScale(x)}" y1="360" x2="${xScale(x)}" y2="372" stroke="#aeb8c2" stroke-width="1.4"></line>
-      <text x="${xScale(x) - 8}" y="394" class="node-sub">${x}</text>
+      <text x="${xScale(x) - 8}" y="394" class="node-sub batch-axis-label">${x}</text>
     </g>
   `).join('');
 
@@ -814,12 +865,13 @@ function renderBatchSvg(snapshot) {
     const predY = yScale(row.p);
     const x = xScale(row.x);
     const color = row.y === 1 ? '#0c7f78' : '#f0624d';
+    const labelX = row.x > 1.5 ? x - 82 : x + 12;
     return `
       <g>
         <line x1="${x}" y1="${baseY}" x2="${x}" y2="${predY}" stroke="${color}" stroke-width="2.4" opacity="0.5"></line>
         <circle cx="${x}" cy="${predY}" r="10" fill="#ffffff" stroke="${color}" stroke-width="3"></circle>
         <circle cx="${x}" cy="${baseY}" r="6" fill="${color}" opacity="0.85"></circle>
-        <text x="${x + 12}" y="${Math.min(baseY, predY) - 12 - index * 2}" class="node-sub">${row.name}: p=${formatNumber(row.p, 2)}</text>
+        <text x="${labelX}" y="${Math.min(baseY, predY) - 12 - index * 2}" class="node-sub batch-point-label">${row.name}: p=${formatNumber(row.p, 2)}</text>
       </g>
     `;
   }).join('');
@@ -828,14 +880,14 @@ function renderBatchSvg(snapshot) {
 
   els.batchSvg.innerHTML = `
     <rect x="18" y="18" width="724" height="394" rx="28" fill="#fbfbfd" stroke="#dae1e9"></rect>
-    <text x="42" y="54" class="node-sub">${snapshot.dataset.label} • ${paramsTag}</text>
-    <text x="42" y="74" class="node-sub">Circles: model probability. Dots: target labels. Lines: per-example error signal.</text>
+    <text x="42" y="48" class="node-sub batch-chart-title">${snapshot.dataset.label} • ${paramsTag}</text>
+    <text x="42" y="76" class="node-sub batch-chart-note">Dots: labels · Rings: predictions · Lines: errors</text>
     ${guides}
     <line x1="90" y1="360" x2="700" y2="360" stroke="#aeb8c2" stroke-width="2"></line>
     ${xTicks}
     <path d="${curvePoints}" fill="none" stroke="#345ff6" stroke-width="5" stroke-linecap="round"></path>
     ${examples}
-    <text x="676" y="394" class="node-sub">x</text>
+    <text x="676" y="394" class="node-sub batch-axis-label">x</text>
   `;
 }
 
@@ -974,7 +1026,10 @@ function bindEvents() {
     updateProgress();
     updateToc();
   }, { passive: true });
-  window.addEventListener('resize', updateToc);
+  window.addEventListener('resize', () => {
+    updateToc();
+    keepActiveGraphNodesInView();
+  });
 }
 
 function exposeApi() {
