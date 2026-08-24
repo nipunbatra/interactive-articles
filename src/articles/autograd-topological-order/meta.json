@@ -1,0 +1,20 @@
+{
+  "slug": "autograd-topological-order",
+  "title": "Topological Order for Backpropagation",
+  "date": "2026-08-24",
+  "tagline": "Watch a recursive graph walk build the safe schedule for reverse-mode autodiff",
+  "summary": "A step-through explainer for why backpropagation needs a topological order. Follow real ParentLinks, inspect the call stack and seen set, watch dependency-first order grow, and then reverse it for backward.",
+  "readingTime": "8 min",
+  "difficulty": "Intermediate",
+  "collection": "Deep learning",
+  "order": 1,
+  "status": "published",
+  "tags": ["Autodiff", "Backpropagation", "Topological Sort", "Interactive"],
+  "highlights": [
+    "Step through the exact scalar graph used in the autograd lecture, one recursive action at a time.",
+    "See the graph, active pseudocode line, call stack, seen set, ParentLink, and output list update together.",
+    "Keep sorting separate from calculus: local gradients are stored but untouched until backward.",
+    "Compare the dependency-first return frame with the distinct reverse-for-backward frame.",
+    "Use the same tool as a standalone explainer or embed it in the course notebook with live trace data."
+  ]
+}
