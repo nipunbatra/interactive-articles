@@ -7,7 +7,8 @@
     "test:autograd": "npm run build && node scripts/audit-autograd.mjs docs/autograd/index.html",
     "test:relu-classification": "node scripts/test-mlp-decision-boundary.mjs",
     "test:relu-approximation": "node scripts/test-relu-function-approximation.mjs",
-    "test:relu-labs": "npm run test:relu-classification && npm run test:relu-approximation"
+    "test:relu-labs": "npm run test:relu-classification && npm run test:relu-approximation",
+    "test:xor-feature-lift": "node scripts/test-xor-feature-lift.mjs"
   },
   "repository": {
     "type": "git",

@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Train logistic regression on XOR and watch the best possible line fail. Add the feature x1·x2 and see a flat plane in feature space become a curve in input space.">
+  <title>XOR and the Feature Lift</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23232b32'/%3E%3Ccircle cx='9' cy='9' r='3.2' fill='%236fa3d8'/%3E%3Ccircle cx='23' cy='23' r='3.2' fill='%236fa3d8'/%3E%3Crect x='19.8' y='5.8' width='6.4' height='6.4' fill='%23e3895f'/%3E%3Crect x='5.8' y='19.8' width='6.4' height='6.4' fill='%23e3895f'/%3E%3Cpath d='M4 17.5C10 17.5 13 15 16 15s6-2.5 12-2.5' fill='none' stroke='%23fff' stroke-width='2.2'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="main.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#workspace">Skip to experiment output</a>
+
+  <header class="topbar">
+    <a class="back-link" href="../" aria-label="Back to all interactives">All interactives</a>
+    <div class="course-mark">
+      <span>Deep Learning · Lecture 1</span>
+      <strong>XOR and the Feature Lift</strong>
+    </div>
+    <nav class="top-links" aria-label="Related course material">
+      <a href="../mlp-decision-boundary/">ReLU playground</a>
+      <a href="https://nipunbatra.github.io/dl-teaching/slides-pdf/L1.pdf">Lecture slides</a>
+    </nav>
+  </header>
+
+  <main class="app">
+    <section class="intro" aria-labelledby="pageTitle">
+      <div>
+        <p class="eyebrow">ONE LINEAR MODEL, TWO VIEWS</p>
+        <h1 id="pageTitle">One line cannot learn XOR. One more column can.</h1>
+        <p class="lead">Train a logistic regression on XOR and watch the best possible line fail. Then append the feature x<sub>1</sub>x<sub>2</sub>: the same linear model separates the lifted points with a flat plane in three dimensions, and that plane, seen from above, is the curve you get in the input plane.</p>
+      </div>
+      <aside class="equation-card" aria-label="The model">
+        <p class="card-label">The model</p>
+        <p class="equation">z = b + w<sub>1</sub>x<sub>1</sub> + w<sub>2</sub>x<sub>2</sub> + w<sub>3</sub>·φ(x)</p>
+        <p class="equation">p(y = 1 | x) = σ(z) = 1 / (1 + e<sup>−z</sup>)</p>
+        <p>The boundary z = 0 is linear in the features (x<sub>1</sub>, x<sub>2</sub>, φ). Every control in this lab changes only the data or φ. The classifier stays linear throughout.</p>
+      </aside>
+    </section>
+
+    <section class="lab-shell">
+      <aside class="controls" aria-label="Experiment controls">
+        <section class="control-group">
+          <div class="section-heading"><span>1</span><h2>Choose the data</h2></div>
+          <div class="toggle-row" role="group" aria-label="Dataset">
+            <button class="toggle-button is-active" type="button" data-dataset="clusters" aria-pressed="true"><strong>Four clusters</strong><small>100 points</small></button>
+            <button class="toggle-button" type="button" data-dataset="corners" aria-pressed="false"><strong>Four corners</strong><small>4 Boolean points</small></button>
+          </div>
+          <p class="helper">XOR labels: blue where x<sub>1</sub> and x<sub>2</sub> share a sign, orange where the signs differ.</p>
+        </section>
+
+        <section class="control-group">
+          <div class="section-heading"><span>2</span><h2>Choose the features</h2></div>
+          <div class="mode-list" role="group" aria-label="Feature map">
+            <button class="mode-button is-active" type="button" data-feature="none" aria-pressed="true">
+              <strong>x₁, x₂ only</strong><small>a line</small>
+            </button>
+            <button class="mode-button" type="button" data-feature="product" aria-pressed="false">
+              <strong>+ x₁x₂</strong><small>the lift</small>
+            </button>
+            <button class="mode-button" type="button" data-feature="radius" aria-pressed="false">
+              <strong>+ x₁² + x₂²</strong><small>a decoy</small>
+            </button>
+            <button class="mode-button" type="button" data-feature="relu" aria-pressed="false">
+              <strong>+ ReLU(x₁ + x₂ − 1)</strong><small>one hidden neuron</small>
+            </button>
+          </div>
+          <p class="helper" id="featureHelp">Logistic regression on the raw inputs.</p>
+        </section>
+
+        <section class="control-group">
+          <div class="section-heading"><span>3</span><h2>Set or learn the weights</h2></div>
+          <div class="slider-list">
+            <label class="slider-row" for="w1Slider">
+              <span>w₁ · x₁</span>
+              <input id="w1Slider" type="range" min="-8" max="8" step="0.05" value="0.7">
+              <output id="w1Value" for="w1Slider">0.70</output>
+            </label>
+            <label class="slider-row" for="w2Slider">
+              <span>w₂ · x₂</span>
+              <input id="w2Slider" type="range" min="-8" max="8" step="0.05" value="-0.45">
+              <output id="w2Value" for="w2Slider">−0.45</output>
+            </label>
+            <label class="slider-row" for="w3Slider">
+              <span id="w3Label">w₃ · φ</span>
+              <input id="w3Slider" type="range" min="-8" max="8" step="0.05" value="0">
+              <output id="w3Value" for="w3Slider">0.00</output>
+            </label>
+            <label class="slider-row" for="bSlider">
+              <span>b · bias</span>
+              <input id="bSlider" type="range" min="-8" max="8" step="0.05" value="0.15">
+              <output id="bValue" for="bSlider">0.15</output>
+            </label>
+          </div>
+          <div class="action-row">
+            <button class="primary-button" id="runBtn" type="button" aria-pressed="false">Run</button>
+            <button id="stepBtn" type="button">One step</button>
+            <button id="resetBtn" type="button">Reset</button>
+          </div>
+          <dl class="run-facts">
+            <div><dt>Step</dt><dd id="stepValue">0</dd></div>
+            <div><dt>Learning rate</dt><dd>0.50</dd></div>
+            <div><dt>Update</dt><dd>full batch</dd></div>
+          </dl>
+          <p class="status" id="statusText" role="status" aria-live="polite">Try the sliders first.</p>
+        </section>
+
+        <section class="control-group takeaway-card">
+          <p class="card-label">Prediction to test</p>
+          <p>With x₁ and x₂ alone, the loss cannot drop below <strong>ln 2 ≈ 0.693</strong>, the loss of guessing 0.5. With x₁x₂ added, it can go to <strong>zero</strong>.</p>
+        </section>
+      </aside>
+
+      <section class="workspace" id="workspace" aria-label="Experiment output">
+        <header class="workspace-head">
+          <div>
+            <p class="eyebrow" id="workspaceEyebrow">TWO FEATURES: x₁ AND x₂</p>
+            <h2 id="workspaceTitle">Can one straight line separate XOR?</h2>
+          </div>
+          <span class="dataset-badge" id="datasetBadge">100 points · 25 per corner</span>
+        </header>
+
+        <div class="metric-strip" aria-live="polite">
+          <div class="metric"><span>Binary cross-entropy</span><strong id="lossValue">—</strong><small id="lossNote">chance = ln 2 = 0.693</small></div>
+          <div class="metric metric-key"><span>Accuracy</span><strong id="accuracyValue">—</strong><small id="accuracyNote">100 points</small></div>
+          <div class="metric"><span>Boundary in input space</span><strong id="boundaryValue">—</strong><small>the set z = 0 drawn in (x₁, x₂)</small></div>
+          <div class="metric"><span>Boundary in feature space</span><strong id="dimensionValue">—</strong><small id="dimensionNote">always flat</small></div>
+        </div>
+
+        <div class="plot-grid">
+          <section class="plot-panel" aria-labelledby="inputTitle">
+            <div class="panel-head">
+              <div><p class="eyebrow">INPUT SPACE</p><h3 id="inputTitle">What the classifier draws in (x₁, x₂)</h3></div>
+              <span class="compact-value" id="inputSummary">—</span>
+            </div>
+            <canvas id="inputCanvas" role="img" tabindex="0" aria-describedby="inputHelp" aria-label="Input-space decision map with the XOR training points">Your browser does not support the input-space canvas.</canvas>
+            <div class="legend" aria-label="Input space legend">
+              <span><i class="swatch class-zero"></i>p(y = 1) near 0</span>
+              <span><i class="swatch class-one"></i>p(y = 1) near 1</span>
+              <span><i class="point-key point-zero"></i>class 0</span>
+              <span><i class="point-key point-one"></i>class 1</span>
+              <span><i class="curve-key"></i>boundary z = 0</span>
+            </div>
+            <p class="plot-help" id="inputHelp">Background colour is the model probability. The dark curve is where z = 0, traced from the live weights.</p>
+            <p class="equation-readout" id="boundaryEquation">—</p>
+          </section>
+
+          <section class="plot-panel" aria-labelledby="featureTitle">
+            <div class="panel-head">
+              <div><p class="eyebrow">FEATURE SPACE</p><h3 id="featureTitle">The same boundary in (x₁, x₂, φ)</h3></div>
+              <div class="view-row" role="group" aria-label="Camera view">
+                <button type="button" data-view="orbit" class="is-active" aria-pressed="true">Orbit</button>
+                <button type="button" data-view="edge" aria-pressed="false">Edge-on</button>
+                <button type="button" data-view="top" aria-pressed="false">Top</button>
+              </div>
+            </div>
+            <canvas id="featureCanvas" role="img" tabindex="0" aria-describedby="featureSpaceHelp" aria-label="Feature-space view of the lifted data and the separating plane">Your browser does not support the feature-space canvas.</canvas>
+            <div class="legend" aria-label="Feature space legend">
+              <span><i class="swatch surface-key"></i>surface z = φ, coloured by p</span>
+              <span><i class="swatch plane-key"></i>plane z = 0</span>
+              <span><i class="curve-key"></i>plane ∩ surface</span>
+              <span><i class="curve-key curve-dashed"></i>its shadow on the floor</span>
+            </div>
+            <p class="plot-help" id="featureSpaceHelp">Drag to orbit, scroll to zoom, arrow keys to rotate, 0 to reset. Edge-on turns the plane into a line. Top reproduces the left panel.</p>
+            <p class="equation-readout" id="planeEquation">—</p>
+          </section>
+        </div>
+
+        <section class="history-panel" aria-labelledby="historyTitle">
+          <div class="panel-head">
+            <div><p class="eyebrow">TRAINING</p><h3 id="historyTitle">Loss after every gradient step</h3></div>
+            <span class="compact-value" id="historySummary">—</span>
+          </div>
+          <canvas id="historyCanvas" class="history-canvas" role="img" tabindex="0" aria-label="Binary cross-entropy loss per gradient step">Your browser does not support the loss-history canvas.</canvas>
+          <p class="plot-help">The dashed line is ln 2, the loss of predicting 0.5 everywhere. The logistic loss is convex, so gradient descent reaches the best weights for the chosen features.</p>
+        </section>
+
+        <section class="explanation" aria-labelledby="whyTitle">
+          <div>
+            <p class="eyebrow">WHAT THE PICTURES PROVE</p>
+            <h2 id="whyTitle">The nonlinearity was never in the classifier.</h2>
+          </div>
+          <div class="explanation-grid">
+            <article>
+              <span class="explanation-index">A</span>
+              <h3>No line can do it</h3>
+              <p>Suppose a line puts both blue corners, (1, 1) and (−1, −1), on its positive side. A half-plane is convex, so it also contains their midpoint, the origin. The same argument for the orange corners (1, −1) and (−1, 1) puts the origin on the negative side. Contradiction.</p>
+              <p>Training is not the problem. The logistic loss is convex in (w, b), so gradient descent reaches the global optimum, and on symmetric XOR that optimum is w = 0: predict 0.5 everywhere, loss ln 2.</p>
+            </article>
+            <article>
+              <span class="explanation-index">B</span>
+              <h3>One column fixes it</h3>
+              <p>On the corners the new column x<sub>1</sub>x<sub>2</sub> is +1 for blue and −1 for orange, so it separates the classes on its own. The weights (0, 0, −1) give z = −x<sub>1</sub>x<sub>2</sub>: p = σ(−1) ≈ 0.27 on blue, σ(+1) ≈ 0.73 on orange, and scaling w<sub>3</sub> sharpens both.</p>
+              <p>In feature space that boundary is the flat sheet u<sub>3</sub> = 0. Train with the product feature and watch the plane settle near it.</p>
+            </article>
+            <article>
+              <span class="explanation-index">C</span>
+              <h3>Same boundary, two views</h3>
+              <p>In feature coordinates the boundary is b + w<sub>1</sub>u<sub>1</sub> + w<sub>2</sub>u<sub>2</sub> + w<sub>3</sub>u<sub>3</sub> = 0, a plane, flat by construction. Substitute u<sub>3</sub> = x<sub>1</sub>x<sub>2</sub> and solve: x<sub>2</sub> = −(b + w<sub>1</sub>x<sub>1</sub>) / (w<sub>2</sub> + w<sub>3</sub>x<sub>1</sub>), a hyperbola with asymptotes x<sub>1</sub> = −w<sub>2</sub>/w<sub>3</sub> and x<sub>2</sub> = −w<sub>1</sub>/w<sub>3</sub>.</p>
+              <p>Press Edge-on to see the plane as a line, then Top to see its trace as the curve on the left. Same object, two projections.</p>
+            </article>
+            <article>
+              <span class="explanation-index">D</span>
+              <h3>Networks learn φ</h3>
+              <p>The decoy x<sub>1</sub>² + x<sub>2</sub>² equals 2 at every corner and helps nobody: a useful feature must differ across classes. The ReLU feature max(0, x<sub>1</sub> + x<sub>2</sub> − 1) is one hidden neuron with weights (1, 1) and bias −1, chosen by hand. It flags the (1, 1) corner, and with the line it solves XOR.</p>
+              <p>A hidden layer is a bank of such units whose weights are learned by the same gradient descent. The ReLU playground shows that happening.</p>
+            </article>
+          </div>
+        </section>
+      </section>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <span>logistic regression · full-batch gradient descent · computation stays in this page</span>
+    <a href="../mlp-decision-boundary/">Continue: let a network learn φ →</a>
+  </footer>
+</body>
+</html>

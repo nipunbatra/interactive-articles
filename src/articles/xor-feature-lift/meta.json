@@ -1,0 +1,19 @@
+{
+  "slug": "xor-feature-lift",
+  "title": "XOR and the Feature Lift",
+  "date": "2026-09-03",
+  "tagline": "Watch the best possible line fail on XOR, then add one column, x₁x₂, and see a flat plane in 3D become a curve in 2D",
+  "summary": "Train logistic regression on XOR and watch gradient descent settle at the chance loss ln 2, because no straight line can separate the four corners. Append the feature x₁x₂ and the same linear model separates the lifted data with a flat plane in three dimensions. Orbit that plane, look at it edge-on, then look from the top: its trace on the saddle is the hyperbola you see in the input plane.",
+  "readingTime": "10 min",
+  "difficulty": "Beginner",
+  "collection": "Deep learning",
+  "order": 59,
+  "status": "published",
+  "tags": ["Logistic Regression", "XOR", "Feature Engineering", "Decision Boundary", "Linear Separability", "Interactive"],
+  "highlights": [
+    "Hand-tune or train a logistic regression on XOR and watch the loss floor at ln 2 ≈ 0.693, the loss of guessing 0.5.",
+    "Add the column x₁x₂ and see the points lift onto a saddle where one flat plane separates the classes.",
+    "Orbit the feature space, snap the camera edge-on to the plane, then look from the top to recover the 2D hyperbola.",
+    "Try a decoy feature that does not help and a hand-made ReLU feature that does, the bridge to hidden layers."
+  ]
+}
