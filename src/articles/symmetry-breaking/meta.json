@@ -1,0 +1,19 @@
+{
+  "slug": "symmetry-breaking",
+  "title": "Symmetry Breaking Lab",
+  "date": "2026-08-27",
+  "tagline": "See why a width-four hidden layer can remain an effective width-one model",
+  "summary": "A deterministic balanced-XOR experiment for comparing identical, slightly perturbed, and independent hidden-neuron initializations. Watch exact gradient descent preserve equality, inspect the four ReLU hinges, and track BCE, accuracy, parameter separation, and hidden-feature rank.",
+  "readingTime": "8 min",
+  "difficulty": "Beginner",
+  "collection": "Deep learning",
+  "order": 58,
+  "status": "published",
+  "tags": ["Initialization", "Symmetry Breaking", "ReLU", "XOR", "Gradient Descent", "Interactive"],
+  "highlights": [
+    "Train the same 2 → 4 ReLU → 1 architecture from identical, slightly perturbed, or independent parameters.",
+    "Separate parameter arrays verify that equality persists because gradients match, not because weights are shared.",
+    "Decision-surface and hinge canvases connect hidden-feature rank to the XOR regions the model can represent.",
+    "Live BCE, accuracy, neuron separation, and activation-matrix rank expose nominal width versus effective width."
+  ]
+}

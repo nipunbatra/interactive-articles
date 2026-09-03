@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="A deterministic XOR experiment showing why identical hidden neurons remain identical under gradient descent.">
+  <title>Symmetry Breaking Lab</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23232b32'/%3E%3Cpath d='M7 8l18 16M25 8L7 24' stroke='%23fff' stroke-width='3'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="main.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#workspace">Skip to experiment output</a>
+
+  <header class="topbar">
+    <a class="back-link" href="../" aria-label="Back to all interactives">All interactives</a>
+    <div class="course-mark">
+      <span>Deep Learning · Lecture 6</span>
+      <strong>Symmetry Breaking Lab</strong>
+    </div>
+    <nav class="top-links" aria-label="Related course material">
+      <a href="../vanishing-gradients/">Gradient explorer</a>
+      <a href="https://nipunbatra.github.io/dl-teaching/slides-pdf/L6.pdf">Lecture slides</a>
+    </nav>
+  </header>
+
+  <main class="app">
+    <section class="intro" aria-labelledby="pageTitle">
+      <div>
+        <p class="eyebrow">WIDTH ON PAPER ≠ WIDTH IN USE</p>
+        <h1 id="pageTitle">Four neurons can behave like one.</h1>
+        <p class="lead">Train the same 2 → 4 ReLU → 1 network on balanced XOR. Change only how its four hidden neurons begin, then watch their decision hinges and measured feature rank.</p>
+      </div>
+      <aside class="equation-card" aria-label="Symmetry argument">
+        <p class="card-label">The invariant</p>
+        <p class="equation">h<sub>j</sub> = ReLU(w<sub>j</sub><sup>T</sup>x + b<sub>j</sub>)</p>
+        <p class="equation">z = c + Σ<sub>j=1</sub><sup>4</sup> v<sub>j</sub>h<sub>j</sub></p>
+        <p>If two neurons have equal <i>w</i>, <i>b</i>, and <i>v</i>, they receive equal full-batch gradients. Gradient descent keeps them equal on the next step.</p>
+      </aside>
+    </section>
+
+    <section class="lab-shell">
+      <aside class="controls" aria-label="Experiment controls">
+        <section class="control-group">
+          <div class="section-heading"><span>1</span><h2>Choose initialization</h2></div>
+          <div class="mode-list" role="group" aria-label="Hidden-neuron initialization">
+            <button class="mode-button is-active" type="button" data-mode="identical" aria-pressed="true">
+              <strong>Identical</strong><small>four exact copies</small>
+            </button>
+            <button class="mode-button" type="button" data-mode="perturbed" aria-pressed="false">
+              <strong>Slightly perturbed</strong><small>copies + small offsets</small>
+            </button>
+            <button class="mode-button" type="button" data-mode="independent" aria-pressed="false">
+              <strong>Independent</strong><small>deterministic seed 12</small>
+            </button>
+          </div>
+          <p class="helper" id="modeHelp">All four parameter slots contain the same numbers. They are separate arrays, not shared weights.</p>
+        </section>
+
+        <section class="control-group">
+          <div class="section-heading"><span>2</span><h2>Apply gradient descent</h2></div>
+          <div class="action-row">
+            <button class="primary-button" id="runBtn" type="button" aria-pressed="false">Run</button>
+            <button id="stepBtn" type="button">One step</button>
+            <button id="resetBtn" type="button">Reset</button>
+          </div>
+          <dl class="run-facts">
+            <div><dt>Step</dt><dd id="stepValue">0</dd></div>
+            <div><dt>Learning rate</dt><dd>0.20</dd></div>
+            <div><dt>Update</dt><dd>full batch</dd></div>
+          </dl>
+          <p class="status" id="statusText" role="status" aria-live="polite">Identical initialization loaded. Predict what can change after one step.</p>
+        </section>
+
+        <section class="control-group takeaway-card">
+          <p class="card-label">Prediction to test</p>
+          <p>Exact copies remain exact copies. The model has <strong>nominal width 4</strong>, but only <strong>effective width 1</strong>.</p>
+        </section>
+      </aside>
+
+      <section class="workspace" id="workspace" aria-label="Experiment output">
+        <header class="workspace-head">
+          <div>
+            <p class="eyebrow" id="workspaceEyebrow">IDENTICAL INITIALIZATION</p>
+            <h2 id="workspaceTitle">Can four overlaid hinges solve XOR?</h2>
+          </div>
+          <span class="dataset-badge">100 fixed points · 25 per quadrant</span>
+        </header>
+
+        <div class="metric-strip" aria-live="polite">
+          <div class="metric"><span>Binary cross-entropy</span><strong id="lossValue">—</strong><small>mean over 100 points</small></div>
+          <div class="metric metric-key"><span>Accuracy</span><strong id="accuracyValue">—</strong><small id="accuracyNote">balanced XOR</small></div>
+          <div class="metric"><span>Max neuron separation</span><strong id="spreadValue">—</strong><small>max ‖(w,b)<sub>i</sub> − (w,b)<sub>j</sub>‖</small></div>
+          <div class="metric"><span>Hidden feature rank</span><strong id="rankValue">—</strong><small>rank of the 100 × 4 activation matrix</small></div>
+        </div>
+
+        <div class="plot-grid">
+          <section class="plot-panel" aria-labelledby="surfaceTitle">
+            <div class="panel-head">
+              <div><p class="eyebrow">MODEL OUTPUT</p><h3 id="surfaceTitle">Decision surface</h3></div>
+              <span class="compact-value" id="surfaceSummary">—</span>
+            </div>
+            <canvas id="surfaceCanvas" role="img" tabindex="0" aria-describedby="surfaceHelp" aria-label="Current XOR decision surface and fixed training points">Your browser does not support the decision-surface canvas.</canvas>
+            <div class="legend" aria-label="Decision surface legend">
+              <span><i class="swatch class-zero"></i>class 0</span>
+              <span><i class="swatch class-one"></i>class 1</span>
+              <span><i class="point-key"></i>training point</span>
+            </div>
+            <p class="plot-help" id="surfaceHelp">Background colour is the model probability. The outlined points are the balanced training set.</p>
+          </section>
+
+          <section class="plot-panel" aria-labelledby="hingeTitle">
+            <div class="panel-head">
+              <div><p class="eyebrow">HIDDEN LAYER</p><h3 id="hingeTitle">Four ReLU hinges and active directions</h3></div>
+              <span class="compact-value" id="hingeSummary">—</span>
+            </div>
+            <canvas id="hingeCanvas" role="img" tabindex="0" aria-describedby="hingeHelp" aria-label="Current hidden ReLU hinge lines and active directions">Your browser does not support the hidden-hinge canvas.</canvas>
+            <div class="neuron-legend" id="neuronLegend" aria-label="Hidden neuron parameters"></div>
+            <p class="plot-help" id="hingeHelp">Each line is w<sub>j</sub><sup>T</sup>x + b<sub>j</sub> = 0. Its arrow points toward the half-plane where that ReLU is active.</p>
+          </section>
+        </div>
+
+        <section class="explanation" aria-labelledby="whyTitle">
+          <div>
+            <p class="eyebrow">WHAT THE METRICS MEAN</p>
+            <h2 id="whyTitle">The problem is lost representational capacity.</h2>
+          </div>
+          <div class="explanation-grid">
+            <article>
+              <span class="explanation-index">A</span>
+              <h3>Identical</h3>
+              <p>All four activations are the same column. Rank stays 1 and separation stays 0, so the output is only a scaled copy of one ReLU feature. On this XOR set it typically settles near 75%: one quadrant remains wrong.</p>
+            </article>
+            <article>
+              <span class="explanation-index">B</span>
+              <h3>Slightly perturbed</h3>
+              <p>The equality constraint is gone. The coloured hinges can separate and the feature rank rises above 1. Breaking symmetry is necessary; it does not guarantee that this particular start will find the best XOR solution.</p>
+            </article>
+            <article>
+              <span class="explanation-index">C</span>
+              <h3>Independent</h3>
+              <p>Distinct starting directions let gradient descent combine multiple half-planes. With the fixed seed here, all four alternating XOR regions are learned and the measured accuracy reaches 100%.</p>
+            </article>
+          </div>
+        </section>
+      </section>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <span>2 → 4 ReLU → 1 logit · deterministic full-batch gradient descent · computation stays in this page</span>
+    <a href="../vanishing-gradients/">Continue with signal propagation →</a>
+  </footer>
+</body>
+</html>
